@@ -17,76 +17,95 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const log = (message: string, data?: any) => {
+  console.log(`[${new Date().toISOString()}] AuthContext: ${message}`, data !== undefined ? data : '');
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
+  useEffect(() => {
+    log('AuthProvider mounted. Initial isLoading state: true.');
+  }, []);
+
   const loadUserFromStorage = useCallback(async () => {
-    console.log('AuthContext: Attempting to load user from storage...');
-    setIsLoading(true);
+    log('Attempting to load user from storage...');
+    setIsLoading(true); 
     const storedUserId = localStorage.getItem('connectHostUserId');
-    console.log('AuthContext: Stored User ID:', storedUserId);
+    log('Stored User ID from localStorage:', storedUserId);
+
     if (storedUserId) {
       try {
+        log(`Fetching user by ID: ${storedUserId}`);
         const fetchedUser = await getUserById(storedUserId);
         if (fetchedUser) {
-          console.log('AuthContext: User fetched successfully:', fetchedUser.email);
+          log('User fetched successfully from data source.', { email: fetchedUser.email, id: fetchedUser.id });
           setUser(fetchedUser);
         } else {
-          console.warn(`AuthContext: User with ID ${storedUserId} not found. Clearing storage.`);
+          log(`User with ID ${storedUserId} not found in data source. Clearing storage and setting user to null.`);
           localStorage.removeItem('connectHostUserId');
-          setUser(null); 
+          setUser(null);
         }
       } catch (error) {
-        console.error("AuthContext: Error fetching user from storage:", error);
+        log('Error fetching user from storage:', error);
         localStorage.removeItem('connectHostUserId');
         setUser(null);
       }
     } else {
-      console.log('AuthContext: No stored user ID found.');
-      setUser(null); // Ensure user is null if no ID found
+      log('No stored user ID found in localStorage. Setting user to null.');
+      setUser(null);
     }
     setIsLoading(false);
-    console.log('AuthContext: Finished loading user from storage. isLoading:', false, 'User email:', user?.email || 'null');
-  }, []); // Removed router from dependencies as it's not used directly here
+    // Note: 'user' state might not be updated here immediately due to async nature of setState
+    // We log based on the state *after* this function effectively completes.
+    // For more immediate reflection of 'fetchedUser', log that directly.
+    log('Finished loading user from storage (isLoading will be false).', { finalIsLoading: false });
+  }, []);
 
   useEffect(() => {
-    console.log('AuthContext: useEffect triggered to load user from storage.');
+    log('useEffect to load user from storage triggered.');
     loadUserFromStorage();
   }, [loadUserFromStorage]);
 
   useEffect(() => {
-    console.log('AuthContext: State changed - isLoading:', isLoading, 'user:', user?.email || null);
+    log('Auth state changed.', { isLoading, userId: user?.id || null, userEmail: user?.email || null });
   }, [isLoading, user]);
 
   const login = async (email: string, motDePasse: string): Promise<boolean> => {
-    console.log('AuthContext: Attempting login for email:', email);
+    log('Login attempt initiated.', { email });
     setIsLoading(true);
     try {
       const foundUser = await getUserByEmail(email);
       if (foundUser && foundUser.motDePasse === motDePasse) {
         setUser(foundUser);
         localStorage.setItem('connectHostUserId', foundUser.id);
-        console.log('AuthContext: Login successful for:', foundUser.email);
+        log('Login successful.', { email: foundUser.email, id: foundUser.id });
         setIsLoading(false);
         return true;
       } else {
-        console.warn('AuthContext: Login failed - user not found or password mismatch for:', email);
+        log('Login failed: user not found or password mismatch.', { email });
+        setUser(null); 
+        localStorage.removeItem('connectHostUserId'); 
       }
     } catch (error) {
-      console.error("AuthContext: Login error:", error);
+      log('Login error:', error);
+      setUser(null);
+      localStorage.removeItem('connectHostUserId');
     }
     setIsLoading(false);
+    log('Login attempt finished.', { finalIsLoading: false });
     return false;
   };
 
   const logout = useCallback(() => {
-    console.log('AuthContext: Logging out user:', user?.email || 'No user was logged in');
+    log('Logout initiated.', { currentUserId: user?.id || 'No user logged in' });
     setUser(null);
     localStorage.removeItem('connectHostUserId');
     router.push('/login');
-  }, [router, user]); // Added user to dependency array for logging its value before nullifying
+    log('Logout completed. User set to null, localStorage cleared, redirected to /login.');
+  }, [router, user]); 
 
   return (
     <AuthContext.Provider value={{ user, isLoading, login, logout, setUser }}>
@@ -102,4 +121,3 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
-
