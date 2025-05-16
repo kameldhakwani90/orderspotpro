@@ -166,7 +166,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         <header className="flex items-center justify-between h-16 border-b bg-card px-4 md:px-6">
           <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
             <Menu />
-          </SynButton>
+          </Button>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground hidden md:inline">Role: {user.role}</span>
             <DropdownMenu>

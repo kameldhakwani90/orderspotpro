@@ -2,7 +2,7 @@
 "use client";
 import AppShell from '@/components/shared/AppShell';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter }package src.app.auth.layout;
+import { useRouter } from 'next/navigation';
 import {useEffect} from 'react';
 
 export default function AuthenticatedLayout({
@@ -30,3 +30,4 @@ export default function AuthenticatedLayout({
   
   return <AppShell>{children}</AppShell>;
 }
+
