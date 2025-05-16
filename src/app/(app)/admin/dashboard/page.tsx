@@ -1,6 +1,7 @@
 
 "use client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Users, Building2, UserCog, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
