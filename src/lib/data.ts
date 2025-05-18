@@ -386,8 +386,14 @@ if (!roomsOrTables.some(rt => rt.type === 'Site' && rt.hostId === 'host-02')) {
     });
 }
 
+// The problematic block referencing 'newSite' at the top-level has been removed/ensured it's commented out.
+// Any logic involving 'newSite' (which is typically component state) should be handled within the respective component,
+// for example, in src/app/(app)/admin/sites/page.tsx or src/app/(app)/host/locations/page.tsx.
+
 console.log("Mock data initialized/reloaded.");
 console.log("Current users:", users.map(u => ({id: u.id, email: u.email, role: u.role, hostId: u.hostId})));
 console.log("Current hosts:", hosts);
 console.log("Current global sites:", sites);
 console.log("Current rooms/tables/site-areas:", roomsOrTables);
+
+    
