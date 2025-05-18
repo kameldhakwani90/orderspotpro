@@ -107,17 +107,18 @@ export default function AdminUsersPage() {
         return;
       }
       try {
-        const createdUser = await addUserToData({
+        await addUserToData({
           email: newUser.email,
           nom: newUser.nom,
           role: newUser.role,
           hostId: newUser.role === 'host' ? newUser.hostId : undefined,
           motDePasse: newUser.motDePasse,
         });
-        setUsers(prev => [...prev, createdUser]);
-        toast({ title: "User Created", description: `${createdUser.nom} has been added.` });
+        await fetchData(); // Refetch all users to update the list
+        toast({ title: "User Created", description: `${newUser.nom} has been added.` });
       } catch (error) {
-        toast({ title: "Error", description: "Failed to create user.", variant: "destructive" });
+        console.error("Failed to create user:", error);
+        toast({ title: "Error", description: `Failed to create user. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
       }
     }
     setIsDialogOpen(false);
