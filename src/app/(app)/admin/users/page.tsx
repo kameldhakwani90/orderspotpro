@@ -40,7 +40,7 @@ export default function AdminUsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false); // Added state for submission status
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [newUser, setNewUser] = useState<{ email: string; nom: string; role: UserRole; hostId?: string; motDePasse: string }>({
     email: '',
@@ -61,9 +61,9 @@ export default function AdminUsersPage() {
     setIsLoading(true);
     try {
       const usersData = await getUsers();
-      const hostsData = await getHosts();
+      const hostsData = await getHosts(); // These are simplified Host objects, not full User objects for hosts
       setUsers(usersData);
-      setHosts(hostsData);
+      setHosts(hostsData); // Used for the Host dropdown
     } catch (error) {
       toast({ title: "Error", description: "Failed to load user data.", variant: "destructive" });
     }
@@ -80,11 +80,13 @@ export default function AdminUsersPage() {
   };
   
   const handleRoleChange = (value: UserRole) => {
-    if (editingUser) {
-        setEditingUser(prev => ({...prev, role: value, hostId: value !== 'host' ? undefined : prev?.hostId || ''}));
-    } else {
-        setNewUser(prev => ({...prev, role: value, hostId: value !== 'host' ? undefined : prev?.hostId || ''}));
-    }
+    const currentSetter = editingUser ? setEditingUser : setNewUser;
+
+    currentSetter(prev => ({
+        ...prev,
+        role: value,
+        hostId: value === 'host' ? (prev?.hostId || (hosts.length > 0 ? hosts[0].hostId : '')) : undefined
+    }));
   };
   
   const handleHostChange = (value: string) => {
@@ -97,57 +99,98 @@ export default function AdminUsersPage() {
 
 
   const handleSubmitUser = async () => {
-    setIsSubmitting(true); // Disable button
-    if (editingUser) { // Update logic (simplified for MVP)
-      // const updatedUsers = users.map(u => u.id === editingUser.id ? { ...u, ...editingUser } as User : u);
-      // setUsers(updatedUsers);
-      // In a real app: await updateUserInData(editingUser);
-      toast({ title: "User Updated", description: `${editingUser.nom} has been updated (simulated).` });
-      // For MVP, we assume update doesn't need full data refetch or ID change issues.
-      // If updates were real and could fail or need data refresh, call fetchData() here too.
-    } else { // Add new user
-      if (!newUser.email || !newUser.nom || !newUser.motDePasse) {
-        toast({ title: "Missing Information", description: "Please fill all required fields.", variant: "destructive" });
-        setIsSubmitting(false); // Re-enable button on validation failure
+    setIsSubmitting(true);
+    // Use editingUser if it exists, otherwise newUser. For edits, spread existing user data.
+    const baseData = editingUser ? { ...(users.find(u => u.id === editingUser.id) || {}), ...editingUser } : newUser;
+    
+    const dataToSubmit: Partial<User> & { email: string; nom: string; role: UserRole; motDePasse?: string} = {
+        id: baseData.id,
+        email: baseData.email!,
+        nom: baseData.nom!,
+        role: baseData.role!,
+        hostId: baseData.role === 'host' ? baseData.hostId : undefined,
+        motDePasse: editingUser ? undefined : newUser.motDePasse, // Password only for new users
+    };
+
+
+    if (!dataToSubmit.email || !dataToSubmit.nom) {
+      toast({ title: "Missing Information", description: "Please fill in name and email.", variant: "destructive" });
+      setIsSubmitting(false);
+      return;
+    }
+    if (!editingUser && !dataToSubmit.motDePasse) {
+        toast({ title: "Missing Information", description: "Please provide a password for new users.", variant: "destructive" });
+        setIsSubmitting(false);
         return;
-      }
+    }
+
+    if (dataToSubmit.role === 'host' && !dataToSubmit.hostId) {
+      toast({ title: "Host Assignment Required", description: "Please assign a host to users with the 'host' role.", variant: "destructive" });
+      setIsSubmitting(false);
+      return;
+    }
+    
+    if (editingUser && editingUser.id) { // Update logic
+      // Simulate update: In a real app, this would be an API call.
+      // For MVP, we'll update the local state by refetching.
+      // Example: await updateUserInData(editingUser.id, dataToSubmit);
+      console.log("Simulating user update (not implemented in data.ts):", dataToSubmit);
+      // To reflect changes, refetch data.
+      // For now, just a toast and local map for immediate UI feedback before potential refetch.
+      const updatedUsers = users.map(u => u.id === editingUser.id ? { ...u, ...dataToSubmit } as User : u);
+      setUsers(updatedUsers); // Optimistic update
+      toast({ title: "User Updated", description: `${dataToSubmit.nom} has been updated (simulated).` });
+      // await fetchData(); // Uncomment if update function modifies backend and full refetch is desired
+    } else { // Add new user
       try {
         await addUserToData({
           email: newUser.email,
           nom: newUser.nom,
           role: newUser.role,
           hostId: newUser.role === 'host' ? newUser.hostId : undefined,
-          motDePasse: newUser.motDePasse,
+          motDePasse: newUser.motDePasse!, // Already checked it's not undefined
         });
-        await fetchData(); // Refetch all users to update the list
+        await fetchData(); 
         toast({ title: "User Created", description: `${newUser.nom} has been added.` });
       } catch (error) {
         console.error("Failed to create user:", error);
         toast({ title: "Error", description: `Failed to create user. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
       }
     }
-    setIsSubmitting(false); // Re-enable button
+    setIsSubmitting(false); 
     setIsDialogOpen(false);
-    setNewUser({ email: '', nom: '', role: 'client', motDePasse: '1234' }); // Reset form
+    setNewUser({ email: '', nom: '', role: 'client', motDePasse: '1234', hostId: hosts.length > 0 ? hosts[0].hostId : '' });
     setEditingUser(null);
   };
   
   const openAddDialog = () => {
     setEditingUser(null);
-    setNewUser({ email: '', nom: '', role: 'client', motDePasse: '1234' });
+    // Default new user to client, or if host, preselect first host if available
+    const initialRole: UserRole = 'client';
+    const initialHostId = initialRole === 'host' && hosts.length > 0 ? hosts[0].hostId : undefined;
+    setNewUser({ email: '', nom: '', role: initialRole, hostId: initialHostId, motDePasse: '1234' });
     setIsDialogOpen(true);
   };
 
   const openEditDialog = (userToEdit: User) => {
-    setEditingUser({...userToEdit});
+    // Ensure hostId is correctly set for editing dialog if user is a host
+    let effectiveHostId = userToEdit.hostId;
+    if (userToEdit.role === 'host' && !userToEdit.hostId && hosts.length > 0) {
+        effectiveHostId = hosts[0].hostId; // Default to first host if current hostId is missing
+    }
+    setEditingUser({...userToEdit, hostId: effectiveHostId});
     setIsDialogOpen(true);
   };
   
   const handleDeleteUser = (userId: string) => {
-     // setUsers(users.filter(u => u.id !== userId));
-     // In a real app: await deleteUserFromData(userId);
+     // Simulate deletion: In a real app, this would be an API call.
+     // For now, we'll filter the local state and show a toast.
+     // This assumes `deleteUserFromData` function exists or you handle it similarly.
+     // await deleteUserFromData(userId); // Example
+     setUsers(users.filter(u => u.id !== userId)); // Optimistic update
      toast({ title: "User Deleted", description: `User has been deleted (simulated).`, variant: "destructive" });
-     // Potentially call fetchData() here too if deletion was real
+     // Optionally, refetch data if the source of truth is external:
+     // await fetchData();
   };
 
 
@@ -204,7 +247,7 @@ export default function AdminUsersPage() {
                     <Button variant="outline" size="icon" onClick={() => openEditDialog(u)} title="Edit User" disabled={isSubmitting}>
                       <Edit2 className="h-4 w-4" />
                     </Button>
-                    <Button variant="destructive" size="icon" onClick={() => handleDeleteUser(u.id)} title="Delete User" disabled={u.role === 'admin' || isSubmitting}> {/* Prevent deleting admin for safety */}
+                    <Button variant="destructive" size="icon" onClick={() => handleDeleteUser(u.id)} title="Delete User" disabled={u.role === 'admin' || isSubmitting}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>
@@ -232,7 +275,7 @@ export default function AdminUsersPage() {
               <Label htmlFor="email" className="text-right">Email</Label>
               <Input id="email" name="email" type="email" value={currentFormData.email || ''} onChange={handleInputChange} className="col-span-3" disabled={isSubmitting || !!editingUser} />
             </div>
-             {!editingUser && ( // Password field only for new users in this simplified form
+             {!editingUser && ( 
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="motDePasse" className="text-right">Password</Label>
                 <Input id="motDePasse" name="motDePasse" type="password" value={newUser.motDePasse} onChange={handleInputChange} className="col-span-3" disabled={isSubmitting} />
@@ -240,12 +283,16 @@ export default function AdminUsersPage() {
             )}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="role" className="text-right">Role</Label>
-              <Select value={currentFormData.role || 'client'} onValueChange={handleRoleChange} disabled={isSubmitting}>
+              <Select 
+                value={currentFormData.role || 'client'} 
+                onValueChange={handleRoleChange} 
+                disabled={isSubmitting || (editingUser?.role === 'admin' && editingUser.id === user?.id)} /* Prevent changing own admin role */
+              >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="admin" disabled={editingUser?.role === 'admin' && editingUser.id === user?.id}>Admin</SelectItem>
                   <SelectItem value="host">Host</SelectItem>
                   <SelectItem value="client">Client</SelectItem>
                 </SelectContent>
@@ -254,14 +301,18 @@ export default function AdminUsersPage() {
             {currentFormData.role === 'host' && (
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="hostId" className="text-right">Host</Label>
-                 <Select value={currentFormData.hostId || ''} onValueChange={handleHostChange} disabled={isSubmitting}>
+                 <Select 
+                    value={currentFormData.hostId || (hosts.length > 0 ? hosts[0].hostId : '')} 
+                    onValueChange={handleHostChange} 
+                    disabled={isSubmitting || hosts.length === 0}
+                  >
                     <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Assign to a host" />
+                        <SelectValue placeholder={hosts.length > 0 ? "Assign to a host" : "No hosts available"} />
                     </SelectTrigger>
                     <SelectContent>
                         {hosts.length > 0 ? hosts.map(host => (
                             <SelectItem key={host.hostId} value={host.hostId}>{host.nom} ({host.hostId})</SelectItem>
-                        )) : <SelectItem value="" disabled>No hosts available</SelectItem>}
+                        )) : <SelectItem value="" disabled>No hosts available to assign</SelectItem>}
                     </SelectContent>
                  </Select>
               </div>
@@ -269,7 +320,12 @@ export default function AdminUsersPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
-            <Button onClick={handleSubmitUser} disabled={isSubmitting}>{editingUser ? (isSubmitting ? 'Saving...' : 'Save Changes') : (isSubmitting ? 'Creating...' : 'Create User')}</Button>
+            <Button 
+              onClick={handleSubmitUser} 
+              disabled={isSubmitting || (currentFormData.role === 'host' && !currentFormData.hostId && hosts.length > 0) }
+            >
+              {editingUser ? (isSubmitting ? 'Saving...' : 'Save Changes') : (isSubmitting ? 'Creating...' : 'Create User')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
