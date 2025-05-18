@@ -61,9 +61,9 @@ export default function AdminUsersPage() {
     setIsLoading(true);
     try {
       const usersData = await getUsers();
-      const hostsData = await getHosts(); // These are simplified Host objects, not full User objects for hosts
+      const hostsData = await getHosts(); 
       setUsers(usersData);
-      setHosts(hostsData); // Used for the Host dropdown
+      setHosts(hostsData); 
     } catch (error) {
       toast({ title: "Error", description: "Failed to load user data.", variant: "destructive" });
     }
@@ -100,7 +100,6 @@ export default function AdminUsersPage() {
 
   const handleSubmitUser = async () => {
     setIsSubmitting(true);
-    // Use editingUser if it exists, otherwise newUser. For edits, spread existing user data.
     const baseData = editingUser ? { ...(users.find(u => u.id === editingUser.id) || {}), ...editingUser } : newUser;
     
     const dataToSubmit: Partial<User> & { email: string; nom: string; role: UserRole; motDePasse?: string} = {
@@ -109,7 +108,7 @@ export default function AdminUsersPage() {
         nom: baseData.nom!,
         role: baseData.role!,
         hostId: baseData.role === 'host' ? baseData.hostId : undefined,
-        motDePasse: editingUser ? undefined : newUser.motDePasse, // Password only for new users
+        motDePasse: editingUser ? undefined : newUser.motDePasse, 
     };
 
 
@@ -118,37 +117,31 @@ export default function AdminUsersPage() {
       setIsSubmitting(false);
       return;
     }
-    if (!editingUser && !dataToSubmit.motDePasse) {
-        toast({ title: "Missing Information", description: "Please provide a password for new users.", variant: "destructive" });
+    if (!editingUser && (!dataToSubmit.motDePasse || dataToSubmit.motDePasse.trim() === '')) {
+        toast({ title: "Missing Information", description: "Please provide a non-empty password for new users.", variant: "destructive" });
         setIsSubmitting(false);
         return;
     }
 
-    if (dataToSubmit.role === 'host' && !dataToSubmit.hostId) {
+    if (dataToSubmit.role === 'host' && !dataToSubmit.hostId && hosts.length > 0) { // Added hosts.length > 0 check
       toast({ title: "Host Assignment Required", description: "Please assign a host to users with the 'host' role.", variant: "destructive" });
       setIsSubmitting(false);
       return;
     }
     
-    if (editingUser && editingUser.id) { // Update logic
-      // Simulate update: In a real app, this would be an API call.
-      // For MVP, we'll update the local state by refetching.
-      // Example: await updateUserInData(editingUser.id, dataToSubmit);
+    if (editingUser && editingUser.id) { 
       console.log("Simulating user update (not implemented in data.ts):", dataToSubmit);
-      // To reflect changes, refetch data.
-      // For now, just a toast and local map for immediate UI feedback before potential refetch.
       const updatedUsers = users.map(u => u.id === editingUser.id ? { ...u, ...dataToSubmit } as User : u);
-      setUsers(updatedUsers); // Optimistic update
+      setUsers(updatedUsers); 
       toast({ title: "User Updated", description: `${dataToSubmit.nom} has been updated (simulated).` });
-      // await fetchData(); // Uncomment if update function modifies backend and full refetch is desired
-    } else { // Add new user
+    } else { 
       try {
         await addUserToData({
           email: newUser.email,
           nom: newUser.nom,
           role: newUser.role,
           hostId: newUser.role === 'host' ? newUser.hostId : undefined,
-          motDePasse: newUser.motDePasse!, // Already checked it's not undefined
+          motDePasse: newUser.motDePasse!.trim(), // Use trimmed password
         });
         await fetchData(); 
         toast({ title: "User Created", description: `${newUser.nom} has been added.` });
@@ -165,7 +158,6 @@ export default function AdminUsersPage() {
   
   const openAddDialog = () => {
     setEditingUser(null);
-    // Default new user to client, or if host, preselect first host if available
     const initialRole: UserRole = 'client';
     const initialHostId = initialRole === 'host' && hosts.length > 0 ? hosts[0].hostId : undefined;
     setNewUser({ email: '', nom: '', role: initialRole, hostId: initialHostId, motDePasse: '1234' });
@@ -173,24 +165,17 @@ export default function AdminUsersPage() {
   };
 
   const openEditDialog = (userToEdit: User) => {
-    // Ensure hostId is correctly set for editing dialog if user is a host
     let effectiveHostId = userToEdit.hostId;
     if (userToEdit.role === 'host' && !userToEdit.hostId && hosts.length > 0) {
-        effectiveHostId = hosts[0].hostId; // Default to first host if current hostId is missing
+        effectiveHostId = hosts[0].hostId; 
     }
     setEditingUser({...userToEdit, hostId: effectiveHostId});
     setIsDialogOpen(true);
   };
   
   const handleDeleteUser = (userId: string) => {
-     // Simulate deletion: In a real app, this would be an API call.
-     // For now, we'll filter the local state and show a toast.
-     // This assumes `deleteUserFromData` function exists or you handle it similarly.
-     // await deleteUserFromData(userId); // Example
-     setUsers(users.filter(u => u.id !== userId)); // Optimistic update
+     setUsers(users.filter(u => u.id !== userId)); 
      toast({ title: "User Deleted", description: `User has been deleted (simulated).`, variant: "destructive" });
-     // Optionally, refetch data if the source of truth is external:
-     // await fetchData();
   };
 
 
@@ -286,13 +271,13 @@ export default function AdminUsersPage() {
               <Select 
                 value={currentFormData.role || 'client'} 
                 onValueChange={handleRoleChange} 
-                disabled={isSubmitting || (editingUser?.role === 'admin' && editingUser.id === user?.id)} /* Prevent changing own admin role */
+                disabled={isSubmitting || (editingUser?.role === 'admin' && editingUser.id === user?.id)} 
               >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin" disabled={editingUser?.role === 'admin' && editingUser.id === user?.id}>Admin</SelectItem>
+                  <SelectItem value="admin" disabled={(editingUser?.role === 'admin' && editingUser.id === user?.id) || (user?.role !== 'admin')}>Admin</SelectItem>
                   <SelectItem value="host">Host</SelectItem>
                   <SelectItem value="client">Client</SelectItem>
                 </SelectContent>
@@ -333,3 +318,4 @@ export default function AdminUsersPage() {
   );
 }
 
+    
