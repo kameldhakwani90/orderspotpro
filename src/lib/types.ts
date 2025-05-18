@@ -27,7 +27,7 @@ export interface Host {
 export interface RoomOrTable {
   id: string; // Clé
   nom: string;
-  type: "Chambre" | "Table";
+  type: "Chambre" | "Table" | "Site"; // Added "Site"
   hostId: string; // Référence
   siteId: string; // Référence
   urlPersonnalise: string; // Généré automatiquement

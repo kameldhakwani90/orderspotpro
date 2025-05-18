@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Edit2, Trash2, QrCode, Copy } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, QrCode, Copy, Landmark } from 'lucide-react'; // Added Landmark for "Site" type
 import {
   Dialog,
   DialogContent,
@@ -41,9 +41,9 @@ export default function HostLocationsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Partial<RoomOrTable> | null>(null);
   
-  const [newLocation, setNewLocation] = useState<{ nom: string; type: "Chambre" | "Table"; siteId: string }>({
+  const [newLocation, setNewLocation] = useState<{ nom: string; type: "Chambre" | "Table" | "Site"; siteId: string }>({
     nom: '',
-    type: 'Chambre',
+    type: 'Chambre', // Default to Chambre
     siteId: '',
   });
 
@@ -56,16 +56,12 @@ export default function HostLocationsPage() {
       ]);
       setLocations(locationsData);
       setSites(sitesData);
-      // Update newLocation.siteId only if it's not already set by user interaction
-      // or if the available sites change and the current selection is no longer valid (though this part is not explicitly handled here)
       if (sitesData.length > 0) {
-        // If newLocation.siteId is empty or not in the new list of sites, set it to the first available.
         const currentSiteStillExists = sitesData.some(s => s.siteId === newLocation.siteId);
         if (!newLocation.siteId || !currentSiteStillExists) {
             setNewLocation(prev => ({...prev, siteId: sitesData[0].siteId}));
         }
       } else {
-        // No sites available, clear siteId for new location form
         setNewLocation(prev => ({...prev, siteId: ''}));
       }
     } catch (error) {
@@ -74,7 +70,7 @@ export default function HostLocationsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]); // Removed setNewLocation, newLocation.siteId from deps as it's handled internally or by user.
+  }, [toast, newLocation.siteId]); // Removed setNewLocation from deps
 
   useEffect(() => {
     if (!authLoading) {
@@ -111,26 +107,18 @@ export default function HostLocationsPage() {
       return;
     }
 
-    // Prevent submission if selected siteId is not valid
     if (!sites.some(s => s.siteId === dataToSubmit.siteId)) {
         toast({ title: "Invalid Site", description: "Please select a valid site.", variant: "destructive" });
         return;
     }
 
 
-    if (editingLocation && editingLocation.id) { // Update logic
-      // Simulate update: In a real app, this would be an API call.
-      // For now, we'll update the local state and show a toast.
-      // This assumes `updateRoomOrTable` function exists or you handle it like `addRoomOrTable`.
-      // For simplicity, let's just refetch data to reflect changes.
-      // await updateRoomOrTable(editingLocation.id, dataToSubmit); // Example
+    if (editingLocation && editingLocation.id) { 
       setLocations(prev => prev.map(loc => loc.id === editingLocation.id ? { ...loc, ...dataToSubmit } as RoomOrTable : loc));
       toast({ title: "Location Updated", description: `${dataToSubmit.nom} has been updated.` });
-    } else { // Add new location
+    } else { 
       try {
-        // The addRoomOrTable function from data.ts will create the ID and urlPersonnalise
         const createdLocation = await addRoomOrTable(dataToSubmit as Omit<RoomOrTable, 'id' | 'urlPersonnalise'>);
-        // No need to manually push, fetchData will refresh the list
         toast({ title: "Location Created", description: `${createdLocation.nom} has been added.` });
       } catch (error) {
         console.error("Failed to create location:", error);
@@ -138,7 +126,6 @@ export default function HostLocationsPage() {
       }
     }
     setIsDialogOpen(false);
-    // Fetch data again to get the latest list including the new or updated item
     if (user?.hostId) {
         fetchData(user.hostId);
     }
@@ -148,13 +135,11 @@ export default function HostLocationsPage() {
   
   const openAddDialog = () => {
     setEditingLocation(null);
-    // Ensure newLocation.siteId is set to the first available site, or empty if no sites
     setNewLocation({ nom: '', type: 'Chambre', siteId: sites.length > 0 ? sites[0].siteId : '' });
     setIsDialogOpen(true);
   };
 
   const openEditDialog = (locationToEdit: RoomOrTable) => {
-    // Ensure all properties are correctly spread for editing
     setEditingLocation({
       id: locationToEdit.id,
       nom: locationToEdit.nom,
@@ -167,18 +152,12 @@ export default function HostLocationsPage() {
   };
   
   const handleDeleteLocation = (locationId: string) => {
-     // Simulate deletion: In a real app, this would be an API call.
-     // For now, we'll filter the local state and show a toast.
-     // This assumes `deleteRoomOrTable` function exists or you handle it similarly.
-     // await deleteRoomOrTable(locationId); // Example
      setLocations(prevLocations => prevLocations.filter(loc => loc.id !== locationId));
      toast({ title: "Location Deleted", description: `Location has been deleted (simulated).`, variant: "destructive" });
-     // Optionally, refetch data if the source of truth is external:
-     // if (user?.hostId) fetchData(user.hostId);
   };
 
   const copyUrlToClipboard = (url: string) => {
-    if (!url.startsWith('http')) { // Ensure it's a full URL if not already
+    if (!url.startsWith('http')) { 
         url = window.location.origin + url;
     }
     navigator.clipboard.writeText(url);
@@ -221,24 +200,33 @@ export default function HostLocationsPage() {
   
   const currentFormData = editingLocation || newLocation;
 
+  const getLocationTypeIcon = (type: RoomOrTable['type']) => {
+    switch (type) {
+      case 'Chambre': return <span title="Chambre" className="text-blue-500">🛌</span>;
+      case 'Table': return <span title="Table" className="text-green-500">🍽️</span>;
+      case 'Site': return <Landmark className="h-5 w-5 text-purple-500" title="Site Location" />;
+      default: return null;
+    }
+  };
+
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-4xl font-bold tracking-tight text-foreground">Manage Locations</h1>
-          <p className="text-lg text-muted-foreground">Your rooms, tables, and their QR codes.</p>
+          <p className="text-lg text-muted-foreground">Your rooms, tables, sites, and their QR codes.</p>
         </div>
         <Button onClick={openAddDialog} disabled={sites.length === 0}>
           <PlusCircle className="mr-2 h-5 w-5" /> Add New Location
         </Button>
       </div>
-      {sites.length === 0 && !isLoading && ( // Ensure not to show this during initial load
+      {sites.length === 0 && !isLoading && (
         <Card className="mb-6 bg-yellow-50 border-yellow-300 dark:bg-yellow-900/20 dark:border-yellow-700/50">
           <CardHeader>
-            <CardTitle className="text-yellow-700 dark:text-yellow-400">No Sites Found</CardTitle>
+            <CardTitle className="text-yellow-700 dark:text-yellow-400">No Global Sites Found</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-yellow-600 dark:text-yellow-500">You need to have at least one site registered to add locations. If you are an administrator, you can manage sites in the admin dashboard. Otherwise, please contact an administrator if no sites are linked to your host account.</p>
+            <p className="text-yellow-600 dark:text-yellow-500">You need to have at least one global site (e.g., your hotel or main restaurant) registered to add specific locations like rooms, tables, or site areas. If you are an administrator, please manage global sites in the admin dashboard. Otherwise, contact an administrator.</p>
             {user?.role === 'admin' && (
                  <Button variant="link" onClick={() => router.push('/admin/sites')} className="text-yellow-700 dark:text-yellow-400 px-0">
                     Go to Manage Global Sites
@@ -260,7 +248,7 @@ export default function HostLocationsPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>Site</TableHead>
+                <TableHead>Belongs to Site</TableHead>
                 <TableHead>QR Code URL</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -269,7 +257,12 @@ export default function HostLocationsPage() {
               {locations.map((loc) => (
                 <TableRow key={loc.id}>
                   <TableCell className="font-medium">{loc.nom}</TableCell>
-                  <TableCell>{loc.type}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {getLocationTypeIcon(loc.type)}
+                      <span>{loc.type}</span>
+                    </div>
+                  </TableCell>
                   <TableCell>{sites.find(s => s.siteId === loc.siteId)?.nom || loc.siteId}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -303,7 +296,7 @@ export default function HostLocationsPage() {
           <DialogHeader>
             <DialogTitle>{editingLocation ? 'Edit Location' : 'Add New Location'}</DialogTitle>
             <DialogDescription>
-              {editingLocation ? 'Modify details for this location.' : 'Enter details for the new location and assign it to a site.'}
+              {editingLocation ? 'Modify details for this location.' : 'Enter details for the new location and assign it to a global site.'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -313,27 +306,28 @@ export default function HostLocationsPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="type" className="text-right">Type</Label>
-              <Select value={currentFormData.type || 'Chambre'} onValueChange={(value) => handleSelectChange('type', value as "Chambre" | "Table")}>
+              <Select value={currentFormData.type || 'Chambre'} onValueChange={(value) => handleSelectChange('type', value as "Chambre" | "Table" | "Site")}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Chambre">Chambre</SelectItem>
+                  <SelectItem value="Chambre">Chambre (Room)</SelectItem>
                   <SelectItem value="Table">Table</SelectItem>
+                  <SelectItem value="Site">Site (Area/Zone)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="siteId" className="text-right">Site</Label>
+              <Label htmlFor="siteId" className="text-right">Belongs to Site</Label>
               <Select value={currentFormData.siteId || ''} onValueChange={(value) => handleSelectChange('siteId', value)} disabled={sites.length === 0}>
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder={sites.length > 0 ? "Select site" : "No sites available"} />
+                  <SelectValue placeholder={sites.length > 0 ? "Select global site" : "No global sites available"} />
                 </SelectTrigger>
                 <SelectContent>
                   {sites.map(site => (
                     <SelectItem key={site.siteId} value={site.siteId}>{site.nom}</SelectItem>
                   ))}
-                  {sites.length === 0 && <SelectItem value="" disabled>No sites available to assign</SelectItem>}
+                  {sites.length === 0 && <SelectItem value="" disabled>No global sites to assign to</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
@@ -349,5 +343,3 @@ export default function HostLocationsPage() {
     </div>
   );
 }
-
-    
