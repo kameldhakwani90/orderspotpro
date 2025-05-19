@@ -1,18 +1,8 @@
+// This route is deprecated and its functionality has moved to the (publicClient) route group.
+// This file exists to prevent build errors if not deleted, but should not be routed to.
+// Please delete this file and its parent directory src/app/(app)/client/ if no longer needed.
+console.warn(`WARNING: Deprecated route module at /src/app/(app)/client/[hostId]/[refId]/page.tsx is being processed. This path should be served by /app/(publicClient)/client/[hostId]/[refId]/page.tsx`);
+export const DEPRECATED_ROUTE_client_hostId_refId = true;
 
-// This page is deprecated and has been moved to the (publicClient) route group.
-// This placeholder is to prevent routing conflicts.
-// Please delete this file (/src/app/(app)/client/[hostId]/[refId]/page.tsx) if no longer needed.
-
-export default function DeprecatedClientServiceListPage() {
-  if (typeof window !== 'undefined') {
-    console.warn(`WARNING: Deprecated page at ${window.location.pathname} is being rendered. This file should be deleted as its functionality has moved to the (publicClient) route group.`);
-  }
-  return (
-    <div style={{ padding: '20px', fontFamily: 'sans-serif', backgroundColor: '#ffeeee', border: '2px solid red', color: '#333' }}>
-      <h1>Deprecated Client Service List Page</h1>
-      <p>This page component (<code>/src/app/(app)/client/[hostId]/[refId]/page.tsx</code>) is deprecated. Its functionality has moved.</p>
-      <p>This file should be deleted to resolve routing conflicts. If you see this, please clear your <code>.next</code> folder and restart the server.</p>
-    </div>
-  );
-}
-
+// By not exporting a default React component, Next.js should not treat this as a page.
+// If errors persist, ensure this file and its directory are deleted and the .next folder is cleared.
