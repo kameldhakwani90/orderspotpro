@@ -4,7 +4,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getClients, addClient as addClientData, updateClient as updateClientData, deleteClient as deleteClientData, getRoomsOrTables } from '@/lib/data';
+import { getClients, addClientData, updateClientData, deleteClientData, getRoomsOrTables } from '@/lib/data';
 import type { Client, ClientType, RoomOrTable } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Edit2, Trash2, Users, CalendarIcon as CalendarLucideIcon } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, Users, CalendarDays as CalendarLucideIcon } from 'lucide-react'; // Renamed CalendarIcon to avoid conflict
 import {
   Dialog,
   DialogContent,
@@ -154,7 +154,7 @@ export default function HostClientsPage() {
     } finally {
       setIsDialogOpen(false);
       setEditingClient(null);
-      setCurrentClientData({ nom: '', type: 'passager', _dateArrivee: undefined, _dateDepart: undefined, locationId: undefined });
+      setCurrentClientData({ nom: '', type: 'passager', _dateArrivee: undefined, _dateDepart: undefined, locationId: undefined, email: '', telephone: '', notes: '' });
       setIsSubmitting(false);
     }
   };
