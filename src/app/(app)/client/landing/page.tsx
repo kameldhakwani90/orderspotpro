@@ -1,11 +1,16 @@
-
-// This page has been moved to the (publicClient) route group.
+// This page is deprecated and has been moved to the (publicClient) route group.
 // This placeholder is to prevent routing conflicts.
 // Please delete this file (/src/app/(app)/client/landing/page.tsx) if no longer needed.
-export default function PlaceholderClientLandingPage() {
-  if (typeof window === 'undefined') {
-    // Log on the server during build/render if this is somehow processed
-    console.warn("WARNING: Deprecated page /src/app/(app)/client/landing/page.tsx is being processed. This file should be deleted.");
+
+export default function DeprecatedClientLandingPage() {
+  if (typeof window !== 'undefined') {
+    console.warn(`WARNING: Deprecated page at ${window.location.pathname} is being rendered. This file should be deleted as its functionality has moved to the (publicClient) route group.`);
   }
-  return null;
+  return (
+    <div style={{ padding: '20px', fontFamily: 'sans-serif', backgroundColor: '#ffeeee', border: '2px solid red', color: '#333' }}>
+      <h1>Deprecated Client Landing Page</h1>
+      <p>This page component (<code>/src/app/(app)/client/landing/page.tsx</code>) is deprecated. Its functionality has moved.</p>
+      <p>This file should be deleted to resolve routing conflicts. If you see this, please clear your <code>.next</code> folder and restart the server.</p>
+    </div>
+  );
 }
