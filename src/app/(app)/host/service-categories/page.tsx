@@ -4,11 +4,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { 
-  getServiceCategories, 
-  addServiceCategory, 
-  updateServiceCategory, 
-  deleteServiceCategory 
+import {
+  getServiceCategories,
+  addServiceCategory,
+  updateServiceCategory,
+  deleteServiceCategory
 } from '@/lib/data';
 import type { ServiceCategory } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Edit2, Trash2, ListChecks } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, ListChecks, Image as ImageIcon } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import Image from 'next/image';
 
 export default function HostServiceCategoriesPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -38,8 +39,11 @@ export default function HostServiceCategoriesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Partial<ServiceCategory> | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const [currentCategoryName, setCurrentCategoryName] = useState('');
+
+  const [currentCategoryData, setCurrentCategoryData] = useState<{ nom: string; image?: string }>({
+    nom: '',
+    image: '',
+  });
 
   const fetchData = useCallback(async (hostId: string) => {
     setIsLoading(true);
@@ -65,49 +69,56 @@ export default function HostServiceCategoriesPage() {
   }, [user, authLoading, router, fetchData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCurrentCategoryName(e.target.value);
+    const { name, value } = e.target;
+    setCurrentCategoryData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmitCategory = async () => {
     if (!user?.hostId) return;
-    if (!currentCategoryName.trim()) {
+    if (!currentCategoryData.nom.trim()) {
       toast({ title: "Validation Error", description: "Category name cannot be empty.", variant: "destructive" });
       return;
     }
     setIsSubmitting(true);
 
+    const dataToSubmit: Partial<Omit<ServiceCategory, 'id' | 'hostId' | 'data-ai-hint'>> = {
+        nom: currentCategoryData.nom.trim(),
+        image: currentCategoryData.image?.trim() || undefined,
+    };
+
+
     try {
-      if (editingCategory && editingCategory.id) { 
-        await updateServiceCategory(editingCategory.id, { nom: currentCategoryName.trim() });
-        toast({ title: "Category Updated", description: `Category "${currentCategoryName.trim()}" has been updated.` });
-      } else { 
-        await addServiceCategory({ nom: currentCategoryName.trim(), hostId: user.hostId });
-        toast({ title: "Category Created", description: `Category "${currentCategoryName.trim()}" has been added.` });
+      if (editingCategory && editingCategory.id) {
+        await updateServiceCategory(editingCategory.id, dataToSubmit);
+        toast({ title: "Category Updated", description: `Category "${dataToSubmit.nom}" has been updated.` });
+      } else {
+        await addServiceCategory({ ...dataToSubmit, hostId: user.hostId } as Omit<ServiceCategory, 'id' | 'data-ai-hint'>);
+        toast({ title: "Category Created", description: `Category "${dataToSubmit.nom}" has been added.` });
       }
-      fetchData(user.hostId); 
+      fetchData(user.hostId);
     } catch (error) {
       console.error("Failed to save category:", error);
       toast({ title: "Error", description: `Could not save category. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
     } finally {
       setIsDialogOpen(false);
-      setCurrentCategoryName('');
+      setCurrentCategoryData({ nom: '', image: '' });
       setEditingCategory(null);
       setIsSubmitting(false);
     }
   };
-  
+
   const openAddDialog = () => {
     setEditingCategory(null);
-    setCurrentCategoryName('');
+    setCurrentCategoryData({ nom: '', image: '' });
     setIsDialogOpen(true);
   };
 
   const openEditDialog = (categoryToEdit: ServiceCategory) => {
     setEditingCategory({ ...categoryToEdit });
-    setCurrentCategoryName(categoryToEdit.nom);
+    setCurrentCategoryData({ nom: categoryToEdit.nom, image: categoryToEdit.image || '' });
     setIsDialogOpen(true);
   };
-  
+
   const handleDeleteCategory = async (categoryId: string, categoryName: string) => {
     if (!user?.hostId) return;
     if (!window.confirm(`Are you sure you want to delete category "${categoryName}"? Services using this category will be unassigned.`)) {
@@ -135,12 +146,12 @@ export default function HostServiceCategoriesPage() {
             </div>
             <Card className="shadow-lg">
                 <CardHeader><Skeleton className="h-8 w-48 mb-2" /><Skeleton className="h-5 w-64" /></CardHeader>
-                <CardContent><div className="space-y-4">{[...Array(3)].map((_, i) => (<div key={i} className="grid grid-cols-3 gap-4 items-center"><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-8 w-full" /></div>))}</div></CardContent>
+                <CardContent><div className="space-y-4">{[...Array(3)].map((_, i) => (<div key={i} className="grid grid-cols-4 gap-4 items-center"><Skeleton className="h-10 w-10" /><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-8 w-full" /></div>))}</div></CardContent>
             </Card>
         </div>
     );
   }
-  
+
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
       <div className="flex justify-between items-center mb-8">
@@ -152,7 +163,7 @@ export default function HostServiceCategoriesPage() {
           <PlusCircle className="mr-2 h-5 w-5" /> Add New Category
         </Button>
       </div>
-      
+
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>All Categories</CardTitle>
@@ -162,6 +173,7 @@ export default function HostServiceCategoriesPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[80px]">Image</TableHead>
                 <TableHead>Category Name</TableHead>
                 <TableHead>Category ID</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -170,8 +182,17 @@ export default function HostServiceCategoriesPage() {
             <TableBody>
               {categories.map((category) => (
                 <TableRow key={category.id}>
+                  <TableCell>
+                    {category.image ? (
+                      <Image src={category.image} alt={category.nom} width={50} height={50} className="rounded-md object-cover aspect-square" data-ai-hint={category['data-ai-hint'] || 'category icon'} />
+                    ) : (
+                      <div className="w-[50px] h-[50px] bg-muted rounded-md flex items-center justify-center">
+                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium flex items-center">
-                    <ListChecks className="mr-2 h-5 w-5 text-primary" />
+                    <ListChecks className="mr-2 h-5 w-5 text-primary invisible md:visible" />
                     {category.nom}
                   </TableCell>
                   <TableCell>{category.id}</TableCell>
@@ -196,19 +217,31 @@ export default function HostServiceCategoriesPage() {
           <DialogHeader>
             <DialogTitle>{editingCategory ? 'Edit Category' : 'Add New Category'}</DialogTitle>
             <DialogDescription>
-              {editingCategory ? 'Modify the name for this category.' : 'Enter a name for the new service category.'}
+              {editingCategory ? 'Modify the details for this category.' : 'Enter details for the new service category.'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="nom" className="text-right">Name</Label>
-              <Input 
-                id="nom" 
-                name="nom" 
-                value={currentCategoryName} 
-                onChange={handleInputChange} 
-                className="col-span-3" 
+              <Input
+                id="nom"
+                name="nom"
+                value={currentCategoryData.nom}
+                onChange={handleInputChange}
+                className="col-span-3"
                 placeholder="e.g., Food Menu, Spa Services"
+                disabled={isSubmitting}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="image" className="text-right">Image URL</Label>
+              <Input
+                id="image"
+                name="image"
+                value={currentCategoryData.image || ''}
+                onChange={handleInputChange}
+                className="col-span-3"
+                placeholder="https://placehold.co/300x200.png"
                 disabled={isSubmitting}
               />
             </div>
@@ -224,5 +257,3 @@ export default function HostServiceCategoriesPage() {
     </div>
   );
 }
-
-    
