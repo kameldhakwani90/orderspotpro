@@ -4,7 +4,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getClients, addClient, updateClient, deleteClient, getRoomsOrTables } from '@/lib/data';
+import { getClients, addClient as addClientData, updateClient as updateClientData, deleteClient as deleteClientData, getRoomsOrTables } from '@/lib/data';
 import type { Client, ClientType, RoomOrTable } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Edit2, Trash2, Users, Hotel, UserCheck, CalendarIcon as CalendarLucideIcon } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, Users, CalendarIcon as CalendarLucideIcon } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -30,11 +30,12 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const clientTypes: ClientType[] = ["heberge", "passager"];
+const DEFAULT_NO_LOCATION_ID = "___NO_LOCATION_SELECTED___";
 
 export default function HostClientsPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -53,13 +54,16 @@ export default function HostClientsPage() {
     email?: string;
     telephone?: string;
     type: ClientType;
-    _dateArrivee?: Date; // For calendar component
-    _dateDepart?: Date;  // For calendar component
+    _dateArrivee?: Date; 
+    _dateDepart?: Date;  
     locationId?: string;
     notes?: string;
   }>({
     nom: '',
     type: 'passager',
+    _dateArrivee: undefined,
+    _dateDepart: undefined,
+    locationId: undefined,
   });
 
   const fetchData = useCallback(async (hostId: string) => {
@@ -70,7 +74,7 @@ export default function HostClientsPage() {
         getRoomsOrTables(hostId)
       ]);
       setClients(clientsData);
-      setHostLocations(locationsData.filter(loc => loc.type === 'Chambre' || loc.type === 'Table')); // Only rooms/tables assignable
+      setHostLocations(locationsData.filter(loc => loc.type === 'Chambre' || loc.type === 'Table'));
     } catch (error) {
       console.error("Failed to load clients or locations:", error);
       toast({ title: "Error", description: "Could not load client data. Please try again.", variant: "destructive" });
@@ -99,7 +103,7 @@ export default function HostClientsPage() {
   };
   
   const handleLocationChange = (value: string) => {
-    setCurrentClientData(prev => ({ ...prev, locationId: value === "NONE" ? undefined : value }));
+    setCurrentClientData(prev => ({ ...prev, locationId: value === DEFAULT_NO_LOCATION_ID ? undefined : value }));
   };
 
   const handleDateChange = (field: '_dateArrivee' | '_dateDepart', date?: Date) => {
@@ -137,10 +141,10 @@ export default function HostClientsPage() {
 
     try {
       if (editingClient) {
-        await updateClient(editingClient.id, dataToSubmit);
+        await updateClientData(editingClient.id, dataToSubmit);
         toast({ title: "Client Updated", description: `Client "${dataToSubmit.nom}" has been updated.` });
       } else {
-        await addClient({ ...dataToSubmit, hostId: user.hostId });
+        await addClientData({ ...dataToSubmit, hostId: user.hostId });
         toast({ title: "Client Added", description: `Client "${dataToSubmit.nom}" has been added.` });
       }
       fetchData(user.hostId);
@@ -150,7 +154,7 @@ export default function HostClientsPage() {
     } finally {
       setIsDialogOpen(false);
       setEditingClient(null);
-      setCurrentClientData({ nom: '', type: 'passager' });
+      setCurrentClientData({ nom: '', type: 'passager', _dateArrivee: undefined, _dateDepart: undefined, locationId: undefined });
       setIsSubmitting(false);
     }
   };
@@ -172,13 +176,23 @@ export default function HostClientsPage() {
 
   const openEditDialog = (client: Client) => {
     setEditingClient(client);
+    let arriveeDate, departDate;
+    if (client.dateArrivee) {
+        const parsed = parseISO(client.dateArrivee);
+        if (isValid(parsed)) arriveeDate = parsed;
+    }
+    if (client.dateDepart) {
+        const parsed = parseISO(client.dateDepart);
+        if (isValid(parsed)) departDate = parsed;
+    }
+
     setCurrentClientData({
       nom: client.nom,
       email: client.email || '',
       telephone: client.telephone || '',
       type: client.type,
-      _dateArrivee: client.dateArrivee ? parseISO(client.dateArrivee) : undefined,
-      _dateDepart: client.dateDepart ? parseISO(client.dateDepart) : undefined,
+      _dateArrivee: arriveeDate,
+      _dateDepart: departDate,
       locationId: client.locationId || undefined,
       notes: client.notes || '',
     });
@@ -187,9 +201,9 @@ export default function HostClientsPage() {
 
   const handleDeleteClient = async (client: Client) => {
     if (!user?.hostId || !window.confirm(`Are you sure you want to delete client "${client.nom}"?`)) return;
-    setIsSubmitting(true); // Use this to disable buttons during deletion
+    setIsSubmitting(true); 
     try {
-      await deleteClient(client.id);
+      await deleteClientData(client.id);
       toast({ title: "Client Deleted", description: `Client "${client.nom}" has been deleted.`, variant: "destructive" });
       fetchData(user.hostId);
     } catch (error) {
@@ -358,16 +372,19 @@ export default function HostClientsPage() {
                 </div>
                  <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="locationId" className="text-right">Location</Label>
-                    <Select value={currentClientData.locationId || "NONE"} onValueChange={handleLocationChange} disabled={isSubmitting || hostLocations.length === 0}>
+                    <Select 
+                        value={currentClientData.locationId || DEFAULT_NO_LOCATION_ID} 
+                        onValueChange={handleLocationChange} 
+                        disabled={isSubmitting || hostLocations.length === 0}
+                    >
                         <SelectTrigger className="col-span-3">
                             <SelectValue placeholder={hostLocations.length > 0 ? "Assign a room/table" : "No locations available"} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="NONE">None</SelectItem>
+                            <SelectItem value={DEFAULT_NO_LOCATION_ID}>None</SelectItem>
                             {hostLocations.map(loc => (
                                 <SelectItem key={loc.id} value={loc.id}>{loc.type} - {loc.nom}</SelectItem>
                             ))}
-                            {hostLocations.length === 0 && <SelectItem value="" disabled>Create locations first</SelectItem>}
                         </SelectContent>
                     </Select>
                 </div>
