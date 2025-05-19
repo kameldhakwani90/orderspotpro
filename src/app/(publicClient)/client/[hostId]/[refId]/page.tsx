@@ -15,12 +15,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from '@/context/AuthContext'; // To check if user is logged in for ServiceCard
+import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 
 export default function PublicClientServicePage() {
   const params = useParams();
-  const { user, isLoading: authIsLoading } = useAuth(); // Get user status
+  const { user, isLoading: authIsLoading } = useAuth();
 
   const hostId = params.hostId as string;
   const refId = params.refId as string; // This is RoomOrTable ID
@@ -34,49 +34,61 @@ export default function PublicClientServicePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log("PublicClientServicePage: Component mounted or hostId/refId/selectedCategory changed.", { hostId, refId, selectedCategory });
     if (hostId && refId) {
       const fetchData = async () => {
         setIsLoadingPage(true);
         setError(null);
+        console.log("PublicClientServicePage: Starting data fetch...");
         try {
-          // Fetch host and location details first for header display
           const [hostData, locationData] = await Promise.all([
             getHostById(hostId),
             getRoomOrTableById(refId),
           ]);
+          console.log("PublicClientServicePage: Fetched host and location data.", { hostData, locationData });
 
           if (!hostData) {
             setError(`Establishment with ID ${hostId} not found.`);
             setHostInfo(null); setLocationInfo(null); setCategories([]);
-            setIsLoadingPage(false); return;
+            setIsLoadingPage(false); 
+            console.error("PublicClientServicePage: Host not found.");
+            return;
           }
           if (!locationData || locationData.hostId !== hostId) {
             setError(`Location with ID ${refId} not found or does not belong to ${hostData.nom}.`);
             setHostInfo(hostData); setLocationInfo(null); setCategories([]);
-            setIsLoadingPage(false); return;
+            setIsLoadingPage(false); 
+            console.error("PublicClientServicePage: Location not found or invalid.");
+            return;
           }
           
           setHostInfo(hostData);
           setLocationInfo(locationData);
 
-          // Then fetch categories and services
           const categoriesData = await getServiceCategories(hostId);
+          console.log("PublicClientServicePage: Fetched categories data.", { categoriesData });
           setCategories([{id: 'all', nom: 'All Categories', hostId}, ...categoriesData]);
           
           const servicesData = await getServices(hostId, refId, selectedCategory === "all" ? undefined : selectedCategory);
+          console.log("PublicClientServicePage: Fetched services data.", { servicesData });
           setServices(servicesData);
+          console.log("PublicClientServicePage: Data fetch complete.");
 
-        } catch (e) {
-          console.error("Failed to fetch client data:", e);
-          setError("Failed to load services. Please try again later.");
+        } catch (e: any) {
+          console.error("PublicClientServicePage: Failed to fetch client data:", e);
+          setError(`Failed to load services. ${e.message || 'Please try again later.'}`);
         }
         setIsLoadingPage(false);
       };
       fetchData();
+    } else {
+        console.warn("PublicClientServicePage: hostId or refId is missing. Cannot fetch data.", { hostId, refId });
+        setError("Required information (host or location ID) is missing from the URL.");
+        setIsLoadingPage(false);
     }
   }, [hostId, refId, selectedCategory]);
 
-  if (isLoadingPage || authIsLoading) { // Also consider auth loading state
+  if (isLoadingPage || authIsLoading) {
     return (
       <div className="space-y-8">
         <div className="p-6 md:p-10 rounded-xl shadow-xl bg-card/70 backdrop-blur-lg">
@@ -108,8 +120,8 @@ export default function PublicClientServicePage() {
     );
   }
   
-  const hostBackgroundUrl = 'https://placehold.co/1920x400.png'; // Generic placeholder
-  const hostBackgroundAiHint = hostInfo?.nom.toLowerCase().split(" ").slice(0,2).join(" ") || "hotel restaurant";
+  const hostBackgroundUrl = 'https://placehold.co/1920x400.png'; 
+  const hostBackgroundAiHint = hostInfo?.nom.toLowerCase().split(" ").slice(0,2).join(" ") || "establishment background";
 
 
   return (
@@ -168,7 +180,7 @@ export default function PublicClientServicePage() {
               service={service} 
               hostId={hostId} 
               refId={refId}
-              isUserLoggedIn={!!user} // Pass login status
+              isUserLoggedIn={!!user}
             />
           ))}
         </div>
