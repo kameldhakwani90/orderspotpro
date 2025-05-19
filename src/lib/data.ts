@@ -20,8 +20,8 @@ let hosts: Host[] = [
 
 let roomsOrTables: RoomOrTable[] = [
   { id: 'rt-lobby-01', nom: 'Lobby Area', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: undefined, urlPersonnalise: `/client/host-01/rt-lobby-01`},
-  { id: 'rt-pool-01', nom: 'Pool Zone', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: undefined, urlPersonnalise: `/client/host-01/rt-pool-01`},
-  { id: 'room-101', nom: 'Chambre 101', type: 'Chambre', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/room-101` },
+  { id: 'rt-pool-01', nom: 'Pool Zone', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/rt-pool-01`}, // Example: Pool Zone is inside Lobby Area
+  { id: 'room-101', nom: 'Chambre 101', type: 'Chambre', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-pool-01', urlPersonnalise: `/client/host-01/room-101` }, // Room 101 is in Pool Zone
   { id: 'table-5', nom: 'Table 5', type: 'Table', hostId: 'host-02', globalSiteId: 'site-02', parentLocationId: undefined, urlPersonnalise: `/client/host-02/table-5` },
 ];
 
@@ -69,13 +69,17 @@ export const getUserById = async (id: string): Promise<User | undefined> => {
 };
 export const getUsers = async (): Promise<User[]> => users;
 
-export const addUser = async (user: Omit<User, 'id' | 'motDePasse'> & { motDePasse: string }): Promise<User> => {
-  const existingUserByEmail = users.find(u => u.email === user.email);
+export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
+  const existingUserByEmail = users.find(u => u.email === userData.email);
   if (existingUserByEmail) {
-    console.warn(`User with email ${user.email} already exists.`);
+    // Check if it's the same user being re-added, if so update if necessary or just return
+    // For now, we'll prevent duplicates by email and assume it's an error or already handled.
+    console.warn(`User with email ${userData.email} already exists.`);
+    // Potentially update the existing user if roles or other info changed.
+    // For simplicity, we'll just return the existing user.
     return existingUserByEmail;
   }
-  const newUser: User = { ...user, id: `user-${Date.now()}`, motDePasse: user.motDePasse.trim() };
+  const newUser: User = { ...userData, id: `user-${Date.now()}` };
   users.push(newUser);
   return newUser;
 };
@@ -87,15 +91,33 @@ export const getHostById = async (hostId: string): Promise<Host | undefined> => 
 };
 export const addHost = async (hostData: Omit<Host, 'hostId'>): Promise<Host> => {
   const newHostId = `host-${Date.now()}`;
-  const existingHost = hosts.find(h => h.email === hostData.email);
-  if(existingHost) {
-    console.warn(`A host entry with email ${hostData.email} already exists. Ensuring user association.`);
+  const existingHostByEmail = hosts.find(h => h.email === hostData.email);
+  
+  if(existingHostByEmail) {
+    console.warn(`A host entry with email ${hostData.email} already exists. Ensuring user association is correct.`);
+    // Potentially update existingHostByEmail.nom if hostData.nom is different
+    if (existingHostByEmail.nom !== hostData.nom) {
+        existingHostByEmail.nom = hostData.nom;
+    }
+     const associatedUser = users.find(u => u.email === existingHostByEmail.email);
+     if (associatedUser && associatedUser.role !== 'host') {
+        const userIndex = users.findIndex(u => u.id === associatedUser.id);
+        users[userIndex] = {...users[userIndex], role: 'host', hostId: existingHostByEmail.hostId, nom: existingHostByEmail.nom};
+     } else if (!associatedUser) {
+         users.push({
+            id: `user-${existingHostByEmail.hostId}`, 
+            email: existingHostByEmail.email,
+            nom: existingHostByEmail.nom, 
+            role: 'host',
+            hostId: existingHostByEmail.hostId,
+            motDePasse: '1234' 
+        });
+     }
+    return existingHostByEmail;
   }
 
   const newHost: Host = { ...hostData, hostId: newHostId };
-  if (!existingHost) { 
-      hosts.push(newHost);
-  }
+  hosts.push(newHost);
 
   let associatedUser = users.find(u => u.email === newHost.email);
   if (!associatedUser) {
@@ -109,12 +131,13 @@ export const addHost = async (hostData: Omit<Host, 'hostId'>): Promise<Host> => 
     };
     users.push(hostUser);
   } else {
+    // If user exists but is not 'host' or not linked to this hostId, update them
     const userIndex = users.findIndex(u => u.id === associatedUser!.id);
     users[userIndex] = { 
         ...users[userIndex], 
         role: 'host', 
-        hostId: newHost.hostId, 
-        nom: newHost.nom 
+        hostId: newHost.hostId, // Link to the new hostId
+        nom: newHost.nom // Sync name
     };
   }
   return newHost;
@@ -125,18 +148,19 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
     const originalEmail = hosts[hostIndex].email;
     hosts[hostIndex] = { ...hosts[hostIndex], ...hostData };
     
-    let userIndex = -1;
-    if (hostData.email && hostData.email !== originalEmail) {
-        userIndex = users.findIndex(u => u.email === originalEmail && u.role === 'host');
-    } else {
-        userIndex = users.findIndex(u => u.hostId === hostId && u.role === 'host');
+    // Find user associated by original email or hostId
+    let userToUpdate = users.find(u => u.hostId === hostId && u.role === 'host');
+    if (!userToUpdate && originalEmail) {
+        userToUpdate = users.find(u => u.email === originalEmail && u.role === 'host');
     }
-
-    if (userIndex > -1) {
+    
+    if (userToUpdate) {
+        const userIndex = users.findIndex(u=> u.id === userToUpdate!.id);
         users[userIndex] = {
             ...users[userIndex],
             email: hostData.email || users[userIndex].email, 
             nom: hostData.nom || users[userIndex].nom,       
+            hostId: hostId // ensure hostId is correctly associated
         };
     }
     return hosts[hostIndex];
@@ -145,19 +169,24 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
 };
 export const deleteHost = async (hostId: string): Promise<boolean> => {
     const initialHostsLength = hosts.length;
+    const hostToDelete = hosts.find(h => h.hostId === hostId);
     hosts = hosts.filter(h => h.hostId !== hostId);
     
-    const initialUsersLength = users.length;
-    users = users.filter(u => u.hostId !== hostId);
+    // Remove or disassociate user
+    if (hostToDelete) {
+        users = users.filter(u => !(u.role === 'host' && u.hostId === hostId));
+    }
 
+    // Cascade delete or disassociate related entities
     sites = sites.filter(s => s.hostId !== hostId);
     roomsOrTables = roomsOrTables.filter(rt => rt.hostId !== hostId);
     serviceCategories = serviceCategories.filter(sc => sc.hostId !== hostId);
     customForms = customForms.filter(cf => cf.hostId !== hostId);
+    // Form fields are linked to forms, so they'll be implicitly unlinked if forms are gone
     services = services.filter(s => s.hostId !== hostId);
     orders = orders.filter(o => o.hostId !== hostId); 
 
-    return hosts.length < initialHostsLength || users.length < initialUsersLength;
+    return hosts.length < initialHostsLength;
 };
 
 
@@ -170,7 +199,7 @@ export const getSiteById = async (siteId: string): Promise<Site | undefined> => 
     return sites.find(s => s.siteId === siteId);
 };
 export const addSite = async (siteData: Omit<Site, 'siteId'>): Promise<Site> => {
-  const newSite: Site = { ...siteData, siteId: `site-${Date.now()}` };
+  const newSite: Site = { ...siteData, siteId: `globalsite-${Date.now()}` };
   sites.push(newSite);
   return newSite;
 };
@@ -178,14 +207,20 @@ export const updateSite = async (siteId: string, siteData: Partial<Omit<Site, 's
   const siteIndex = sites.findIndex(s => s.siteId === siteId);
   if (siteIndex > -1) {
     sites[siteIndex] = { ...sites[siteIndex], ...siteData };
+    // If hostId changed, update associated locations' globalSiteId if they match old host
+    if (siteData.hostId && sites[siteIndex].hostId !== siteData.hostId) {
+        // This logic might be complex: what if locations are meant to stay with old host but linked to this site?
+        // For now, assume site assignment change means underlying host entities MIGHT also need re-eval
+        // This mock won't handle deep re-parenting automatically.
+    }
     return sites[siteIndex];
   }
   return undefined;
 };
-export const deleteSite = async (siteId: string): Promise<boolean> => { // Renamed from deleteSiteInData
+export const deleteSiteInData = async (siteId: string): Promise<boolean> => {
     const initialLength = sites.length;
     sites = sites.filter(s => s.siteId !== siteId);
-    // Also remove locations within this global site
+    // Also remove locations (RoomOrTable) that belong to this global site
     roomsOrTables = roomsOrTables.filter(rt => rt.globalSiteId !== siteId);
     return sites.length < initialLength;
 };
@@ -194,7 +229,7 @@ export const deleteSite = async (siteId: string): Promise<boolean> => { // Renam
 // --- RoomOrTable Management (Host Locations) ---
 export const getRoomsOrTables = async (hostId: string, globalSiteId?: string): Promise<RoomOrTable[]> => {
   let filtered = roomsOrTables.filter(rt => rt.hostId === hostId);
-  if (globalSiteId) { // Note: this parameter might not be used if hierarchy is simple
+  if (globalSiteId) { 
     filtered = filtered.filter(rt => rt.globalSiteId === globalSiteId);
   }
   return filtered;
@@ -205,7 +240,7 @@ export const addRoomOrTable = async (data: Omit<RoomOrTable, 'id' | 'urlPersonna
   const newRoomOrTable: RoomOrTable = {
     ...data,
     id: newId,
-    urlPersonnalise: `/client/${data.hostId}/${newId}`, // URL uses the new specific location ID
+    urlPersonnalise: `/client/${data.hostId}/${newId}`, 
   };
   roomsOrTables.push(newRoomOrTable);
   return newRoomOrTable;
@@ -218,24 +253,10 @@ export const getRoomOrTableById = async (id: string): Promise<RoomOrTable | unde
 export const updateRoomOrTable = async (id: string, data: Partial<Omit<RoomOrTable, 'id' | 'urlPersonnalise' | 'hostId'>>): Promise<RoomOrTable | undefined> => {
   const itemIndex = roomsOrTables.findIndex(rt => rt.id === id);
   if (itemIndex > -1) {
-    // Ensure globalSiteId is not accidentally unset if not part of 'data' and parentLocationId implies it
-    const existingItem = roomsOrTables[itemIndex];
-    let finalGlobalSiteId = data.globalSiteId || existingItem.globalSiteId;
-
-    if (data.parentLocationId) {
-        const parent = roomsOrTables.find(p => p.id === data.parentLocationId);
-        if (parent) {
-            finalGlobalSiteId = parent.globalSiteId; // Inherit globalSiteId from parent
-        }
-    } else if (data.parentLocationId === null && !data.globalSiteId) { // Explicitly unsetting parent
-        // Keep existing globalSiteId if not otherwise specified
-        // This case might need specific handling if globalSiteId should change when unparented
-    }
-    
-    roomsOrTables[itemIndex] = { 
-        ...existingItem, 
+    roomsOrTables[itemIndex] = {
+        ...roomsOrTables[itemIndex],
         ...data,
-        globalSiteId: finalGlobalSiteId // Ensure globalSiteId is correctly set
+        // The component calculates globalSiteId and parentLocationId, so we trust `data` here.
     };
     return roomsOrTables[itemIndex];
   }
@@ -244,10 +265,16 @@ export const updateRoomOrTable = async (id: string, data: Partial<Omit<RoomOrTab
 
 export const deleteRoomOrTable = async (id: string): Promise<boolean> => {
     const initialLength = roomsOrTables.length;
-    // Also make children orphans if this was a parent
-    roomsOrTables = roomsOrTables.map(rt => 
-        rt.parentLocationId === id ? { ...rt, parentLocationId: undefined } : rt
-    );
+    // When a location is deleted, if it was a parent, its children become direct children of its parent (or the global site).
+    // This simple mock will just orphan them by setting parentLocationId to undefined. A real app would need more robust handling.
+    const locationToDelete = roomsOrTables.find(rt => rt.id === id);
+    if (locationToDelete) {
+        roomsOrTables = roomsOrTables.map(rt => 
+            rt.parentLocationId === id 
+            ? { ...rt, parentLocationId: locationToDelete.parentLocationId } // Re-parent to grandparent
+            : rt
+        );
+    }
     roomsOrTables = roomsOrTables.filter(rt => rt.id !== id);
     return roomsOrTables.length < initialLength;
 };
@@ -300,7 +327,7 @@ export const updateCustomForm = async (id: string, data: Partial<Omit<CustomForm
 };
 export const deleteCustomForm = async (id: string): Promise<boolean> => {
     const initialLength = customForms.length;
-    customForms = customForms.filter(cf => cf.id === id);
+    customForms = customForms.filter(cf => cf.id !== id); // Corrected from cf.id === id
     formFields = formFields.filter(ff => ff.formulaireId !== id);
     services = services.map(s => s.formulaireId === id ? {...s, formulaireId: undefined} : s); 
     return customForms.length < initialLength;
@@ -388,26 +415,20 @@ export const updateOrderStatus = async (orderId: string, status: Order['status']
   return undefined;
 };
 
-// Initial data assignment for images
+// Initial data assignment for images and data-ai-hint
 services.forEach(service => {
-  if (!service.image) { 
-    if (service.titre.toLowerCase().includes('taxi')) {
-      service.image = 'https://placehold.co/600x400.png';
-      (service as any)['data-ai-hint'] = 'taxi transportation';
-    } else if (service.titre.toLowerCase().includes('breakfast')) {
-      service.image = 'https://placehold.co/600x400.png';
-      (service as any)['data-ai-hint'] = 'breakfast food';
-    } else if (service.titre.toLowerCase().includes('pizza')) {
-      service.image = 'https://placehold.co/600x400.png';
-      (service as any)['data-ai-hint'] = 'pizza food';
-    } else if (service.titre.toLowerCase().includes('cocktail')) {
-      service.image = 'https://placehold.co/600x400.png';
-      (service as any)['data-ai-hint'] = 'cocktail drink';
-    } else {
-      service.image = 'https://placehold.co/600x400.png';
-       (service as any)['data-ai-hint'] = 'general service';
-    }
+  let hint = 'general service';
+  if (service.titre.toLowerCase().includes('taxi')) {
+    hint = 'taxi transportation';
+  } else if (service.titre.toLowerCase().includes('breakfast')) {
+    hint = 'breakfast food';
+  } else if (service.titre.toLowerCase().includes('pizza')) {
+    hint = 'pizza food';
+  } else if (service.titre.toLowerCase().includes('cocktail')) {
+    hint = 'cocktail drink';
   }
+  service.image = service.image || 'https://placehold.co/600x400.png';
+  (service as any)['data-ai-hint'] = hint;
 });
 
 console.log("Mock data initialized/reloaded.");

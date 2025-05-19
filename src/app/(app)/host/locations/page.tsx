@@ -31,11 +31,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
 type AssignableParentOption = {
-  id: string; // For GlobalSite, this is siteId. For RoomOrTable (type Site), this is its id.
+  id: string; 
   name: string;
-  isGlobalSite: boolean; // True if this option represents a GlobalSite
-  actualGlobalSiteId: string; // The globalSiteId to be stored for the new/edited location
-  actualParentLocationId?: string; // The parentLocationId to be stored (if not a global site)
+  isGlobalSite: boolean; 
+  actualGlobalSiteId: string; 
+  actualParentLocationId?: string; 
 };
 
 
@@ -45,15 +45,15 @@ export default function HostLocationsPage() {
   const { toast } = useToast();
 
   const [locations, setLocations] = useState<RoomOrTable[]>([]);
-  const [globalSites, setGlobalSites] = useState<GlobalSiteType[]>([]); // These are the top-level sites managed by Admin
+  const [globalSites, setGlobalSites] = useState<GlobalSiteType[]>([]); 
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingLocation, setEditingLocation] = useState<Partial<RoomOrTable> | null>(null);
+  const [editingLocation, setEditingLocation] = useState<Partial<RoomOrTable> & {selectedParentIdentifier?: string} | null>(null);
   
   const [newLocation, setNewLocation] = useState<{ 
     nom: string; 
     type: "Chambre" | "Table" | "Site"; 
-    selectedParentIdentifier: string; // Stores 'globalSite_id' or 'locationSite_id'
+    selectedParentIdentifier: string; 
   }>({
     nom: '',
     type: 'Chambre',
@@ -67,16 +67,15 @@ export default function HostLocationsPage() {
     try {
       const [fetchedLocations, fetchedGlobalSites] = await Promise.all([
         getRoomsOrTables(hostId),
-        getSites(hostId) // getSites returns Global Sites for this host
+        getSites(hostId) 
       ]);
       setLocations(fetchedLocations);
       setGlobalSites(fetchedGlobalSites);
 
-      // Prepare options for the "Assign To" dropdown
       const parentOpts: AssignableParentOption[] = [];
       fetchedGlobalSites.forEach(gs => {
         parentOpts.push({
-          id: gs.siteId, // This ID is used as the value in SelectItem
+          id: gs.siteId, 
           name: `${gs.nom} (Global Site)`,
           isGlobalSite: true,
           actualGlobalSiteId: gs.siteId,
@@ -85,11 +84,11 @@ export default function HostLocationsPage() {
       });
       fetchedLocations.filter(loc => loc.type === 'Site').forEach(locSite => {
         parentOpts.push({
-          id: locSite.id, // This ID is used as the value in SelectItem
+          id: locSite.id, 
           name: `${locSite.nom} (Area/Zone in ${fetchedGlobalSites.find(gs => gs.siteId === locSite.globalSiteId)?.nom || 'Unknown'})`,
           isGlobalSite: false,
           actualGlobalSiteId: locSite.globalSiteId,
-          actualParentLocationId: locSite.id,
+          actualParentLocationId: locSite.id, 
         });
       });
       setAssignableParentOptions(parentOpts);
@@ -106,7 +105,7 @@ export default function HostLocationsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]); // Removed newLocation.selectedParentIdentifier from deps to avoid loop
+  }, [toast]); 
 
   useEffect(() => {
     if (!authLoading) {
@@ -130,10 +129,7 @@ export default function HostLocationsPage() {
     currentSetter(prev => ({ 
         ...prev, 
         type: value,
-        // If changing type to 'Site', parent must be a Global Site. Reset selection if current parent is not.
-        selectedParentIdentifier: value === 'Site' ? 
-            (assignableParentOptions.find(opt => opt.id === (prev as any).selectedParentIdentifier && opt.isGlobalSite) ? (prev as any).selectedParentIdentifier : (assignableParentOptions.find(opt => opt.isGlobalSite)?.id || ''))
-            : (prev as any).selectedParentIdentifier
+        selectedParentIdentifier: (prev as any).selectedParentIdentifier
     }));
   };
 
@@ -146,7 +142,7 @@ export default function HostLocationsPage() {
     if (!user?.hostId) return;
 
     const isEditing = !!(editingLocation && editingLocation.id);
-    const currentData = isEditing ? editingLocation : newLocation;
+    const currentData = editingLocation || newLocation;
 
     const selectedParentOption = assignableParentOptions.find(opt => opt.id === (currentData as any).selectedParentIdentifier);
 
@@ -155,18 +151,12 @@ export default function HostLocationsPage() {
       return;
     }
     
-    // If the location type is 'Site', it cannot have a parentLocationId, only a globalSiteId
-    if(currentData.type === 'Site' && !selectedParentOption.isGlobalSite){
-        toast({ title: "Invalid Assignment", description: "A 'Site' type location (Area/Zone) can only be assigned directly to a Global Site, not another Area/Zone.", variant: "destructive" });
-        return;
-    }
-
     const dataToSubmit: Omit<RoomOrTable, 'id' | 'urlPersonnalise'> = {
       nom: currentData.nom!,
       type: currentData.type!,
       hostId: user.hostId,
       globalSiteId: selectedParentOption.actualGlobalSiteId,
-      parentLocationId: currentData.type !== 'Site' ? selectedParentOption.actualParentLocationId : undefined, // Areas/Zones are direct children of Global Sites
+      parentLocationId: selectedParentOption.actualParentLocationId,
     };
 
     try {
@@ -177,7 +167,7 @@ export default function HostLocationsPage() {
         await addRoomOrTable(dataToSubmit);
         toast({ title: "Location Created", description: `${dataToSubmit.nom} has been added.` });
       }
-      fetchData(user.hostId); // Refresh data
+      fetchData(user.hostId); 
     } catch (error) {
       console.error("Failed to save location:", error);
       toast({ title: "Error", description: `Failed to save location. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
@@ -189,7 +179,7 @@ export default function HostLocationsPage() {
   };
   
   const openAddDialog = () => {
-    if (assignableParentOptions.length === 0) {
+    if (assignableParentOptions.length === 0 && globalSites.length === 0) {
         toast({ title: "Cannot Add Location", description: "You must have at least one Global Site assigned by an admin, or create an Area/Zone first.", variant: "destructive"});
         return;
     }
@@ -204,20 +194,22 @@ export default function HostLocationsPage() {
 
   const openEditDialog = (locationToEdit: RoomOrTable) => {
     let parentIdentifier = '';
-    if (locationToEdit.parentLocationId) {
-        parentIdentifier = locationToEdit.parentLocationId;
+    if (locationToEdit.parentLocationId) { 
+        const parentOption = assignableParentOptions.find(opt => opt.actualParentLocationId === locationToEdit.parentLocationId);
+        parentIdentifier = parentOption ? parentOption.id : locationToEdit.globalSiteId; // Fallback to globalSiteId if specific parent location not in options (should not happen)
     } else {
         parentIdentifier = locationToEdit.globalSiteId;
     }
+
     setEditingLocation({
         ...locationToEdit,
-        selectedParentIdentifier: parentIdentifier // Add this to the partial type for editing
-    } as Partial<RoomOrTable> & {selectedParentIdentifier: string});
+        selectedParentIdentifier: parentIdentifier 
+    });
     setIsDialogOpen(true);
   };
   
   const handleDeleteLocationWithConfirmation = async (location: RoomOrTable) => {
-     if (!window.confirm(`Are you sure you want to delete "${location.nom}"? Locations parented by this will become unparented.`)) {
+     if (!window.confirm(`Are you sure you want to delete "${location.nom}"? Locations parented by this will also be affected.`)) {
         return;
      }
      try {
@@ -273,9 +265,12 @@ export default function HostLocationsPage() {
   }
   
   const currentFormData = editingLocation || newLocation;
-  const dialogParentOptions = currentFormData.type === 'Site' 
-    ? assignableParentOptions.filter(opt => opt.isGlobalSite) 
-    : assignableParentOptions;
+  
+  let dialogParentOptions = assignableParentOptions;
+  if (editingLocation && editingLocation.id) {
+      // Prevent a location from being its own parent, or a child of its own children (complex cycle prevention not fully implemented here)
+      dialogParentOptions = assignableParentOptions.filter(opt => opt.id !== editingLocation.id);
+  }
 
 
   return (
@@ -394,3 +389,4 @@ export default function HostLocationsPage() {
     </div>
   );
 }
+
