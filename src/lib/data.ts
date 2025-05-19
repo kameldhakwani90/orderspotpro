@@ -14,8 +14,8 @@ let sites: Site[] = [
 ];
 
 let hosts: Host[] = [ // Simplified, User table holds primary host info
-  { hostId: 'host-01', nom: 'Hotel Paradise Management', email: 'host1@example.com' },
-  { hostId: 'host-02', nom: 'Restaurant Delice Group', email: 'host2@example.com' },
+  { hostId: 'host-01', nom: 'Hotel Paradise', email: 'host1@example.com' },
+  { hostId: 'host-02', nom: 'Restaurant Delice', email: 'host2@example.com' },
 ];
 
 let roomsOrTables: RoomOrTable[] = [
@@ -69,6 +69,17 @@ export const getUserById = async (id: string): Promise<User | undefined> => {
 export const getUsers = async (): Promise<User[]> => users;
 
 export const addUser = async (user: Omit<User, 'id' | 'motDePasse'> & { motDePasse: string }): Promise<User> => {
+  const existingUserByEmail = users.find(u => u.email === user.email);
+  if (existingUserByEmail) {
+    // For MVP, let's prevent adding if email exists, or update them if that's the desired logic.
+    // Here, we'll throw an error to indicate email is taken, or return existing.
+    // In a real app, you'd have more robust duplicate handling.
+    console.warn(`User with email ${user.email} already exists.`);
+    // Option 1: Throw error
+    // throw new Error(`User with email ${user.email} already exists.`);
+    // Option 2: Return existing user (careful if password/role needs update)
+    return existingUserByEmail;
+  }
   const newUser: User = { ...user, id: `user-${Date.now()}`, motDePasse: user.motDePasse.trim() };
   users.push(newUser);
   return newUser;
@@ -81,38 +92,67 @@ export const getHostById = async (hostId: string): Promise<Host | undefined> => 
 };
 export const addHost = async (hostData: Omit<Host, 'hostId'>): Promise<Host> => {
   const newHostId = `host-${Date.now()}`;
+  // Check if a host with this email already exists to prevent duplicates in the 'hosts' array
+  const existingHost = hosts.find(h => h.email === hostData.email);
+  if(existingHost) {
+    // throw new Error(`Host with email ${hostData.email} already exists with ID ${existingHost.hostId}`);
+    // Or, for MVP, we might just update the existing user to be associated with this host.
+    // For now, let's log a warning and proceed to create the user part if needed.
+    console.warn(`A host entry with email ${hostData.email} already exists. Ensuring user association.`);
+  }
+
   const newHost: Host = { ...hostData, hostId: newHostId };
-  hosts.push(newHost);
-  // Also create a user for this host if one with the same email doesn't exist
-  const existingUser = users.find(u => u.email === newHost.email);
-  if (!existingUser) {
+  if (!existingHost) { // Only add to hosts array if it's a truly new host email
+      hosts.push(newHost);
+  }
+
+
+  // Also create or update a user for this host
+  let associatedUser = users.find(u => u.email === newHost.email);
+  if (!associatedUser) {
     const hostUser: User = {
-      id: `user-${newHostId}`,
+      id: `user-${newHostId}`, // Use newHostId to ensure unique user ID related to host
       email: newHost.email,
-      nom: newHost.nom,
+      nom: newHost.nom, // Host name can be the user name
       role: 'host',
       hostId: newHost.hostId,
       motDePasse: '1234' // Default password
     };
     users.push(hostUser);
-  } else if (existingUser.role !== 'host' || !existingUser.hostId) {
-    // If user exists but is not a host or not properly configured, update them
-    const userIndex = users.findIndex(u => u.id === existingUser.id);
-    users[userIndex] = { ...users[userIndex], role: 'host', hostId: newHost.hostId, nom: newHost.nom };
+  } else {
+    // If user exists, ensure their role is 'host' and they are linked to this hostId
+    const userIndex = users.findIndex(u => u.id === associatedUser!.id);
+    users[userIndex] = { 
+        ...users[userIndex], 
+        role: 'host', 
+        hostId: newHost.hostId, 
+        nom: newHost.nom // Update user name to match host name
+    };
   }
   return newHost;
 };
 export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'hostId'>>): Promise<Host | undefined> => {
   const hostIndex = hosts.findIndex(h => h.hostId === hostId);
   if (hostIndex > -1) {
+    const originalEmail = hosts[hostIndex].email;
     hosts[hostIndex] = { ...hosts[hostIndex], ...hostData };
+    
     // Update corresponding user if email/name changed
-    const userIndex = users.findIndex(u => u.hostId === hostId && u.role === 'host');
+    // Find user by old email if email changed, or by hostId
+    let userIndex = -1;
+    if (hostData.email && hostData.email !== originalEmail) {
+        // Email changed, find user by old email and update their email
+        userIndex = users.findIndex(u => u.email === originalEmail && u.role === 'host');
+    } else {
+        // Email didn't change or wasn't part of update, find by hostId
+        userIndex = users.findIndex(u => u.hostId === hostId && u.role === 'host');
+    }
+
     if (userIndex > -1) {
         users[userIndex] = {
             ...users[userIndex],
-            email: hostData.email || users[userIndex].email,
-            nom: hostData.nom || users[userIndex].nom,
+            email: hostData.email || users[userIndex].email, // Update email if provided
+            nom: hostData.nom || users[userIndex].nom,       // Update name if provided
         };
     }
     return hosts[hostIndex];
@@ -120,19 +160,27 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
   return undefined;
 };
 export const deleteHost = async (hostId: string): Promise<boolean> => {
-    const initialLength = hosts.length;
+    const initialHostsLength = hosts.length;
     hosts = hosts.filter(h => h.hostId !== hostId);
-    // Also remove/update users associated with this host
-    users = users.filter(u => !(u.role === 'host' && u.hostId === hostId));
-    // Consider implications for sites, services, etc., associated with this hostId (cascade delete/unassign)
-    // For this mock, we'll keep it simple.
+    
+    // Remove/update users associated with this host
+    // Option 1: Delete the user entirely
+    // users = users.filter(u => !(u.role === 'host' && u.hostId === hostId));
+    // Option 2: Unassign host role (convert to client or similar) - more complex for mock
+    // For simplicity, we'll filter out the host user.
+    const initialUsersLength = users.length;
+    users = users.filter(u => u.hostId !== hostId);
+
+
+    // Cascade delete/unassign related data
     sites = sites.filter(s => s.hostId !== hostId);
     roomsOrTables = roomsOrTables.filter(rt => rt.hostId !== hostId);
     serviceCategories = serviceCategories.filter(sc => sc.hostId !== hostId);
     customForms = customForms.filter(cf => cf.hostId !== hostId);
     services = services.filter(s => s.hostId !== hostId);
-    orders = orders.filter(o => o.hostId !== hostId);
-    return hosts.length < initialLength;
+    orders = orders.filter(o => o.hostId !== hostId); // Important for orders too
+
+    return hosts.length < initialHostsLength || users.length < initialUsersLength;
 };
 
 
@@ -191,6 +239,8 @@ export const updateRoomOrTable = async (id: string, data: Partial<Omit<RoomOrTab
   const itemIndex = roomsOrTables.findIndex(rt => rt.id === id);
   if (itemIndex > -1) {
     roomsOrTables[itemIndex] = { ...roomsOrTables[itemIndex], ...data };
+    // Regenerate URL if name or type potentially changes, though URL is based on ID here.
+    // For this mock, URL is fixed on creation based on hostId and newId.
     return roomsOrTables[itemIndex];
   }
   return undefined;
@@ -254,7 +304,7 @@ export const deleteCustomForm = async (id: string): Promise<boolean> => {
     // Also delete fields associated with this form
     formFields = formFields.filter(ff => ff.formulaireId !== id);
     // And update services that might be using this form
-    services = services.map(s => s.formulaireId === id ? {...s, formulaireId: 'no-form'} : s); // or handle differently
+    services = services.map(s => s.formulaireId === id ? {...s, formulaireId: undefined} : s); // Set to undefined or a default
     return customForms.length < initialLength;
 };
 
@@ -386,14 +436,14 @@ if (!roomsOrTables.some(rt => rt.type === 'Site' && rt.hostId === 'host-02')) {
     });
 }
 
-// The problematic block referencing 'newSite' at the top-level has been removed/ensured it's commented out.
+// The problematic block referencing 'newSite' at the top-level has been removed.
 // Any logic involving 'newSite' (which is typically component state) should be handled within the respective component,
 // for example, in src/app/(app)/admin/sites/page.tsx or src/app/(app)/host/locations/page.tsx.
 
 console.log("Mock data initialized/reloaded.");
-console.log("Current users:", users.map(u => ({id: u.id, email: u.email, role: u.role, hostId: u.hostId})));
-console.log("Current hosts:", hosts);
-console.log("Current global sites:", sites);
-console.log("Current rooms/tables/site-areas:", roomsOrTables);
+// console.log("Current users:", users.map(u => ({id: u.id, email: u.email, role: u.role, hostId: u.hostId})));
+// console.log("Current hosts:", hosts);
+// console.log("Current global sites:", sites);
+// console.log("Current rooms/tables/site-areas:", roomsOrTables);
 
     
