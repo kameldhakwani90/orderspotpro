@@ -4,7 +4,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getSites, addSite as addSiteToData, getHosts, updateSite as updateSiteInData, deleteSite as deleteSiteInData } from '@/lib/data';
+import { getSites, addSite as addSiteToData, getHosts, updateSite as updateSiteInData, deleteSiteInData } from '@/lib/data';
 import type { Site, Host } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,7 +67,7 @@ export default function AdminSitesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]); // Removed newSite.hostId from dependencies to avoid re-fetch loop
+  }, [toast, newSite.hostId]);
 
   useEffect(() => {
     if (!authLoading) {
