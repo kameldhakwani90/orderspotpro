@@ -15,7 +15,8 @@ interface ServiceCardProps {
 }
 
 export function ServiceCard({ service, hostId, refId }: ServiceCardProps) {
-  const imageUrl = (service.image || 'https://placehold.co/600x400.png') + `&data-ai-hint=${(service as any)['data-ai-hint'] || 'service item'}`;
+  const imageUrl = service.image || 'https://placehold.co/600x400.png';
+  const imageAiHint = (service as any)['data-ai-hint'] || service.titre.toLowerCase().split(' ').slice(0,2).join(' ') || 'service item';
   
   return (
     <Card className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 h-full">
@@ -26,7 +27,7 @@ export function ServiceCard({ service, hostId, refId }: ServiceCardProps) {
             alt={service.titre}
             layout="fill"
             objectFit="cover"
-            data-ai-hint={(service as any)['data-ai-hint'] || 'service item'}
+            data-ai-hint={imageAiHint}
           />
         </div>
       </CardHeader>

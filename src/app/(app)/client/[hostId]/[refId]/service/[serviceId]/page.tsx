@@ -45,18 +45,23 @@ export default function ClientOrderServicePage() {
             getRoomOrTableById(refId),
           ]);
 
-          if (!serviceData || serviceData.hostId !== hostId) {
-            setError("Service not found or not available for this host.");
+          if (!serviceData) {
+            setError("Service not found.");
             setIsLoading(false);
             return;
           }
-           if (!hostData) {
-            setError(`Host with ID ${hostId} not found.`);
+          if (serviceData.hostId !== hostId) {
+            setError("Service not available for this establishment.");
+            setIsLoading(false);
+            return;
+          }
+          if (!hostData) {
+            setError(`Establishment with ID ${hostId} not found.`);
             setIsLoading(false);
             return;
           }
           if (!locationData || locationData.hostId !== hostId || locationData.id !== refId) {
-            setError(`Location with ID ${refId} not found or invalid.`);
+            setError(`Location with ID ${refId} not found or invalid for this establishment.`);
             setIsLoading(false);
             return;
           }
@@ -69,17 +74,23 @@ export default function ClientOrderServicePage() {
             const formDetails = await getFormById(serviceData.formulaireId);
             if (formDetails && formDetails.hostId === hostId) {
               setCustomForm(formDetails);
-              const fields = await getFormFields(formDetails.id);
-              setFormFields(fields);
+              try {
+                const fields = await getFormFields(formDetails.id);
+                setFormFields(fields);
+              } catch (fieldsError) {
+                 console.error(`Failed to load fields for form ${formDetails.id}:`, fieldsError);
+                 setError(`Error loading form fields for this service. Please try again.`);
+                 setIsLoading(false);
+                 return;
+              }
             } else {
-              // If form is not found or doesn't belong to host, maybe proceed without form or show error
-              console.warn(`Form ${serviceData.formulaireId} not found or invalid for host ${hostId}`);
-              setCustomForm(null);
-              setFormFields([]); // No form, or a generic one could be used
+              console.warn(`Form ${serviceData.formulaireId} (for service ${serviceData.id}) not found or invalid for host ${hostId}`);
+              setError(`The information form required for this service is currently unavailable. Please contact support.`);
+              setIsLoading(false);
+              return;
             }
           } else {
-            // No form associated, can proceed to order directly if applicable, or show message
-             setCustomForm(null);
+             setCustomForm(null); // No form associated, proceed
              setFormFields([]);
           }
         } catch (e) {
@@ -194,6 +205,7 @@ export default function ClientOrderServicePage() {
   }
   
   const LocationIcon = locationInfo?.type === 'Chambre' ? BedDouble : Utensils;
+  const serviceImageAiHint = (service as any)['data-ai-hint'] || service.titre.toLowerCase().split(' ').slice(0,2).join(' ') || 'service detail';
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -206,7 +218,7 @@ export default function ClientOrderServicePage() {
             <h1 className="text-3xl font-bold text-foreground mb-2">{service.titre}</h1>
             {service.image && (
               <div className="relative w-full h-64 rounded-md overflow-hidden my-4">
-                <Image src={service.image} alt={service.titre} layout="fill" objectFit="cover" data-ai-hint={(service as any)['data-ai-hint'] || 'service detail'} />
+                <Image src={service.image} alt={service.titre} layout="fill" objectFit="cover" data-ai-hint={serviceImageAiHint} />
               </div>
             )}
             <p className="text-muted-foreground mb-4">{service.description}</p>
