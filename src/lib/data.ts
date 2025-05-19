@@ -1,5 +1,5 @@
 
-import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, FormFieldTypeOption } from './types';
+import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, FormFieldTypeOption, Client, ClientType } from './types';
 
 let users: User[] = [
   { id: 'user-admin-01', email: 'kamel@gmail.com', nom: 'Kamel Admin', role: 'admin', motDePasse: '0000' },
@@ -68,7 +68,6 @@ let services: Service[] = [
   { id: 'svc-water', titre: 'Bottled Water', description: 'A refreshing bottle of spring water.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "water bottle", categorieId: 'cat-drinks', hostId: 'host-02', prix: 2, formulaireId: 'form-no-fields' },
   { id: 'svc-spa', titre: 'Spa Package', description: 'Relax with our full-day spa package.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "spa massage", categorieId: 'cat-activities', hostId: 'host-01', formulaireId: 'form-booking', prix: 150 },
   { id: 'svc-guidedtour', titre: 'Guided City Tour', description: 'Explore the city with our expert guide.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "city tour", categorieId: 'cat-activities', hostId: 'host-01', formulaireId: 'form-activity-signup', prix: 75 },
-
 ];
 
 let orders: Order[] = [
@@ -77,6 +76,12 @@ let orders: Order[] = [
   { id: 'order-003', serviceId: 'svc-pizza', hostId: 'host-02', chambreTableId: 'table-5', clientNom: 'Alice Wonderland', donneesFormulaire: JSON.stringify({dish: "Pepperoni Pizza", notes: "Extra cheese"}), dateHeure: new Date(Date.now() - 3600000 * 1).toISOString(), status: 'confirmed'},
   { id: 'order-004', serviceId: 'svc-spa', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', donneesFormulaire: JSON.stringify({ persons: 1, date: '2024-09-10', time: '14:00' }), dateHeure: new Date().toISOString(), status: 'pending' },
   { id: 'order-005', serviceId: 'svc-guidedtour', hostId: 'host-01', chambreTableId: 'room-102', clientNom: 'Bob The Builder', donneesFormulaire: JSON.stringify({ participant_name: "Bob Builder", participant_age: "35" }), dateHeure: new Date(Date.now() - 3600000 * 24).toISOString(), status: 'completed' },
+];
+
+let clients: Client[] = [
+    { id: 'client-mock-1', hostId: 'host-01', nom: 'Alice Wonderland', email: 'alice@example.com', type: 'heberge', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', locationId: 'room-101', notes: 'Prefers quiet room.' },
+    { id: 'client-mock-2', hostId: 'host-01', nom: 'Bob The Builder', email: 'bob@example.com', type: 'heberge', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', locationId: 'room-102' },
+    { id: 'client-mock-3', hostId: 'host-02', nom: 'Charlie Brown', telephone: '+1123456789', type: 'passager', notes: 'Regular for lunch.' },
 ];
 
 // --- User Management ---
@@ -91,14 +96,12 @@ export const getUsers = async (): Promise<User[]> => users;
 export const addUser = async (userData: Omit<User, 'id' | 'motDePasse'> & { motDePasse?: string }): Promise<User> => {
   const existingUserByEmail = users.find(u => u.email === userData.email);
   if (existingUserByEmail) {
-    // For MVP, if email exists, we'll assume it's an attempt to re-create, so we don't add a duplicate.
-    // More robust logic might update or throw an error.
     console.warn(`User with email ${userData.email} already exists. Not adding duplicate.`);
     return existingUserByEmail;
   }
   const newUser: User = {
     ...userData,
-    id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, // More unique ID
+    id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     motDePasse: userData.motDePasse?.trim() || '1234'
   };
   users.push(newUser);
@@ -277,11 +280,9 @@ export const updateRoomOrTable = async (id: string, data: Partial<Omit<RoomOrTab
     const currentItem = roomsOrTables[itemIndex];
     roomsOrTables[itemIndex] = {
         ...currentItem,
-        ...data, // applies updates from 'data'
-        // Ensure hostId and urlPersonnalise remain unchanged from currentItem if not explicitly in 'data'
+        ...data,
         hostId: currentItem.hostId,
         urlPersonnalise: currentItem.urlPersonnalise,
-        // Explicitly apply globalSiteId and parentLocationId from 'data' if present, otherwise keep current
         globalSiteId: data.globalSiteId !== undefined ? data.globalSiteId : currentItem.globalSiteId,
         parentLocationId: data.parentLocationId !== undefined ? data.parentLocationId : currentItem.parentLocationId,
     };
@@ -392,7 +393,7 @@ export const deleteFormField = async (id: string): Promise<boolean> => {
 // --- Service Management ---
 export const getServices = async (hostId: string, categoryId?: string): Promise<Service[]> => {
   let filteredServices = services.filter(s => s.hostId === hostId);
-  if (categoryId && categoryId !== "all" && categoryId !== "") { // Ensure "all" or empty doesn't filter
+  if (categoryId && categoryId !== "all" && categoryId !== "") { 
     filteredServices = filteredServices.filter(s => s.categorieId === categoryId);
   }
   return filteredServices;
@@ -441,7 +442,6 @@ export const getOrders = async (
   if (filters?.serviceId && filters.serviceId !== "all") {
     filteredOrders = filteredOrders.filter(o => o.serviceId === filters.serviceId);
   } else if (filters?.categoryId && filters.categoryId !== "all") {
-    // If filtering by category but not a specific service, get all services for that category
     const servicesInCategory = services.filter(s => s.categorieId === filters.categoryId && s.hostId === hostId).map(s => s.id);
     filteredOrders = filteredOrders.filter(o => servicesInCategory.includes(o.serviceId));
   }
@@ -477,4 +477,36 @@ export const updateOrderStatus = async (orderId: string, status: OrderStatus): P
   return undefined;
 };
 
-console.log("Mock data initialized/reloaded.");
+// --- Client Management (Host Side) ---
+export const getClients = async (hostId: string): Promise<Client[]> => {
+  return clients.filter(c => c.hostId === hostId);
+};
+
+export const getClientById = async (clientId: string): Promise<Client | undefined> => {
+  return clients.find(c => c.id === clientId);
+};
+
+export const addClient = async (clientData: Omit<Client, 'id' | 'documents'>): Promise<Client> => {
+  const newClient: Client = { ...clientData, id: `client-${Date.now()}-${Math.random().toString(36).substring(2, 7)}` };
+  clients.push(newClient);
+  return newClient;
+};
+
+export const updateClient = async (clientId: string, clientData: Partial<Omit<Client, 'id' | 'hostId' | 'documents'>>): Promise<Client | undefined> => {
+  const clientIndex = clients.findIndex(c => c.id === clientId);
+  if (clientIndex > -1) {
+    clients[clientIndex] = { ...clients[clientIndex], ...clientData };
+    return clients[clientIndex];
+  }
+  return undefined;
+};
+
+export const deleteClient = async (clientId: string): Promise<boolean> => {
+  const initialLength = clients.length;
+  clients = clients.filter(c => c.id !== clientId);
+  // Future: Consider implications for orders if ClientId is linked to orders.
+  return clients.length < initialLength;
+};
+
+console.log("Mock data initialized/reloaded. Current clients count:", clients.length);
+
