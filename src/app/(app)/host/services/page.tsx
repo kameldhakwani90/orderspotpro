@@ -26,6 +26,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
 
+const DEFAULT_NO_FORM_ID = "___NO_FORM_SELECTED___";
+
 export default function HostServicesPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
@@ -41,7 +43,7 @@ export default function HostServicesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [currentServiceData, setCurrentServiceData] = useState<Partial<Service>>({
-    titre: '', description: '', image: '', categorieId: '', formulaireId: '', prix: 0
+    titre: '', description: '', image: '', categorieId: '', formulaireId: undefined, prix: 0
   });
 
   const fetchData = useCallback(async (hostId: string) => {
@@ -59,7 +61,7 @@ export default function HostServicesPage() {
       if (categoriesData.length > 0 && !currentServiceData.categorieId) {
         setCurrentServiceData(prev => ({ ...prev, categorieId: categoriesData[0].id }));
       }
-      // formulaireId is optional, so no default needed unless specifically desired
+      // formulaireId is optional, defaults to undefined
     } catch (error) {
       console.error("Failed to load services data:", error);
       toast({ title: "Error", description: "Could not load services, categories, or forms. Please try again.", variant: "destructive" });
@@ -84,7 +86,11 @@ export default function HostServicesPage() {
   };
 
   const handleSelectChange = (name: string, value: string) => {
-    setCurrentServiceData(prev => ({ ...prev, [name]: value }));
+    if (name === 'formulaireId') {
+      setCurrentServiceData(prev => ({ ...prev, [name]: value === DEFAULT_NO_FORM_ID ? undefined : value }));
+    } else {
+      setCurrentServiceData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSubmitService = async () => {
@@ -100,8 +106,8 @@ export default function HostServicesPage() {
       description: currentServiceData.description || '',
       image: currentServiceData.image || '',
       categorieId: currentServiceData.categorieId!,
-      formulaireId: currentServiceData.formulaireId || undefined, // Ensure it can be undefined
-      prix: currentServiceData.prix || undefined, // Ensure it can be undefined
+      formulaireId: currentServiceData.formulaireId || undefined,
+      prix: currentServiceData.prix || undefined,
     };
 
     try {
@@ -118,7 +124,7 @@ export default function HostServicesPage() {
       toast({ title: "Error", description: `Could not save service. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
     } finally {
       setIsDialogOpen(false);
-      setCurrentServiceData({ titre: '', description: '', image: '', categorieId: categories[0]?.id || '', formulaireId: '', prix: 0 });
+      setCurrentServiceData({ titre: '', description: '', image: '', categorieId: categories[0]?.id || '', formulaireId: undefined, prix: 0 });
       setEditingService(null);
       setIsSubmitting(false);
     }
@@ -129,7 +135,7 @@ export default function HostServicesPage() {
     setCurrentServiceData({
       titre: '', description: '', image: '',
       categorieId: categories.length > 0 ? categories[0].id : '',
-      formulaireId: '', // No default form selected
+      formulaireId: undefined, 
       prix: 0
     });
     setIsDialogOpen(true);
@@ -247,7 +253,7 @@ export default function HostServicesPage() {
             </div>
              <div className="space-y-1.5">
               <Label htmlFor="prix"><DollarSign className="inline mr-1 h-4 w-4" />Price (Optional)</Label>
-              <Input id="prix" name="prix" type="number" value={currentServiceData.prix || ''} onChange={handleInputChange} placeholder="e.g., 25.00" step="0.01" disabled={isSubmitting} />
+              <Input id="prix" name="prix" type="number" value={currentServiceData.prix ?? ''} onChange={handleInputChange} placeholder="e.g., 25.00" step="0.01" disabled={isSubmitting} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="categorieId"><CategoryIcon className="inline mr-1 h-4 w-4" />Category</Label>
@@ -255,16 +261,20 @@ export default function HostServicesPage() {
                 <SelectTrigger id="categorieId"><SelectValue placeholder={categories.length > 0 ? "Select a category" : "No categories available"} /></SelectTrigger>
                 <SelectContent>
                   {categories.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.nom}</SelectItem>)}
-                  {categories.length === 0 && <SelectItem value="" disabled>Create categories first</SelectItem>}
+                  {categories.length === 0 && <SelectItem value="CREATE_CATEGORIES_FIRST" disabled>Create categories first</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="formulaireId"><FormIcon className="inline mr-1 h-4 w-4" />Custom Form (Optional)</Label>
-              <Select value={currentServiceData.formulaireId || ''} onValueChange={(val) => handleSelectChange('formulaireId', val)} disabled={isSubmitting}>
-                <SelectTrigger id="formulaireId"><SelectValue placeholder="Select a form (or leave empty)" /></SelectTrigger>
+              <Select 
+                value={currentServiceData.formulaireId || DEFAULT_NO_FORM_ID} 
+                onValueChange={(val) => handleSelectChange('formulaireId', val)} 
+                disabled={isSubmitting}
+              >
+                <SelectTrigger id="formulaireId"><SelectValue placeholder="Select a form (optional)" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value={DEFAULT_NO_FORM_ID}>None</SelectItem>
                   {forms.map(form => <SelectItem key={form.id} value={form.id}>{form.nom}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -279,3 +289,4 @@ export default function HostServicesPage() {
     </div>
   );
 }
+
