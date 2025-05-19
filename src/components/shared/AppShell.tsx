@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, QrCode, ChevronDown, ChevronUp, Briefcase // Added Briefcase for Client File placeholder
+  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, QrCode, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -33,17 +33,24 @@ const adminNavItems: NavItem[] = [
 const hostNavItems: NavItem[] = [
   { label: 'Dashboard', href: '/host/dashboard', icon: Home, allowedRoles: ['host'] },
   { label: 'Client Orders', href: '/host/orders', icon: ShoppingCart, allowedRoles: ['host'] },
-  // { label: 'Client Directory', href: '/host/clients', icon: Briefcase, allowedRoles: ['host'] }, // Placeholder for a future client list page
-  { label: 'My Locations', href: '/host/locations', icon: MapPin, allowedRoles: ['host'] },
-  { label: 'Service Categories', href: '/host/service-categories', icon: ListChecks, allowedRoles: ['host'] },
-  { label: 'Custom Forms', href: '/host/forms', icon: FileText, allowedRoles: ['host'] },
-  { label: 'My Services', href: '/host/services', icon: ClipboardList, allowedRoles: ['host'] },
+  { label: 'Gestion Clients', href: '/host/clients', icon: Users, allowedRoles: ['host'] },
+  {
+    label: 'Configuration',
+    href: '#', // Non-navigable parent
+    icon: Settings, // Group icon
+    allowedRoles: ['host'],
+    children: [
+      { label: 'My Locations', href: '/host/locations', icon: MapPin, allowedRoles: ['host'] },
+      { label: 'Service Categories', href: '/host/service-categories', icon: ListChecks, allowedRoles: ['host'] },
+      { label: 'Custom Forms', href: '/host/forms', icon: FileText, allowedRoles: ['host'] },
+      { label: 'My Services', href: '/host/services', icon: ClipboardList, allowedRoles: ['host'] },
+      { label: 'Account Settings', href: '/settings', icon: Settings, allowedRoles: ['host'] }
+    ]
+  }
 ];
 
 const clientNavItems: NavItem[] = [
     // Client dashboard/landing page is typically specific, handled by /dashboard redirect
-    // Main client interaction is via QR code URL, not a persistent sidebar menu.
-    // { label: 'Scan QR', href: '/client/scan', icon: QrCode, allowedRoles: ['client'], external: true }, // Example, if needed
 ];
 
 
@@ -52,7 +59,50 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
+
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>(() => {
+    const initialOpenMenus: Record<string, boolean> = {};
+    const navItemsForCurrentUserRole = () => {
+        if (!user) return [];
+        switch (user.role) {
+            case 'admin': return adminNavItems;
+            case 'host': return hostNavItems;
+            case 'client': return clientNavItems;
+            default: return [];
+        }
+    };
+    navItemsForCurrentUserRole().forEach(item => {
+      if (item.children && item.children.some(child => pathname.startsWith(child.href) && child.href !== '#')) {
+        initialOpenMenus[item.label] = true;
+      }
+    });
+    return initialOpenMenus;
+  });
+  
+  useEffect(() => { // Re-evaluate open menus if pathname changes and user exists
+    if (user) {
+        const navItemsForCurrentUserRole = () => {
+            switch (user.role) {
+                case 'admin': return adminNavItems;
+                case 'host': return hostNavItems;
+                case 'client': return clientNavItems;
+                default: return [];
+            }
+        };
+        const newOpenMenus: Record<string, boolean> = {};
+        navItemsForCurrentUserRole().forEach(item => {
+          if (item.children && item.children.some(child => pathname.startsWith(child.href) && child.href !== '#')) {
+            newOpenMenus[item.label] = true;
+          }
+        });
+        // Only update if there's a change to avoid infinite loops if other dependencies are added
+        if (JSON.stringify(newOpenMenus) !== JSON.stringify(openMenus)) {
+            setOpenMenus(prev => ({...prev, ...newOpenMenus}));
+        }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, user]);
+
 
   if (isLoading) {
     return (
@@ -85,12 +135,17 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           currentNavItems = hostNavItems;
           break;
       case 'client':
-          currentNavItems = clientNavItems; // Usually minimal for clients in this app structure
+          currentNavItems = clientNavItems;
           break;
   }
-  // Add general settings link for all authenticated users
-  const settingsItem: NavItem = { label: 'Settings', href: '/settings', icon: Settings, allowedRoles: ['admin', 'host', 'client'] };
-  const allNavItemsForUser = [...currentNavItems, settingsItem];
+
+  let allNavItemsForUser: NavItem[];
+  if (user.role !== 'host') { // Hosts have settings within 'Configuration'
+    const settingsItem: NavItem = { label: 'Settings', href: '/settings', icon: Settings, allowedRoles: ['admin', 'client'] };
+    allNavItemsForUser = [...currentNavItems, settingsItem];
+  } else {
+    allNavItemsForUser = [...currentNavItems];
+  }
 
 
   const toggleMenu = (label: string) => {
@@ -98,17 +153,22 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   };
   
   const NavLink: React.FC<{ item: NavItem; isSubItem?: boolean }> = ({ item, isSubItem = false }) => {
-    // For top-level items, isActive needs to check for startsWith for parent routes.
-    // For /dashboard, it should be an exact match.
-    // For /settings, it should be an exact match unless it has children.
+    const hasChildren = item.children && item.children.length > 0;
+    let isParentActive = false;
+    if (hasChildren) {
+        isParentActive = item.children.some(child => pathname.startsWith(child.href) && child.href !== '#');
+    }
+
     let isActive;
-    if (item.href === '/dashboard' || item.href === '/settings' || item.href === `/${user.role}/dashboard`) {
+    // Exact match for dashboard or if it's a parent group, check children.
+    if (item.href === '/dashboard' || item.href === `/${user.role}/dashboard`) {
         isActive = pathname === item.href;
+    } else if (hasChildren) {
+        isActive = isParentActive;
     } else {
-        isActive = pathname.startsWith(item.href);
+        isActive = pathname.startsWith(item.href); // For non-group items
     }
     
-    const hasChildren = item.children && item.children.length > 0;
     const isMenuOpen = openMenus[item.label] || false;
 
     if (hasChildren) {
@@ -172,14 +232,16 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </Button>
         </div>
         <nav className="flex-grow p-4 space-y-1.5">
-          {allNavItemsForUser.map((item) => ( // Use allNavItemsForUser
+          {allNavItemsForUser.map((item) => (
             isSidebarOpen ? (
-              <NavLink key={item.href} item={item} />
+              <NavLink key={item.label + item.href} item={item} />
             ) : (
-               <Link href={item.href} key={`${item.href}-icon`} legacyBehavior>
+               <Link href={item.href === '#' ? (item.children && item.children[0].href) || '/dashboard' : item.href} key={`${item.label + item.href}-icon`} legacyBehavior>
                 <a title={item.label} className={cn(
                   "flex items-center justify-center h-10 w-10 rounded-lg transition-colors",
-                   pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== `/${user.role}/dashboard` ? "bg-primary/20 text-primary" : (pathname === item.href ? "bg-primary/20 text-primary" : "hover:bg-secondary text-sidebar-foreground")
+                   pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== `/${user.role}/dashboard` && item.href !== '#' ? "bg-primary/20 text-primary" : (pathname === item.href && item.href !== '#' ? "bg-primary/20 text-primary" : "hover:bg-secondary text-sidebar-foreground"),
+                   // Special handling for parent group active state when collapsed
+                   item.children && item.children.some(child => pathname.startsWith(child.href) && child.href !== '#') && "bg-primary/20 text-primary"
                 )}>
                   <item.icon className="h-5 w-5" />
                 </a>
@@ -201,7 +263,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src={`https://placehold.co/100x100.png?text=${userInitial}`} alt={user.nom} data-ai-hint="user initial" />
+                    <AvatarImage src={`https://placehold.co/100x100.png?text=${userInitial}`} alt={user.nom || 'User'} data-ai-hint="user initial" />
                     <AvatarFallback>{userInitial}</AvatarFallback>
                   </Avatar>
                 </Button>
@@ -239,3 +301,4 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 export default AppShell;
+
