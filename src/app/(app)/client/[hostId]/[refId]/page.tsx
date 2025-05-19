@@ -38,16 +38,14 @@ export default function ClientServicePage() {
         setIsLoading(true);
         setError(null);
         try {
-          const [hostData, locationData, servicesData, categoriesData] = await Promise.all([
+          const [hostData, locationData, categoriesData] = await Promise.all([
             getHostById(hostId),
             getRoomOrTableById(refId),
-            getServices(hostId, selectedCategory === "all" ? undefined : selectedCategory),
             getServiceCategories(hostId)
           ]);
 
           if (!hostData) {
             setError(`Host with ID ${hostId} not found.`);
-            setServices([]);
             setHostInfo(null);
             setLocationInfo(null);
             setCategories([]);
@@ -56,7 +54,6 @@ export default function ClientServicePage() {
           }
           if (!locationData || locationData.hostId !== hostId) {
             setError(`Location with ID ${refId} not found or does not belong to host ${hostId}.`);
-            setServices([]);
             setHostInfo(hostData);
             setLocationInfo(null);
             setCategories([]);
@@ -64,6 +61,9 @@ export default function ClientServicePage() {
             return;
           }
           
+          // Fetch services based on current location and category
+          const servicesData = await getServices(hostId, refId, selectedCategory === "all" ? undefined : selectedCategory);
+
           setHostInfo(hostData);
           setLocationInfo(locationData);
           setServices(servicesData);
@@ -152,3 +152,4 @@ export default function ClientServicePage() {
     </div>
   );
 }
+

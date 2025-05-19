@@ -1,5 +1,5 @@
 
-import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, FormFieldTypeOption, Client, ClientType } from './types';
+import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType } from './types';
 
 let users: User[] = [
   { id: 'user-admin-01', email: 'kamel@gmail.com', nom: 'Kamel Admin', role: 'admin', motDePasse: '0000' },
@@ -26,6 +26,7 @@ let roomsOrTables: RoomOrTable[] = [
   { id: 'rt-lobby-reception-01', nom: 'Reception Desk Area', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/rt-lobby-reception-01`},
   { id: 'room-101', nom: 'Chambre 101', type: 'Chambre', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/room-101` },
   { id: 'room-102', nom: 'Chambre 102', type: 'Chambre', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/room-102` },
+  { id: 'table-pool-1', nom: 'Table Piscine 1', type: 'Table', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-pool-01', urlPersonnalise: `/client/host-01/table-pool-1` },
   { id: 'table-5', nom: 'Table 5', type: 'Table', hostId: 'host-02', globalSiteId: 'site-02', parentLocationId: undefined, urlPersonnalise: `/client/host-02/table-5` },
   { id: 'table-vip', nom: 'VIP Table', type: 'Table', hostId: 'host-02', globalSiteId: 'site-02', parentLocationId: undefined, urlPersonnalise: `/client/host-02/table-vip` },
 ];
@@ -36,6 +37,7 @@ let serviceCategories: ServiceCategory[] = [
   { id: 'cat-food', nom: 'Food Menu', hostId: 'host-02', image: 'https://placehold.co/300x200.png', "data-ai-hint": "food menu" },
   { id: 'cat-drinks', nom: 'Beverages', hostId: 'host-02', image: 'https://placehold.co/300x200.png', "data-ai-hint": "drinks beverages" },
   { id: 'cat-activities', nom: 'Activities', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "activities leisure" },
+  { id: 'cat-poolside', nom: 'Poolside Menu', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "poolside snacks" },
 ];
 
 let customForms: CustomForm[] = [
@@ -60,22 +62,23 @@ let formFields: FormField[] = [
 ];
 
 let services: Service[] = [
-  { id: 'svc-taxi', titre: 'Airport Taxi', description: 'Book a taxi to or from the airport.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "taxi airport", categorieId: 'cat-transport', hostId: 'host-01', formulaireId: 'form-booking', prix: 50 },
-  { id: 'svc-breakfast', titre: 'Breakfast in Room', description: 'Order your breakfast to be delivered to your room.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "breakfast room", categorieId: 'cat-roomservice', hostId: 'host-01', formulaireId: 'form-foodorder', prix: 25 },
-  { id: 'svc-pizza', titre: 'Pizza Special', description: 'Delicious stone-baked pizza.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "pizza food", categorieId: 'cat-food', hostId: 'host-02', formulaireId: 'form-foodorder', prix: 15 },
-  { id: 'svc-cocktail', titre: 'Signature Cocktail', description: 'Try our special house cocktail.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "cocktail drink", categorieId: 'cat-drinks', hostId: 'host-02', formulaireId: 'form-generic-info' }, // No price, implies inquiry or free
-  { id: 'svc-concierge', titre: 'Concierge Help', description: 'Ask our concierge for assistance.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "concierge helpdesk", categorieId: 'cat-roomservice', hostId: 'host-01', formulaireId: 'form-generic-info' },
-  { id: 'svc-water', titre: 'Bottled Water', description: 'A refreshing bottle of spring water.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "water bottle", categorieId: 'cat-drinks', hostId: 'host-02', prix: 2, formulaireId: 'form-no-fields' },
-  { id: 'svc-spa', titre: 'Spa Package', description: 'Relax with our full-day spa package.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "spa massage", categorieId: 'cat-activities', hostId: 'host-01', formulaireId: 'form-booking', prix: 150 },
-  { id: 'svc-guidedtour', titre: 'Guided City Tour', description: 'Explore the city with our expert guide.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "city tour", categorieId: 'cat-activities', hostId: 'host-01', formulaireId: 'form-activity-signup', prix: 75 },
+  { id: 'svc-taxi', titre: 'Airport Taxi', description: 'Book a taxi to or from the airport.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "taxi airport", categorieId: 'cat-transport', hostId: 'host-01', formulaireId: 'form-booking', prix: 50, targetLocationIds: [] }, // Host-wide
+  { id: 'svc-breakfast', titre: 'Breakfast in Room', description: 'Order your breakfast to be delivered to your room.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "breakfast room", categorieId: 'cat-roomservice', hostId: 'host-01', formulaireId: 'form-foodorder', prix: 25, targetLocationIds: ['room-101', 'room-102'] }, // Only for these rooms
+  { id: 'svc-pool-cocktails', titre: 'Poolside Cocktails', description: 'Enjoy refreshing cocktails by the pool.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "cocktail pool", categorieId: 'cat-poolside', hostId: 'host-01', prix: 12, targetLocationIds: ['rt-pool-01'] }, // For entire pool area
+  { id: 'svc-pizza', titre: 'Pizza Special', description: 'Delicious stone-baked pizza.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "pizza food", categorieId: 'cat-food', hostId: 'host-02', formulaireId: 'form-foodorder', prix: 15, targetLocationIds: [] },
+  { id: 'svc-cocktail', titre: 'Signature Cocktail (Restaurant)', description: 'Try our special house cocktail.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "cocktail drink", categorieId: 'cat-drinks', hostId: 'host-02', formulaireId: 'form-generic-info', targetLocationIds: [] },
+  { id: 'svc-concierge', titre: 'Concierge Help', description: 'Ask our concierge for assistance.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "concierge helpdesk", categorieId: 'cat-roomservice', hostId: 'host-01', formulaireId: 'form-generic-info', targetLocationIds: ['rt-lobby-01'] }, // Concierge available in lobby
+  { id: 'svc-water', titre: 'Bottled Water', description: 'A refreshing bottle of spring water.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "water bottle", categorieId: 'cat-drinks', hostId: 'host-02', prix: 2, formulaireId: 'form-no-fields', targetLocationIds: [] },
+  { id: 'svc-spa', titre: 'Spa Package', description: 'Relax with our full-day spa package.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "spa massage", categorieId: 'cat-activities', hostId: 'host-01', formulaireId: 'form-booking', prix: 150, targetLocationIds: [] },
+  { id: 'svc-guidedtour', titre: 'Guided City Tour', description: 'Explore the city with our expert guide.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "city tour", categorieId: 'cat-activities', hostId: 'host-01', formulaireId: 'form-activity-signup', prix: 75, targetLocationIds: [] },
 ];
 
 let orders: Order[] = [
-  { id: 'order-001', serviceId: 'svc-taxi', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', donneesFormulaire: JSON.stringify({ persons: 2, date: '2024-08-15', time: '10:00' }), dateHeure: new Date(Date.now() - 3600000 * 2).toISOString(), status: 'pending' },
-  { id: 'order-002', serviceId: 'svc-breakfast', hostId: 'host-01', chambreTableId: 'room-102', clientNom: 'Bob The Builder', donneesFormulaire: JSON.stringify({ dish: "Continental Breakfast", notes: "Extra orange juice"}), dateHeure: new Date(Date.now() - 3600000 * 5).toISOString(), status: 'completed'},
-  { id: 'order-003', serviceId: 'svc-pizza', hostId: 'host-02', chambreTableId: 'table-5', clientNom: 'Alice Wonderland', donneesFormulaire: JSON.stringify({dish: "Pepperoni Pizza", notes: "Extra cheese"}), dateHeure: new Date(Date.now() - 3600000 * 1).toISOString(), status: 'confirmed'},
-  { id: 'order-004', serviceId: 'svc-spa', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', donneesFormulaire: JSON.stringify({ persons: 1, date: '2024-09-10', time: '14:00' }), dateHeure: new Date().toISOString(), status: 'pending' },
-  { id: 'order-005', serviceId: 'svc-guidedtour', hostId: 'host-01', chambreTableId: 'room-102', clientNom: 'Bob The Builder', donneesFormulaire: JSON.stringify({ participant_name: "Bob Builder", participant_age: "35" }), dateHeure: new Date(Date.now() - 3600000 * 24).toISOString(), status: 'completed' },
+  { id: 'order-001', serviceId: 'svc-taxi', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', donneesFormulaire: JSON.stringify({ persons: 2, date: '2024-08-15', time: '10:00' }), dateHeure: new Date(Date.now() - 3600000 * 2).toISOString(), status: 'pending', prix: 50 },
+  { id: 'order-002', serviceId: 'svc-breakfast', hostId: 'host-01', chambreTableId: 'room-102', clientNom: 'Bob The Builder', donneesFormulaire: JSON.stringify({ dish: "Continental Breakfast", notes: "Extra orange juice"}), dateHeure: new Date(Date.now() - 3600000 * 5).toISOString(), status: 'completed', prix: 25},
+  { id: 'order-003', serviceId: 'svc-pizza', hostId: 'host-02', chambreTableId: 'table-5', clientNom: 'Alice Wonderland', donneesFormulaire: JSON.stringify({dish: "Pepperoni Pizza", notes: "Extra cheese"}), dateHeure: new Date(Date.now() - 3600000 * 1).toISOString(), status: 'confirmed', prix: 15},
+  { id: 'order-004', serviceId: 'svc-spa', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', donneesFormulaire: JSON.stringify({ persons: 1, date: '2024-09-10', time: '14:00' }), dateHeure: new Date().toISOString(), status: 'pending', prix: 150 },
+  { id: 'order-005', serviceId: 'svc-guidedtour', hostId: 'host-01', chambreTableId: 'room-102', clientNom: 'Bob The Builder', donneesFormulaire: JSON.stringify({ participant_name: "Bob Builder", participant_age: "35" }), dateHeure: new Date(Date.now() - 3600000 * 24).toISOString(), status: 'completed', prix: 75 },
 ];
 
 let clients: Client[] = [
@@ -255,7 +258,7 @@ export const getRoomsOrTables = async (hostId: string, globalSiteIdParam?: strin
   if (globalSiteIdParam) {
     filtered = filtered.filter(rt => rt.globalSiteId === globalSiteIdParam);
   }
-  return filtered;
+  return filtered.sort((a,b) => a.nom.localeCompare(b.nom)); // Sort for consistent UI
 };
 
 
@@ -280,9 +283,10 @@ export const updateRoomOrTable = async (id: string, data: Partial<Omit<RoomOrTab
     const currentItem = roomsOrTables[itemIndex];
     roomsOrTables[itemIndex] = {
         ...currentItem,
-        ...data,
-        hostId: currentItem.hostId,
+        ...data, // Apply partial updates
+        hostId: currentItem.hostId, // Ensure hostId and URL are not changed by partial update
         urlPersonnalise: currentItem.urlPersonnalise,
+         // Ensure globalSiteId and parentLocationId are correctly preserved or updated
         globalSiteId: data.globalSiteId !== undefined ? data.globalSiteId : currentItem.globalSiteId,
         parentLocationId: data.parentLocationId !== undefined ? data.parentLocationId : currentItem.parentLocationId,
     };
@@ -297,11 +301,19 @@ export const deleteRoomOrTable = async (id: string): Promise<boolean> => {
     const locationToDelete = roomsOrTables.find(rt => rt.id === id);
 
     if (locationToDelete) {
+        // Re-parent children of the deleted location to its parent (or make them top-level under global site if no grandparent)
         const children = roomsOrTables.filter(rt => rt.parentLocationId === id);
         children.forEach(child => {
             const childIndex = roomsOrTables.findIndex(c => c.id === child.id);
             if (childIndex > -1) {
-                roomsOrTables[childIndex].parentLocationId = locationToDelete.parentLocationId;
+                 // Assign to grandparent or make top-level if no grandparent
+                roomsOrTables[childIndex].parentLocationId = locationToDelete.parentLocationId || undefined;
+            }
+        });
+         // Also remove from any service targetLocationIds
+        services.forEach(service => {
+            if (service.targetLocationIds?.includes(id)) {
+                service.targetLocationIds = service.targetLocationIds.filter(targetId => targetId !== id);
             }
         });
     }
@@ -330,7 +342,7 @@ export const updateServiceCategory = async (id: string, data: Partial<Omit<Servi
 export const deleteServiceCategory = async (id: string): Promise<boolean> => {
     const initialLength = serviceCategories.length;
     serviceCategories = serviceCategories.filter(sc => sc.id !== id);
-    services = services.map(s => s.categorieId === id ? {...s, categorieId: ''} : s);
+    services = services.map(s => s.categorieId === id ? {...s, categorieId: ''} : s); // Uncategorize services
     return serviceCategories.length < initialLength;
 };
 export const getServiceCategoryById = async (id: string): Promise<ServiceCategory | undefined> => {
@@ -391,26 +403,72 @@ export const deleteFormField = async (id: string): Promise<boolean> => {
 };
 
 // --- Service Management ---
-export const getServices = async (hostId: string, categoryId?: string): Promise<Service[]> => {
-  let filteredServices = services.filter(s => s.hostId === hostId);
-  if (categoryId && categoryId !== "all" && categoryId !== "") { 
-    filteredServices = filteredServices.filter(s => s.categorieId === categoryId);
+export const getServices = async (
+  hostId: string,
+  clientCurrentLocationId?: string, // This is the refId from the QR code for client view
+  categoryId?: string
+): Promise<Service[]> => {
+  let hostServices = services.filter(s => s.hostId === hostId);
+
+  if (clientCurrentLocationId) {
+    const currentScannedLocation = await getRoomOrTableById(clientCurrentLocationId);
+    if (!currentScannedLocation) {
+      console.error(`Location with ID ${clientCurrentLocationId} not found.`);
+      return [];
+    }
+
+    const ancestorAndSelfLocationIds: string[] = [currentScannedLocation.id];
+    let parentId = currentScannedLocation.parentLocationId;
+    while (parentId) {
+      const parentLocation = await getRoomOrTableById(parentId); // Fetch parent details
+      if (parentLocation) {
+        ancestorAndSelfLocationIds.push(parentId);
+        parentId = parentLocation.parentLocationId;
+      } else {
+        parentId = undefined; // Parent not found, break loop
+      }
+    }
+    
+    hostServices = hostServices.filter(service => {
+      if (!service.targetLocationIds || service.targetLocationIds.length === 0) {
+        return true; // Service is host-wide (available to all locations of this host)
+      }
+      // Check if any of the service's target locations are in the client's current location hierarchy
+      return service.targetLocationIds.some(targetId => ancestorAndSelfLocationIds.includes(targetId));
+    });
   }
-  return filteredServices;
+  // else if not clientCurrentLocationId, it means we are fetching for host admin view, so no location-based filtering.
+
+  if (categoryId && categoryId !== "all" && categoryId !== "") {
+    hostServices = hostServices.filter(s => s.categorieId === categoryId);
+  }
+  return hostServices;
 };
 
 export const getServiceById = async (serviceId: string): Promise<Service | undefined> => {
   return services.find(s => s.id === serviceId);
 };
+
 export const addService = async (data: Omit<Service, 'id' | 'data-ai-hint'>): Promise<Service> => {
-  const newService: Service = { ...data, id: `svc-${Date.now()}`, "data-ai-hint": data.titre.toLowerCase().substring(0,15).replace(/\s+/g, ' ') };
+  const newService: Service = {
+    ...data,
+    id: `svc-${Date.now()}`,
+    "data-ai-hint": data.titre.toLowerCase().substring(0,15).replace(/\s+/g, ' '),
+    targetLocationIds: data.targetLocationIds || [] // Ensure it's an array
+  };
   services.push(newService);
   return newService;
 };
+
 export const updateService = async (id: string, data: Partial<Omit<Service, 'id' | 'hostId' | 'data-ai-hint'>>): Promise<Service | undefined> => {
   const serviceIndex = services.findIndex(s => s.id === id);
   if (serviceIndex > -1) {
-    services[serviceIndex] = { ...services[serviceIndex], ...data, "data-ai-hint": data.titre ? data.titre.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : services[serviceIndex]["data-ai-hint"] };
+    services[serviceIndex] = {
+      ...services[serviceIndex],
+      ...data,
+      "data-ai-hint": data.titre ? data.titre.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : services[serviceIndex]["data-ai-hint"],
+      targetLocationIds: data.targetLocationIds !== undefined ? data.targetLocationIds : services[serviceIndex].targetLocationIds,
+    };
     return services[serviceIndex];
   }
   return undefined;
@@ -459,11 +517,13 @@ export const getOrdersByClientName = async (hostId: string, clientName: string):
 };
 
 export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status'>): Promise<Order> => {
+  const serviceDetails = await getServiceById(data.serviceId);
   const newOrder: Order = {
     ...data,
     id: `order-${Date.now()}`,
     dateHeure: new Date().toISOString(),
     status: 'pending',
+    prix: serviceDetails?.prix // Capture price at time of order
   };
   orders.push(newOrder);
   return newOrder;
@@ -508,5 +568,4 @@ export const deleteClient = async (clientId: string): Promise<boolean> => {
   return clients.length < initialLength;
 };
 
-console.log("Mock data initialized/reloaded. Current clients count:", clients.length);
-
+console.log("Mock data initialized/reloaded.");

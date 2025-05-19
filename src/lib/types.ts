@@ -69,6 +69,7 @@ export interface Service {
   hostId: string;
   formulaireId?: string; // Optional: A service might not need a form
   prix?: number;
+  targetLocationIds?: string[]; // NEW: Array of RoomOrTable IDs
 }
 
 export type OrderStatus = "pending" | "confirmed" | "completed" | "cancelled";
@@ -82,6 +83,7 @@ export interface Order {
   donneesFormulaire: string;
   dateHeure: string;
   status: OrderStatus;
+  prix?: number; // Added to store price at time of order
 }
 
 // Helper type for navigation items
@@ -100,11 +102,21 @@ export interface ClientDetails {
   name: string;
   orders: (Order & { serviceName?: string; locationName?: string })[];
   locations: (RoomOrTable & { globalSiteName?: string })[];
-  // Potential future fields:
-  // arrivalDate?: string;
-  // departureDate?: string;
-  // contactEmail?: string;
-  // contactPhone?: string;
-  // preferences?: string[];
-  // totalSpent?: number;
 }
+
+export type ClientType = "heberge" | "passager";
+
+export interface Client {
+    id: string;
+    hostId: string;
+    nom: string;
+    email?: string;
+    telephone?: string;
+    type: ClientType;
+    dateArrivee?: string; // Stored as YYYY-MM-DD string
+    dateDepart?: string;  // Stored as YYYY-MM-DD string
+    locationId?: string; // Assigned RoomOrTable ID
+    notes?: string;
+    documents?: Array<{ name: string; url: string; uploadedAt: string }>; // Placeholder
+}
+
