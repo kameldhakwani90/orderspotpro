@@ -137,6 +137,33 @@ export default function HostServiceCategoriesPage() {
     }
   };
 
+  const renderCategoryVisual = (category: ServiceCategory) => {
+    if (category.image && category.image.trim().startsWith('https://placehold.co/')) {
+      return (
+        <Image
+          src={category.image}
+          alt={category.nom}
+          width={50}
+          height={50}
+          className="rounded-md object-cover aspect-square"
+          data-ai-hint={category['data-ai-hint'] || 'category icon'}
+        />
+      );
+    } else {
+      if (category.image && category.image.trim() !== '') {
+        console.warn(
+          `Image for category "${category.nom}" (ID: ${category.id}) is from an unconfigured or invalid host: ${category.image}. Displaying generic icon.`
+        );
+      }
+      return (
+        <div className="w-[50px] h-[50px] bg-muted rounded-md flex items-center justify-center">
+          <ImageIcon className="h-6 w-6 text-muted-foreground" />
+        </div>
+      );
+    }
+  };
+
+
   if (isLoading || authLoading) {
     return (
         <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
@@ -183,13 +210,7 @@ export default function HostServiceCategoriesPage() {
               {categories.map((category) => (
                 <TableRow key={category.id}>
                   <TableCell>
-                    {category.image ? (
-                      <Image src={category.image} alt={category.nom} width={50} height={50} className="rounded-md object-cover aspect-square" data-ai-hint={category['data-ai-hint'] || 'category icon'} />
-                    ) : (
-                      <div className="w-[50px] h-[50px] bg-muted rounded-md flex items-center justify-center">
-                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                    )}
+                    {renderCategoryVisual(category)}
                   </TableCell>
                   <TableCell className="font-medium flex items-center">
                     <ListChecks className="mr-2 h-5 w-5 text-primary invisible md:visible" />
@@ -245,6 +266,9 @@ export default function HostServiceCategoriesPage() {
                 disabled={isSubmitting}
               />
             </div>
+            <p className="text-xs text-muted-foreground col-span-4 text-center px-4">
+                Tip: Use image URLs starting with `https://placehold.co/` or ensure your desired image hosts are configured in `next.config.ts`.
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
