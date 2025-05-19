@@ -2,45 +2,45 @@
 export type UserRole = "admin" | "host" | "client";
 
 export interface User {
-  id: string; // Using 'id' as a generic identifier, email can be separate if needed for login
-  email: string; // Clé
+  id: string; 
+  email: string; 
   nom: string;
   role: UserRole;
-  hostId?: string; // Identifiant de l’établissement (vide pour admin)
-  motDePasse: string; // For MVP, plain text
+  hostId?: string; 
+  motDePasse: string; 
 }
 
-export interface Site {
-  siteId: string; // Clé
+export interface Site { // Represents a Global Site
+  siteId: string; 
   nom: string;
-  siteParentId?: string; // Référence à un autre site
-  hostId: string; // Link to host managing this site
+  // siteParentId?: string; // This concept is now handled by RoomOrTable's parentLocationId if needed for sub-sites managed by hosts
+  hostId: string; 
 }
 
 export interface Host {
-  hostId: string; // Clé
+  hostId: string; 
   nom: string;
-  email: string; // Should be unique, can be same as User.email
-  // SiteID is managed through User.hostId implicitly, or explicit Sites table link
+  email: string; 
 }
 
 export interface RoomOrTable {
-  id: string; // Clé
+  id: string; 
   nom: string;
-  type: "Chambre" | "Table" | "Site"; // Added "Site"
-  hostId: string; // Référence
-  siteId: string; // Référence
-  urlPersonnalise: string; // Généré automatiquement
+  type: "Chambre" | "Table" | "Site"; // 'Site' here means a sub-area/zone within a Global Site
+  hostId: string; 
+  globalSiteId: string; // FK to Site.siteId (the overarching Global Site)
+  parentLocationId?: string; // FK to another RoomOrTable.id (if this location is nested)
+  urlPersonnalise: string; 
 }
 
 export interface ServiceCategory {
-  id: string; // Clé
+  id: string; 
   nom: string;
-  hostId: string; // Référence
+  hostId: string; 
 }
 
 export interface CustomForm {
-  id: string; // Clé
+  id: string; 
   nom: string;
   hostId: string;
 }
@@ -48,35 +48,35 @@ export interface CustomForm {
 export type FormFieldType = "text" | "number" | "date" | "time" | "textarea" | "email" | "tel";
 
 export interface FormField {
-  id: string; // Clé
-  formulaireId: string; // Référence
-  label: string; // ex: “Nombre de personnes”
+  id: string; 
+  formulaireId: string; 
+  label: string; 
   type: FormFieldType;
-  obligatoire: boolean; // Oui / Non
-  ordre: number; // Ordre d’affichage
+  obligatoire: boolean; 
+  ordre: number; 
   placeholder?: string;
-  options?: string[]; // For select/radio type in future
+  options?: string[]; 
 }
 
 export interface Service {
-  id: string; // Clé
+  id: string; 
   titre: string;
   description: string;
-  image?: string; // URL - Optional
-  categorieId: string; // Référence
-  hostId: string; // Référence
-  formulaireId: string; // Référence
-  prix?: number; // Facultatif
+  image?: string; 
+  categorieId: string; 
+  hostId: string; 
+  formulaireId: string; 
+  prix?: number; 
 }
 
 export interface Order {
-  id: string; // Clé auto
-  serviceId: string; // Référence
+  id: string; 
+  serviceId: string; 
   hostId: string;
-  chambreTableId: string; // Référence
-  clientNom?: string; // Optional for client
-  donneesFormulaire: string; // Format texte ou JSON
-  dateHeure: string; // ISO Date string
+  chambreTableId: string; 
+  clientNom?: string; 
+  donneesFormulaire: string; 
+  dateHeure: string; 
   status: "pending" | "confirmed" | "completed" | "cancelled";
 }
 
@@ -87,6 +87,6 @@ export interface NavItem {
   icon: React.ElementType;
   allowedRoles: UserRole[];
   children?: NavItem[];
-  isChidren?: boolean; // To identify sub-menu items for styling if needed
-  external?: boolean; // For QR code links
+  isChidren?: boolean; 
+  external?: boolean; 
 }
