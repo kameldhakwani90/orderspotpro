@@ -3,13 +3,15 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { getOrders, updateOrderStatus as updateOrderStatusInData, getServices, getRoomsOrTables, getServiceById, getRoomOrTableById } from '@/lib/data';
-import type { Order, Service, RoomOrTable, OrderStatus } from '@/lib/types';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'; // Added usePathname
+import Link from 'next/link';
+import { getOrders, updateOrderStatus as updateOrderStatusInData, getServices, getServiceCategories, getServiceById, getRoomOrTableById } from '@/lib/data';
+import type { Order, Service, RoomOrTable, OrderStatus, ServiceCategory } from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, XCircle, Clock, Truck, ShoppingCart, Filter, Eye } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, ShoppingCart, Filter, Eye, UserCircle } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -23,7 +25,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -43,9 +44,9 @@ const getStatusIcon = (status: OrderStatus) => {
 
 const getStatusBadgeVariant = (status: OrderStatus): "default" | "secondary" | "destructive" | "outline" => {
   switch (status) {
-    case 'pending': return "default"; // Often yellow, but primary might be blue
-    case 'confirmed': return "secondary"; // Often blue/purple
-    case 'completed': return "default"; // Often green, but Shadcn 'default' can be themed. Or specific green class.
+    case 'pending': return "default"; 
+    case 'confirmed': return "secondary"; 
+    case 'completed': return "default"; 
     case 'cancelled': return "destructive";
     default: return "outline";
   }
@@ -55,23 +56,54 @@ const getStatusBadgeVariant = (status: OrderStatus): "default" | "secondary" | "
 export default function HostOrdersPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { toast } = useToast();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState<OrderStatus | "all">("all");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [viewingOrder, setViewingOrder] = useState<Order & { serviceName?: string; locationName?: string } | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
 
-  const fetchData = useCallback(async (hostId: string, statusFilter: OrderStatus | "all") => {
+  const [allServices, setAllServices] = useState<Service[]>([]);
+  const [allCategories, setAllCategories] = useState<ServiceCategory[]>([]);
+  
+  // Filters
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<OrderStatus | "all">("all");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("all");
+  const [selectedServiceFilter, setSelectedServiceFilter] = useState<string>("all");
+  const [clientNameFilter, setClientNameFilter] = useState<string>("");
+
+
+  const fetchData = useCallback(async (hostId: string) => {
     setIsLoading(true);
     try {
-      const status = statusFilter === "all" ? undefined : statusFilter;
-      const ordersData = await getOrders(hostId, status);
+      const [categoriesData, servicesData] = await Promise.all([
+        getServiceCategories(hostId),
+        getServices(hostId) // Fetch all services for the host initially for filter population
+      ]);
+      setAllCategories(categoriesData);
+      setAllServices(servicesData);
+
+      const currentParams = new URLSearchParams(searchParams.toString());
+      const status = (currentParams.get('status') as OrderStatus | "all") || "all";
+      const categoryId = currentParams.get('categoryId') || "all";
+      const serviceId = currentParams.get('serviceId') || "all";
+      const clientName = currentParams.get('clientName') || "";
       
-      // Fetch service and location names for each order for richer display
+      setSelectedStatusFilter(status);
+      setSelectedCategoryFilter(categoryId);
+      setSelectedServiceFilter(serviceId);
+      setClientNameFilter(clientName);
+
+      const ordersData = await getOrders(hostId, { 
+        status: status === "all" ? undefined : status,
+        categoryId: categoryId === "all" ? undefined : categoryId,
+        serviceId: serviceId === "all" ? undefined : serviceId,
+        clientName: clientName.trim() === "" ? undefined : clientName.trim(),
+       });
+      
       const enrichedOrders = await Promise.all(ordersData.map(async (order) => {
         const service = await getServiceById(order.serviceId);
         const location = await getRoomOrTableById(order.chambreTableId);
@@ -89,30 +121,47 @@ export default function HostOrdersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
-
-  useEffect(() => {
-    const statusFromParams = searchParams.get('status') as OrderStatus | null;
-    if (statusFromParams && orderStatuses.includes(statusFromParams)) {
-        setSelectedStatusFilter(statusFromParams);
-    } else {
-        setSelectedStatusFilter("all");
-    }
-  }, [searchParams]);
+  }, [searchParams, toast]); // Removed user from deps as it's checked in useEffect
 
   useEffect(() => {
     if (!authLoading) {
       if (user?.role !== 'host' || !user.hostId) {
         router.replace('/dashboard');
       } else {
-        fetchData(user.hostId, selectedStatusFilter);
+        fetchData(user.hostId);
       }
     }
-  }, [user, authLoading, router, fetchData, selectedStatusFilter]);
+  }, [user, authLoading, router, fetchData]);
 
-  const handleStatusFilterChange = (status: OrderStatus | "all") => {
-    setSelectedStatusFilter(status);
-    router.push(`/host/orders${status === "all" ? '' : `?status=${status}`}`);
+  const updateFiltersInUrl = () => {
+    const currentParams = new URLSearchParams();
+    if (selectedStatusFilter !== "all") currentParams.set('status', selectedStatusFilter);
+    if (selectedCategoryFilter !== "all") currentParams.set('categoryId', selectedCategoryFilter);
+    if (selectedServiceFilter !== "all") currentParams.set('serviceId', selectedServiceFilter);
+    if (clientNameFilter.trim() !== "") currentParams.set('clientName', clientNameFilter.trim());
+    router.push(`${pathname}?${currentParams.toString()}`);
+  };
+
+  // Handlers for filter changes
+  const handleStatusFilterChange = (status: OrderStatus | "all") => setSelectedStatusFilter(status);
+  const handleCategoryFilterChange = (categoryId: string) => {
+    setSelectedCategoryFilter(categoryId);
+    setSelectedServiceFilter("all"); // Reset service filter when category changes
+  };
+  const handleServiceFilterChange = (serviceId: string) => setSelectedServiceFilter(serviceId);
+  const handleClientNameChange = (e: React.ChangeEvent<HTMLInputElement>) => setClientNameFilter(e.target.value);
+  
+  const handleApplyFilters = () => {
+      updateFiltersInUrl();
+      // fetchData will be called by useEffect reacting to searchParams change via router.push
+  };
+  
+  const handleResetFilters = () => {
+    setSelectedStatusFilter("all");
+    setSelectedCategoryFilter("all");
+    setSelectedServiceFilter("all");
+    setClientNameFilter("");
+    router.push(pathname); // Clears query params
   };
 
   const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus) => {
@@ -121,7 +170,7 @@ export default function HostOrdersPage() {
     try {
       await updateOrderStatusInData(orderId, newStatus);
       toast({ title: "Order Status Updated", description: `Order #${orderId.slice(-5)} status changed to ${newStatus}.` });
-      fetchData(user.hostId, selectedStatusFilter); // Refresh data
+      fetchData(user.hostId); // Refresh data
     } catch (error) {
       console.error("Failed to update order status:", error);
       toast({ title: "Error", description: "Could not update order status.", variant: "destructive" });
@@ -134,13 +183,21 @@ export default function HostOrdersPage() {
     setViewingOrder(order);
     setIsDetailsDialogOpen(true);
   };
+  
+  const filteredServicesForDropdown = selectedCategoryFilter === "all" 
+    ? allServices 
+    : allServices.filter(s => s.categorieId === selectedCategoryFilter);
+
 
   if (isLoading || authLoading) {
     return (
         <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
             <div className="flex justify-between items-center mb-8">
                 <div><Skeleton className="h-10 w-72 mb-2" /><Skeleton className="h-6 w-96" /></div>
-                <Skeleton className="h-10 w-48" />
+            </div>
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                {[...Array(4)].map((_,i) => <Skeleton key={i} className="h-10 w-full" />)}
+                 <Skeleton className="h-10 w-full lg:col-span-2" />
             </div>
             <Card className="shadow-lg">
                 <CardHeader><Skeleton className="h-8 w-48 mb-2" /><Skeleton className="h-5 w-64" /></CardHeader>
@@ -157,32 +214,59 @@ export default function HostOrdersPage() {
           <h1 className="text-4xl font-bold tracking-tight text-foreground">Client Orders</h1>
           <p className="text-lg text-muted-foreground">View and manage all incoming service requests.</p>
         </div>
-        <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-muted-foreground" />
-            <Select value={selectedStatusFilter} onValueChange={handleStatusFilterChange}>
-                <SelectTrigger className="w-full sm:w-[180px] bg-card">
-                    <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    {orderStatuses.map(status => (
-                    <SelectItem key={status} value={status} className="capitalize">{status}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        </div>
       </div>
+
+      <Card className="mb-8 shadow-md">
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center"><Filter className="mr-2 h-5 w-5 text-primary" /> Filter Orders</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Select value={selectedStatusFilter} onValueChange={handleStatusFilterChange}>
+            <SelectTrigger className="bg-card"><SelectValue placeholder="Filter by status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {orderStatuses.map(status => <SelectItem key={status} value={status} className="capitalize">{status}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={selectedCategoryFilter} onValueChange={handleCategoryFilterChange}>
+            <SelectTrigger className="bg-card"><SelectValue placeholder="Filter by category" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {allCategories.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.nom}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={selectedServiceFilter} onValueChange={handleServiceFilterChange} disabled={selectedCategoryFilter === "all" && allServices.length > 10 /* Heuristic: disable if too many services without category filter */}>
+            <SelectTrigger className="bg-card"><SelectValue placeholder="Filter by service" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Services</SelectItem>
+              {filteredServicesForDropdown.map(srv => <SelectItem key={srv.id} value={srv.id}>{srv.titre}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Input 
+            type="text" 
+            placeholder="Filter by Client Name" 
+            value={clientNameFilter} 
+            onChange={handleClientNameChange}
+            className="bg-card sm:col-span-2 lg:col-span-1"
+          />
+          <div className="sm:col-span-2 lg:col-span-2 flex flex-col sm:flex-row gap-2 items-center justify-end">
+            <Button onClick={handleApplyFilters} className="w-full sm:w-auto">Apply Filters</Button>
+            <Button variant="outline" onClick={handleResetFilters} className="w-full sm:w-auto">Reset Filters</Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Order List</CardTitle>
-          <CardDescription>Total orders ({selectedStatusFilter === "all" ? "All" : selectedStatusFilter}): {orders.length}</CardDescription>
+          <CardDescription>Total orders ({orders.length}) matching current filters.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Order ID</TableHead>
+                <TableHead>Client</TableHead>
                 <TableHead>Service</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Date</TableHead>
@@ -194,6 +278,14 @@ export default function HostOrdersPage() {
               {orders.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">#{order.id.slice(-6)}</TableCell>
+                  <TableCell>
+                    {order.clientNom ? (
+                      <Link href={`/host/clients/${encodeURIComponent(order.clientNom)}`} className="hover:underline text-primary flex items-center">
+                        <UserCircle className="mr-1.5 h-4 w-4" />
+                        {order.clientNom}
+                      </Link>
+                    ) : 'N/A'}
+                  </TableCell>
                   <TableCell>{order.serviceName || order.serviceId}</TableCell>
                   <TableCell>{order.locationName || order.chambreTableId}</TableCell>
                   <TableCell>{new Date(order.dateHeure).toLocaleString()}</TableCell>
@@ -212,7 +304,7 @@ export default function HostOrdersPage() {
                         onValueChange={(newStatus) => handleUpdateStatus(order.id, newStatus as OrderStatus)}
                         disabled={isSubmitting}
                     >
-                        <SelectTrigger className="w-[130px] h-9 text-xs">
+                        <SelectTrigger className="w-[130px] h-9 text-xs bg-card">
                             <SelectValue placeholder="Change Status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -232,7 +324,6 @@ export default function HostOrdersPage() {
         </CardContent>
       </Card>
 
-      {/* Order Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -274,8 +365,6 @@ export default function HostOrdersPage() {
            <Button variant="outline" onClick={() => setIsDetailsDialogOpen(false)} className="mt-4">Close</Button>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }
-

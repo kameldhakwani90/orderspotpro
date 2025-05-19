@@ -46,13 +46,13 @@ export interface CustomForm {
   hostId: string;
 }
 
-export type FormFieldTypeOption = "text" | "number" | "date" | "time" | "textarea" | "email" | "tel"; // Renamed to avoid conflict
+export type FormFieldTypeOption = "text" | "number" | "date" | "time" | "textarea" | "email" | "tel";
 
 export interface FormField {
   id: string;
   formulaireId: string;
   label: string;
-  type: FormFieldTypeOption; // Use the renamed type
+  type: FormFieldTypeOption;
   obligatoire: boolean;
   ordre: number;
   placeholder?: string;
@@ -71,6 +71,8 @@ export interface Service {
   prix?: number;
 }
 
+export type OrderStatus = "pending" | "confirmed" | "completed" | "cancelled";
+
 export interface Order {
   id: string;
   serviceId: string;
@@ -79,7 +81,7 @@ export interface Order {
   clientNom?: string;
   donneesFormulaire: string;
   dateHeure: string;
-  status: "pending" | "confirmed" | "completed" | "cancelled";
+  status: OrderStatus;
 }
 
 // Helper type for navigation items
@@ -91,4 +93,18 @@ export interface NavItem {
   children?: NavItem[];
   isChidren?: boolean;
   external?: boolean;
+}
+
+// For Client File Page
+export interface ClientDetails {
+  name: string;
+  orders: (Order & { serviceName?: string; locationName?: string })[];
+  locations: (RoomOrTable & { globalSiteName?: string })[];
+  // Potential future fields:
+  // arrivalDate?: string;
+  // departureDate?: string;
+  // contactEmail?: string;
+  // contactPhone?: string;
+  // preferences?: string[];
+  // totalSpent?: number;
 }

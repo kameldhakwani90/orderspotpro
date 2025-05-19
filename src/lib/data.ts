@@ -1,11 +1,12 @@
 
-import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, FormFieldTypeOption } from './types';
+import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, FormFieldTypeOption } from './types';
 
 let users: User[] = [
   { id: 'user-admin-01', email: 'kamel@gmail.com', nom: 'Kamel Admin', role: 'admin', motDePasse: '0000' },
   { id: 'user-host-01', email: 'host1@example.com', nom: 'Hotel Paradise', role: 'host', hostId: 'host-01', motDePasse: '1234' },
   { id: 'user-host-02', email: 'host2@example.com', nom: 'Restaurant Delice', role: 'host', hostId: 'host-02', motDePasse: '1234' },
-  { id: 'user-client-01', email: 'client1@example.com', nom: 'Client Test', role: 'client', motDePasse: '1234' },
+  { id: 'user-client-01', email: 'client1@example.com', nom: 'Alice Wonderland', role: 'client', motDePasse: '1234' },
+  { id: 'user-client-02', email: 'client2@example.com', nom: 'Bob The Builder', role: 'client', motDePasse: '1234' },
 ];
 
 let sites: Site[] = [ // Global Sites
@@ -22,9 +23,11 @@ let roomsOrTables: RoomOrTable[] = [
   { id: 'rt-globalsite-root-site-01', nom: 'Paradise Resort Main Area', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: undefined, urlPersonnalise: `/client/host-01/rt-globalsite-root-site-01`},
   { id: 'rt-lobby-01', nom: 'Lobby Zone', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-globalsite-root-site-01', urlPersonnalise: `/client/host-01/rt-lobby-01`},
   { id: 'rt-pool-01', nom: 'Pool Area', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-globalsite-root-site-01', urlPersonnalise: `/client/host-01/rt-pool-01`},
-    { id: 'rt-lobby-reception-01', nom: 'Reception Desk Area', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/rt-lobby-reception-01`},
+  { id: 'rt-lobby-reception-01', nom: 'Reception Desk Area', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/rt-lobby-reception-01`},
   { id: 'room-101', nom: 'Chambre 101', type: 'Chambre', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/room-101` },
+  { id: 'room-102', nom: 'Chambre 102', type: 'Chambre', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/room-102` },
   { id: 'table-5', nom: 'Table 5', type: 'Table', hostId: 'host-02', globalSiteId: 'site-02', parentLocationId: undefined, urlPersonnalise: `/client/host-02/table-5` },
+  { id: 'table-vip', nom: 'VIP Table', type: 'Table', hostId: 'host-02', globalSiteId: 'site-02', parentLocationId: undefined, urlPersonnalise: `/client/host-02/table-vip` },
 ];
 
 let serviceCategories: ServiceCategory[] = [
@@ -32,6 +35,7 @@ let serviceCategories: ServiceCategory[] = [
   { id: 'cat-transport', nom: 'Transport', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "transportation" },
   { id: 'cat-food', nom: 'Food Menu', hostId: 'host-02', image: 'https://placehold.co/300x200.png', "data-ai-hint": "food menu" },
   { id: 'cat-drinks', nom: 'Beverages', hostId: 'host-02', image: 'https://placehold.co/300x200.png', "data-ai-hint": "drinks beverages" },
+  { id: 'cat-activities', nom: 'Activities', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "activities leisure" },
 ];
 
 let customForms: CustomForm[] = [
@@ -39,6 +43,7 @@ let customForms: CustomForm[] = [
   { id: 'form-foodorder', nom: 'Food Order Details', hostId: 'host-02' },
   { id: 'form-generic-info', nom: 'General Inquiry', hostId: 'host-01' },
   { id: 'form-no-fields', nom: 'Simple Confirmation', hostId: 'host-01' },
+  { id: 'form-activity-signup', nom: 'Activity Sign-up', hostId: 'host-01'},
 ];
 
 let formFields: FormField[] = [
@@ -50,19 +55,28 @@ let formFields: FormField[] = [
   { id: 'field-name-generic', formulaireId: 'form-generic-info', label: 'Your Name', type: 'text', obligatoire: true, ordre: 1, placeholder: 'John Doe' },
   { id: 'field-email-generic', formulaireId: 'form-generic-info', label: 'Your Email', type: 'email', obligatoire: true, ordre: 2, placeholder: 'john.doe@example.com' },
   { id: 'field-message-generic', formulaireId: 'form-generic-info', label: 'Your Message', type: 'textarea', obligatoire: true, ordre: 3, placeholder: 'Type your message here...' },
+  { id: 'field-activity-name', formulaireId: 'form-activity-signup', label: 'Participant Name', type: 'text', obligatoire: true, ordre: 1},
+  { id: 'field-activity-age', formulaireId: 'form-activity-signup', label: 'Participant Age', type: 'number', obligatoire: false, ordre: 2},
 ];
 
 let services: Service[] = [
   { id: 'svc-taxi', titre: 'Airport Taxi', description: 'Book a taxi to or from the airport.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "taxi airport", categorieId: 'cat-transport', hostId: 'host-01', formulaireId: 'form-booking', prix: 50 },
   { id: 'svc-breakfast', titre: 'Breakfast in Room', description: 'Order your breakfast to be delivered to your room.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "breakfast room", categorieId: 'cat-roomservice', hostId: 'host-01', formulaireId: 'form-foodorder', prix: 25 },
   { id: 'svc-pizza', titre: 'Pizza Special', description: 'Delicious stone-baked pizza.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "pizza food", categorieId: 'cat-food', hostId: 'host-02', formulaireId: 'form-foodorder', prix: 15 },
-  { id: 'svc-cocktail', titre: 'Signature Cocktail', description: 'Try our special house cocktail.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "cocktail drink", categorieId: 'cat-drinks', hostId: 'host-02', formulaireId: 'form-generic-info' },
+  { id: 'svc-cocktail', titre: 'Signature Cocktail', description: 'Try our special house cocktail.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "cocktail drink", categorieId: 'cat-drinks', hostId: 'host-02', formulaireId: 'form-generic-info' }, // No price, implies inquiry or free
   { id: 'svc-concierge', titre: 'Concierge Help', description: 'Ask our concierge for assistance.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "concierge helpdesk", categorieId: 'cat-roomservice', hostId: 'host-01', formulaireId: 'form-generic-info' },
   { id: 'svc-water', titre: 'Bottled Water', description: 'A refreshing bottle of spring water.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "water bottle", categorieId: 'cat-drinks', hostId: 'host-02', prix: 2, formulaireId: 'form-no-fields' },
+  { id: 'svc-spa', titre: 'Spa Package', description: 'Relax with our full-day spa package.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "spa massage", categorieId: 'cat-activities', hostId: 'host-01', formulaireId: 'form-booking', prix: 150 },
+  { id: 'svc-guidedtour', titre: 'Guided City Tour', description: 'Explore the city with our expert guide.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "city tour", categorieId: 'cat-activities', hostId: 'host-01', formulaireId: 'form-activity-signup', prix: 75 },
+
 ];
 
 let orders: Order[] = [
-  { id: 'order-001', serviceId: 'svc-taxi', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Jane Doe', donneesFormulaire: JSON.stringify({ persons: 2, date: '2024-08-15', time: '10:00' }), dateHeure: new Date().toISOString(), status: 'pending' },
+  { id: 'order-001', serviceId: 'svc-taxi', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', donneesFormulaire: JSON.stringify({ persons: 2, date: '2024-08-15', time: '10:00' }), dateHeure: new Date(Date.now() - 3600000 * 2).toISOString(), status: 'pending' },
+  { id: 'order-002', serviceId: 'svc-breakfast', hostId: 'host-01', chambreTableId: 'room-102', clientNom: 'Bob The Builder', donneesFormulaire: JSON.stringify({ dish: "Continental Breakfast", notes: "Extra orange juice"}), dateHeure: new Date(Date.now() - 3600000 * 5).toISOString(), status: 'completed'},
+  { id: 'order-003', serviceId: 'svc-pizza', hostId: 'host-02', chambreTableId: 'table-5', clientNom: 'Alice Wonderland', donneesFormulaire: JSON.stringify({dish: "Pepperoni Pizza", notes: "Extra cheese"}), dateHeure: new Date(Date.now() - 3600000 * 1).toISOString(), status: 'confirmed'},
+  { id: 'order-004', serviceId: 'svc-spa', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', donneesFormulaire: JSON.stringify({ persons: 1, date: '2024-09-10', time: '14:00' }), dateHeure: new Date().toISOString(), status: 'pending' },
+  { id: 'order-005', serviceId: 'svc-guidedtour', hostId: 'host-01', chambreTableId: 'room-102', clientNom: 'Bob The Builder', donneesFormulaire: JSON.stringify({ participant_name: "Bob Builder", participant_age: "35" }), dateHeure: new Date(Date.now() - 3600000 * 24).toISOString(), status: 'completed' },
 ];
 
 // --- User Management ---
@@ -77,15 +91,14 @@ export const getUsers = async (): Promise<User[]> => users;
 export const addUser = async (userData: Omit<User, 'id' | 'motDePasse'> & { motDePasse?: string }): Promise<User> => {
   const existingUserByEmail = users.find(u => u.email === userData.email);
   if (existingUserByEmail) {
-    console.warn(`User with email ${userData.email} already exists.`);
-    // Optionally update existing user or handle as an error
-    // For now, we'll just return the existing user to prevent duplicates by email if desired behavior
-    // or throw new Error(`User with email ${userData.email} already exists.`);
-    return existingUserByEmail; // Or handle as an error if emails must be unique for new entries
+    // For MVP, if email exists, we'll assume it's an attempt to re-create, so we don't add a duplicate.
+    // More robust logic might update or throw an error.
+    console.warn(`User with email ${userData.email} already exists. Not adding duplicate.`);
+    return existingUserByEmail;
   }
   const newUser: User = {
     ...userData,
-    id: `user-${Date.now()}`, // Ensure unique ID
+    id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, // More unique ID
     motDePasse: userData.motDePasse?.trim() || '1234'
   };
   users.push(newUser);
@@ -105,24 +118,21 @@ export const addHost = async (hostData: Omit<Host, 'hostId'>): Promise<Host> => 
   const existingHostByEmail = hosts.find(h => h.email === hostData.email);
 
   if(existingHostByEmail) {
-    console.warn(`A host entry with email ${hostData.email} already exists. Re-associating or updating if necessary.`);
-    // Update existing host's name if different
     if (existingHostByEmail.nom !== hostData.nom) {
         existingHostByEmail.nom = hostData.nom;
     }
-     // Ensure user account exists and is correctly configured
      const associatedUser = users.find(u => u.email === existingHostByEmail.email);
      if (associatedUser) {
         const userIndex = users.findIndex(u => u.id === associatedUser.id);
         users[userIndex] = {...users[userIndex], role: 'host', hostId: existingHostByEmail.hostId, nom: existingHostByEmail.nom};
      } else {
          users.push({
-            id: `user-${existingHostByEmail.hostId}`, // Use existing hostId for consistency
+            id: `user-${existingHostByEmail.hostId}`,
             email: existingHostByEmail.email,
             nom: existingHostByEmail.nom,
             role: 'host',
             hostId: existingHostByEmail.hostId,
-            motDePasse: '1234' // Default password
+            motDePasse: '1234'
         });
      }
     return existingHostByEmail;
@@ -131,26 +141,24 @@ export const addHost = async (hostData: Omit<Host, 'hostId'>): Promise<Host> => 
   const newHost: Host = { ...hostData, hostId: newHostId };
   hosts.push(newHost);
 
-  // Create or update associated user account
   let associatedUser = users.find(u => u.email === newHost.email);
   if (!associatedUser) {
     const hostUser: User = {
-      id: `user-${newHostId}`, // Create a new user ID
+      id: `user-${newHostId}`,
       email: newHost.email,
       nom: newHost.nom,
       role: 'host',
       hostId: newHost.hostId,
-      motDePasse: '1234' // Default password
+      motDePasse: '1234'
     };
     users.push(hostUser);
   } else {
-    // If user exists but is not a host, update their role and hostId
     const userIndex = users.findIndex(u => u.id === associatedUser!.id);
     users[userIndex] = {
         ...users[userIndex],
         role: 'host',
         hostId: newHost.hostId,
-        nom: newHost.nom // Sync name if it changed
+        nom: newHost.nom
     };
   }
   return newHost;
@@ -162,32 +170,23 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
     const originalEmail = hosts[hostIndex].email;
     hosts[hostIndex] = { ...hosts[hostIndex], ...hostData };
 
-    // Update associated user
-    // Try to find user by hostId first, then by original email if hostId link might be broken/new
     let userToUpdate = users.find(u => u.hostId === hostId && u.role === 'host');
-    if (!userToUpdate && originalEmail) { // Fallback if hostId wasn't set on user or email changed
+    if (!userToUpdate && originalEmail) {
         userToUpdate = users.find(u => u.email === originalEmail && u.role === 'host');
     }
-    // If host email changed, try to find user by new email if no direct link found
     if (!userToUpdate && hostData.email && hostData.email !== originalEmail) {
         userToUpdate = users.find(u => u.email === hostData.email!);
     }
-
 
     if (userToUpdate) {
         const userIndex = users.findIndex(u=> u.id === userToUpdate!.id);
         users[userIndex] = {
             ...users[userIndex],
-            email: hostData.email || users[userIndex].email, // Update email if provided
-            nom: hostData.nom || users[userIndex].nom,       // Update name if provided
-            role: 'host', // Ensure role is host
-            hostId: hostId  // Ensure hostId is correctly linked
+            email: hostData.email || users[userIndex].email,
+            nom: hostData.nom || users[userIndex].nom,
+            role: 'host',
+            hostId: hostId
         };
-    } else if (hostData.email && hostData.nom) {
-      // If no user was found (e.g. email changed and no prior link), create one? Or handle as error?
-      // For MVP, let's assume user must exist or host creation/update handles it.
-      // This part might need more robust logic depending on business rules for orphaned hosts/users.
-      console.warn(`Host ${hostId} updated, but no associated user found to update/create with new details. Manual user adjustment may be needed if email changed.`);
     }
     return hosts[hostIndex];
   }
@@ -200,11 +199,9 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
     hosts = hosts.filter(h => h.hostId !== hostId);
 
     if (hostToDelete) {
-        // Remove user associated with this host (if any)
         users = users.filter(u => !(u.role === 'host' && u.hostId === hostId));
     }
 
-    // Cascade delete related items
     sites = sites.filter(s => s.hostId !== hostId);
     roomsOrTables = roomsOrTables.filter(rt => rt.hostId !== hostId);
     serviceCategories = serviceCategories.filter(sc => sc.hostId !== hostId);
@@ -218,8 +215,8 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
 
 // --- Site Management (Global Sites for Admin) ---
 export const getSites = async (hostId?: string): Promise<Site[]> => {
-  if (hostId) return sites.filter(s => s.hostId === hostId); // For host dashboard, if they need to see *their* global sites
-  return sites; // For admin, all global sites
+  if (hostId) return sites.filter(s => s.hostId === hostId);
+  return sites;
 };
 
 export const getSiteById = async (siteId: string): Promise<Site | undefined> => {
@@ -236,7 +233,6 @@ export const updateSite = async (siteId: string, siteData: Partial<Omit<Site, 's
   const siteIndex = sites.findIndex(s => s.siteId === siteId);
   if (siteIndex > -1) {
     sites[siteIndex] = { ...sites[siteIndex], ...siteData };
-    // If hostId changed, we might need to update relations, but for now, direct update.
     return sites[siteIndex];
   }
   return undefined;
@@ -245,10 +241,7 @@ export const updateSite = async (siteId: string, siteData: Partial<Omit<Site, 's
 export const deleteSiteInData = async (siteId: string): Promise<boolean> => {
     const initialLength = sites.length;
     sites = sites.filter(s => s.siteId !== siteId);
-    // Cascade delete RoomOrTable entries that belong to this global site
     roomsOrTables = roomsOrTables.filter(rt => rt.globalSiteId !== siteId);
-    // Services, orders etc are tied to hostId, not globalSiteId directly, so less direct cascade here from global site deletion
-    // unless we want to delete all services of the host who managed this site. For now, keep it simple.
     return sites.length < initialLength;
 };
 
@@ -256,7 +249,7 @@ export const deleteSiteInData = async (siteId: string): Promise<boolean> => {
 // --- RoomOrTable Management (Host Locations) ---
 export const getRoomsOrTables = async (hostId: string, globalSiteIdParam?: string): Promise<RoomOrTable[]> => {
   let filtered = roomsOrTables.filter(rt => rt.hostId === hostId);
-  if (globalSiteIdParam) { // Optional filter by globalSiteId if provided
+  if (globalSiteIdParam) {
     filtered = filtered.filter(rt => rt.globalSiteId === globalSiteIdParam);
   }
   return filtered;
@@ -272,7 +265,7 @@ export const addRoomOrTable = async (data: Omit<RoomOrTable, 'id' | 'urlPersonna
   const newRoomOrTable: RoomOrTable = {
     ...data,
     id: newId,
-    urlPersonnalise: `/client/${data.hostId}/${newId}`, // Ensure hostId is part of the data
+    urlPersonnalise: `/client/${data.hostId}/${newId}`,
   };
   roomsOrTables.push(newRoomOrTable);
   return newRoomOrTable;
@@ -284,13 +277,14 @@ export const updateRoomOrTable = async (id: string, data: Partial<Omit<RoomOrTab
     const currentItem = roomsOrTables[itemIndex];
     roomsOrTables[itemIndex] = {
         ...currentItem,
-        ...data,
-        // hostId is not updatable here, it's fixed by the item's context
-        // globalSiteId and parentLocationId are updated based on `data` from component
+        ...data, // applies updates from 'data'
+        // Ensure hostId and urlPersonnalise remain unchanged from currentItem if not explicitly in 'data'
+        hostId: currentItem.hostId,
+        urlPersonnalise: currentItem.urlPersonnalise,
+        // Explicitly apply globalSiteId and parentLocationId from 'data' if present, otherwise keep current
         globalSiteId: data.globalSiteId !== undefined ? data.globalSiteId : currentItem.globalSiteId,
         parentLocationId: data.parentLocationId !== undefined ? data.parentLocationId : currentItem.parentLocationId,
     };
-    // urlPersonnalise does not change on update as it's tied to id and hostId
     return roomsOrTables[itemIndex];
   }
   return undefined;
@@ -302,12 +296,11 @@ export const deleteRoomOrTable = async (id: string): Promise<boolean> => {
     const locationToDelete = roomsOrTables.find(rt => rt.id === id);
 
     if (locationToDelete) {
-        // Re-parent children locations to the deleted location's parent (or to the global site if no parent)
         const children = roomsOrTables.filter(rt => rt.parentLocationId === id);
         children.forEach(child => {
             const childIndex = roomsOrTables.findIndex(c => c.id === child.id);
             if (childIndex > -1) {
-                roomsOrTables[childIndex].parentLocationId = locationToDelete.parentLocationId; // Grandparent or undefined
+                roomsOrTables[childIndex].parentLocationId = locationToDelete.parentLocationId;
             }
         });
     }
@@ -336,8 +329,7 @@ export const updateServiceCategory = async (id: string, data: Partial<Omit<Servi
 export const deleteServiceCategory = async (id: string): Promise<boolean> => {
     const initialLength = serviceCategories.length;
     serviceCategories = serviceCategories.filter(sc => sc.id !== id);
-    // Unassign this category from services
-    services = services.map(s => s.categorieId === id ? {...s, categorieId: ''} : s); // Or a default/uncategorized ID
+    services = services.map(s => s.categorieId === id ? {...s, categorieId: ''} : s);
     return serviceCategories.length < initialLength;
 };
 export const getServiceCategoryById = async (id: string): Promise<ServiceCategory | undefined> => {
@@ -368,9 +360,7 @@ export const updateCustomForm = async (id: string, data: Partial<Omit<CustomForm
 export const deleteCustomForm = async (id: string): Promise<boolean> => {
     const initialLength = customForms.length;
     customForms = customForms.filter(cf => cf.id !== id);
-    // Also delete associated form fields
     formFields = formFields.filter(ff => ff.formulaireId !== id);
-    // Unassign this form from services
     services = services.map(s => s.formulaireId === id ? {...s, formulaireId: undefined} : s);
     return customForms.length < initialLength;
 };
@@ -402,7 +392,7 @@ export const deleteFormField = async (id: string): Promise<boolean> => {
 // --- Service Management ---
 export const getServices = async (hostId: string, categoryId?: string): Promise<Service[]> => {
   let filteredServices = services.filter(s => s.hostId === hostId);
-  if (categoryId && categoryId !== "all") { // Ensure "all" doesn't filter by an actual category named "all"
+  if (categoryId && categoryId !== "all" && categoryId !== "") { // Ensure "all" or empty doesn't filter
     filteredServices = filteredServices.filter(s => s.categorieId === categoryId);
   }
   return filteredServices;
@@ -427,19 +417,47 @@ export const updateService = async (id: string, data: Partial<Omit<Service, 'id'
 export const deleteService = async (id: string): Promise<boolean> => {
     const initialLength = services.length;
     services = services.filter(s => s.id !== id);
-    orders = orders.filter(o => o.serviceId !== id); // Also delete orders related to this service
+    orders = orders.filter(o => o.serviceId !== id);
     return services.length < initialLength;
 };
 
 
 // --- Order Management ---
-export const getOrders = async (hostId: string, status?: Order['status']): Promise<Order[]> => {
-  let filteredOrders = orders.filter(o => o.hostId === hostId);
-  if (status) {
-    filteredOrders = filteredOrders.filter(o => o.status === status);
+export const getOrders = async (
+  hostId: string,
+  filters?: {
+    status?: OrderStatus | "all";
+    categoryId?: string;
+    serviceId?: string;
+    clientName?: string;
   }
+): Promise<Order[]> => {
+  let filteredOrders = orders.filter(o => o.hostId === hostId);
+
+  if (filters?.status && filters.status !== "all") {
+    filteredOrders = filteredOrders.filter(o => o.status === filters.status);
+  }
+
+  if (filters?.serviceId && filters.serviceId !== "all") {
+    filteredOrders = filteredOrders.filter(o => o.serviceId === filters.serviceId);
+  } else if (filters?.categoryId && filters.categoryId !== "all") {
+    // If filtering by category but not a specific service, get all services for that category
+    const servicesInCategory = services.filter(s => s.categorieId === filters.categoryId && s.hostId === hostId).map(s => s.id);
+    filteredOrders = filteredOrders.filter(o => servicesInCategory.includes(o.serviceId));
+  }
+  
+  if (filters?.clientName && filters.clientName.trim() !== "") {
+    filteredOrders = filteredOrders.filter(o => o.clientNom && o.clientNom.toLowerCase().includes(filters.clientName!.toLowerCase()));
+  }
+
   return filteredOrders.sort((a,b) => new Date(b.dateHeure).getTime() - new Date(a.dateHeure).getTime());
 };
+
+export const getOrdersByClientName = async (hostId: string, clientName: string): Promise<Order[]> => {
+  return orders.filter(o => o.hostId === hostId && o.clientNom?.toLowerCase() === clientName.toLowerCase())
+               .sort((a,b) => new Date(b.dateHeure).getTime() - new Date(a.dateHeure).getTime());
+};
+
 export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status'>): Promise<Order> => {
   const newOrder: Order = {
     ...data,
@@ -450,7 +468,7 @@ export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status'>)
   orders.push(newOrder);
   return newOrder;
 };
-export const updateOrderStatus = async (orderId: string, status: Order['status']): Promise<Order | undefined> => {
+export const updateOrderStatus = async (orderId: string, status: OrderStatus): Promise<Order | undefined> => {
   const orderIndex = orders.findIndex(o => o.id === orderId);
   if (orderIndex > -1) {
     orders[orderIndex].status = status;
@@ -460,5 +478,3 @@ export const updateOrderStatus = async (orderId: string, status: Order['status']
 };
 
 console.log("Mock data initialized/reloaded.");
-
-    

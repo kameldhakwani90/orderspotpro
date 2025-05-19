@@ -17,27 +17,35 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, QrCode, ChevronDown, ChevronUp
+  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, QrCode, ChevronDown, ChevronUp, Briefcase // Added Briefcase for Client File placeholder
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-const navItems: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: Home, allowedRoles: ['admin', 'host', 'client'] },
-  // Admin specific
+const adminNavItems: NavItem[] = [
+  { label: 'Dashboard', href: '/admin/dashboard', icon: Home, allowedRoles: ['admin'] },
   { label: 'Manage Users', href: '/admin/users', icon: Users, allowedRoles: ['admin'] },
   { label: 'Manage Global Sites', href: '/admin/sites', icon: Building2, allowedRoles: ['admin'] },
   { label: 'Manage Hosts', href: '/admin/hosts', icon: UserCog, allowedRoles: ['admin'] },
-  // Host specific
+];
+
+const hostNavItems: NavItem[] = [
+  { label: 'Dashboard', href: '/host/dashboard', icon: Home, allowedRoles: ['host'] },
+  { label: 'Client Orders', href: '/host/orders', icon: ShoppingCart, allowedRoles: ['host'] },
+  // { label: 'Client Directory', href: '/host/clients', icon: Briefcase, allowedRoles: ['host'] }, // Placeholder for a future client list page
   { label: 'My Locations', href: '/host/locations', icon: MapPin, allowedRoles: ['host'] },
   { label: 'Service Categories', href: '/host/service-categories', icon: ListChecks, allowedRoles: ['host'] },
   { label: 'Custom Forms', href: '/host/forms', icon: FileText, allowedRoles: ['host'] },
   { label: 'My Services', href: '/host/services', icon: ClipboardList, allowedRoles: ['host'] },
-  { label: 'Client Orders', href: '/host/orders', icon: ShoppingCart, allowedRoles: ['host'] },
-  // Client (placeholder, actual client view is different)
-  { label: 'Scan QR', href: '/client/scan', icon: QrCode, allowedRoles: ['client'], external: true },
 ];
+
+const clientNavItems: NavItem[] = [
+    // Client dashboard/landing page is typically specific, handled by /dashboard redirect
+    // Main client interaction is via QR code URL, not a persistent sidebar menu.
+    // { label: 'Scan QR', href: '/client/scan', icon: QrCode, allowedRoles: ['client'], external: true }, // Example, if needed
+];
+
 
 const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout, isLoading } = useAuth();
@@ -62,21 +70,44 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   }
 
   if (!user) {
-    // This should ideally be handled by a route guard HOC or middleware
     if (typeof window !== 'undefined') router.push('/login');
-    return null; // Or a loading/redirecting state
+    return null; 
   }
 
   const userInitial = user.nom ? user.nom.charAt(0).toUpperCase() : '?';
+  
+  let currentNavItems: NavItem[] = [];
+  switch (user.role) {
+      case 'admin':
+          currentNavItems = adminNavItems;
+          break;
+      case 'host':
+          currentNavItems = hostNavItems;
+          break;
+      case 'client':
+          currentNavItems = clientNavItems; // Usually minimal for clients in this app structure
+          break;
+  }
+  // Add general settings link for all authenticated users
+  const settingsItem: NavItem = { label: 'Settings', href: '/settings', icon: Settings, allowedRoles: ['admin', 'host', 'client'] };
+  const allNavItemsForUser = [...currentNavItems, settingsItem];
 
-  const filteredNavItems = navItems.filter(item => item.allowedRoles.includes(user.role));
 
   const toggleMenu = (label: string) => {
     setOpenMenus(prev => ({ ...prev, [label]: !prev[label] }));
   };
   
   const NavLink: React.FC<{ item: NavItem; isSubItem?: boolean }> = ({ item, isSubItem = false }) => {
-    const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+    // For top-level items, isActive needs to check for startsWith for parent routes.
+    // For /dashboard, it should be an exact match.
+    // For /settings, it should be an exact match unless it has children.
+    let isActive;
+    if (item.href === '/dashboard' || item.href === '/settings' || item.href === `/${user.role}/dashboard`) {
+        isActive = pathname === item.href;
+    } else {
+        isActive = pathname.startsWith(item.href);
+    }
+    
     const hasChildren = item.children && item.children.length > 0;
     const isMenuOpen = openMenus[item.label] || false;
 
@@ -127,7 +158,6 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   return (
     <div className="flex h-screen bg-background text-foreground">
-      {/* Sidebar */}
       <aside className={cn(
         "fixed inset-y-0 left-0 z-50 flex-col border-r bg-sidebar transition-transform duration-300 ease-in-out md:static md:flex",
         isSidebarOpen ? "translate-x-0 w-64" : "-translate-x-full w-64 md:w-16"
@@ -138,18 +168,18 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             ConnectHost
           </Link>
           <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsSidebarOpen(false)}>
-             <Menu /> {/* Will be replaced by X when open */}
+             <Menu />
           </Button>
         </div>
         <nav className="flex-grow p-4 space-y-1.5">
-          {filteredNavItems.map((item) => (
+          {allNavItemsForUser.map((item) => ( // Use allNavItemsForUser
             isSidebarOpen ? (
               <NavLink key={item.href} item={item} />
             ) : (
                <Link href={item.href} key={`${item.href}-icon`} legacyBehavior>
                 <a title={item.label} className={cn(
                   "flex items-center justify-center h-10 w-10 rounded-lg transition-colors",
-                   pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)) ? "bg-primary/20 text-primary" : "hover:bg-secondary text-sidebar-foreground"
+                   pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== `/${user.role}/dashboard` ? "bg-primary/20 text-primary" : (pathname === item.href ? "bg-primary/20 text-primary" : "hover:bg-secondary text-sidebar-foreground")
                 )}>
                   <item.icon className="h-5 w-5" />
                 </a>
@@ -160,9 +190,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </ScrollArea>
       </aside>
 
-      {/* Main content */}
       <div className="flex flex-col flex-1 overflow-hidden">
-        {/* Header */}
         <header className="flex items-center justify-between h-16 border-b bg-card px-4 md:px-6">
           <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
             <Menu />
@@ -173,7 +201,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src={`https://placehold.co/100x100.png?text=${userInitial}`} alt={user.nom} />
+                    <AvatarImage src={`https://placehold.co/100x100.png?text=${userInitial}`} alt={user.nom} data-ai-hint="user initial" />
                     <AvatarFallback>{userInitial}</AvatarFallback>
                   </Avatar>
                 </Button>
@@ -188,7 +216,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push('/settings')}> {/* Placeholder settings page */}
+                <DropdownMenuItem onClick={() => router.push('/settings')}>
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
                 </DropdownMenuItem>
@@ -202,7 +230,6 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </div>
         </header>
 
-        {/* Page content */}
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 lg:p-8">
           {children}
         </main>
