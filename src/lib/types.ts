@@ -69,7 +69,8 @@ export interface Service {
   hostId: string;
   formulaireId?: string; // Optional: A service might not need a form
   prix?: number;
-  targetLocationIds?: string[]; // NEW: Array of RoomOrTable IDs
+  targetLocationIds?: string[];
+  loginRequired?: boolean; // NEW: True if login is needed to order
 }
 
 export type OrderStatus = "pending" | "confirmed" | "completed" | "cancelled";
@@ -79,11 +80,12 @@ export interface Order {
   serviceId: string;
   hostId: string;
   chambreTableId: string;
-  clientNom?: string;
+  clientNom?: string; // Name of the client (could be from registered user or typed manually)
+  userId?: string; // Optional: ID of the registered user if they were logged in
   donneesFormulaire: string;
   dateHeure: string;
   status: OrderStatus;
-  prix?: number; // Added to store price at time of order
+  prix?: number;
 }
 
 // Helper type for navigation items
@@ -97,26 +99,26 @@ export interface NavItem {
   external?: boolean;
 }
 
-// For Client File Page
+// For Client File Page (/host/clients/[clientName]/page.tsx)
 export interface ClientDetails {
   name: string;
   orders: (Order & { serviceName?: string; locationName?: string })[];
   locations: (RoomOrTable & { globalSiteName?: string })[];
 }
 
-export type ClientType = "heberge" | "passager";
+export type ClientType = "heberge" | "passager"; // For Host's client management
 
-export interface Client {
+export interface Client { // For Host's client management records
     id: string;
     hostId: string;
     nom: string;
     email?: string;
     telephone?: string;
     type: ClientType;
-    dateArrivee?: string; // Stored as YYYY-MM-DD string
-    dateDepart?: string;  // Stored as YYYY-MM-DD string
-    locationId?: string; // Assigned RoomOrTable ID
+    dateArrivee?: string; 
+    dateDepart?: string;  
+    locationId?: string; 
     notes?: string;
-    documents?: Array<{ name: string; url: string; uploadedAt: string }>; // Placeholder
+    documents?: Array<{ name: string; url: string; uploadedAt: string }>;
+    credit?: number; // NEW: For client's usable credit at this host
 }
-

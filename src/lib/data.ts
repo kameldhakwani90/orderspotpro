@@ -23,69 +23,72 @@ let roomsOrTables: RoomOrTable[] = [
   { id: 'rt-globalsite-root-site-01', nom: 'Paradise Resort Main Area', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: undefined, urlPersonnalise: `/client/host-01/rt-globalsite-root-site-01`},
   { id: 'rt-lobby-01', nom: 'Lobby Zone', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-globalsite-root-site-01', urlPersonnalise: `/client/host-01/rt-lobby-01`},
   { id: 'rt-pool-01', nom: 'Pool Area', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-globalsite-root-site-01', urlPersonnalise: `/client/host-01/rt-pool-01`},
-  { id: 'rt-lobby-reception-01', nom: 'Reception Desk Area', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/rt-lobby-reception-01`},
+    { id: 'rt-reception-desk-01', nom: 'Reception Desk', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/rt-reception-desk-01`},
   { id: 'room-101', nom: 'Chambre 101', type: 'Chambre', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/room-101` },
   { id: 'room-102', nom: 'Chambre 102', type: 'Chambre', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/room-102` },
   { id: 'table-pool-1', nom: 'Table Piscine 1', type: 'Table', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-pool-01', urlPersonnalise: `/client/host-01/table-pool-1` },
-  { id: 'table-5', nom: 'Table 5', type: 'Table', hostId: 'host-02', globalSiteId: 'site-02', parentLocationId: undefined, urlPersonnalise: `/client/host-02/table-5` },
-  { id: 'table-vip', nom: 'VIP Table', type: 'Table', hostId: 'host-02', globalSiteId: 'site-02', parentLocationId: undefined, urlPersonnalise: `/client/host-02/table-vip` },
+  
+  { id: 'rt-restaurant-main-area-02', nom: 'Delice Main Dining', type: 'Site', hostId: 'host-02', globalSiteId: 'site-02', parentLocationId: undefined, urlPersonnalise: `/client/host-02/rt-restaurant-main-area-02`},
+  { id: 'table-5', nom: 'Table 5', type: 'Table', hostId: 'host-02', globalSiteId: 'site-02', parentLocationId: 'rt-restaurant-main-area-02', urlPersonnalise: `/client/host-02/table-5` },
+  { id: 'table-vip', nom: 'VIP Table', type: 'Table', hostId: 'host-02', globalSiteId: 'site-02', parentLocationId: 'rt-restaurant-main-area-02', urlPersonnalise: `/client/host-02/table-vip` },
 ];
 
 let serviceCategories: ServiceCategory[] = [
   { id: 'cat-roomservice', nom: 'Room Service', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "room service" },
-  { id: 'cat-transport', nom: 'Transport', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "transportation" },
+  { id: 'cat-transport', nom: 'Transport & Tours', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "transportation tour" },
   { id: 'cat-food', nom: 'Food Menu', hostId: 'host-02', image: 'https://placehold.co/300x200.png', "data-ai-hint": "food menu" },
   { id: 'cat-drinks', nom: 'Beverages', hostId: 'host-02', image: 'https://placehold.co/300x200.png', "data-ai-hint": "drinks beverages" },
-  { id: 'cat-activities', nom: 'Activities', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "activities leisure" },
-  { id: 'cat-poolside', nom: 'Poolside Menu', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "poolside snacks" },
+  { id: 'cat-activities', nom: 'Resort Activities', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "activities leisure" },
+  { id: 'cat-poolside', nom: 'Poolside Snacks & Drinks', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "poolside snacks" },
 ];
 
 let customForms: CustomForm[] = [
-  { id: 'form-booking', nom: 'Booking Request', hostId: 'host-01' },
-  { id: 'form-foodorder', nom: 'Food Order Details', hostId: 'host-02' },
+  { id: 'form-booking', nom: 'Booking Details', hostId: 'host-01' },
+  { id: 'form-foodorder', nom: 'Food Order Preferences', hostId: 'host-02' },
   { id: 'form-generic-info', nom: 'General Inquiry', hostId: 'host-01' },
-  { id: 'form-no-fields', nom: 'Simple Confirmation', hostId: 'host-01' },
-  { id: 'form-activity-signup', nom: 'Activity Sign-up', hostId: 'host-01'},
+  { id: 'form-no-fields', nom: 'Simple Confirmation (No Fields)', hostId: 'host-01' }, // For services needing no extra input
+  { id: 'form-activity-signup', nom: 'Activity Sign-up Details', hostId: 'host-01'},
 ];
 
 let formFields: FormField[] = [
-  { id: 'field-persons', formulaireId: 'form-booking', label: 'Nombre de personnes', type: 'number', obligatoire: true, ordre: 1, placeholder: 'e.g., 2' },
-  { id: 'field-date', formulaireId: 'form-booking', label: 'Date souhaitée', type: 'date', obligatoire: true, ordre: 2 },
-  { id: 'field-time', formulaireId: 'form-booking', label: 'Heure souhaitée', type: 'time', obligatoire: false, ordre: 3 },
-  { id: 'field-dish', formulaireId: 'form-foodorder', label: 'Plat principal', type: 'text', obligatoire: true, ordre: 1, placeholder: 'e.g., Pizza Margherita' },
-  { id: 'field-notes', formulaireId: 'form-foodorder', label: 'Notes additionnelles', type: 'textarea', obligatoire: false, ordre: 2, placeholder: 'e.g., Sans oignons' },
+  { id: 'field-persons', formulaireId: 'form-booking', label: 'Number of Persons', type: 'number', obligatoire: true, ordre: 1, placeholder: 'e.g., 2' },
+  { id: 'field-date', formulaireId: 'form-booking', label: 'Desired Date', type: 'date', obligatoire: true, ordre: 2 },
+  { id: 'field-time', formulaireId: 'form-booking', label: 'Preferred Time', type: 'time', obligatoire: false, ordre: 3 },
+  { id: 'field-dish', formulaireId: 'form-foodorder', label: 'Main Dish Choice', type: 'text', obligatoire: true, ordre: 1, placeholder: 'e.g., Pizza Margherita' },
+  { id: 'field-notes', formulaireId: 'form-foodorder', label: 'Additional Notes/Allergies', type: 'textarea', obligatoire: false, ordre: 2, placeholder: 'e.g., No onions, gluten-free' },
   { id: 'field-name-generic', formulaireId: 'form-generic-info', label: 'Your Name', type: 'text', obligatoire: true, ordre: 1, placeholder: 'John Doe' },
   { id: 'field-email-generic', formulaireId: 'form-generic-info', label: 'Your Email', type: 'email', obligatoire: true, ordre: 2, placeholder: 'john.doe@example.com' },
-  { id: 'field-message-generic', formulaireId: 'form-generic-info', label: 'Your Message', type: 'textarea', obligatoire: true, ordre: 3, placeholder: 'Type your message here...' },
-  { id: 'field-activity-name', formulaireId: 'form-activity-signup', label: 'Participant Name', type: 'text', obligatoire: true, ordre: 1},
+  { id: 'field-message-generic', formulaireId: 'form-generic-info', label: 'Your Message/Question', type: 'textarea', obligatoire: true, ordre: 3, placeholder: 'Type your message here...' },
+  { id: 'field-activity-name', formulaireId: 'form-activity-signup', label: 'Participant Full Name', type: 'text', obligatoire: true, ordre: 1},
   { id: 'field-activity-age', formulaireId: 'form-activity-signup', label: 'Participant Age', type: 'number', obligatoire: false, ordre: 2},
 ];
 
 let services: Service[] = [
-  { id: 'svc-taxi', titre: 'Airport Taxi', description: 'Book a taxi to or from the airport.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "taxi airport", categorieId: 'cat-transport', hostId: 'host-01', formulaireId: 'form-booking', prix: 50, targetLocationIds: [] }, // Host-wide
-  { id: 'svc-breakfast', titre: 'Breakfast in Room', description: 'Order your breakfast to be delivered to your room.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "breakfast room", categorieId: 'cat-roomservice', hostId: 'host-01', formulaireId: 'form-foodorder', prix: 25, targetLocationIds: ['room-101', 'room-102'] }, // Only for these rooms
-  { id: 'svc-pool-cocktails', titre: 'Poolside Cocktails', description: 'Enjoy refreshing cocktails by the pool.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "cocktail pool", categorieId: 'cat-poolside', hostId: 'host-01', prix: 12, targetLocationIds: ['rt-pool-01'] }, // For entire pool area
-  { id: 'svc-pizza', titre: 'Pizza Special', description: 'Delicious stone-baked pizza.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "pizza food", categorieId: 'cat-food', hostId: 'host-02', formulaireId: 'form-foodorder', prix: 15, targetLocationIds: [] },
-  { id: 'svc-cocktail', titre: 'Signature Cocktail (Restaurant)', description: 'Try our special house cocktail.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "cocktail drink", categorieId: 'cat-drinks', hostId: 'host-02', formulaireId: 'form-generic-info', targetLocationIds: [] },
-  { id: 'svc-concierge', titre: 'Concierge Help', description: 'Ask our concierge for assistance.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "concierge helpdesk", categorieId: 'cat-roomservice', hostId: 'host-01', formulaireId: 'form-generic-info', targetLocationIds: ['rt-lobby-01'] }, // Concierge available in lobby
-  { id: 'svc-water', titre: 'Bottled Water', description: 'A refreshing bottle of spring water.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "water bottle", categorieId: 'cat-drinks', hostId: 'host-02', prix: 2, formulaireId: 'form-no-fields', targetLocationIds: [] },
-  { id: 'svc-spa', titre: 'Spa Package', description: 'Relax with our full-day spa package.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "spa massage", categorieId: 'cat-activities', hostId: 'host-01', formulaireId: 'form-booking', prix: 150, targetLocationIds: [] },
-  { id: 'svc-guidedtour', titre: 'Guided City Tour', description: 'Explore the city with our expert guide.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "city tour", categorieId: 'cat-activities', hostId: 'host-01', formulaireId: 'form-activity-signup', prix: 75, targetLocationIds: [] },
+  { id: 'svc-taxi', titre: 'Airport Taxi', description: 'Book a taxi to or from the airport. Reliable and comfortable.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "taxi airport", categorieId: 'cat-transport', hostId: 'host-01', formulaireId: 'form-booking', prix: 50, targetLocationIds: [], loginRequired: true },
+  { id: 'svc-breakfast', titre: 'In-Room Breakfast', description: 'Order your breakfast selection to be delivered directly to your room.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "breakfast room", categorieId: 'cat-roomservice', hostId: 'host-01', formulaireId: 'form-foodorder', prix: 25, targetLocationIds: ['room-101', 'room-102'] }, // Only for these rooms
+  { id: 'svc-pool-cocktails', titre: 'Poolside Cocktails', description: 'Enjoy refreshing cocktails served by the pool.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "cocktail pool", categorieId: 'cat-poolside', hostId: 'host-01', prix: 12, targetLocationIds: ['rt-pool-01'], loginRequired: false }, // For entire pool area
+  { id: 'svc-pizza', titre: 'Artisan Pizza', description: 'Delicious stone-baked pizza with your choice of toppings.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "pizza food", categorieId: 'cat-food', hostId: 'host-02', formulaireId: 'form-foodorder', prix: 18, targetLocationIds: [], loginRequired: false },
+  { id: 'svc-water-restaurant', titre: 'Bottled Water (Restaurant)', description: 'Chilled spring water.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "water bottle", categorieId: 'cat-drinks', hostId: 'host-02', prix: 3, targetLocationIds: [], loginRequired: false },
+  { id: 'svc-concierge', titre: 'Concierge Assistance', description: 'Need help with bookings or local information? Our concierge is here for you.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "concierge helpdesk", categorieId: 'cat-roomservice', hostId: 'host-01', formulaireId: 'form-generic-info', targetLocationIds: ['rt-lobby-01', 'rt-reception-desk-01'], loginRequired: true },
+  { id: 'svc-spa', titre: 'Full Day Spa Package', description: 'Indulge in a full day of relaxation and treatments at our spa.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "spa massage", categorieId: 'cat-activities', hostId: 'host-01', formulaireId: 'form-booking', prix: 150, targetLocationIds: [], loginRequired: true },
+  { id: 'svc-citytour', titre: 'Guided City Tour', description: 'Explore the city highlights with our expert local guide. Duration: 3 hours.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "city tour", categorieId: 'cat-transport', hostId: 'host-01', formulaireId: 'form-activity-signup', prix: 75, targetLocationIds: ['rt-lobby-01', 'rt-reception-desk-01'], loginRequired: true },
 ];
 
 let orders: Order[] = [
-  { id: 'order-001', serviceId: 'svc-taxi', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', donneesFormulaire: JSON.stringify({ persons: 2, date: '2024-08-15', time: '10:00' }), dateHeure: new Date(Date.now() - 3600000 * 2).toISOString(), status: 'pending', prix: 50 },
-  { id: 'order-002', serviceId: 'svc-breakfast', hostId: 'host-01', chambreTableId: 'room-102', clientNom: 'Bob The Builder', donneesFormulaire: JSON.stringify({ dish: "Continental Breakfast", notes: "Extra orange juice"}), dateHeure: new Date(Date.now() - 3600000 * 5).toISOString(), status: 'completed', prix: 25},
-  { id: 'order-003', serviceId: 'svc-pizza', hostId: 'host-02', chambreTableId: 'table-5', clientNom: 'Alice Wonderland', donneesFormulaire: JSON.stringify({dish: "Pepperoni Pizza", notes: "Extra cheese"}), dateHeure: new Date(Date.now() - 3600000 * 1).toISOString(), status: 'confirmed', prix: 15},
-  { id: 'order-004', serviceId: 'svc-spa', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', donneesFormulaire: JSON.stringify({ persons: 1, date: '2024-09-10', time: '14:00' }), dateHeure: new Date().toISOString(), status: 'pending', prix: 150 },
-  { id: 'order-005', serviceId: 'svc-guidedtour', hostId: 'host-01', chambreTableId: 'room-102', clientNom: 'Bob The Builder', donneesFormulaire: JSON.stringify({ participant_name: "Bob Builder", participant_age: "35" }), dateHeure: new Date(Date.now() - 3600000 * 24).toISOString(), status: 'completed', prix: 75 },
+  { id: 'order-001', serviceId: 'svc-taxi', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({ persons: 2, date: '2024-08-15', time: '10:00' }), dateHeure: new Date(Date.now() - 3600000 * 2).toISOString(), status: 'pending', prix: 50 },
+  { id: 'order-002', serviceId: 'svc-breakfast', hostId: 'host-01', chambreTableId: 'room-102', clientNom: 'Bob The Builder', userId: 'user-client-02', donneesFormulaire: JSON.stringify({ dish: "Continental Breakfast", notes: "Extra orange juice"}), dateHeure: new Date(Date.now() - 3600000 * 5).toISOString(), status: 'completed', prix: 25},
+  { id: 'order-003', serviceId: 'svc-pizza', hostId: 'host-02', chambreTableId: 'table-5', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({dish: "Pepperoni Pizza", notes: "Extra cheese"}), dateHeure: new Date(Date.now() - 3600000 * 1).toISOString(), status: 'confirmed', prix: 18},
+  { id: 'order-004', serviceId: 'svc-spa', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({ persons: 1, date: '2024-09-10', time: '14:00' }), dateHeure: new Date().toISOString(), status: 'pending', prix: 150 },
+  { id: 'order-005', serviceId: 'svc-citytour', hostId: 'host-01', chambreTableId: 'rt-reception-desk-01', clientNom: 'Bob The Builder', userId: 'user-client-02', donneesFormulaire: JSON.stringify({ participant_name: "Bob Builder", participant_age: "35" }), dateHeure: new Date(Date.now() - 3600000 * 24).toISOString(), status: 'completed', prix: 75 },
 ];
 
 let clients: Client[] = [
-    { id: 'client-mock-1', hostId: 'host-01', nom: 'Alice Wonderland', email: 'alice@example.com', type: 'heberge', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', locationId: 'room-101', notes: 'Prefers quiet room.' },
-    { id: 'client-mock-2', hostId: 'host-01', nom: 'Bob The Builder', email: 'bob@example.com', type: 'heberge', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', locationId: 'room-102' },
-    { id: 'client-mock-3', hostId: 'host-02', nom: 'Charlie Brown', telephone: '+1123456789', type: 'passager', notes: 'Regular for lunch.' },
+    { id: 'client-mock-1', hostId: 'host-01', nom: 'Alice Wonderland', email: 'client1@example.com', type: 'heberge', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', locationId: 'room-101', notes: 'Prefers quiet room. Likes extra pillows.', credit: 50 },
+    { id: 'client-mock-2', hostId: 'host-01', nom: 'Bob The Builder', email: 'client2@example.com', type: 'heberge', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', locationId: 'room-102', credit: 0 },
+    { id: 'client-mock-3', hostId: 'host-02', nom: 'Charlie Passager', telephone: '+1123456789', type: 'passager', notes: 'Regular for lunch on Fridays.', credit: 10 },
+    { id: 'client-mock-4', hostId: 'host-01', nom: 'Diana Visitor', email: 'diana@example.com', type: 'passager', notes: 'Interested in spa services.'},
 ];
+
 
 // --- User Management ---
 export const getUserByEmail = async (email: string): Promise<User | undefined> => {
@@ -105,7 +108,7 @@ export const addUser = async (userData: Omit<User, 'id' | 'motDePasse'> & { motD
   const newUser: User = {
     ...userData,
     id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-    motDePasse: userData.motDePasse?.trim() || '1234'
+    motDePasse: userData.motDePasse?.trim() || '1234' // Default password
   };
   users.push(newUser);
   return newUser;
@@ -124,9 +127,11 @@ export const addHost = async (hostData: Omit<Host, 'hostId'>): Promise<Host> => 
   const existingHostByEmail = hosts.find(h => h.email === hostData.email);
 
   if(existingHostByEmail) {
+    console.warn(`Host with email ${hostData.email} already exists. Checking for updates.`);
     if (existingHostByEmail.nom !== hostData.nom) {
-        existingHostByEmail.nom = hostData.nom;
+        existingHostByEmail.nom = hostData.nom; // Update name if different
     }
+     // Ensure user record is correctly associated or created
      const associatedUser = users.find(u => u.email === existingHostByEmail.email);
      if (associatedUser) {
         const userIndex = users.findIndex(u => u.id === associatedUser.id);
@@ -138,7 +143,7 @@ export const addHost = async (hostData: Omit<Host, 'hostId'>): Promise<Host> => 
             nom: existingHostByEmail.nom,
             role: 'host',
             hostId: existingHostByEmail.hostId,
-            motDePasse: '1234'
+            motDePasse: '1234' // Default password
         });
      }
     return existingHostByEmail;
@@ -147,24 +152,26 @@ export const addHost = async (hostData: Omit<Host, 'hostId'>): Promise<Host> => 
   const newHost: Host = { ...hostData, hostId: newHostId };
   hosts.push(newHost);
 
+  // Create or update associated user
   let associatedUser = users.find(u => u.email === newHost.email);
   if (!associatedUser) {
     const hostUser: User = {
-      id: `user-${newHostId}`,
+      id: `user-${newHostId}`, // Link user ID to host ID for clarity
       email: newHost.email,
       nom: newHost.nom,
       role: 'host',
       hostId: newHost.hostId,
-      motDePasse: '1234'
+      motDePasse: '1234' // Default password
     };
     users.push(hostUser);
   } else {
+    // If user exists but wasn't a host or was host of something else
     const userIndex = users.findIndex(u => u.id === associatedUser!.id);
     users[userIndex] = {
         ...users[userIndex],
         role: 'host',
         hostId: newHost.hostId,
-        nom: newHost.nom
+        nom: newHost.nom // Sync name
     };
   }
   return newHost;
@@ -176,11 +183,13 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
     const originalEmail = hosts[hostIndex].email;
     hosts[hostIndex] = { ...hosts[hostIndex], ...hostData };
 
+    // Update associated user
+    // Try to find by hostId first, then by original email if hostId link isn't there or email changed
     let userToUpdate = users.find(u => u.hostId === hostId && u.role === 'host');
-    if (!userToUpdate && originalEmail) {
+    if (!userToUpdate && originalEmail) { // If hostId link missing, try original email
         userToUpdate = users.find(u => u.email === originalEmail && u.role === 'host');
     }
-    if (!userToUpdate && hostData.email && hostData.email !== originalEmail) {
+    if (!userToUpdate && hostData.email && hostData.email !== originalEmail) { // If email changed, try new email
         userToUpdate = users.find(u => u.email === hostData.email!);
     }
 
@@ -188,12 +197,12 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
         const userIndex = users.findIndex(u=> u.id === userToUpdate!.id);
         users[userIndex] = {
             ...users[userIndex],
-            email: hostData.email || users[userIndex].email,
-            nom: hostData.nom || users[userIndex].nom,
-            role: 'host',
-            hostId: hostId
+            email: hostData.email || users[userIndex].email, // Update email if provided
+            nom: hostData.nom || users[userIndex].nom,       // Update name if provided
+            role: 'host', // Ensure role is host
+            hostId: hostId // Ensure hostId is linked
         };
-    }
+    } // Consider creating a user if one doesn't exist for the new email? For now, assumes user exists.
     return hosts[hostIndex];
   }
   return undefined;
@@ -204,16 +213,27 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
     const hostToDelete = hosts.find(h => h.hostId === hostId);
     hosts = hosts.filter(h => h.hostId !== hostId);
 
+    // Remove/update associated user
     if (hostToDelete) {
-        users = users.filter(u => !(u.role === 'host' && u.hostId === hostId));
+        // Option 1: Delete the user entirely
+        // users = users.filter(u => !(u.role === 'host' && u.hostId === hostId));
+        // Option 2: Revert user to 'client' or other default role if they shouldn't be deleted
+        const userIndex = users.findIndex(u => u.role === 'host' && u.hostId === hostId);
+        if (userIndex > -1) {
+            // For simplicity in mock, we'll just remove them. In real app, might be different.
+            users.splice(userIndex, 1);
+        }
     }
 
+    // Cascade delete related data (or unassign)
     sites = sites.filter(s => s.hostId !== hostId);
     roomsOrTables = roomsOrTables.filter(rt => rt.hostId !== hostId);
     serviceCategories = serviceCategories.filter(sc => sc.hostId !== hostId);
     customForms = customForms.filter(cf => cf.hostId !== hostId);
     services = services.filter(s => s.hostId !== hostId);
     orders = orders.filter(o => o.hostId !== hostId);
+    clients = clients.filter(c => c.hostId !== hostId);
+
 
     return hosts.length < initialHostsLength;
 };
@@ -247,7 +267,9 @@ export const updateSite = async (siteId: string, siteData: Partial<Omit<Site, 's
 export const deleteSiteInData = async (siteId: string): Promise<boolean> => {
     const initialLength = sites.length;
     sites = sites.filter(s => s.siteId !== siteId);
+    // Cascade delete: remove RoomOrTable entries that belong to this global site
     roomsOrTables = roomsOrTables.filter(rt => rt.globalSiteId !== siteId);
+    // Services, orders etc. are tied to hostId, so less direct impact unless a host only had this site.
     return sites.length < initialLength;
 };
 
@@ -258,7 +280,11 @@ export const getRoomsOrTables = async (hostId: string, globalSiteIdParam?: strin
   if (globalSiteIdParam) {
     filtered = filtered.filter(rt => rt.globalSiteId === globalSiteIdParam);
   }
-  return filtered.sort((a,b) => a.nom.localeCompare(b.nom)); // Sort for consistent UI
+  return filtered.sort((a,b) => { // Sort by type (Site first), then by name
+    if (a.type === 'Site' && b.type !== 'Site') return -1;
+    if (a.type !== 'Site' && b.type === 'Site') return 1;
+    return a.nom.localeCompare(b.nom);
+  });
 };
 
 
@@ -284,9 +310,7 @@ export const updateRoomOrTable = async (id: string, data: Partial<Omit<RoomOrTab
     roomsOrTables[itemIndex] = {
         ...currentItem,
         ...data, // Apply partial updates
-        hostId: currentItem.hostId, // Ensure hostId and URL are not changed by partial update
-        urlPersonnalise: currentItem.urlPersonnalise,
-         // Ensure globalSiteId and parentLocationId are correctly preserved or updated
+        // Ensure critical fields are handled correctly from component logic if they are part of 'data'
         globalSiteId: data.globalSiteId !== undefined ? data.globalSiteId : currentItem.globalSiteId,
         parentLocationId: data.parentLocationId !== undefined ? data.parentLocationId : currentItem.parentLocationId,
     };
@@ -306,14 +330,19 @@ export const deleteRoomOrTable = async (id: string): Promise<boolean> => {
         children.forEach(child => {
             const childIndex = roomsOrTables.findIndex(c => c.id === child.id);
             if (childIndex > -1) {
-                 // Assign to grandparent or make top-level if no grandparent
                 roomsOrTables[childIndex].parentLocationId = locationToDelete.parentLocationId || undefined;
             }
         });
-         // Also remove from any service targetLocationIds
+        // Remove from any service targetLocationIds
         services.forEach(service => {
             if (service.targetLocationIds?.includes(id)) {
                 service.targetLocationIds = service.targetLocationIds.filter(targetId => targetId !== id);
+            }
+        });
+        // Remove from client locationId assignments
+        clients.forEach(client => {
+            if (client.locationId === id) {
+                client.locationId = undefined;
             }
         });
     }
@@ -324,7 +353,7 @@ export const deleteRoomOrTable = async (id: string): Promise<boolean> => {
 
 // --- ServiceCategory Management ---
 export const getServiceCategories = async (hostId: string): Promise<ServiceCategory[]> => {
-  return serviceCategories.filter(sc => sc.hostId === hostId);
+  return serviceCategories.filter(sc => sc.hostId === hostId).sort((a,b) => a.nom.localeCompare(b.nom));
 };
 export const addServiceCategory = async (data: Omit<ServiceCategory, 'id' | 'data-ai-hint'>): Promise<ServiceCategory> => {
   const newCategory: ServiceCategory = { ...data, id: `cat-${Date.now()}`, "data-ai-hint": data.nom.toLowerCase().substring(0,15).replace(/\s+/g, ' ') };
@@ -342,7 +371,8 @@ export const updateServiceCategory = async (id: string, data: Partial<Omit<Servi
 export const deleteServiceCategory = async (id: string): Promise<boolean> => {
     const initialLength = serviceCategories.length;
     serviceCategories = serviceCategories.filter(sc => sc.id !== id);
-    services = services.map(s => s.categorieId === id ? {...s, categorieId: ''} : s); // Uncategorize services
+    // Uncategorize services using this category
+    services = services.map(s => s.categorieId === id ? {...s, categorieId: ''} : s); // Or assign to a default "Uncategorized"
     return serviceCategories.length < initialLength;
 };
 export const getServiceCategoryById = async (id: string): Promise<ServiceCategory | undefined> => {
@@ -352,7 +382,7 @@ export const getServiceCategoryById = async (id: string): Promise<ServiceCategor
 
 // --- CustomForm Management ---
 export const getCustomForms = async (hostId: string): Promise<CustomForm[]> => {
-  return customForms.filter(cf => cf.hostId === hostId);
+  return customForms.filter(cf => cf.hostId === hostId).sort((a,b) => a.nom.localeCompare(b.nom));
 };
 export const addCustomForm = async (data: Omit<CustomForm, 'id'>): Promise<CustomForm> => {
   const newForm: CustomForm = { ...data, id: `form-${Date.now()}` };
@@ -373,7 +403,9 @@ export const updateCustomForm = async (id: string, data: Partial<Omit<CustomForm
 export const deleteCustomForm = async (id: string): Promise<boolean> => {
     const initialLength = customForms.length;
     customForms = customForms.filter(cf => cf.id !== id);
+    // Remove associated form fields
     formFields = formFields.filter(ff => ff.formulaireId !== id);
+    // Unassign form from services
     services = services.map(s => s.formulaireId === id ? {...s, formulaireId: undefined} : s);
     return customForms.length < initialLength;
 };
@@ -405,7 +437,7 @@ export const deleteFormField = async (id: string): Promise<boolean> => {
 // --- Service Management ---
 export const getServices = async (
   hostId: string,
-  clientCurrentLocationId?: string, // This is the refId from the QR code for client view
+  clientCurrentLocationId?: string,
   categoryId?: string
 ): Promise<Service[]> => {
   let hostServices = services.filter(s => s.hostId === hostId);
@@ -413,36 +445,36 @@ export const getServices = async (
   if (clientCurrentLocationId) {
     const currentScannedLocation = await getRoomOrTableById(clientCurrentLocationId);
     if (!currentScannedLocation) {
-      console.error(`Location with ID ${clientCurrentLocationId} not found.`);
+      console.error(`Location with ID ${clientCurrentLocationId} not found for service filtering.`);
       return [];
     }
 
     const ancestorAndSelfLocationIds: string[] = [currentScannedLocation.id];
     let parentId = currentScannedLocation.parentLocationId;
     while (parentId) {
-      const parentLocation = await getRoomOrTableById(parentId); // Fetch parent details
+      const parentLocation = await getRoomOrTableById(parentId);
       if (parentLocation) {
         ancestorAndSelfLocationIds.push(parentId);
         parentId = parentLocation.parentLocationId;
       } else {
-        parentId = undefined; // Parent not found, break loop
+        parentId = undefined;
       }
     }
+    // Also consider the global site itself as a potential target if no parentLocationId
+    ancestorAndSelfLocationIds.push(currentScannedLocation.globalSiteId);
     
     hostServices = hostServices.filter(service => {
       if (!service.targetLocationIds || service.targetLocationIds.length === 0) {
-        return true; // Service is host-wide (available to all locations of this host)
+        return true; // Service is host-wide
       }
-      // Check if any of the service's target locations are in the client's current location hierarchy
       return service.targetLocationIds.some(targetId => ancestorAndSelfLocationIds.includes(targetId));
     });
   }
-  // else if not clientCurrentLocationId, it means we are fetching for host admin view, so no location-based filtering.
 
   if (categoryId && categoryId !== "all" && categoryId !== "") {
     hostServices = hostServices.filter(s => s.categorieId === categoryId);
   }
-  return hostServices;
+  return hostServices.sort((a,b) => a.titre.localeCompare(b.titre));
 };
 
 export const getServiceById = async (serviceId: string): Promise<Service | undefined> => {
@@ -454,7 +486,7 @@ export const addService = async (data: Omit<Service, 'id' | 'data-ai-hint'>): Pr
     ...data,
     id: `svc-${Date.now()}`,
     "data-ai-hint": data.titre.toLowerCase().substring(0,15).replace(/\s+/g, ' '),
-    targetLocationIds: data.targetLocationIds || [] // Ensure it's an array
+    targetLocationIds: data.targetLocationIds || []
   };
   services.push(newService);
   return newService;
@@ -476,7 +508,7 @@ export const updateService = async (id: string, data: Partial<Omit<Service, 'id'
 export const deleteService = async (id: string): Promise<boolean> => {
     const initialLength = services.length;
     services = services.filter(s => s.id !== id);
-    orders = orders.filter(o => o.serviceId !== id);
+    orders = orders.filter(o => o.serviceId !== id); // Remove orders for this service
     return services.length < initialLength;
 };
 
@@ -512,9 +544,15 @@ export const getOrders = async (
 };
 
 export const getOrdersByClientName = async (hostId: string, clientName: string): Promise<Order[]> => {
+  if (!clientName) return [];
   return orders.filter(o => o.hostId === hostId && o.clientNom?.toLowerCase() === clientName.toLowerCase())
                .sort((a,b) => new Date(b.dateHeure).getTime() - new Date(a.dateHeure).getTime());
 };
+export const getOrdersByUserId = async (userId: string): Promise<Order[]> => {
+  return orders.filter(o => o.userId === userId)
+               .sort((a,b) => new Date(b.dateHeure).getTime() - new Date(a.dateHeure).getTime());
+};
+
 
 export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status'>): Promise<Order> => {
   const serviceDetails = await getServiceById(data.serviceId);
@@ -539,12 +577,19 @@ export const updateOrderStatus = async (orderId: string, status: OrderStatus): P
 
 // --- Client Management (Host Side) ---
 export const getClients = async (hostId: string): Promise<Client[]> => {
-  return clients.filter(c => c.hostId === hostId);
+  return clients.filter(c => c.hostId === hostId).sort((a,b) => a.nom.localeCompare(b.nom));
 };
 
 export const getClientById = async (clientId: string): Promise<Client | undefined> => {
   return clients.find(c => c.id === clientId);
 };
+
+// New: To get Client records for a logged-in user (by email) for the /settings page
+export const getClientRecordsByEmail = async (email: string): Promise<Client[]> => {
+  return clients.filter(c => c.email?.toLowerCase() === email.toLowerCase())
+                .sort((a,b) => a.nom.localeCompare(b.nom));
+};
+
 
 export const addClient = async (clientData: Omit<Client, 'id' | 'documents'>): Promise<Client> => {
   const newClient: Client = { ...clientData, id: `client-${Date.now()}-${Math.random().toString(36).substring(2, 7)}` };
@@ -564,7 +609,8 @@ export const updateClient = async (clientId: string, clientData: Partial<Omit<Cl
 export const deleteClient = async (clientId: string): Promise<boolean> => {
   const initialLength = clients.length;
   clients = clients.filter(c => c.id !== clientId);
-  // Future: Consider implications for orders if ClientId is linked to orders.
+  // Consider implications for orders if ClientId is linked to orders.
+  // For now, orders use clientNom. If linking by clientId in future, would need to handle.
   return clients.length < initialLength;
 };
 
