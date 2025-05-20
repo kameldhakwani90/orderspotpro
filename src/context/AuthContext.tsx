@@ -73,37 +73,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, motDePasse: string): Promise<boolean> => {
     log('Login attempt initiated.', { email });
     setIsLoading(true);
+    let loginSuccessful = false;
     try {
       const foundUser = await getUserByEmail(email);
       if (foundUser) {
-        log('User found in database. Comparing passwords.', { 
-          enteredPasswordLength: motDePasse.length, 
-          storedPasswordHashLength: foundUser.motDePasse.length 
-          // Avoid logging actual passwords, even hashes, if sensitive in future
+        log('User found in database by email.', { email: foundUser.email, id: foundUser.id });
+        const storedPassword = foundUser.motDePasse;
+        const enteredPassword = motDePasse;
+
+        log('Comparing passwords.', { 
+          entered: enteredPassword, 
+          enteredLength: enteredPassword.length,
+          stored: storedPassword,
+          storedLength: storedPassword.length
         });
-        if (foundUser.motDePasse === motDePasse) {
+        
+        // Trim whitespace from both passwords before comparison
+        if (storedPassword.trim() === enteredPassword.trim()) {
           setUser(foundUser);
           localStorage.setItem('connectHostUserId', foundUser.id);
+          loginSuccessful = true;
           log('Login successful.', { email: foundUser.email, id: foundUser.id });
-          setIsLoading(false);
-          return true;
         } else {
-          log('Password mismatch.', { email });
+          log('Password mismatch for user: ' + email);
+          setUser(null); 
+          localStorage.removeItem('connectHostUserId'); 
         }
       } else {
         log('User not found in database.', { email });
+        setUser(null); 
+        localStorage.removeItem('connectHostUserId'); 
       }
-      // If login fails (user not found or password mismatch)
-      setUser(null); 
-      localStorage.removeItem('connectHostUserId'); 
     } catch (error) {
       log('Login error:', error);
       setUser(null);
       localStorage.removeItem('connectHostUserId');
     }
     setIsLoading(false);
-    log('Login attempt finished.', { finalIsLoading: false });
-    return false;
+    log('Login attempt finished.', { finalIsLoading: false, loginSuccessful });
+    return loginSuccessful;
   };
 
   const logout = useCallback(() => {
