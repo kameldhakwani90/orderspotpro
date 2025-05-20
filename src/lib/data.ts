@@ -1,40 +1,34 @@
 
 import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType } from './types';
-import { db } from './firebase'; // Import Firestore instance
-import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { db } from './firebase';
+import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
 
-// --- In-memory data (to be migrated gradually) ---
-let users: User[] = [
-  { id: 'user-admin-01', email: 'kamel@gmail.com', nom: 'Kamel Admin', role: 'admin', motDePasse: '0000' },
-  // Other initial users might remain here until User management is migrated
-  // { id: 'user-host-01', email: 'host1@example.com', nom: 'Hotel Paradise', role: 'host', hostId: 'host-01', motDePasse: '1234' },
-  // { id: 'user-host-02', email: 'host2@example.com', nom: 'Restaurant Delice', role: 'host', hostId: 'host-02', motDePasse: '1234' },
-  { id: 'user-client-01', email: 'client1@example.com', nom: 'Alice Wonderland', role: 'client', motDePasse: '1234' },
-  { id: 'user-client-02', email: 'client2@example.com', nom: 'Bob The Builder', role: 'client', motDePasse: '1234' },
-  // { id: 'user-host-dynamic', email: 'dynamic_host@example.com', nom: 'Dynamic Test Host', role: 'host', hostId: 'host-1747669860022', motDePasse: '1234' },
-];
+// --- Collection References ---
+const hostsCollection = collection(db, 'hosts');
+const usersCollection = collection(db, 'users');
+// TODO: Add other collection refs here as they are migrated (Sites, RoomOrTable, etc.)
 
-let sites: Site[] = [ // Global Sites - to be migrated
+
+// --- In-memory data (to be migrated gradually or used as initial seed for Firestore if appropriate) ---
+// The 'users' array is now managed by Firestore.
+// let users: User[] = [
+//   { id: 'user-admin-01', email: 'kamel@gmail.com', nom: 'Kamel Admin', role: 'admin', motDePasse: '0000' },
+// ];
+
+let sites: Site[] = [
   { siteId: 'site-01', nom: 'Paradise Beach Resort', hostId: 'host-01' },
   { siteId: 'site-02', nom: 'Delice Downtown', hostId: 'host-02' },
   { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment', hostId: 'host-1747669860022' },
 ];
 
-// HOSTS DATA IS NOW IN FIRESTORE
-// let hosts: Host[] = [
-//   { hostId: 'host-01', nom: 'Hotel Paradise', email: 'host1@example.com' },
-//   { hostId: 'host-02', nom: 'Restaurant Delice', email: 'host2@example.com' },
-//   { hostId: 'host-1747669860022', nom: 'Dynamic Test Host', email: 'dynamic_host@example.com' },
-// ];
-
 let roomsOrTables: RoomOrTable[] = [
   { id: 'rt-globalsite-root-site-01', nom: 'Paradise Resort Main Area', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: undefined, urlPersonnalise: `/client/host-01/rt-globalsite-root-site-01`},
-  { id: 'rt-lobby-01', nom: 'Lobby Zone', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-globalsite-root-site-01', urlPersonnalise: `/client/host-01/rt-lobby-01`},
-  { id: 'rt-pool-01', nom: 'Pool Area', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-globalsite-root-site-01', urlPersonnalise: `/client/host-01/rt-pool-01`},
-    { id: 'rt-reception-desk-01', nom: 'Reception Desk', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/rt-reception-desk-01`},
-  { id: 'room-101', nom: 'Chambre 101', type: 'Chambre', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/room-101` },
-  { id: 'room-102', nom: 'Chambre 102', type: 'Chambre', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/room-102` },
-  { id: 'table-pool-1', nom: 'Table Piscine 1', type: 'Table', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-pool-01', urlPersonnalise: `/client/host-01/table-pool-1` },
+    { id: 'rt-lobby-01', nom: 'Lobby Zone', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-globalsite-root-site-01', urlPersonnalise: `/client/host-01/rt-lobby-01`},
+      { id: 'rt-reception-desk-01', nom: 'Reception Desk', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/rt-reception-desk-01`},
+      { id: 'room-101', nom: 'Chambre 101', type: 'Chambre', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/room-101` },
+      { id: 'room-102', nom: 'Chambre 102', type: 'Chambre', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/room-102` },
+    { id: 'rt-pool-01', nom: 'Pool Area', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-globalsite-root-site-01', urlPersonnalise: `/client/host-01/rt-pool-01`},
+      { id: 'table-pool-1', nom: 'Table Piscine 1', type: 'Table', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-pool-01', urlPersonnalise: `/client/host-01/table-pool-1` },
   
   { id: 'rt-restaurant-main-area-02', nom: 'Delice Main Dining', type: 'Site', hostId: 'host-02', globalSiteId: 'site-02', parentLocationId: undefined, urlPersonnalise: `/client/host-02/rt-restaurant-main-area-02`},
   { id: 'table-5', nom: 'Table 5', type: 'Table', hostId: 'host-02', globalSiteId: 'site-02', parentLocationId: 'rt-restaurant-main-area-02', urlPersonnalise: `/client/host-02/table-5` },
@@ -46,7 +40,7 @@ let roomsOrTables: RoomOrTable[] = [
   { id: 'rt-dynamic-table1', nom: 'Dynamic Table Alpha', type: 'Table', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-main', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-table1`},
 ];
 
-let serviceCategories: ServiceCategory[] = [ // to be migrated
+let serviceCategories: ServiceCategory[] = [
   { id: 'cat-roomservice', nom: 'Room Service', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "room service" },
   { id: 'cat-transport', nom: 'Transport & Tours', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "transportation tour" },
   { id: 'cat-food', nom: 'Food Menu', hostId: 'host-02', image: 'https://placehold.co/300x200.png', "data-ai-hint": "food menu" },
@@ -56,16 +50,16 @@ let serviceCategories: ServiceCategory[] = [ // to be migrated
   { id: 'cat-dynamic-main', nom: 'General Services (Dynamic Host)', hostId: 'host-1747669860022', image: 'https://placehold.co/300x200.png', "data-ai-hint": "general services" },
 ];
 
-let customForms: CustomForm[] = [ // to be migrated
+let customForms: CustomForm[] = [
   { id: 'form-booking', nom: 'Booking Details', hostId: 'host-01' },
   { id: 'form-foodorder', nom: 'Food Order Preferences', hostId: 'host-02' },
   { id: 'form-generic-info', nom: 'General Inquiry', hostId: 'host-01' },
-  { id: 'form-no-fields', nom: 'Simple Confirmation (No Fields)', hostId: 'host-01' }, 
+  { id: 'form-no-fields', nom: 'Simple Confirmation (No Fields)', hostId: 'host-01' },
   { id: 'form-activity-signup', nom: 'Activity Sign-up Details', hostId: 'host-01'},
   { id: 'form-dynamic-request', nom: 'Dynamic Service Request', hostId: 'host-1747669860022'},
 ];
 
-let formFields: FormField[] = [ // to be migrated
+let formFields: FormField[] = [
   { id: 'field-persons', formulaireId: 'form-booking', label: 'Number of Persons', type: 'number', obligatoire: true, ordre: 1, placeholder: 'e.g., 2' },
   { id: 'field-date', formulaireId: 'form-booking', label: 'Desired Date', type: 'date', obligatoire: true, ordre: 2 },
   { id: 'field-time', formulaireId: 'form-booking', label: 'Preferred Time', type: 'time', obligatoire: false, ordre: 3 },
@@ -79,29 +73,30 @@ let formFields: FormField[] = [ // to be migrated
   { id: 'field-dynamic-detail', formulaireId: 'form-dynamic-request', label: 'Request Detail', type: 'textarea', obligatoire: true, ordre: 1, placeholder: 'Please describe your request...'},
 ];
 
-let services: Service[] = [ // to be migrated
+let services: Service[] = [
   { id: 'svc-taxi', titre: 'Airport Taxi', description: 'Book a taxi to or from the airport. Reliable and comfortable.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "taxi airport", categorieId: 'cat-transport', hostId: 'host-01', formulaireId: 'form-booking', prix: 50, targetLocationIds: [], loginRequired: true },
-  { id: 'svc-breakfast', titre: 'In-Room Breakfast', description: 'Order your breakfast selection to be delivered directly to your room.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "breakfast room", categorieId: 'cat-roomservice', hostId: 'host-01', formulaireId: 'form-foodorder', prix: 25, targetLocationIds: ['room-101', 'room-102'], loginRequired: false }, 
-  { id: 'svc-pool-cocktails', titre: 'Poolside Cocktails', description: 'Enjoy refreshing cocktails served by the pool.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "cocktail pool", categorieId: 'cat-poolside', hostId: 'host-01', prix: 12, targetLocationIds: ['rt-pool-01'], loginRequired: false }, 
+  { id: 'svc-breakfast', titre: 'In-Room Breakfast', description: 'Order your breakfast selection to be delivered directly to your room.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "breakfast room", categorieId: 'cat-roomservice', hostId: 'host-01', formulaireId: 'form-foodorder', prix: 25, targetLocationIds: ['room-101', 'room-102'], loginRequired: false },
+  { id: 'svc-pool-cocktails', titre: 'Poolside Cocktails', description: 'Enjoy refreshing cocktails served by the pool.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "cocktail pool", categorieId: 'cat-poolside', hostId: 'host-01', prix: 12, targetLocationIds: ['rt-pool-01'], loginRequired: false },
   { id: 'svc-pizza', titre: 'Artisan Pizza', description: 'Delicious stone-baked pizza with your choice of toppings.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "pizza food", categorieId: 'cat-food', hostId: 'host-02', formulaireId: 'form-foodorder', prix: 18, targetLocationIds: [], loginRequired: false },
   { id: 'svc-water-restaurant', titre: 'Bottled Water (Restaurant)', description: 'Chilled spring water.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "water bottle", categorieId: 'cat-drinks', hostId: 'host-02', prix: 3, targetLocationIds: [], loginRequired: false },
   { id: 'svc-concierge', titre: 'Concierge Assistance', description: 'Need help with bookings or local information? Our concierge is here for you.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "concierge helpdesk", categorieId: 'cat-roomservice', hostId: 'host-01', formulaireId: 'form-generic-info', targetLocationIds: ['rt-lobby-01', 'rt-reception-desk-01'], loginRequired: true },
   { id: 'svc-spa', titre: 'Full Day Spa Package', description: 'Indulge in a full day of relaxation and treatments at our spa.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "spa massage", categorieId: 'cat-activities', hostId: 'host-01', formulaireId: 'form-booking', prix: 150, targetLocationIds: [], loginRequired: true },
   { id: 'svc-citytour', titre: 'Guided City Tour', description: 'Explore the city highlights with our expert local guide. Duration: 3 hours.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "city tour", categorieId: 'cat-transport', hostId: 'host-01', formulaireId: 'form-activity-signup', prix: 75, targetLocationIds: ['rt-lobby-01', 'rt-reception-desk-01'], loginRequired: true },
   { id: 'svc-dynamic-info', titre: 'Information Desk (Dynamic Host)', description: 'Ask us anything!', image: 'https://placehold.co/600x400.png', "data-ai-hint": "information desk", categorieId: 'cat-dynamic-main', hostId: 'host-1747669860022', formulaireId: 'form-dynamic-request', targetLocationIds: ['rt-dynamic-lobby'], loginRequired: false},
-  { id: 'svc-dynamic-roomclean', titre: 'Room Cleaning (Dynamic Host)', description: 'Schedule your room cleaning service.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "room cleaning", categorieId: 'cat-dynamic-main', hostId: 'host-1747669860022', targetLocationIds: ['rt-dynamic-room1'], loginRequired: true},
+  { id: 'svc-dynamic-roomclean', titre: 'Room Cleaning (Dynamic Host)', description: 'Schedule your room cleaning service.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "room cleaning", categorieId: 'cat-dynamic-main', hostId: 'host-1747669860022', formulaireId: undefined, targetLocationIds: ['rt-dynamic-room1'], loginRequired: true},
 ];
 
-let orders: Order[] = [ // to be migrated
+let orders: Order[] = [
   { id: 'order-001', serviceId: 'svc-taxi', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({ persons: 2, date: '2024-08-15', time: '10:00' }), dateHeure: new Date(Date.now() - 3600000 * 2).toISOString(), status: 'pending', prix: 50 },
   { id: 'order-002', serviceId: 'svc-breakfast', hostId: 'host-01', chambreTableId: 'room-102', clientNom: 'Bob The Builder', userId: 'user-client-02', donneesFormulaire: JSON.stringify({ dish: "Continental Breakfast", notes: "Extra orange juice"}), dateHeure: new Date(Date.now() - 3600000 * 5).toISOString(), status: 'completed', prix: 25},
   { id: 'order-003', serviceId: 'svc-pizza', hostId: 'host-02', chambreTableId: 'table-5', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({dish: "Pepperoni Pizza", notes: "Extra cheese"}), dateHeure: new Date(Date.now() - 3600000 * 1).toISOString(), status: 'confirmed', prix: 18},
   { id: 'order-004', serviceId: 'svc-spa', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({ persons: 1, date: '2024-09-10', time: '14:00' }), dateHeure: new Date().toISOString(), status: 'pending', prix: 150 },
   { id: 'order-005', serviceId: 'svc-citytour', hostId: 'host-01', chambreTableId: 'rt-reception-desk-01', clientNom: 'Bob The Builder', userId: 'user-client-02', donneesFormulaire: JSON.stringify({ participant_name: "Bob Builder", participant_age: "35" }), dateHeure: new Date(Date.now() - 3600000 * 24).toISOString(), status: 'completed', prix: 75 },
   { id: 'order-006', serviceId: 'svc-dynamic-info', hostId: 'host-1747669860022', chambreTableId: 'rt-dynamic-lobby', clientNom: 'Test Guest', userId: undefined, donneesFormulaire: JSON.stringify({ request_detail: "Need directions to the nearest ATM."}), dateHeure: new Date().toISOString(), status: 'pending'},
+  { id: 'order-007', hostId: 'host-1747669860022', serviceId: 'svc-dynamic-roomclean', chambreTableId: 'rt-dynamic-room1', clientNom: 'Dynamic Test Client', userId: 'user-dynamic-client-01', donneesFormulaire: '{}', dateHeure: new Date(Date.now() - 3600000 * 3).toISOString(), status: 'completed' },
 ];
 
-let clients: Client[] = [ // to be migrated
+let clients: Client[] = [
     { id: 'client-mock-1', hostId: 'host-01', nom: 'Alice Wonderland', email: 'client1@example.com', type: 'heberge', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', locationId: 'room-101', notes: 'Prefers quiet room. Likes extra pillows.', credit: 50 },
     { id: 'client-mock-2', hostId: 'host-01', nom: 'Bob The Builder', email: 'client2@example.com', type: 'heberge', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', locationId: 'room-102', credit: 0 },
     { id: 'client-mock-3', hostId: 'host-02', nom: 'Charlie Passager', telephone: '+1123456789', type: 'passager', notes: 'Regular for lunch on Fridays.', credit: 10 },
@@ -109,34 +104,78 @@ let clients: Client[] = [ // to be migrated
     { id: 'client-mock-dynamic', hostId: 'host-1747669860022', nom: 'Dynamic Test Client', email: 'dynamic_client@example.com', type: 'heberge', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', locationId: 'rt-dynamic-room1', notes: 'Testing client for dynamic host.', credit: 100 },
 ];
 
-// Collection references
-const hostsCollection = collection(db, 'hosts');
-// Add other collection refs here as you migrate them (e.g., const usersCollection = collection(db, 'users');)
 
-
-// --- User Management --- (Still uses in-memory data)
+// --- User Management (Firestore) ---
 export const getUserByEmail = async (email: string): Promise<User | undefined> => {
-  return users.find(u => u.email === email);
+  const q = query(usersCollection, where("email", "==", email));
+  const querySnapshot = await getDocs(q);
+  if (querySnapshot.empty) {
+    return undefined;
+  }
+  const userDoc = querySnapshot.docs[0];
+  return { id: userDoc.id, ...userDoc.data() } as User;
 };
+
 export const getUserById = async (id: string): Promise<User | undefined> => {
-  return users.find(u => u.id === id);
+  if (!id) return undefined;
+  const userDocRef = doc(db, 'users', id);
+  const userSnap = await getDoc(userDocRef);
+  if (userSnap.exists()) {
+    return { id: userSnap.id, ...userSnap.data() } as User;
+  }
+  return undefined;
 };
-export const getUsers = async (): Promise<User[]> => users;
+
+export const getUsers = async (): Promise<User[]> => {
+  const usersSnapshot = await getDocs(usersCollection);
+  const userList = usersSnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as User));
+  return userList.sort((a, b) => a.nom.localeCompare(b.nom));
+};
 
 export const addUser = async (userData: Omit<User, 'id' | 'motDePasse'> & { motDePasse?: string }): Promise<User> => {
-  const existingUserByEmail = users.find(u => u.email === userData.email);
-  if (existingUserByEmail) {
-    console.warn(`User with email ${userData.email} already exists. Not adding duplicate.`);
-    return existingUserByEmail;
+  const existingUser = await getUserByEmail(userData.email);
+  if (existingUser) {
+    console.warn(`User with email ${userData.email} already exists in Firestore. Returning existing user.`);
+    // Optionally update existing user if logic requires (e.g. ensure role or hostId is set)
+    // For now, just return existing to prevent duplicates based on email.
+    return existingUser;
   }
+
+  const newUserId = `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
   const newUser: User = {
-    ...userData,
-    id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-    motDePasse: userData.motDePasse?.trim() || '1234'
+    id: newUserId, // Also store id in the document for easier querying if needed
+    email: userData.email,
+    nom: userData.nom,
+    role: userData.role,
+    hostId: userData.hostId,
+    motDePasse: userData.motDePasse?.trim() || '1234', // Default password
   };
-  users.push(newUser);
+
+  // Firestore expects data without the 'id' field if 'id' is used as doc identifier
+  const { id, ...userDataForFirestore } = newUser;
+  await setDoc(doc(usersCollection, newUserId), userDataForFirestore);
   return newUser;
 };
+
+export const updateUser = async (userId: string, userData: Partial<Omit<User, 'id'>>): Promise<User | undefined> => {
+  const userDocRef = doc(db, 'users', userId);
+  // Ensure 'id' is not part of the data being updated
+  const { id, ...updateData } = userData as any; 
+  await updateDoc(userDocRef, updateData);
+  return getUserById(userId); // Fetch and return the updated user
+};
+
+export const deleteUser = async (userId: string): Promise<boolean> => {
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    await deleteDoc(userDocRef);
+    return true;
+  } catch (error) {
+    console.error("Error deleting user from Firestore:", error);
+    return false;
+  }
+};
+
 
 // --- Host Management (Firestore) ---
 export const getHosts = async (): Promise<Host[]> => {
@@ -156,98 +195,92 @@ export const getHostById = async (hostId: string): Promise<Host | undefined> => 
 };
 
 export const addHost = async (hostData: Omit<Host, 'hostId'>): Promise<Host> => {
-  const newHostId = `host-${Date.now()}`; // Or let Firestore auto-generate and then fetch the ID
-  
   // Check if host with this email already exists in Firestore
   const q = query(hostsCollection, where("email", "==", hostData.email));
   const querySnapshot = await getDocs(q);
 
   if (!querySnapshot.empty) {
     const existingHostDoc = querySnapshot.docs[0];
-    console.warn(`Host with email ${hostData.email} already exists in Firestore. Updating if necessary.`);
-    const existingHost = { hostId: existingHostDoc.id, ...existingHostDoc.data() } as Host;
+    let existingHost = { hostId: existingHostDoc.id, ...existingHostDoc.data() } as Host;
+    console.warn(`Host with email ${hostData.email} already exists in Firestore. ID: ${existingHost.hostId}`);
+
+    // Update host if name is different
     if (existingHost.nom !== hostData.nom) {
       await updateDoc(existingHostDoc.ref, { nom: hostData.nom });
       existingHost.nom = hostData.nom;
     }
-    // TODO: Refactor user creation/update to also use Firestore when User management is migrated.
-    // For now, associated user creation is still in-memory.
-    // This section needs to be updated once Users are in Firestore.
-    const associatedUser = users.find(u => u.email === existingHost.email);
-     if (associatedUser) {
-        const userIndex = users.findIndex(u => u.id === associatedUser.id);
-        users[userIndex] = {...users[userIndex], role: 'host', hostId: existingHost.hostId, nom: existingHost.nom};
-     } else {
-         users.push({
-            id: `user-${existingHost.hostId}`,
-            email: existingHost.email,
-            nom: existingHost.nom,
-            role: 'host',
-            hostId: existingHost.hostId,
-            motDePasse: '1234' // Default password
-        });
-     }
+    
+    // Ensure associated user exists and is correctly configured
+    let associatedUser = await getUserByEmail(existingHost.email);
+    if (associatedUser) {
+      if (associatedUser.role !== 'host' || associatedUser.hostId !== existingHost.hostId || associatedUser.nom !== existingHost.nom) {
+        await updateUser(associatedUser.id, { role: 'host', hostId: existingHost.hostId, nom: existingHost.nom });
+      }
+    } else {
+      await addUser({
+        email: existingHost.email,
+        nom: existingHost.nom,
+        role: 'host',
+        hostId: existingHost.hostId,
+        // motDePasse will be default '1234'
+      });
+    }
     return existingHost;
   }
 
-  const newHost: Host = { ...hostData, hostId: newHostId };
-  const hostDocRef = doc(db, 'hosts', newHostId);
-  await setDoc(hostDocRef, { nom: newHost.nom, email: newHost.email }); // Only store data defined in Host, not hostId again
+  // Create new host
+  const newHostId = `host-${Date.now()}`;
+  const newHostRef = doc(hostsCollection, newHostId);
+  await setDoc(newHostRef, { nom: hostData.nom, email: hostData.email });
 
-  // TODO: Refactor user creation to also use Firestore when User management is migrated.
-  // For now, associated user creation is still in-memory.
-  let associatedUser = users.find(u => u.email === newHost.email);
-  if (!associatedUser) {
-    const hostUser: User = {
-      id: `user-${newHostId}`,
-      email: newHost.email,
-      nom: newHost.nom,
-      role: 'host',
-      hostId: newHost.hostId,
-      motDePasse: '1234'
-    };
-    users.push(hostUser);
+  // Create or update associated user in Firestore
+  let associatedUser = await getUserByEmail(hostData.email);
+  if (associatedUser) {
+      await updateUser(associatedUser.id, { role: 'host', hostId: newHostId, nom: hostData.nom });
   } else {
-    const userIndex = users.findIndex(u => u.id === associatedUser!.id);
-    users[userIndex] = {
-        ...users[userIndex],
-        role: 'host',
-        hostId: newHost.hostId,
-        nom: newHost.nom
-    };
+      await addUser({
+          email: hostData.email,
+          nom: hostData.nom,
+          role: 'host',
+          hostId: newHostId,
+      });
   }
-  return newHost;
+  return { hostId: newHostId, ...hostData };
 };
 
 export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'hostId'>>): Promise<Host | undefined> => {
   const hostDocRef = doc(db, 'hosts', hostId);
-  await updateDoc(hostDocRef, hostData); // updateDoc only updates specified fields
+  const originalHost = await getHostById(hostId); // Get original host details
 
-  const updatedHostSnap = await getDoc(hostDocRef);
-  if (updatedHostSnap.exists()) {
-    const updatedHost = { hostId: updatedHostSnap.id, ...updatedHostSnap.data() } as Host;
+  await updateDoc(hostDocRef, hostData);
+  const updatedHost = await getHostById(hostId);
+
+  if (updatedHost && originalHost) {
+    // Find user by original email if email might have changed
+    let userToUpdate = await getUserByEmail(originalHost.email);
     
-    // TODO: Refactor user update to also use Firestore when User management is migrated.
-    // This logic remains for in-memory user data.
-    let userToUpdate = users.find(u => u.hostId === hostId && u.role === 'host');
-    const originalHost = await getHostById(hostId); // Get original host details if needed for old email
-    
-    if (!userToUpdate && originalHost?.email) { 
-        userToUpdate = users.find(u => u.email === originalHost.email && u.role === 'host');
-    }
-    if (!userToUpdate && hostData.email && hostData.email !== originalHost?.email) {
-        userToUpdate = users.find(u => u.email === hostData.email!);
+    // If user not found by old email, try new email (if provided)
+    if (!userToUpdate && hostData.email && hostData.email !== originalHost.email) {
+        userToUpdate = await getUserByEmail(hostData.email);
     }
 
     if (userToUpdate) {
-        const userIndex = users.findIndex(u=> u.id === userToUpdate!.id);
-        users[userIndex] = {
-            ...users[userIndex],
-            email: hostData.email || users[userIndex].email,
-            nom: hostData.nom || users[userIndex].nom,
-            role: 'host',
-            hostId: hostId
-        };
+      await updateUser(userToUpdate.id, {
+        email: updatedHost.email, // Use the new email from the updated host
+        nom: updatedHost.nom,     // Use the new name
+        role: 'host',
+        hostId: hostId,
+      });
+    } else if (hostData.email) { 
+      // If user didn't exist with old email, and new email is different,
+      // try to create a new user with the new email.
+      // This scenario is less common but handles cases where user link was broken.
+       await addUser({
+          email: updatedHost.email,
+          nom: updatedHost.nom,
+          role: 'host',
+          hostId: hostId,
+      });
     }
     return updatedHost;
   }
@@ -255,17 +288,29 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
 };
 
 export const deleteHost = async (hostId: string): Promise<boolean> => {
-  try {
-    const hostDocRef = doc(db, 'hosts', hostId);
-    await deleteDoc(hostDocRef);
+  const hostToDelete = await getHostById(hostId);
+  if (!hostToDelete) {
+    console.warn(`Host with ID ${hostId} not found for deletion.`);
+    return false;
+  }
 
-    // TODO: Refactor user deletion to also use Firestore when User management is migrated.
-    // This logic remains for in-memory user data.
-    users = users.filter(u => !(u.role === 'host' && u.hostId === hostId));
+  try {
+    const batch = writeBatch(db);
+    const hostDocRef = doc(db, 'hosts', hostId);
+    batch.delete(hostDocRef);
+
+    // Delete associated user
+    const userToDelete = await getUserByEmail(hostToDelete.email);
+    if (userToDelete && userToDelete.role === 'host' && userToDelete.hostId === hostId) {
+      const userDocRef = doc(db, 'users', userToDelete.id);
+      batch.delete(userDocRef);
+    }
     
+    await batch.commit();
+
     // TODO: Implement proper cascade delete for related Firestore collections (Sites, RoomOrTables, etc.)
-    // This will require more complex logic, potentially Cloud Functions.
-    // For now, we'll just remove the host document.
+    // This will require more complex logic, potentially Cloud Functions or more batched writes.
+    // For now, only host and its direct user are deleted from Firestore.
     // The in-memory arrays below will be removed as their corresponding data is migrated.
     sites = sites.filter(s => s.hostId !== hostId);
     roomsOrTables = roomsOrTables.filter(rt => rt.hostId !== hostId);
@@ -277,7 +322,7 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
 
     return true;
   } catch (error) {
-    console.error("Error deleting host from Firestore:", error);
+    console.error("Error deleting host and associated user from Firestore:", error);
     return false;
   }
 };
@@ -492,12 +537,16 @@ export const getServices = async (
         parentIdLoop = undefined;
       }
     }
-    ancestorAndSelfLocationIds.push(currentScannedLocation.globalSiteId);
+    // Also add the global site ID itself to the list of valid targets
+    if (currentScannedLocation.globalSiteId && !ancestorAndSelfLocationIds.includes(currentScannedLocation.globalSiteId)) {
+        ancestorAndSelfLocationIds.push(currentScannedLocation.globalSiteId);
+    }
     
     hostServices = hostServices.filter(service => {
       if (!service.targetLocationIds || service.targetLocationIds.length === 0) {
-        return true;
+        return true; // Service is host-wide
       }
+      // Check if any of the service's target locations are in the client's current location hierarchy
       return service.targetLocationIds.some(targetId => ancestorAndSelfLocationIds.includes(targetId));
     });
   }
@@ -598,7 +647,7 @@ export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status'>)
     dateHeure: new Date().toISOString(),
     status: 'pending',
     prix: serviceDetails?.prix,
-    userId: data.userId
+    userId: data.userId // Capture userId if provided
   };
   orders.push(newOrder);
   return newOrder;
@@ -648,4 +697,38 @@ export const deleteClientData = async (clientId: string): Promise<boolean> => {
   return clients.length < initialLength;
 };
 
-console.log("Data layer initialized. Host management now partially uses Firestore.");
+console.log("Data layer initialized. Host and User management now partially/fully use Firestore.");
+// Initial seed for admin user (Only run if users collection is empty - one-time)
+// This is a simplistic seeding approach for development.
+// In a real app, this would be handled by a proper seeding script or initial setup process.
+const seedInitialAdmin = async () => {
+    const q = query(usersCollection, where("role", "==", "admin"));
+    const adminSnapshot = await getDocs(q);
+    if (adminSnapshot.empty) {
+        console.log("No admin user found. Seeding initial admin 'kamel@gmail.com'.");
+        const adminData = {
+            email: 'kamel@gmail.com',
+            nom: 'Kamel Admin',
+            role: 'admin' as User['role'],
+            motDePasse: '0000'
+        };
+        // The addUser function handles ID generation and saving to Firestore.
+        try {
+            await addUser(adminData);
+            console.log("Initial admin user 'kamel@gmail.com' seeded successfully.");
+        } catch (error) {
+            console.error("Error seeding initial admin user:", error);
+        }
+    } else {
+        console.log("Admin user(s) already exist. Skipping seed.");
+    }
+};
+// Call this when the module loads for the first time.
+// Be cautious with this in environments where multiple server instances might run.
+// seedInitialAdmin(); // This might run multiple times on HMR. Better to handle seeding outside application code.
+
+// For now, the expectation is that the admin user 'kamel@gmail.com' should be manually created
+// in Firestore if it's the first time running the app with Firestore user management,
+// or created via the UI if a super-admin creation mechanism exists.
+// OR the addHost function, when creating the first host, might also create the first user.
+// The login will simply fail if 'kamel@gmail.com' is not in the Firestore `users` collection.

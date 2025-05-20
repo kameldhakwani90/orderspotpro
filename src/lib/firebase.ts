@@ -1,21 +1,19 @@
-
 // src/lib/firebase.ts
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-// import { getAuth } from 'firebase/auth'; // If you plan to use Firebase Auth later
+// import { getAuth } from 'firebase/auth'; // Si tu veux activer Auth plus tard
 
-// TODO: Replace with your app's Firebase project configuration
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID",
-  measurementId: "YOUR_MEASUREMENT_ID" // Optional
+  apiKey: "AIzaSyAqZgZsgJ7zxltCx9O--m9U076mRrF_50",
+  authDomain: "connecthost.firebaseapp.com",
+  projectId: "connecthost",
+  storageBucket: "connecthost.appspot.com",
+  messagingSenderId: "812170721595",
+  appId: "1:812170721595:web:bb01e08919c8fb13a75f1e",
+  // measurementId est optionnel, tu peux l’enlever ou le laisser vide
 };
 
-// Initialize Firebase
+// Initialisation unique de Firebase
 let app;
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
@@ -24,6 +22,7 @@ if (!getApps().length) {
 }
 
 const db = getFirestore(app);
-// const auth = getAuth(app); // If you plan to use Firebase Auth
+// const auth = getAuth(app); // Pour activer l’authentification plus tard
 
 export { db /*, auth */ };
+

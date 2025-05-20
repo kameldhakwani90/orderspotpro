@@ -1,10 +1,10 @@
 
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getUsers, addUser as addUserToData, getHosts } from '@/lib/data'; // Assuming getHosts exists
+import { getUsers, addUser, updateUser, deleteUser, getHosts } from '@/lib/data';
 import type { User, UserRole, Host } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -29,9 +28,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AdminUsersPage() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user: authUser, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -39,80 +39,71 @@ export default function AdminUsersPage() {
   const [hosts, setHosts] = useState<Host[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null); // Store full User object for editing
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [newUser, setNewUser] = useState<{ email: string; nom: string; role: UserRole; hostId?: string; motDePasse: string }>({
+  const [currentUserData, setCurrentUserData] = useState<{
+    email: string;
+    nom: string;
+    role: UserRole;
+    hostId?: string;
+    motDePasse: string;
+  }>({
     email: '',
     nom: '',
     role: 'client',
-    motDePasse: '1234', // Default password for new users
+    motDePasse: '1234', 
   });
 
-  useEffect(() => {
-    if (!authLoading && user?.role !== 'admin') {
-      router.replace('/dashboard');
-    } else if (user?.role === 'admin') {
-      fetchData();
-    }
-  }, [user, authLoading, router]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const usersData = await getUsers();
-      const hostsData = await getHosts(); 
+      const [usersData, hostsData] = await Promise.all([getUsers(), getHosts()]);
       setUsers(usersData);
-      setHosts(hostsData); 
+      setHosts(hostsData);
     } catch (error) {
-      toast({ title: "Error", description: "Failed to load user data.", variant: "destructive" });
+      console.error("Failed to load user or host data:", error);
+      toast({ title: "Error", description: "Failed to load user data. Please try again.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
-  };
+  }, [toast]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement> | { name: string, value: string }) => {
-    const { name, value } = 'target' in e ? e.target : e;
-    if (editingUser) {
-      setEditingUser(prev => ({ ...prev, [name]: value }));
-    } else {
-      setNewUser(prev => ({ ...prev, [name]: value }));
+  useEffect(() => {
+    if (!authLoading) {
+      if (authUser?.role !== 'admin') {
+        router.replace('/dashboard');
+      } else {
+        fetchData();
+      }
     }
+  }, [authUser, authLoading, router, fetchData]);
+
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setCurrentUserData(prev => ({ ...prev, [name]: value }));
   };
   
   const handleRoleChange = (value: UserRole) => {
-    const currentSetter = editingUser ? setEditingUser : setNewUser;
-
-    currentSetter(prev => ({
+    setCurrentUserData(prev => ({
         ...prev,
         role: value,
-        hostId: value === 'host' ? (prev?.hostId || (hosts.length > 0 ? hosts[0].hostId : '')) : undefined
+        hostId: value === 'host' ? (prev.hostId || (hosts.length > 0 ? hosts[0].hostId : '')) : undefined
     }));
   };
   
   const handleHostChange = (value: string) => {
-    if (editingUser) {
-        setEditingUser(prev => ({...prev, hostId: value}));
-    } else {
-        setNewUser(prev => ({...prev, hostId: value}));
-    }
+    setCurrentUserData(prev => ({...prev, hostId: value}));
   };
 
 
   const handleSubmitUser = async () => {
     setIsSubmitting(true);
-    const baseData = editingUser ? { ...(users.find(u => u.id === editingUser.id) || {}), ...editingUser } : newUser;
     
-    const dataToSubmit: Partial<User> & { email: string; nom: string; role: UserRole; motDePasse?: string} = {
-        id: baseData.id,
-        email: baseData.email!,
-        nom: baseData.nom!,
-        role: baseData.role!,
-        hostId: baseData.role === 'host' ? baseData.hostId : undefined,
-        motDePasse: editingUser ? undefined : newUser.motDePasse, 
-    };
+    const dataToSubmit = { ...currentUserData };
 
-
-    if (!dataToSubmit.email || !dataToSubmit.nom) {
+    if (!dataToSubmit.email?.trim() || !dataToSubmit.nom?.trim()) {
       toast({ title: "Missing Information", description: "Please fill in name and email.", variant: "destructive" });
       setIsSubmitting(false);
       return;
@@ -122,69 +113,100 @@ export default function AdminUsersPage() {
         setIsSubmitting(false);
         return;
     }
-
-    if (dataToSubmit.role === 'host' && !dataToSubmit.hostId && hosts.length > 0) { // Added hosts.length > 0 check
+    if (dataToSubmit.role === 'host' && !dataToSubmit.hostId && hosts.length > 0) {
       toast({ title: "Host Assignment Required", description: "Please assign a host to users with the 'host' role.", variant: "destructive" });
       setIsSubmitting(false);
       return;
     }
     
-    if (editingUser && editingUser.id) { 
-      console.log("Simulating user update (not implemented in data.ts):", dataToSubmit);
-      const updatedUsers = users.map(u => u.id === editingUser.id ? { ...u, ...dataToSubmit } as User : u);
-      setUsers(updatedUsers); 
-      toast({ title: "User Updated", description: `${dataToSubmit.nom} has been updated (simulated).` });
-    } else { 
-      try {
-        await addUserToData({
-          email: newUser.email,
-          nom: newUser.nom,
-          role: newUser.role,
-          hostId: newUser.role === 'host' ? newUser.hostId : undefined,
-          motDePasse: newUser.motDePasse!.trim(), // Use trimmed password
+    try {
+      if (editingUser && editingUser.id) {
+        // For updates, we don't send password unless it's explicitly being changed.
+        // This simple form doesn't have password change for existing users.
+        const updatePayload: Partial<Omit<User, 'id' | 'motDePasse'>> = {
+          nom: dataToSubmit.nom,
+          email: dataToSubmit.email, // Email editing for existing users typically disabled or handled with care
+          role: dataToSubmit.role,
+          hostId: dataToSubmit.role === 'host' ? dataToSubmit.hostId : undefined,
+        };
+        await updateUser(editingUser.id, updatePayload);
+        toast({ title: "User Updated", description: `${dataToSubmit.nom} has been updated.` });
+      } else {
+        await addUser({
+          email: dataToSubmit.email,
+          nom: dataToSubmit.nom,
+          role: dataToSubmit.role,
+          hostId: dataToSubmit.role === 'host' ? dataToSubmit.hostId : undefined,
+          motDePasse: dataToSubmit.motDePasse!.trim(),
         });
-        await fetchData(); 
-        toast({ title: "User Created", description: `${newUser.nom} has been added.` });
-      } catch (error) {
-        console.error("Failed to create user:", error);
-        toast({ title: "Error", description: `Failed to create user. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
+        toast({ title: "User Created", description: `${dataToSubmit.nom} has been added.` });
       }
+      await fetchData(); // Refresh data from Firestore
+    } catch (error) {
+        console.error("Failed to save user:", error);
+        toast({ title: "Error", description: `Failed to save user. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
+    } finally {
+        setIsSubmitting(false);
+        setIsDialogOpen(false);
+        setCurrentUserData({ email: '', nom: '', role: 'client', motDePasse: '1234', hostId: hosts.length > 0 ? hosts[0].hostId : '' });
+        setEditingUser(null);
     }
-    setIsSubmitting(false); 
-    setIsDialogOpen(false);
-    setNewUser({ email: '', nom: '', role: 'client', motDePasse: '1234', hostId: hosts.length > 0 ? hosts[0].hostId : '' });
-    setEditingUser(null);
   };
   
   const openAddDialog = () => {
     setEditingUser(null);
     const initialRole: UserRole = 'client';
     const initialHostId = initialRole === 'host' && hosts.length > 0 ? hosts[0].hostId : undefined;
-    setNewUser({ email: '', nom: '', role: initialRole, hostId: initialHostId, motDePasse: '1234' });
+    setCurrentUserData({ email: '', nom: '', role: initialRole, hostId: initialHostId, motDePasse: '1234' });
     setIsDialogOpen(true);
   };
 
   const openEditDialog = (userToEdit: User) => {
+    setEditingUser(userToEdit);
     let effectiveHostId = userToEdit.hostId;
     if (userToEdit.role === 'host' && !userToEdit.hostId && hosts.length > 0) {
         effectiveHostId = hosts[0].hostId; 
     }
-    setEditingUser({...userToEdit, hostId: effectiveHostId});
+    setCurrentUserData({
+        email: userToEdit.email,
+        nom: userToEdit.nom,
+        role: userToEdit.role,
+        hostId: effectiveHostId,
+        motDePasse: '', // Password not shown/edited in this dialog for existing users
+    });
     setIsDialogOpen(true);
   };
   
-  const handleDeleteUser = (userId: string) => {
-     setUsers(users.filter(u => u.id !== userId)); 
-     toast({ title: "User Deleted", description: `User has been deleted (simulated).`, variant: "destructive" });
+  const handleDeleteUser = async (userId: string, userName: string) => {
+     if (!window.confirm(`Are you sure you want to delete user "${userName}"? This action cannot be undone.`)) return;
+     setIsSubmitting(true);
+     try {
+        await deleteUser(userId);
+        toast({ title: "User Deleted", description: `User "${userName}" has been deleted.`, variant: "destructive" });
+        await fetchData(); // Refresh data
+     } catch (error) {
+        console.error("Failed to delete user:", error);
+        toast({ title: "Error deleting user", description: `Could not delete user. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
+     }
+     setIsSubmitting(false);
   };
 
 
   if (isLoading || authLoading) {
-    return <div className="p-6">Loading user management...</div>;
+    return (
+        <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
+            <div className="flex justify-between items-center mb-8">
+                <div><Skeleton className="h-10 w-72 mb-2" /><Skeleton className="h-6 w-96" /></div>
+                <Skeleton className="h-10 w-36" />
+            </div>
+            <Card className="shadow-lg">
+                <CardHeader><Skeleton className="h-8 w-48 mb-2" /><Skeleton className="h-5 w-64" /></CardHeader>
+                <CardContent><div className="space-y-4">{[...Array(3)].map((_, i) => (<div key={i} className="grid grid-cols-5 gap-4 items-center"><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-8 w-full" /></div>))}</div></CardContent>
+            </Card>
+        </div>
+    );
   }
   
-  const currentFormData = editingUser || newUser;
-
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
       <div className="flex justify-between items-center mb-8">
@@ -192,7 +214,7 @@ export default function AdminUsersPage() {
           <h1 className="text-4xl font-bold tracking-tight text-foreground">User Management</h1>
           <p className="text-lg text-muted-foreground">Administer all user accounts in ConnectHost.</p>
         </div>
-        <Button onClick={openAddDialog}>
+        <Button onClick={openAddDialog} disabled={isSubmitting}>
           <UserPlus className="mr-2 h-5 w-5" /> Add New User
         </Button>
       </div>
@@ -232,7 +254,7 @@ export default function AdminUsersPage() {
                     <Button variant="outline" size="icon" onClick={() => openEditDialog(u)} title="Edit User" disabled={isSubmitting}>
                       <Edit2 className="h-4 w-4" />
                     </Button>
-                    <Button variant="destructive" size="icon" onClick={() => handleDeleteUser(u.id)} title="Delete User" disabled={u.role === 'admin' || isSubmitting}>
+                    <Button variant="destructive" size="icon" onClick={() => handleDeleteUser(u.id, u.nom)} title="Delete User" disabled={(u.role === 'admin' && u.id === authUser?.id) || isSubmitting}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>
@@ -240,6 +262,7 @@ export default function AdminUsersPage() {
               ))}
             </TableBody>
           </Table>
+           {users.length === 0 && <p className="p-4 text-center text-muted-foreground">No users found in the system.</p>}
         </CardContent>
       </Card>
 
@@ -254,40 +277,40 @@ export default function AdminUsersPage() {
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="nom" className="text-right">Name</Label>
-              <Input id="nom" name="nom" value={currentFormData.nom || ''} onChange={handleInputChange} className="col-span-3" disabled={isSubmitting} />
+              <Input id="nom" name="nom" value={currentUserData.nom || ''} onChange={handleInputChange} className="col-span-3" disabled={isSubmitting} />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="email" className="text-right">Email</Label>
-              <Input id="email" name="email" type="email" value={currentFormData.email || ''} onChange={handleInputChange} className="col-span-3" disabled={isSubmitting || !!editingUser} />
+              <Input id="email" name="email" type="email" value={currentUserData.email || ''} onChange={handleInputChange} className="col-span-3" disabled={isSubmitting || !!editingUser} />
             </div>
              {!editingUser && ( 
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="motDePasse" className="text-right">Password</Label>
-                <Input id="motDePasse" name="motDePasse" type="password" value={newUser.motDePasse} onChange={handleInputChange} className="col-span-3" disabled={isSubmitting} />
+                <Input id="motDePasse" name="motDePasse" type="password" value={currentUserData.motDePasse} onChange={handleInputChange} className="col-span-3" disabled={isSubmitting} />
               </div>
             )}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="role" className="text-right">Role</Label>
               <Select 
-                value={currentFormData.role || 'client'} 
+                value={currentUserData.role || 'client'} 
                 onValueChange={handleRoleChange} 
-                disabled={isSubmitting || (editingUser?.role === 'admin' && editingUser.id === user?.id)} 
+                disabled={isSubmitting || (editingUser?.role === 'admin' && editingUser.id === authUser?.id)} 
               >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin" disabled={(editingUser?.role === 'admin' && editingUser.id === user?.id) || (user?.role !== 'admin')}>Admin</SelectItem>
+                  <SelectItem value="admin" disabled={(editingUser?.role === 'admin' && editingUser.id === authUser?.id) || (authUser?.role !== 'admin')}>Admin</SelectItem>
                   <SelectItem value="host">Host</SelectItem>
                   <SelectItem value="client">Client</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {currentFormData.role === 'host' && (
+            {currentUserData.role === 'host' && (
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="hostId" className="text-right">Host</Label>
                  <Select 
-                    value={currentFormData.hostId || (hosts.length > 0 ? hosts[0].hostId : '')} 
+                    value={currentUserData.hostId || (hosts.length > 0 ? hosts[0].hostId : '')} 
                     onValueChange={handleHostChange} 
                     disabled={isSubmitting || hosts.length === 0}
                   >
@@ -307,7 +330,7 @@ export default function AdminUsersPage() {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
             <Button 
               onClick={handleSubmitUser} 
-              disabled={isSubmitting || (currentFormData.role === 'host' && !currentFormData.hostId && hosts.length > 0) }
+              disabled={isSubmitting || (currentUserData.role === 'host' && !currentUserData.hostId && hosts.length > 0) }
             >
               {editingUser ? (isSubmitting ? 'Saving...' : 'Save Changes') : (isSubmitting ? 'Creating...' : 'Create User')}
             </Button>
@@ -317,5 +340,3 @@ export default function AdminUsersPage() {
     </div>
   );
 }
-
-    
