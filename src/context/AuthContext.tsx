@@ -32,7 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadUserFromStorage = useCallback(async () => {
     log('Attempting to load user from storage...');
-    setIsLoading(true); 
+    setIsLoading(true);
     const storedUserId = localStorage.getItem('connectHostUserId');
     log('Stored User ID from localStorage:', storedUserId);
 
@@ -77,19 +77,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const foundUser = await getUserByEmail(email);
       if (foundUser) {
-        log('User found in database by email.', { email: foundUser.email, id: foundUser.id });
-        const storedPassword = foundUser.motDePasse;
-        const enteredPassword = motDePasse;
+        log('User found in database by email.', { email: foundUser.email, id: foundUser.id, retrievedMotDePasse: foundUser.motDePasse });
+        
+        const storedPassword = foundUser.motDePasse || ''; // Ensure it's a string for trim()
+        const enteredPassword = motDePasse || ''; // Ensure it's a string for trim()
 
-        log('Comparing passwords.', { 
-          entered: enteredPassword, 
+        const trimmedStoredPassword = storedPassword.trim();
+        const trimmedEnteredPassword = enteredPassword.trim();
+
+        log('Comparing passwords.', {
+          entered: enteredPassword,
           enteredLength: enteredPassword.length,
+          trimmedEntered: trimmedEnteredPassword,
+          trimmedEnteredLength: trimmedEnteredPassword.length,
           stored: storedPassword,
-          storedLength: storedPassword.length
+          storedLength: storedPassword.length,
+          trimmedStored: trimmedStoredPassword,
+          trimmedStoredLength: trimmedStoredPassword.length,
+        });
+
+        // Log character codes for deep comparison
+        const enteredChars = Array.from(trimmedEnteredPassword).map(char => char.charCodeAt(0));
+        const storedChars = Array.from(trimmedStoredPassword).map(char => char.charCodeAt(0));
+        log('Password Char Codes (trimmed):', {
+          entered: enteredChars,
+          stored: storedChars,
         });
         
-        // Trim whitespace from both passwords before comparison
-        if (storedPassword.trim() === enteredPassword.trim()) {
+        if (trimmedStoredPassword === trimmedEnteredPassword) {
           setUser(foundUser);
           localStorage.setItem('connectHostUserId', foundUser.id);
           loginSuccessful = true;
