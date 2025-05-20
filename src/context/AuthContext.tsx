@@ -58,9 +58,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
     }
     setIsLoading(false);
-    // Note: 'user' state might not be updated here immediately due to async nature of setState
-    // We log based on the state *after* this function effectively completes.
-    // For more immediate reflection of 'fetchedUser', log that directly.
     log('Finished loading user from storage (isLoading will be false).', { finalIsLoading: false });
   }, []);
 
@@ -78,17 +75,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const foundUser = await getUserByEmail(email);
-      if (foundUser && foundUser.motDePasse === motDePasse) {
-        setUser(foundUser);
-        localStorage.setItem('connectHostUserId', foundUser.id);
-        log('Login successful.', { email: foundUser.email, id: foundUser.id });
-        setIsLoading(false);
-        return true;
+      if (foundUser) {
+        log('User found in database. Comparing passwords.', { 
+          enteredPasswordLength: motDePasse.length, 
+          storedPasswordHashLength: foundUser.motDePasse.length 
+          // Avoid logging actual passwords, even hashes, if sensitive in future
+        });
+        if (foundUser.motDePasse === motDePasse) {
+          setUser(foundUser);
+          localStorage.setItem('connectHostUserId', foundUser.id);
+          log('Login successful.', { email: foundUser.email, id: foundUser.id });
+          setIsLoading(false);
+          return true;
+        } else {
+          log('Password mismatch.', { email });
+        }
       } else {
-        log('Login failed: user not found or password mismatch.', { email });
-        setUser(null); 
-        localStorage.removeItem('connectHostUserId'); 
+        log('User not found in database.', { email });
       }
+      // If login fails (user not found or password mismatch)
+      setUser(null); 
+      localStorage.removeItem('connectHostUserId'); 
     } catch (error) {
       log('Login error:', error);
       setUser(null);
