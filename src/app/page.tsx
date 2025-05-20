@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect } from 'react';
@@ -11,6 +10,8 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
+    console.log("✅ Test de déploiement du 20 mai 2025");
+
     if (!isLoading) {
       if (user) {
         router.replace('/dashboard');

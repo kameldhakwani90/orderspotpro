@@ -7,7 +7,8 @@ import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc,
 const hostsCollection = collection(db, 'hosts');
 const usersCollection = collection(db, 'users');
 // TODO: Add other collection refs here as they are migrated (Sites, RoomOrTable, etc.)
-
+// 🔄 Modif test du 20 mai 2025 pour forcer déploiement
+// Mise à jour forcée pour publication
 
 // --- In-memory data (to be migrated gradually or used as initial seed for Firestore if appropriate) ---
 // The 'users' array is now managed by Firestore.
