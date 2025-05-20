@@ -11,9 +11,6 @@ const usersCollection = collection(db, 'users');
 
 // --- In-memory data (to be migrated gradually or used as initial seed for Firestore if appropriate) ---
 // The 'users' array is now managed by Firestore.
-// let users: User[] = [
-//   { id: 'user-admin-01', email: 'kamel@gmail.com', nom: 'Kamel Admin', role: 'admin', motDePasse: '0000' },
-// ];
 
 let sites: Site[] = [
   { siteId: 'site-01', nom: 'Paradise Beach Resort', hostId: 'host-01' },
@@ -112,57 +109,104 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
   if (querySnapshot.empty) {
     return undefined;
   }
-  const userDoc = querySnapshot.docs[0];
-  return { id: userDoc.id, ...userDoc.data() } as User;
+  const userDocSnap = querySnapshot.docs[0];
+  const data = userDocSnap.data();
+  
+  const user: User = {
+    id: userDocSnap.id,
+    email: data.email,
+    // Fallback for 'nom': use email part before '@' or the full email if 'nom' is missing
+    nom: data.nom || data.email?.split('@')[0] || data.email || 'Unnamed User',
+    role: data.role,
+    hostId: data.hostId,
+    // Prioritize motDePasse, but fallback to password if motDePasse is not present
+    motDePasse: data.motDePasse || data.password || '', 
+  };
+
+  // Log warnings if fields are missing or alternative fields are used
+  if (!data.motDePasse && data.password) {
+      console.warn(`User ${email}: Using 'password' field from Firestore as 'motDePasse'. Consider renaming 'password' to 'motDePasse' in Firestore for consistency.`);
+  } else if (!data.motDePasse && !data.password) {
+      console.error(`User ${email}: Missing 'motDePasse' (and 'password') field in Firestore. Login will likely fail.`);
+  }
+
+  if (!data.nom) {
+      console.warn(`User ${email}: Missing 'nom' field in Firestore. Using '${user.nom}' as fallback name.`);
+  }
+
+  return user;
 };
+
 
 export const getUserById = async (id: string): Promise<User | undefined> => {
   if (!id) return undefined;
   const userDocRef = doc(db, 'users', id);
   const userSnap = await getDoc(userDocRef);
   if (userSnap.exists()) {
-    return { id: userSnap.id, ...userSnap.data() } as User;
+    const data = userSnap.data();
+    // Similar mapping logic as getUserByEmail for consistency
+    const user: User = {
+        id: userSnap.id,
+        email: data.email,
+        nom: data.nom || data.email?.split('@')[0] || data.email || 'Unnamed User',
+        role: data.role,
+        hostId: data.hostId,
+        motDePasse: data.motDePasse || data.password || '',
+    };
+    return user;
   }
   return undefined;
 };
 
 export const getUsers = async (): Promise<User[]> => {
   const usersSnapshot = await getDocs(usersCollection);
-  const userList = usersSnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as User));
+  const userList = usersSnapshot.docs.map(docSnap => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      email: data.email,
+      nom: data.nom || data.email?.split('@')[0] || data.email || 'Unnamed User',
+      role: data.role,
+      hostId: data.hostId,
+      motDePasse: data.motDePasse || data.password || '',
+    } as User;
+  });
   return userList.sort((a, b) => a.nom.localeCompare(b.nom));
 };
 
-export const addUser = async (userData: Omit<User, 'id' | 'motDePasse'> & { motDePasse?: string }): Promise<User> => {
+export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
   const existingUser = await getUserByEmail(userData.email);
   if (existingUser) {
     console.warn(`User with email ${userData.email} already exists in Firestore. Returning existing user.`);
-    // Optionally update existing user if logic requires (e.g. ensure role or hostId is set)
-    // For now, just return existing to prevent duplicates based on email.
     return existingUser;
   }
 
   const newUserId = `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-  const newUser: User = {
-    id: newUserId, // Also store id in the document for easier querying if needed
+  // Ensure we write to Firestore with the correct 'motDePasse' field name
+  const newUserForFirestore = {
     email: userData.email,
     nom: userData.nom,
     role: userData.role,
     hostId: userData.hostId,
-    motDePasse: userData.motDePasse?.trim() || '1234', // Default password
+    motDePasse: userData.motDePasse, // This is correct according to User type
   };
 
-  // Firestore expects data without the 'id' field if 'id' is used as doc identifier
-  const { id, ...userDataForFirestore } = newUser;
-  await setDoc(doc(usersCollection, newUserId), userDataForFirestore);
-  return newUser;
+  await setDoc(doc(usersCollection, newUserId), newUserForFirestore);
+  return { id: newUserId, ...userData }; // Return the full User object as defined in types
 };
 
 export const updateUser = async (userId: string, userData: Partial<Omit<User, 'id'>>): Promise<User | undefined> => {
   const userDocRef = doc(db, 'users', userId);
-  // Ensure 'id' is not part of the data being updated
-  const { id, ...updateData } = userData as any; 
+  
+  // Prepare data for Firestore, ensuring field names match what we intend to store
+  // For example, if userData contains 'motDePasse', it will be written as 'motDePasse'
+  const updateData = { ...userData };
+  if ('motDePasse' in updateData && updateData.motDePasse === undefined) {
+    delete updateData.motDePasse; // Don't write undefined password
+  }
+  
   await updateDoc(userDocRef, updateData);
-  return getUserById(userId); // Fetch and return the updated user
+  return getUserById(userId); 
 };
 
 export const deleteUser = async (userId: string): Promise<boolean> => {
@@ -195,91 +239,70 @@ export const getHostById = async (hostId: string): Promise<Host | undefined> => 
 };
 
 export const addHost = async (hostData: Omit<Host, 'hostId'>): Promise<Host> => {
-  // Check if host with this email already exists in Firestore
   const q = query(hostsCollection, where("email", "==", hostData.email));
   const querySnapshot = await getDocs(q);
 
+  let hostIdToUse: string;
+  let finalHostData: Host;
+
   if (!querySnapshot.empty) {
     const existingHostDoc = querySnapshot.docs[0];
-    let existingHost = { hostId: existingHostDoc.id, ...existingHostDoc.data() } as Host;
-    console.warn(`Host with email ${hostData.email} already exists in Firestore. ID: ${existingHost.hostId}`);
-
-    // Update host if name is different
-    if (existingHost.nom !== hostData.nom) {
-      await updateDoc(existingHostDoc.ref, { nom: hostData.nom });
-      existingHost.nom = hostData.nom;
-    }
-    
-    // Ensure associated user exists and is correctly configured
-    let associatedUser = await getUserByEmail(existingHost.email);
-    if (associatedUser) {
-      if (associatedUser.role !== 'host' || associatedUser.hostId !== existingHost.hostId || associatedUser.nom !== existingHost.nom) {
-        await updateUser(associatedUser.id, { role: 'host', hostId: existingHost.hostId, nom: existingHost.nom });
-      }
-    } else {
-      await addUser({
-        email: existingHost.email,
-        nom: existingHost.nom,
-        role: 'host',
-        hostId: existingHost.hostId,
-        // motDePasse will be default '1234'
-      });
-    }
-    return existingHost;
+    hostIdToUse = existingHostDoc.id;
+    finalHostData = { hostId: hostIdToUse, ...existingHostDoc.data(), ...hostData } as Host;
+    await updateDoc(existingHostDoc.ref, { nom: hostData.nom, email: hostData.email }); // Ensure update
+    console.warn(`Host with email ${hostData.email} already exists. Updated if necessary. ID: ${hostIdToUse}`);
+  } else {
+    hostIdToUse = `host-${Date.now()}`;
+    finalHostData = { hostId: hostIdToUse, ...hostData };
+    const newHostRef = doc(hostsCollection, hostIdToUse);
+    await setDoc(newHostRef, { nom: hostData.nom, email: hostData.email });
   }
-
-  // Create new host
-  const newHostId = `host-${Date.now()}`;
-  const newHostRef = doc(hostsCollection, newHostId);
-  await setDoc(newHostRef, { nom: hostData.nom, email: hostData.email });
-
+  
   // Create or update associated user in Firestore
-  let associatedUser = await getUserByEmail(hostData.email);
+  let associatedUser = await getUserByEmail(finalHostData.email);
   if (associatedUser) {
-      await updateUser(associatedUser.id, { role: 'host', hostId: newHostId, nom: hostData.nom });
+      await updateUser(associatedUser.id, { role: 'host', hostId: hostIdToUse, nom: finalHostData.nom, email: finalHostData.email });
   } else {
       await addUser({
-          email: hostData.email,
-          nom: hostData.nom,
+          email: finalHostData.email,
+          nom: finalHostData.nom,
           role: 'host',
-          hostId: newHostId,
+          hostId: hostIdToUse,
+          motDePasse: '1234', // Default password for new host users
       });
   }
-  return { hostId: newHostId, ...hostData };
+  return finalHostData;
 };
 
 export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'hostId'>>): Promise<Host | undefined> => {
   const hostDocRef = doc(db, 'hosts', hostId);
-  const originalHost = await getHostById(hostId); // Get original host details
+  const originalHost = await getHostById(hostId); 
 
   await updateDoc(hostDocRef, hostData);
   const updatedHost = await getHostById(hostId);
 
   if (updatedHost && originalHost) {
-    // Find user by original email if email might have changed
-    let userToUpdate = await getUserByEmail(originalHost.email);
+    const userEmailToQuery = (hostData.email && hostData.email !== originalHost.email) ? originalHost.email : updatedHost.email;
+    let userToUpdate = await getUserByEmail(userEmailToQuery);
     
-    // If user not found by old email, try new email (if provided)
-    if (!userToUpdate && hostData.email && hostData.email !== originalHost.email) {
-        userToUpdate = await getUserByEmail(hostData.email);
+    if (!userToUpdate && updatedHost.email !== userEmailToQuery) {
+        userToUpdate = await getUserByEmail(updatedHost.email);
     }
 
     if (userToUpdate) {
       await updateUser(userToUpdate.id, {
-        email: updatedHost.email, // Use the new email from the updated host
-        nom: updatedHost.nom,     // Use the new name
+        email: updatedHost.email, 
+        nom: updatedHost.nom,    
         role: 'host',
         hostId: hostId,
       });
-    } else if (hostData.email) { 
-      // If user didn't exist with old email, and new email is different,
-      // try to create a new user with the new email.
-      // This scenario is less common but handles cases where user link was broken.
+    } else { 
        await addUser({
           email: updatedHost.email,
           nom: updatedHost.nom,
           role: 'host',
           hostId: hostId,
+          motDePasse: '1234',
       });
     }
     return updatedHost;
@@ -299,7 +322,6 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
     const hostDocRef = doc(db, 'hosts', hostId);
     batch.delete(hostDocRef);
 
-    // Delete associated user
     const userToDelete = await getUserByEmail(hostToDelete.email);
     if (userToDelete && userToDelete.role === 'host' && userToDelete.hostId === hostId) {
       const userDocRef = doc(db, 'users', userToDelete.id);
@@ -308,10 +330,6 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
     
     await batch.commit();
 
-    // TODO: Implement proper cascade delete for related Firestore collections (Sites, RoomOrTables, etc.)
-    // This will require more complex logic, potentially Cloud Functions or more batched writes.
-    // For now, only host and its direct user are deleted from Firestore.
-    // The in-memory arrays below will be removed as their corresponding data is migrated.
     sites = sites.filter(s => s.hostId !== hostId);
     roomsOrTables = roomsOrTables.filter(rt => rt.hostId !== hostId);
     serviceCategories = serviceCategories.filter(sc => sc.hostId !== hostId);
@@ -537,16 +555,14 @@ export const getServices = async (
         parentIdLoop = undefined;
       }
     }
-    // Also add the global site ID itself to the list of valid targets
     if (currentScannedLocation.globalSiteId && !ancestorAndSelfLocationIds.includes(currentScannedLocation.globalSiteId)) {
         ancestorAndSelfLocationIds.push(currentScannedLocation.globalSiteId);
     }
     
     hostServices = hostServices.filter(service => {
       if (!service.targetLocationIds || service.targetLocationIds.length === 0) {
-        return true; // Service is host-wide
+        return true; 
       }
-      // Check if any of the service's target locations are in the client's current location hierarchy
       return service.targetLocationIds.some(targetId => ancestorAndSelfLocationIds.includes(targetId));
     });
   }
@@ -647,7 +663,7 @@ export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status'>)
     dateHeure: new Date().toISOString(),
     status: 'pending',
     prix: serviceDetails?.prix,
-    userId: data.userId // Capture userId if provided
+    userId: data.userId 
   };
   orders.push(newOrder);
   return newOrder;
@@ -697,38 +713,5 @@ export const deleteClientData = async (clientId: string): Promise<boolean> => {
   return clients.length < initialLength;
 };
 
-console.log("Data layer initialized. Host and User management now partially/fully use Firestore.");
-// Initial seed for admin user (Only run if users collection is empty - one-time)
-// This is a simplistic seeding approach for development.
-// In a real app, this would be handled by a proper seeding script or initial setup process.
-const seedInitialAdmin = async () => {
-    const q = query(usersCollection, where("role", "==", "admin"));
-    const adminSnapshot = await getDocs(q);
-    if (adminSnapshot.empty) {
-        console.log("No admin user found. Seeding initial admin 'kamel@gmail.com'.");
-        const adminData = {
-            email: 'kamel@gmail.com',
-            nom: 'Kamel Admin',
-            role: 'admin' as User['role'],
-            motDePasse: '0000'
-        };
-        // The addUser function handles ID generation and saving to Firestore.
-        try {
-            await addUser(adminData);
-            console.log("Initial admin user 'kamel@gmail.com' seeded successfully.");
-        } catch (error) {
-            console.error("Error seeding initial admin user:", error);
-        }
-    } else {
-        console.log("Admin user(s) already exist. Skipping seed.");
-    }
-};
-// Call this when the module loads for the first time.
-// Be cautious with this in environments where multiple server instances might run.
-// seedInitialAdmin(); // This might run multiple times on HMR. Better to handle seeding outside application code.
-
-// For now, the expectation is that the admin user 'kamel@gmail.com' should be manually created
-// in Firestore if it's the first time running the app with Firestore user management,
-// or created via the UI if a super-admin creation mechanism exists.
-// OR the addHost function, when creating the first host, might also create the first user.
-// The login will simply fail if 'kamel@gmail.com' is not in the Firestore `users` collection.
+console.log("Data layer initialized. Host and User management now use Firestore.");
+// Initial seed for admin user - now handled by manual entry or first host creation logic
