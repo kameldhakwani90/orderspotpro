@@ -34,41 +34,53 @@ export default function PublicClientServicePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log("PublicClientServicePage: Component mounted or hostId/refId/selectedCategory changed.", { hostId, refId, selectedCategory });
+    console.log("PublicClientServicePage: Effect triggered.", { hostId, refId, selectedCategory, authIsLoading });
+    if (authIsLoading) {
+        console.log("PublicClientServicePage: Auth is still loading, deferring data fetch.");
+        // Optionally set isLoadingPage to true here if it wasn't already,
+        // or handle this by showing a generic loader until authIsLoading is false.
+        // For now, we let the existing isLoadingPage logic handle it.
+        return; 
+    }
+
     if (hostId && refId) {
       const fetchData = async () => {
         setIsLoadingPage(true);
         setError(null);
         console.log("PublicClientServicePage: Starting data fetch...");
         try {
-          const [hostData, locationData] = await Promise.all([
-            getHostById(hostId),
-            getRoomOrTableById(refId),
-          ]);
-          console.log("PublicClientServicePage: Fetched host and location data.", { hostData, locationData });
+          console.log(`PublicClientServicePage: Fetching host with ID: ${hostId}`);
+          const hostData = await getHostById(hostId);
+          console.log("PublicClientServicePage: Fetched host data.", { hostData });
 
           if (!hostData) {
-            setError(`Establishment with ID ${hostId} not found.`);
+            setError(`Establishment with ID ${hostId} not found. Please check the QR code or link.`);
             setHostInfo(null); setLocationInfo(null); setCategories([]);
             setIsLoadingPage(false); 
             console.error("PublicClientServicePage: Host not found.");
             return;
           }
+          setHostInfo(hostData);
+
+          console.log(`PublicClientServicePage: Fetching location with ID: ${refId}`);
+          const locationData = await getRoomOrTableById(refId);
+          console.log("PublicClientServicePage: Fetched location data.", { locationData });
+
           if (!locationData || locationData.hostId !== hostId) {
-            setError(`Location with ID ${refId} not found or does not belong to ${hostData.nom}.`);
-            setHostInfo(hostData); setLocationInfo(null); setCategories([]);
+            setError(`Location with ID ${refId} not found or does not belong to ${hostData.nom}. Please check the QR code or link.`);
+            setLocationInfo(null); setCategories([]);
             setIsLoadingPage(false); 
             console.error("PublicClientServicePage: Location not found or invalid.");
             return;
           }
-          
-          setHostInfo(hostData);
           setLocationInfo(locationData);
 
+          console.log(`PublicClientServicePage: Fetching categories for host ID: ${hostId}`);
           const categoriesData = await getServiceCategories(hostId);
           console.log("PublicClientServicePage: Fetched categories data.", { categoriesData });
           setCategories([{id: 'all', nom: 'All Categories', hostId}, ...categoriesData]);
           
+          console.log(`PublicClientServicePage: Fetching services for host ID: ${hostId}, location ID: ${refId}, category: ${selectedCategory}`);
           const servicesData = await getServices(hostId, refId, selectedCategory === "all" ? undefined : selectedCategory);
           console.log("PublicClientServicePage: Fetched services data.", { servicesData });
           setServices(servicesData);
@@ -76,9 +88,11 @@ export default function PublicClientServicePage() {
 
         } catch (e: any) {
           console.error("PublicClientServicePage: Failed to fetch client data:", e);
-          setError(`Failed to load services. ${e.message || 'Please try again later.'}`);
+          setError(`Failed to load service information. This could be due to a connection issue or incorrect configuration. Please try again later or contact support. (Details: ${e.message})`);
+        } finally {
+            setIsLoadingPage(false);
+            console.log("PublicClientServicePage: Data fetch process finished. isLoadingPage set to false.");
         }
-        setIsLoadingPage(false);
       };
       fetchData();
     } else {
@@ -86,7 +100,7 @@ export default function PublicClientServicePage() {
         setError("Required information (host or location ID) is missing from the URL.");
         setIsLoadingPage(false);
     }
-  }, [hostId, refId, selectedCategory]);
+  }, [hostId, refId, selectedCategory, authIsLoading]); // Added authIsLoading
 
   if (isLoadingPage || authIsLoading) {
     return (
@@ -115,7 +129,7 @@ export default function PublicClientServicePage() {
       <div className="text-center py-10">
         <AlertTriangle className="mx-auto h-16 w-16 text-destructive mb-4" />
         <h1 className="text-2xl font-semibold text-destructive mb-2">Access Error</h1>
-        <p className="text-muted-foreground">{error}</p>
+        <p className="text-muted-foreground px-4">{error}</p>
       </div>
     );
   }
@@ -168,7 +182,7 @@ export default function PublicClientServicePage() {
         </Select>
       </div>
 
-      {services.length === 0 ? (
+      {services.length === 0 && !isLoadingPage ? ( // Ensure not to show this if still loading
         <p className="text-center text-muted-foreground text-lg py-10">
           No services currently available for this category or location. Please check back soon!
         </p>
@@ -188,3 +202,4 @@ export default function PublicClientServicePage() {
     </div>
   );
 }
+
