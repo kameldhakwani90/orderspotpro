@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation'; // Added useSearchParams
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams(); // To get query params
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -24,7 +25,12 @@ export default function LoginPage() {
     setLoading(true);
     const success = await login(email, password);
     if (success) {
-      router.push('/dashboard');
+      const redirectUrl = searchParams.get('redirect_url');
+      if (redirectUrl) {
+        router.push(redirectUrl);
+      } else {
+        router.push('/dashboard');
+      }
       toast({ title: "Login Successful", description: "Welcome back!" });
     } else {
       toast({ title: "Login Failed", description: "Invalid email or password.", variant: "destructive" });
@@ -73,11 +79,7 @@ export default function LoginPage() {
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="text-center text-sm">
-          <p className="text-muted-foreground">
-            Default admin: kamel@gmail.com / 0000
-          </p>
-        </CardFooter>
+        {/* CardFooter removed to hide the default admin hint */}
       </Card>
     </div>
   );
