@@ -1,109 +1,15 @@
 
 import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType } from './types';
-import { db } from './firebase';
+import { db } from './firebase'; // Make sure db is correctly initialized and exported from firebase.ts
 import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
 
 // --- Collection References ---
-const hostsCollection = collection(db, 'hosts');
 const usersCollection = collection(db, 'users');
-// TODO: Add other collection refs here as they are migrated (Sites, RoomOrTable, etc.)
-// 🔄 Modif test du 20 mai 2025 pour forcer déploiement
-// Mise à jour forcée pour publication
-
-// --- In-memory data (to be migrated gradually or used as initial seed for Firestore if appropriate) ---
-// The 'users' array is now managed by Firestore.
-
-let sites: Site[] = [
-  { siteId: 'site-01', nom: 'Paradise Beach Resort', hostId: 'host-01' },
-  { siteId: 'site-02', nom: 'Delice Downtown', hostId: 'host-02' },
-  { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment', hostId: 'host-1747669860022' },
-];
-
-let roomsOrTables: RoomOrTable[] = [
-  { id: 'rt-globalsite-root-site-01', nom: 'Paradise Resort Main Area', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: undefined, urlPersonnalise: `/client/host-01/rt-globalsite-root-site-01`},
-    { id: 'rt-lobby-01', nom: 'Lobby Zone', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-globalsite-root-site-01', urlPersonnalise: `/client/host-01/rt-lobby-01`},
-      { id: 'rt-reception-desk-01', nom: 'Reception Desk', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/rt-reception-desk-01`},
-      { id: 'room-101', nom: 'Chambre 101', type: 'Chambre', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/room-101` },
-      { id: 'room-102', nom: 'Chambre 102', type: 'Chambre', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/room-102` },
-    { id: 'rt-pool-01', nom: 'Pool Area', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-globalsite-root-site-01', urlPersonnalise: `/client/host-01/rt-pool-01`},
-      { id: 'table-pool-1', nom: 'Table Piscine 1', type: 'Table', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-pool-01', urlPersonnalise: `/client/host-01/table-pool-1` },
-  
-  { id: 'rt-restaurant-main-area-02', nom: 'Delice Main Dining', type: 'Site', hostId: 'host-02', globalSiteId: 'site-02', parentLocationId: undefined, urlPersonnalise: `/client/host-02/rt-restaurant-main-area-02`},
-  { id: 'table-5', nom: 'Table 5', type: 'Table', hostId: 'host-02', globalSiteId: 'site-02', parentLocationId: 'rt-restaurant-main-area-02', urlPersonnalise: `/client/host-02/table-5` },
-  { id: 'table-vip', nom: 'VIP Table', type: 'Table', hostId: 'host-02', globalSiteId: 'site-02', parentLocationId: 'rt-restaurant-main-area-02', urlPersonnalise: `/client/host-02/table-vip` },
-
-  { id: 'rt-dynamic-main', nom: 'Dynamic Main Area', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: undefined, urlPersonnalise: `/client/host-1747669860022/rt-dynamic-main`},
-  { id: 'rt-dynamic-lobby', nom: 'Dynamic Lobby', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-main', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-lobby`},
-  { id: 'rt-dynamic-room1', nom: 'Dynamic Room 1', type: 'Chambre', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-room1`},
-  { id: 'rt-dynamic-table1', nom: 'Dynamic Table Alpha', type: 'Table', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-main', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-table1`},
-];
-
-let serviceCategories: ServiceCategory[] = [
-  { id: 'cat-roomservice', nom: 'Room Service', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "room service" },
-  { id: 'cat-transport', nom: 'Transport & Tours', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "transportation tour" },
-  { id: 'cat-food', nom: 'Food Menu', hostId: 'host-02', image: 'https://placehold.co/300x200.png', "data-ai-hint": "food menu" },
-  { id: 'cat-drinks', nom: 'Beverages', hostId: 'host-02', image: 'https://placehold.co/300x200.png', "data-ai-hint": "drinks beverages" },
-  { id: 'cat-activities', nom: 'Resort Activities', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "activities leisure" },
-  { id: 'cat-poolside', nom: 'Poolside Snacks & Drinks', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "poolside snacks" },
-  { id: 'cat-dynamic-main', nom: 'General Services (Dynamic Host)', hostId: 'host-1747669860022', image: 'https://placehold.co/300x200.png', "data-ai-hint": "general services" },
-];
-
-let customForms: CustomForm[] = [
-  { id: 'form-booking', nom: 'Booking Details', hostId: 'host-01' },
-  { id: 'form-foodorder', nom: 'Food Order Preferences', hostId: 'host-02' },
-  { id: 'form-generic-info', nom: 'General Inquiry', hostId: 'host-01' },
-  { id: 'form-no-fields', nom: 'Simple Confirmation (No Fields)', hostId: 'host-01' },
-  { id: 'form-activity-signup', nom: 'Activity Sign-up Details', hostId: 'host-01'},
-  { id: 'form-dynamic-request', nom: 'Dynamic Service Request', hostId: 'host-1747669860022'},
-];
-
-let formFields: FormField[] = [
-  { id: 'field-persons', formulaireId: 'form-booking', label: 'Number of Persons', type: 'number', obligatoire: true, ordre: 1, placeholder: 'e.g., 2' },
-  { id: 'field-date', formulaireId: 'form-booking', label: 'Desired Date', type: 'date', obligatoire: true, ordre: 2 },
-  { id: 'field-time', formulaireId: 'form-booking', label: 'Preferred Time', type: 'time', obligatoire: false, ordre: 3 },
-  { id: 'field-dish', formulaireId: 'form-foodorder', label: 'Main Dish Choice', type: 'text', obligatoire: true, ordre: 1, placeholder: 'e.g., Pizza Margherita' },
-  { id: 'field-notes', formulaireId: 'form-foodorder', label: 'Additional Notes/Allergies', type: 'textarea', obligatoire: false, ordre: 2, placeholder: 'e.g., No onions, gluten-free' },
-  { id: 'field-name-generic', formulaireId: 'form-generic-info', label: 'Your Name', type: 'text', obligatoire: true, ordre: 1, placeholder: 'John Doe' },
-  { id: 'field-email-generic', formulaireId: 'form-generic-info', label: 'Your Email', type: 'email', obligatoire: true, ordre: 2, placeholder: 'john.doe@example.com' },
-  { id: 'field-message-generic', formulaireId: 'form-generic-info', label: 'Your Message/Question', type: 'textarea', obligatoire: true, ordre: 3, placeholder: 'Type your message here...' },
-  { id: 'field-activity-name', formulaireId: 'form-activity-signup', label: 'Participant Full Name', type: 'text', obligatoire: true, ordre: 1},
-  { id: 'field-activity-age', formulaireId: 'form-activity-signup', label: 'Participant Age', type: 'number', obligatoire: false, ordre: 2},
-  { id: 'field-dynamic-detail', formulaireId: 'form-dynamic-request', label: 'Request Detail', type: 'textarea', obligatoire: true, ordre: 1, placeholder: 'Please describe your request...'},
-];
-
-let services: Service[] = [
-  { id: 'svc-taxi', titre: 'Airport Taxi', description: 'Book a taxi to or from the airport. Reliable and comfortable.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "taxi airport", categorieId: 'cat-transport', hostId: 'host-01', formulaireId: 'form-booking', prix: 50, targetLocationIds: [], loginRequired: true },
-  { id: 'svc-breakfast', titre: 'In-Room Breakfast', description: 'Order your breakfast selection to be delivered directly to your room.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "breakfast room", categorieId: 'cat-roomservice', hostId: 'host-01', formulaireId: 'form-foodorder', prix: 25, targetLocationIds: ['room-101', 'room-102'], loginRequired: false },
-  { id: 'svc-pool-cocktails', titre: 'Poolside Cocktails', description: 'Enjoy refreshing cocktails served by the pool.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "cocktail pool", categorieId: 'cat-poolside', hostId: 'host-01', prix: 12, targetLocationIds: ['rt-pool-01'], loginRequired: false },
-  { id: 'svc-pizza', titre: 'Artisan Pizza', description: 'Delicious stone-baked pizza with your choice of toppings.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "pizza food", categorieId: 'cat-food', hostId: 'host-02', formulaireId: 'form-foodorder', prix: 18, targetLocationIds: [], loginRequired: false },
-  { id: 'svc-water-restaurant', titre: 'Bottled Water (Restaurant)', description: 'Chilled spring water.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "water bottle", categorieId: 'cat-drinks', hostId: 'host-02', prix: 3, targetLocationIds: [], loginRequired: false },
-  { id: 'svc-concierge', titre: 'Concierge Assistance', description: 'Need help with bookings or local information? Our concierge is here for you.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "concierge helpdesk", categorieId: 'cat-roomservice', hostId: 'host-01', formulaireId: 'form-generic-info', targetLocationIds: ['rt-lobby-01', 'rt-reception-desk-01'], loginRequired: true },
-  { id: 'svc-spa', titre: 'Full Day Spa Package', description: 'Indulge in a full day of relaxation and treatments at our spa.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "spa massage", categorieId: 'cat-activities', hostId: 'host-01', formulaireId: 'form-booking', prix: 150, targetLocationIds: [], loginRequired: true },
-  { id: 'svc-citytour', titre: 'Guided City Tour', description: 'Explore the city highlights with our expert local guide. Duration: 3 hours.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "city tour", categorieId: 'cat-transport', hostId: 'host-01', formulaireId: 'form-activity-signup', prix: 75, targetLocationIds: ['rt-lobby-01', 'rt-reception-desk-01'], loginRequired: true },
-  { id: 'svc-dynamic-info', titre: 'Information Desk (Dynamic Host)', description: 'Ask us anything!', image: 'https://placehold.co/600x400.png', "data-ai-hint": "information desk", categorieId: 'cat-dynamic-main', hostId: 'host-1747669860022', formulaireId: 'form-dynamic-request', targetLocationIds: ['rt-dynamic-lobby'], loginRequired: false},
-  { id: 'svc-dynamic-roomclean', titre: 'Room Cleaning (Dynamic Host)', description: 'Schedule your room cleaning service.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "room cleaning", categorieId: 'cat-dynamic-main', hostId: 'host-1747669860022', formulaireId: undefined, targetLocationIds: ['rt-dynamic-room1'], loginRequired: true},
-];
-
-let orders: Order[] = [
-  { id: 'order-001', serviceId: 'svc-taxi', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({ persons: 2, date: '2024-08-15', time: '10:00' }), dateHeure: new Date(Date.now() - 3600000 * 2).toISOString(), status: 'pending', prix: 50 },
-  { id: 'order-002', serviceId: 'svc-breakfast', hostId: 'host-01', chambreTableId: 'room-102', clientNom: 'Bob The Builder', userId: 'user-client-02', donneesFormulaire: JSON.stringify({ dish: "Continental Breakfast", notes: "Extra orange juice"}), dateHeure: new Date(Date.now() - 3600000 * 5).toISOString(), status: 'completed', prix: 25},
-  { id: 'order-003', serviceId: 'svc-pizza', hostId: 'host-02', chambreTableId: 'table-5', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({dish: "Pepperoni Pizza", notes: "Extra cheese"}), dateHeure: new Date(Date.now() - 3600000 * 1).toISOString(), status: 'confirmed', prix: 18},
-  { id: 'order-004', serviceId: 'svc-spa', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({ persons: 1, date: '2024-09-10', time: '14:00' }), dateHeure: new Date().toISOString(), status: 'pending', prix: 150 },
-  { id: 'order-005', serviceId: 'svc-citytour', hostId: 'host-01', chambreTableId: 'rt-reception-desk-01', clientNom: 'Bob The Builder', userId: 'user-client-02', donneesFormulaire: JSON.stringify({ participant_name: "Bob Builder", participant_age: "35" }), dateHeure: new Date(Date.now() - 3600000 * 24).toISOString(), status: 'completed', prix: 75 },
-  { id: 'order-006', serviceId: 'svc-dynamic-info', hostId: 'host-1747669860022', chambreTableId: 'rt-dynamic-lobby', clientNom: 'Test Guest', userId: undefined, donneesFormulaire: JSON.stringify({ request_detail: "Need directions to the nearest ATM."}), dateHeure: new Date().toISOString(), status: 'pending'},
-  { id: 'order-007', hostId: 'host-1747669860022', serviceId: 'svc-dynamic-roomclean', chambreTableId: 'rt-dynamic-room1', clientNom: 'Dynamic Test Client', userId: 'user-dynamic-client-01', donneesFormulaire: '{}', dateHeure: new Date(Date.now() - 3600000 * 3).toISOString(), status: 'completed' },
-];
-
-let clients: Client[] = [
-    { id: 'client-mock-1', hostId: 'host-01', nom: 'Alice Wonderland', email: 'client1@example.com', type: 'heberge', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', locationId: 'room-101', notes: 'Prefers quiet room. Likes extra pillows.', credit: 50 },
-    { id: 'client-mock-2', hostId: 'host-01', nom: 'Bob The Builder', email: 'client2@example.com', type: 'heberge', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', locationId: 'room-102', credit: 0 },
-    { id: 'client-mock-3', hostId: 'host-02', nom: 'Charlie Passager', telephone: '+1123456789', type: 'passager', notes: 'Regular for lunch on Fridays.', credit: 10 },
-    { id: 'client-mock-4', hostId: 'host-01', nom: 'Diana Visitor', email: 'diana@example.com', type: 'passager', notes: 'Interested in spa services.'},
-    { id: 'client-mock-dynamic', hostId: 'host-1747669860022', nom: 'Dynamic Test Client', email: 'dynamic_client@example.com', type: 'heberge', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', locationId: 'rt-dynamic-room1', notes: 'Testing client for dynamic host.', credit: 100 },
-];
-
+const hostsCollection = collection(db, 'hosts');
+// Add other collection references here as they are migrated
 
 // --- User Management (Firestore) ---
+// Note: This section uses one-time fetches (getDoc, getDocs) and not onSnapshot.
 export const getUserByEmail = async (email: string): Promise<User | undefined> => {
   const q = query(usersCollection, where("email", "==", email));
   const querySnapshot = await getDocs(q);
@@ -116,25 +22,22 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
   const user: User = {
     id: userDocSnap.id,
     email: data.email,
-    // Fallback for 'nom': use email part before '@' or the full email if 'nom' is missing
     nom: data.nom || data.email?.split('@')[0] || data.email || 'Unnamed User',
     role: data.role,
     hostId: data.hostId,
-    // Prioritize motDePasse, but fallback to password if motDePasse is not present
     motDePasse: data.motDePasse || data.password || '', 
   };
 
-  // Log warnings if fields are missing or alternative fields are used
   if (!data.motDePasse && data.password) {
       console.warn(`User ${email}: Using 'password' field from Firestore as 'motDePasse'. Consider renaming 'password' to 'motDePasse' in Firestore for consistency.`);
   } else if (!data.motDePasse && !data.password) {
+      // This case should ideally not happen if passwords are required
       console.error(`User ${email}: Missing 'motDePasse' (and 'password') field in Firestore. Login will likely fail.`);
   }
 
   if (!data.nom) {
       console.warn(`User ${email}: Missing 'nom' field in Firestore. Using '${user.nom}' as fallback name.`);
   }
-
   return user;
 };
 
@@ -145,7 +48,6 @@ export const getUserById = async (id: string): Promise<User | undefined> => {
   const userSnap = await getDoc(userDocRef);
   if (userSnap.exists()) {
     const data = userSnap.data();
-    // Similar mapping logic as getUserByEmail for consistency
     const user: User = {
         id: userSnap.id,
         email: data.email,
@@ -178,32 +80,39 @@ export const getUsers = async (): Promise<User[]> => {
 export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
   const existingUser = await getUserByEmail(userData.email);
   if (existingUser) {
-    console.warn(`User with email ${userData.email} already exists in Firestore. Returning existing user.`);
+    console.warn(`User with email ${userData.email} already exists in Firestore. Will attempt to update if hostId needs linking, otherwise returning existing user.`);
+    if (userData.hostId && existingUser.hostId !== userData.hostId) {
+        // This case is tricky: if a host is being created for an email that already exists as a different role or unassigned host.
+        // For now, let's assume we update if the role is becoming 'host'
+        const updatedData: Partial<User> = { role: userData.role, hostId: userData.hostId, nom: userData.nom };
+        await updateDoc(doc(usersCollection, existingUser.id), updatedData);
+        return { ...existingUser, ...updatedData };
+    }
     return existingUser;
   }
 
   const newUserId = `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-  // Ensure we write to Firestore with the correct 'motDePasse' field name
   const newUserForFirestore = {
     email: userData.email,
     nom: userData.nom,
     role: userData.role,
     hostId: userData.hostId,
-    motDePasse: userData.motDePasse, // This is correct according to User type
+    motDePasse: userData.motDePasse,
   };
 
   await setDoc(doc(usersCollection, newUserId), newUserForFirestore);
-  return { id: newUserId, ...userData }; // Return the full User object as defined in types
+  return { id: newUserId, ...userData };
 };
 
 export const updateUser = async (userId: string, userData: Partial<Omit<User, 'id'>>): Promise<User | undefined> => {
   const userDocRef = doc(db, 'users', userId);
+  const updateData: Partial<User> = { ...userData };
   
-  // Prepare data for Firestore, ensuring field names match what we intend to store
-  // For example, if userData contains 'motDePasse', it will be written as 'motDePasse'
-  const updateData = { ...userData };
-  if ('motDePasse' in updateData && updateData.motDePasse === undefined) {
-    delete updateData.motDePasse; // Don't write undefined password
+  if ('motDePasse' in updateData && (!updateData.motDePasse || updateData.motDePasse.trim() === '')) {
+    delete updateData.motDePasse; // Don't update with an empty or undefined password
+  } else if (updateData.motDePasse) {
+    // In a real app, you'd hash this password before saving if it's a password change.
+    // For now, we store it as is, which is not secure for production.
   }
   
   await updateDoc(userDocRef, updateData);
@@ -223,6 +132,7 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
 
 
 // --- Host Management (Firestore) ---
+// Note: This section uses one-time fetches (getDoc, getDocs) and not onSnapshot.
 export const getHosts = async (): Promise<Host[]> => {
   const hostsSnapshot = await getDocs(hostsCollection);
   const hostList = hostsSnapshot.docs.map(docSnap => ({ hostId: docSnap.id, ...docSnap.data() } as Host));
@@ -249,20 +159,26 @@ export const addHost = async (hostData: Omit<Host, 'hostId'>): Promise<Host> => 
   if (!querySnapshot.empty) {
     const existingHostDoc = querySnapshot.docs[0];
     hostIdToUse = existingHostDoc.id;
-    finalHostData = { hostId: hostIdToUse, ...existingHostDoc.data(), ...hostData } as Host;
-    await updateDoc(existingHostDoc.ref, { nom: hostData.nom, email: hostData.email }); // Ensure update
-    console.warn(`Host with email ${hostData.email} already exists. Updated if necessary. ID: ${hostIdToUse}`);
+    // Update existing host document if it exists
+    await updateDoc(existingHostDoc.ref, { nom: hostData.nom, email: hostData.email });
+    finalHostData = { hostId: hostIdToUse, nom: hostData.nom, email: hostData.email };
+    console.warn(`Host with email ${hostData.email} already exists. Updated with new details. ID: ${hostIdToUse}`);
   } else {
     hostIdToUse = `host-${Date.now()}`;
     finalHostData = { hostId: hostIdToUse, ...hostData };
     const newHostRef = doc(hostsCollection, hostIdToUse);
-    await setDoc(newHostRef, { nom: hostData.nom, email: hostData.email });
+    await setDoc(newHostRef, { nom: hostData.nom, email: hostData.email }); // Save only nom and email for Host doc
   }
   
   // Create or update associated user in Firestore
   let associatedUser = await getUserByEmail(finalHostData.email);
   if (associatedUser) {
-      await updateUser(associatedUser.id, { role: 'host', hostId: hostIdToUse, nom: finalHostData.nom, email: finalHostData.email });
+      await updateUser(associatedUser.id, { 
+        role: 'host', 
+        hostId: hostIdToUse, 
+        nom: finalHostData.nom, 
+        email: finalHostData.email 
+      });
   } else {
       await addUser({
           email: finalHostData.email,
@@ -283,27 +199,35 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
   const updatedHost = await getHostById(hostId);
 
   if (updatedHost && originalHost) {
+    // Determine which email to use for finding the associated user.
+    // If email is being changed, find user by original email. Otherwise, use current/updated email.
     const userEmailToQuery = (hostData.email && hostData.email !== originalHost.email) ? originalHost.email : updatedHost.email;
     let userToUpdate = await getUserByEmail(userEmailToQuery);
     
-    if (!userToUpdate && updatedHost.email !== userEmailToQuery) {
+    // If user not found with original email (e.g., email was changed and user record has new email), try with new email.
+    if (!userToUpdate && updatedHost.email !== userEmailToQuery) { // This check is a bit redundant now but safe
         userToUpdate = await getUserByEmail(updatedHost.email);
     }
 
     if (userToUpdate) {
       await updateUser(userToUpdate.id, {
-        email: updatedHost.email, 
-        nom: updatedHost.nom,    
-        role: 'host',
-        hostId: hostId,
+        email: updatedHost.email, // Ensure user email matches host email
+        nom: updatedHost.nom,    // Ensure user name matches host name
+        role: 'host',            // Re-affirm role
+        hostId: hostId,          // Re-affirm hostId
       });
-    } else { 
+    } else { // If no user was found (e.g. if user was somehow deleted, or if email changed drastically and it's considered a new link)
+       // This might be an edge case. For now, let's assume we'd create a new user if one isn't clearly associated.
+       // However, typically, an update of a host implies an existing associated user.
+       // If an email changes such that no user is found, we might re-evaluate if we should create one
+       // or throw an error. For now, to be safe and match addHost logic:
+       console.warn(`No user found for host ${hostId} with email ${userEmailToQuery} or ${updatedHost.email}. Creating a new associated user.`);
        await addUser({
           email: updatedHost.email,
           nom: updatedHost.nom,
           role: 'host',
           hostId: hostId,
-          motDePasse: '1234',
+          motDePasse: '1234', // Default password if creating a new one
       });
     }
     return updatedHost;
@@ -323,14 +247,20 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
     const hostDocRef = doc(db, 'hosts', hostId);
     batch.delete(hostDocRef);
 
+    // Delete associated user
     const userToDelete = await getUserByEmail(hostToDelete.email);
     if (userToDelete && userToDelete.role === 'host' && userToDelete.hostId === hostId) {
       const userDocRef = doc(db, 'users', userToDelete.id);
       batch.delete(userDocRef);
     }
+    // In a full Firestore migration, we would also query and delete related data
+    // from other collections (sites, roomsOrTables, services, etc.) where hostId matches.
+    // This requires careful planning (e.g., using batched writes or Cloud Functions).
+    // For now, we'll just delete the host and its direct user.
     
     await batch.commit();
 
+    // Remove from in-memory arrays (these will be fully removed once all data is in Firestore)
     sites = sites.filter(s => s.hostId !== hostId);
     roomsOrTables = roomsOrTables.filter(rt => rt.hostId !== hostId);
     serviceCategories = serviceCategories.filter(sc => sc.hostId !== hostId);
@@ -348,6 +278,12 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
 
 
 // --- Site Management (Global Sites for Admin) --- (Still uses in-memory data)
+let sites: Site[] = [
+  { siteId: 'site-01', nom: 'Paradise Beach Resort', hostId: 'host-01' },
+  { siteId: 'site-02', nom: 'Delice Downtown', hostId: 'host-02' },
+  { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment', hostId: 'host-1747669860022' },
+];
+
 export const getSites = async (hostId?: string): Promise<Site[]> => {
   if (hostId) return sites.filter(s => s.hostId === hostId);
   return sites;
@@ -375,12 +311,33 @@ export const updateSite = async (siteId: string, siteData: Partial<Omit<Site, 's
 export const deleteSiteInData = async (siteId: string): Promise<boolean> => {
     const initialLength = sites.length;
     sites = sites.filter(s => s.siteId !== siteId);
+    // Also remove any RoomOrTable that belongs to this global site
     roomsOrTables = roomsOrTables.filter(rt => rt.globalSiteId !== siteId);
     return sites.length < initialLength;
 };
 
 
 // --- RoomOrTable Management (Host Locations) --- (Still uses in-memory data)
+let roomsOrTables: RoomOrTable[] = [
+  { id: 'rt-globalsite-root-site-01', nom: 'Paradise Resort Main Area', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: undefined, urlPersonnalise: `/client/host-01/rt-globalsite-root-site-01`},
+    { id: 'rt-lobby-01', nom: 'Lobby Zone', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-globalsite-root-site-01', urlPersonnalise: `/client/host-01/rt-lobby-01`},
+      { id: 'rt-reception-desk-01', nom: 'Reception Desk', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/rt-reception-desk-01`},
+      { id: 'room-101', nom: 'Chambre 101', type: 'Chambre', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/room-101` },
+      { id: 'room-102', nom: 'Chambre 102', type: 'Chambre', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01/room-102` },
+    { id: 'rt-pool-01', nom: 'Pool Area', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-globalsite-root-site-01', urlPersonnalise: `/client/host-01/rt-pool-01`},
+      { id: 'table-pool-1', nom: 'Table Piscine 1', type: 'Table', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-pool-01', urlPersonnalise: `/client/host-01/table-pool-1` },
+  
+  { id: 'rt-restaurant-main-area-02', nom: 'Delice Main Dining', type: 'Site', hostId: 'host-02', globalSiteId: 'site-02', parentLocationId: undefined, urlPersonnalise: `/client/host-02/rt-restaurant-main-area-02`},
+  { id: 'table-5', nom: 'Table 5', type: 'Table', hostId: 'host-02', globalSiteId: 'site-02', parentLocationId: 'rt-restaurant-main-area-02', urlPersonnalise: `/client/host-02/table-5` },
+  { id: 'table-vip', nom: 'VIP Table', type: 'Table', hostId: 'host-02', globalSiteId: 'site-02', parentLocationId: 'rt-restaurant-main-area-02', urlPersonnalise: `/client/host-02/table-vip` },
+
+  { id: 'rt-dynamic-main', nom: 'Dynamic Main Area', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: undefined, urlPersonnalise: `/client/host-1747669860022/rt-dynamic-main`},
+  { id: 'rt-dynamic-lobby', nom: 'Dynamic Lobby', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-main', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-lobby`},
+  { id: 'rt-dynamic-room1', nom: 'Dynamic Room 1', type: 'Chambre', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-room1`},
+  { id: 'rt-dynamic-table1', nom: 'Dynamic Table Alpha', type: 'Table', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-main', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-table1`},
+];
+
+
 export const getRoomsOrTables = async (hostId: string, globalSiteIdParam?: string): Promise<RoomOrTable[]> => {
   let filtered = roomsOrTables.filter(rt => rt.hostId === hostId);
   if (globalSiteIdParam) {
@@ -414,7 +371,8 @@ export const updateRoomOrTable = async (id: string, data: Partial<Omit<RoomOrTab
     const currentItem = roomsOrTables[itemIndex];
     roomsOrTables[itemIndex] = {
         ...currentItem,
-        ...data,
+        ...data, // Apply updates from 'data'
+        // Explicitly carry over potentially unchanged fields if not in 'data'
         globalSiteId: data.globalSiteId !== undefined ? data.globalSiteId : currentItem.globalSiteId,
         parentLocationId: data.parentLocationId !== undefined ? data.parentLocationId : currentItem.parentLocationId,
     };
@@ -428,21 +386,25 @@ export const deleteRoomOrTable = async (id: string): Promise<boolean> => {
     const locationToDelete = roomsOrTables.find(rt => rt.id === id);
 
     if (locationToDelete) {
+        // Re-parent children of the deleted location to its parent (or make them top-level under the global site)
         const children = roomsOrTables.filter(rt => rt.parentLocationId === id);
         children.forEach(child => {
             const childIndex = roomsOrTables.findIndex(c => c.id === child.id);
             if (childIndex > -1) {
+                // Assign to grandparent or undefined if parent was top-level site for host
                 roomsOrTables[childIndex].parentLocationId = locationToDelete.parentLocationId || undefined;
             }
         });
+        // Remove this location from any service target lists
         services.forEach(service => {
             if (service.targetLocationIds?.includes(id)) {
                 service.targetLocationIds = service.targetLocationIds.filter(targetId => targetId !== id);
             }
         });
+        // Unassign this location from any clients
         clients.forEach(client => {
             if (client.locationId === id) {
-                client.locationId = undefined;
+                client.locationId = undefined; // Or set to a default, or prompt admin
             }
         });
     }
@@ -451,6 +413,16 @@ export const deleteRoomOrTable = async (id: string): Promise<boolean> => {
 };
 
 // --- ServiceCategory Management --- (Still uses in-memory data)
+let serviceCategories: ServiceCategory[] = [
+  { id: 'cat-roomservice', nom: 'Room Service', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "room service" },
+  { id: 'cat-transport', nom: 'Transport & Tours', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "transportation tour" },
+  { id: 'cat-food', nom: 'Food Menu', hostId: 'host-02', image: 'https://placehold.co/300x200.png', "data-ai-hint": "food menu" },
+  { id: 'cat-drinks', nom: 'Beverages', hostId: 'host-02', image: 'https://placehold.co/300x200.png', "data-ai-hint": "drinks beverages" },
+  { id: 'cat-activities', nom: 'Resort Activities', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "activities leisure" },
+  { id: 'cat-poolside', nom: 'Poolside Snacks & Drinks', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "poolside snacks" },
+  { id: 'cat-dynamic-main', nom: 'General Services (Dynamic Host)', hostId: 'host-1747669860022', image: 'https://placehold.co/300x200.png', "data-ai-hint": "general services" },
+];
+
 export const getServiceCategories = async (hostId: string): Promise<ServiceCategory[]> => {
   return serviceCategories.filter(sc => sc.hostId === hostId).sort((a,b) => a.nom.localeCompare(b.nom));
 };
@@ -470,7 +442,8 @@ export const updateServiceCategory = async (id: string, data: Partial<Omit<Servi
 export const deleteServiceCategory = async (id: string): Promise<boolean> => {
     const initialLength = serviceCategories.length;
     serviceCategories = serviceCategories.filter(sc => sc.id !== id);
-    services = services.map(s => s.categorieId === id ? {...s, categorieId: ''} : s);
+    // Unassign this category from services
+    services = services.map(s => s.categorieId === id ? {...s, categorieId: ''} : s); // Or set to a default "Uncategorized" ID
     return serviceCategories.length < initialLength;
 };
 export const getServiceCategoryById = async (id: string): Promise<ServiceCategory | undefined> => {
@@ -479,6 +452,15 @@ export const getServiceCategoryById = async (id: string): Promise<ServiceCategor
 
 
 // --- CustomForm Management --- (Still uses in-memory data)
+let customForms: CustomForm[] = [
+  { id: 'form-booking', nom: 'Booking Details', hostId: 'host-01' },
+  { id: 'form-foodorder', nom: 'Food Order Preferences', hostId: 'host-02' },
+  { id: 'form-generic-info', nom: 'General Inquiry', hostId: 'host-01' },
+  { id: 'form-no-fields', nom: 'Simple Confirmation (No Fields)', hostId: 'host-01' },
+  { id: 'form-activity-signup', nom: 'Activity Sign-up Details', hostId: 'host-01'},
+  { id: 'form-dynamic-request', nom: 'Dynamic Service Request', hostId: 'host-1747669860022'},
+];
+
 export const getCustomForms = async (hostId: string): Promise<CustomForm[]> => {
   return customForms.filter(cf => cf.hostId === hostId).sort((a,b) => a.nom.localeCompare(b.nom));
 };
@@ -501,13 +483,29 @@ export const updateCustomForm = async (id: string, data: Partial<Omit<CustomForm
 export const deleteCustomForm = async (id: string): Promise<boolean> => {
     const initialLength = customForms.length;
     customForms = customForms.filter(cf => cf.id !== id);
+    // Remove associated form fields
     formFields = formFields.filter(ff => ff.formulaireId !== id);
+    // Unassign this form from services
     services = services.map(s => s.formulaireId === id ? {...s, formulaireId: undefined} : s);
     return customForms.length < initialLength;
 };
 
 
 // --- FormField Management --- (Still uses in-memory data)
+let formFields: FormField[] = [
+  { id: 'field-persons', formulaireId: 'form-booking', label: 'Number of Persons', type: 'number', obligatoire: true, ordre: 1, placeholder: 'e.g., 2' },
+  { id: 'field-date', formulaireId: 'form-booking', label: 'Desired Date', type: 'date', obligatoire: true, ordre: 2 },
+  { id: 'field-time', formulaireId: 'form-booking', label: 'Preferred Time', type: 'time', obligatoire: false, ordre: 3 },
+  { id: 'field-dish', formulaireId: 'form-foodorder', label: 'Main Dish Choice', type: 'text', obligatoire: true, ordre: 1, placeholder: 'e.g., Pizza Margherita' },
+  { id: 'field-notes', formulaireId: 'form-foodorder', label: 'Additional Notes/Allergies', type: 'textarea', obligatoire: false, ordre: 2, placeholder: 'e.g., No onions, gluten-free' },
+  { id: 'field-name-generic', formulaireId: 'form-generic-info', label: 'Your Name', type: 'text', obligatoire: true, ordre: 1, placeholder: 'John Doe' },
+  { id: 'field-email-generic', formulaireId: 'form-generic-info', label: 'Your Email', type: 'email', obligatoire: true, ordre: 2, placeholder: 'john.doe@example.com' },
+  { id: 'field-message-generic', formulaireId: 'form-generic-info', label: 'Your Message/Question', type: 'textarea', obligatoire: true, ordre: 3, placeholder: 'Type your message here...' },
+  { id: 'field-activity-name', formulaireId: 'form-activity-signup', label: 'Participant Full Name', type: 'text', obligatoire: true, ordre: 1},
+  { id: 'field-activity-age', formulaireId: 'form-activity-signup', label: 'Participant Age', type: 'number', obligatoire: false, ordre: 2},
+  { id: 'field-dynamic-detail', formulaireId: 'form-dynamic-request', label: 'Request Detail', type: 'textarea', obligatoire: true, ordre: 1, placeholder: 'Please describe your request...'},
+];
+
 export const getFormFields = async (formulaireId: string): Promise<FormField[]> => {
   return formFields.filter(ff => ff.formulaireId === formulaireId).sort((a, b) => a.ordre - b.ordre);
 };
@@ -531,6 +529,19 @@ export const deleteFormField = async (id: string): Promise<boolean> => {
 };
 
 // --- Service Management --- (Still uses in-memory data)
+let services: Service[] = [
+  { id: 'svc-taxi', titre: 'Airport Taxi', description: 'Book a taxi to or from the airport. Reliable and comfortable.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "taxi airport", categorieId: 'cat-transport', hostId: 'host-01', formulaireId: 'form-booking', prix: 50, targetLocationIds: [], loginRequired: true },
+  { id: 'svc-breakfast', titre: 'In-Room Breakfast', description: 'Order your breakfast selection to be delivered directly to your room.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "breakfast room", categorieId: 'cat-roomservice', hostId: 'host-01', formulaireId: 'form-foodorder', prix: 25, targetLocationIds: ['room-101', 'room-102'], loginRequired: false },
+  { id: 'svc-pool-cocktails', titre: 'Poolside Cocktails', description: 'Enjoy refreshing cocktails served by the pool.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "cocktail pool", categorieId: 'cat-poolside', hostId: 'host-01', prix: 12, targetLocationIds: ['rt-pool-01'], loginRequired: false },
+  { id: 'svc-pizza', titre: 'Artisan Pizza', description: 'Delicious stone-baked pizza with your choice of toppings.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "pizza food", categorieId: 'cat-food', hostId: 'host-02', formulaireId: 'form-foodorder', prix: 18, targetLocationIds: [], loginRequired: false },
+  { id: 'svc-water-restaurant', titre: 'Bottled Water (Restaurant)', description: 'Chilled spring water.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "water bottle", categorieId: 'cat-drinks', hostId: 'host-02', prix: 3, targetLocationIds: [], loginRequired: false },
+  { id: 'svc-concierge', titre: 'Concierge Assistance', description: 'Need help with bookings or local information? Our concierge is here for you.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "concierge helpdesk", categorieId: 'cat-roomservice', hostId: 'host-01', formulaireId: 'form-generic-info', targetLocationIds: ['rt-lobby-01', 'rt-reception-desk-01'], loginRequired: true },
+  { id: 'svc-spa', titre: 'Full Day Spa Package', description: 'Indulge in a full day of relaxation and treatments at our spa.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "spa massage", categorieId: 'cat-activities', hostId: 'host-01', formulaireId: 'form-booking', prix: 150, targetLocationIds: [], loginRequired: true },
+  { id: 'svc-citytour', titre: 'Guided City Tour', description: 'Explore the city highlights with our expert local guide. Duration: 3 hours.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "city tour", categorieId: 'cat-transport', hostId: 'host-01', formulaireId: 'form-activity-signup', prix: 75, targetLocationIds: ['rt-lobby-01', 'rt-reception-desk-01'], loginRequired: true },
+  { id: 'svc-dynamic-info', titre: 'Information Desk (Dynamic Host)', description: 'Ask us anything!', image: 'https://placehold.co/600x400.png', "data-ai-hint": "information desk", categorieId: 'cat-dynamic-main', hostId: 'host-1747669860022', formulaireId: 'form-dynamic-request', targetLocationIds: ['rt-dynamic-lobby'], loginRequired: false},
+  { id: 'svc-dynamic-roomclean', titre: 'Room Cleaning (Dynamic Host)', description: 'Schedule your room cleaning service.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "room cleaning", categorieId: 'cat-dynamic-main', hostId: 'host-1747669860022', formulaireId: undefined, targetLocationIds: ['rt-dynamic-room1'], loginRequired: true},
+];
+
 export const getServices = async (
   hostId: string,
   clientCurrentLocationId?: string,
@@ -556,14 +567,20 @@ export const getServices = async (
         parentIdLoop = undefined;
       }
     }
+    // Ensure the global site itself is considered a "parent" for targeting if needed,
+    // even if it's not directly in the parentLocationId chain of RoomOrTable type 'Site'.
     if (currentScannedLocation.globalSiteId && !ancestorAndSelfLocationIds.includes(currentScannedLocation.globalSiteId)) {
-        ancestorAndSelfLocationIds.push(currentScannedLocation.globalSiteId);
+        // This logic might be too simplistic. The targetLocationIds should ideally directly reference globalSiteId if it's a global target.
+        // For now, we assume services targeted at a globalSiteId are handled by not having specific targetLocationIds,
+        // or by targeting a top-level "Site" type RoomOrTable that represents the whole global site for that host.
+        // ancestorAndSelfLocationIds.push(currentScannedLocation.globalSiteId);
     }
     
     hostServices = hostServices.filter(service => {
       if (!service.targetLocationIds || service.targetLocationIds.length === 0) {
-        return true; 
+        return true; // Service is host-wide if no specific targets
       }
+      // Service is available if its targets include the current location or any of its ancestors
       return service.targetLocationIds.some(targetId => ancestorAndSelfLocationIds.includes(targetId));
     });
   }
@@ -583,7 +600,7 @@ export const addService = async (data: Omit<Service, 'id' | 'data-ai-hint'>): Pr
     ...data,
     id: `svc-${Date.now()}`,
     "data-ai-hint": data.titre.toLowerCase().substring(0,15).replace(/\s+/g, ' '),
-    targetLocationIds: data.targetLocationIds || []
+    targetLocationIds: data.targetLocationIds || [] // Ensure it's an array
   };
   services.push(newService);
   return newService;
@@ -596,6 +613,7 @@ export const updateService = async (id: string, data: Partial<Omit<Service, 'id'
       ...services[serviceIndex],
       ...data,
       "data-ai-hint": data.titre ? data.titre.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : services[serviceIndex]["data-ai-hint"],
+      // Ensure targetLocationIds is preserved or updated correctly
       targetLocationIds: data.targetLocationIds !== undefined ? data.targetLocationIds : services[serviceIndex].targetLocationIds,
     };
     return services[serviceIndex];
@@ -605,12 +623,24 @@ export const updateService = async (id: string, data: Partial<Omit<Service, 'id'
 export const deleteService = async (id: string): Promise<boolean> => {
     const initialLength = services.length;
     services = services.filter(s => s.id !== id);
+    // Remove this service from orders (or mark orders related to it) - more complex for real DB
     orders = orders.filter(o => o.serviceId !== id);
     return services.length < initialLength;
 };
 
 
 // --- Order Management --- (Still uses in-memory data)
+let orders: Order[] = [
+  { id: 'order-001', serviceId: 'svc-taxi', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({ persons: 2, date: '2024-08-15', time: '10:00' }), dateHeure: new Date(Date.now() - 3600000 * 2).toISOString(), status: 'pending', prix: 50 },
+  { id: 'order-002', serviceId: 'svc-breakfast', hostId: 'host-01', chambreTableId: 'room-102', clientNom: 'Bob The Builder', userId: 'user-client-02', donneesFormulaire: JSON.stringify({ dish: "Continental Breakfast", notes: "Extra orange juice"}), dateHeure: new Date(Date.now() - 3600000 * 5).toISOString(), status: 'completed', prix: 25},
+  { id: 'order-003', serviceId: 'svc-pizza', hostId: 'host-02', chambreTableId: 'table-5', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({dish: "Pepperoni Pizza", notes: "Extra cheese"}), dateHeure: new Date(Date.now() - 3600000 * 1).toISOString(), status: 'confirmed', prix: 18},
+  { id: 'order-004', serviceId: 'svc-spa', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({ persons: 1, date: '2024-09-10', time: '14:00' }), dateHeure: new Date().toISOString(), status: 'pending', prix: 150 },
+  { id: 'order-005', serviceId: 'svc-citytour', hostId: 'host-01', chambreTableId: 'rt-reception-desk-01', clientNom: 'Bob The Builder', userId: 'user-client-02', donneesFormulaire: JSON.stringify({ participant_name: "Bob Builder", participant_age: "35" }), dateHeure: new Date(Date.now() - 3600000 * 24).toISOString(), status: 'completed', prix: 75 },
+  { id: 'order-006', serviceId: 'svc-dynamic-info', hostId: 'host-1747669860022', chambreTableId: 'rt-dynamic-lobby', clientNom: 'Test Guest', userId: undefined, donneesFormulaire: JSON.stringify({ request_detail: "Need directions to the nearest ATM."}), dateHeure: new Date().toISOString(), status: 'pending'},
+  { id: 'order-007', hostId: 'host-1747669860022', serviceId: 'svc-dynamic-roomclean', chambreTableId: 'rt-dynamic-room1', clientNom: 'Dynamic Test Client', userId: 'user-dynamic-client-01', donneesFormulaire: '{}', dateHeure: new Date(Date.now() - 3600000 * 3).toISOString(), status: 'completed' },
+];
+
+
 export const getOrders = async (
   hostId: string,
   filters?: {
@@ -629,6 +659,7 @@ export const getOrders = async (
   if (filters?.serviceId && filters.serviceId !== "all") {
     filteredOrders = filteredOrders.filter(o => o.serviceId === filters.serviceId);
   } else if (filters?.categoryId && filters.categoryId !== "all") {
+    // If filtering by category, first get all services in that category for the host
     const servicesInCategory = services.filter(s => s.categorieId === filters.categoryId && s.hostId === hostId).map(s => s.id);
     filteredOrders = filteredOrders.filter(o => servicesInCategory.includes(o.serviceId));
   }
@@ -641,7 +672,7 @@ export const getOrders = async (
 };
 
 export const getOrdersByClientName = async (hostId: string, clientName: string): Promise<Order[]> => {
-  if (!clientName) return [];
+  if (!clientName) return []; // Return empty if clientName is not provided
   const clientOrders = orders.filter(o => 
     o.hostId === hostId && 
     o.clientNom && 
@@ -662,9 +693,9 @@ export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status'>)
     ...data,
     id: `order-${Date.now()}`,
     dateHeure: new Date().toISOString(),
-    status: 'pending',
-    prix: serviceDetails?.prix,
-    userId: data.userId 
+    status: 'pending', // Default status
+    prix: serviceDetails?.prix, // Get price from service if available
+    userId: data.userId // Include userId if provided
   };
   orders.push(newOrder);
   return newOrder;
@@ -679,6 +710,17 @@ export const updateOrderStatus = async (orderId: string, status: OrderStatus): P
 };
 
 // --- Client Management (Host Side) --- (Still uses in-memory data)
+let clients: Client[] = [
+    { id: 'client-mock-1', hostId: 'host-01', nom: 'Alice Wonderland', email: 'client1@example.com', type: 'heberge', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', locationId: 'room-101', notes: 'Prefers quiet room. Likes extra pillows.', credit: 50 },
+    { id: 'client-mock-2', hostId: 'host-01', nom: 'Bob The Builder', email: 'client2@example.com', type: 'heberge', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', locationId: 'room-102', credit: 0 },
+    { id: 'client-mock-3', hostId: 'host-02', nom: 'Charlie Passager', telephone: '+1123456789', type: 'passager', notes: 'Regular for lunch on Fridays.', credit: 10 },
+    { id: 'client-mock-4', hostId: 'host-01', nom: 'Diana Visitor', email: 'diana@example.com', type: 'passager', notes: 'Interested in spa services.'},
+    { id: 'client-mock-dynamic', hostId: 'host-1747669860022', nom: 'Dynamic Test Client', email: 'dynamic_client@example.com', type: 'heberge', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', locationId: 'rt-dynamic-room1', notes: 'Testing client for dynamic host.', credit: 100 },
+    { id: 'client-user-client-01', hostId: 'host-01', nom: 'Alice Wonderland', email: 'client1@example.com', type: 'heberge', dateArrivee: '2024-08-01', dateDepart: '2024-08-10', locationId: 'room-101', credit: 20 },
+    { id: 'client-user-client-02', hostId: 'host-01', nom: 'Bob The Builder', email: 'client2@example.com', type: 'passager', notes: 'Frequent visitor to the pool bar.' },
+];
+
+
 export const getClients = async (hostId: string): Promise<Client[]> => {
   return clients.filter(c => c.hostId === hostId).sort((a,b) => a.nom.localeCompare(b.nom));
 };
@@ -688,6 +730,7 @@ export const getClientById = async (clientId: string): Promise<Client | undefine
 };
 
 export const getClientRecordsByEmail = async (email: string): Promise<Client[]> => {
+  // This should find all client records (across potentially different hosts) associated with a user's email
   return clients.filter(c => c.email?.toLowerCase() === email.toLowerCase())
                 .sort((a,b) => a.nom.localeCompare(b.nom));
 };
@@ -711,8 +754,43 @@ export const updateClientData = async (clientId: string, clientData: Partial<Omi
 export const deleteClientData = async (clientId: string): Promise<boolean> => {
   const initialLength = clients.length;
   clients = clients.filter(c => c.id !== clientId);
+  // Consider if deleting a client record should impact orders (e.g., anonymize clientNom)
+  // For now, orders remain as is.
   return clients.length < initialLength;
 };
 
-console.log("Data layer initialized. Host and User management now use Firestore.");
-// Initial seed for admin user - now handled by manual entry or first host creation logic
+// Final console log to indicate the data layer is initialized.
+console.log("Data layer initialized. Hosts and Users use Firestore. Other entities are in-memory.");
+
+// Initial seed for admin user - no longer needed here if manual entry in Firestore is done.
+// If no admin exists, the first host creation might trigger user creation,
+// which can then be promoted to admin in Firestore console.
+// Or, ensure an admin user is seeded directly in Firestore.
+const ensureAdminUserExists = async () => {
+    const adminEmail = 'kamel@gmail.com';
+    let adminUser = await getUserByEmail(adminEmail);
+    if (!adminUser) {
+        console.log(`Admin user ${adminEmail} not found in Firestore. Attempting to create...`);
+        try {
+            adminUser = await addUser({
+                email: adminEmail,
+                nom: 'Kamel Admin',
+                role: 'admin',
+                motDePasse: '0000', // Default password
+            });
+            console.log(`Admin user ${adminEmail} created with ID: ${adminUser.id}`);
+        } catch (error) {
+            console.error(`Failed to create admin user ${adminEmail}:`, error);
+        }
+    } else {
+        console.log(`Admin user ${adminEmail} already exists in Firestore.`);
+    }
+};
+
+// Call this during app initialization, but be mindful of server vs client execution.
+// For Next.js, this top-level call in data.ts might run multiple times or at build time.
+// A better place might be a global setup or a check within AuthProvider if no admin is found.
+// ensureAdminUserExists(); // Commenting out to avoid unintended side effects at module load.
+                          // Admin user should be managed directly in Firestore or via a setup script.
+
+    
