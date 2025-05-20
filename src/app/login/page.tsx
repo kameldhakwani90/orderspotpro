@@ -1,23 +1,24 @@
 
 "use client";
 
-import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation'; // Added useSearchParams
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { LogIn } from 'lucide-react';
 
-export default function LoginPage() {
-  const [email, setEmail] = useState('kamel@gmail.com'); // Default for MVP
-  const [password, setPassword] = useState('0000'); // Default for MVP
+// New component to encapsulate the form and useSearchParams logic
+function LoginFormContent() {
+  const [email, setEmail] = useState('kamel@gmail.com');
+  const [password, setPassword] = useState('0000');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams(); // To get query params
+  const searchParams = useSearchParams(); // useSearchParams is called here
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,48 +40,61 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-secondary p-4">
-      <Card className="w-full max-w-md shadow-2xl">
-        <CardHeader className="text-center">
-          <div className="mx-auto p-3 bg-primary rounded-full w-fit mb-4">
-            <LogIn className="h-8 w-8 text-primary-foreground" />
+    <Card className="w-full max-w-md shadow-2xl">
+      <CardHeader className="text-center">
+        <div className="mx-auto p-3 bg-primary rounded-full w-fit mb-4">
+          <LogIn className="h-8 w-8 text-primary-foreground" />
+        </div>
+        <CardTitle className="text-3xl font-bold">ConnectHost</CardTitle>
+        <CardDescription>Sign in to access your dashboard</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="bg-card"
+            />
           </div>
-          <CardTitle className="text-3xl font-bold">ConnectHost</CardTitle>
-          <CardDescription>Sign in to access your dashboard</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="bg-card"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="bg-card"
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Signing In...' : 'Sign In'}
-            </Button>
-          </form>
-        </CardContent>
-        {/* CardFooter removed to hide the default admin hint */}
-      </Card>
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="bg-card"
+            />
+          </div>
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? 'Signing In...' : 'Sign In'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function LoginPage() {
+  // The main LoginPage component now only sets up the Suspense boundary
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-secondary p-4">
+      <Suspense fallback={
+        <div className="w-full max-w-md text-center p-8 bg-card rounded-lg shadow-2xl">
+          <p className="text-lg text-foreground">Loading login form...</p>
+          <div className="mt-4 h-2 w-32 bg-muted rounded-full mx-auto animate-pulse"></div>
+        </div>
+      }>
+        <LoginFormContent />
+      </Suspense>
     </div>
   );
 }
