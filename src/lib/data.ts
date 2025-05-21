@@ -1,13 +1,14 @@
 
 // src/lib/data.ts
 import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus } from './types';
-// Removed Firestore imports: import { db } from './firebase';
-// Removed Firestore functions: import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp } from 'firebase/firestore';
+// Firestore imports are removed as we are using in-memory data for now
+// import { db } from './firebase';
+// import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp } from 'firebase/firestore';
 
 const log = (message: string, data?: any) => {
   console.log(`[Data Layer] ${new Date().toISOString()}: ${message}`, data !== undefined ? data : '');
 }
-log("Data layer initialized. All entities are now in-memory for development.");
+log("Data layer initialized. Using in-memory data for ALL entities.");
 
 // --- User Management (In-memory) ---
 let users: User[] = [
@@ -24,8 +25,7 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
   log(`getUserByEmail called for: ${email} (in-memory)`);
   const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
   if (user) {
-    // Ensure password field compatibility (motDePasse vs password)
-    constuserData = { ...user };
+    const userData = { ...user }; // Corrected: Added space
     if (!userData.motDePasse && (user as any).password) {
       userData.motDePasse = (user as any).password;
     }
@@ -85,7 +85,7 @@ export const updateUser = async (userId: string, userData: Partial<Omit<User, 'i
     const updatedUser = { ...users[userIndex], ...userData };
     // Don't update password if it's not provided or empty in userData
     if (!userData.motDePasse || userData.motDePasse.trim() === '') {
-        delete (updatedUser as Partial<Omit<User, 'id'>>).motDePasse; // Keep original password
+        // Keep original password by not including motDePasse in the spread if it's not changing
     } else {
         updatedUser.motDePasse = userData.motDePasse.trim();
     }
@@ -137,9 +137,9 @@ export const addHost = async (hostData: Omit<Host, 'hostId'>): Promise<Host> => 
       // Ensure associated user is updated or created (in-memory)
       let associatedUser = users.find(u => u.email.toLowerCase() === existingHostByEmail.email.toLowerCase());
       if (associatedUser) {
-          updateUser(associatedUser.id, { nom: existingHostByEmail.nom, role: 'host', hostId: existingHostByEmail.hostId });
+          await updateUser(associatedUser.id, { nom: existingHostByEmail.nom, role: 'host', hostId: existingHostByEmail.hostId });
       } else {
-          addUser({ email: existingHostByEmail.email, nom: existingHostByEmail.nom, role: 'host', hostId: existingHostByEmail.hostId, motDePasse: '1234' });
+          await addUser({ email: existingHostByEmail.email, nom: existingHostByEmail.nom, role: 'host', hostId: existingHostByEmail.hostId, motDePasse: '1234' });
       }
       return { ...existingHostByEmail };
   }
@@ -171,15 +171,15 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
 
     // Update associated user if email or name changed (in-memory)
     const updatedHost = hosts[hostIndex];
-    if (hostData.email && hostData.email !== originalHostData.email || hostData.nom && hostData.nom !== originalHostData.nom) {
+    if ((hostData.email && hostData.email !== originalHostData.email) || (hostData.nom && hostData.nom !== originalHostData.nom)) {
         let userToUpdate = users.find(u => u.email.toLowerCase() === originalHostData.email.toLowerCase() && u.hostId === hostId);
         if (userToUpdate) {
             await updateUser(userToUpdate.id, {
-                email: updatedHost.email,
-                nom: updatedHost.nom,
+                email: updatedHost.email, // Use updated email if changed
+                nom: updatedHost.nom,     // Use updated name if changed
             });
             log(`Associated user for host ${hostId} also updated (in-memory).`);
-        } else if (hostData.email && hostData.email !== originalHostData.email) {
+        } else if (hostData.email && hostData.email !== originalHostData.email) { // If email changed, try finding user by new email
             userToUpdate = users.find(u => u.email.toLowerCase() === updatedHost.email.toLowerCase() && u.hostId === hostId);
             if (userToUpdate) {
                 await updateUser(userToUpdate.id, { nom: updatedHost.nom });
@@ -202,7 +202,7 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
   }
 
   // Delete associated user (in-memory)
-  const userToDelete = users.find(u => u.email.toLowerCase() === hostToDelete.email.toLowerCase() && u.hostId === hostId);
+  const userToDelete = users.find(u => u.hostId === hostId); // Find by hostId association
   if (userToDelete) {
     await deleteUser(userToDelete.id);
     log(`Associated user ${userToDelete.email} deleted (in-memory).`);
@@ -242,7 +242,7 @@ let sites: Site[] = [
 export const getSites = async (hostIdParam?: string): Promise<Site[]> => {
   log(`getSites called. HostIdParam: ${hostIdParam}. Using in-memory data.`);
   if (hostIdParam) return sites.filter(s => s.hostId === hostIdParam);
-  return [...sites];
+  return [...sites].sort((a,b) => a.nom.localeCompare(b.nom));
 };
 export const getSiteById = async (siteId: string): Promise<Site | undefined> => {
   log(`getSiteById called for: ${siteId}. Using in-memory data.`);
@@ -250,7 +250,7 @@ export const getSiteById = async (siteId: string): Promise<Site | undefined> => 
 };
 export const addSite = async (siteData: Omit<Site, 'siteId'>): Promise<Site> => {
   log(`addSite called. Data: ${JSON.stringify(siteData)}. Using in-memory data.`);
-  const newSite: Site = { ...siteData, siteId: `globalsite-${Date.now()}` };
+  const newSite: Site = { ...siteData, siteId: `globalsite-${Date.now()}-${Math.random().toString(36).substring(2, 5)}` };
   sites.push(newSite);
   return newSite;
 };
@@ -722,10 +722,12 @@ export const getReservations = async (
   }
   if (filters?.month !== undefined && filters?.year !== undefined) {
     hostReservations = hostReservations.filter(r => {
-      const arrivalDate = new Date(r.dateArrivee + "T00:00:00Z");
-      const departureDate = new Date(r.dateDepart + "T23:59:59Z");
-      const monthStart = new Date(Date.UTC(filters!.year!, filters.month!, 1));
-      const monthEnd = new Date(Date.UTC(filters!.year!, filters.month! + 1, 0, 23, 59, 59));
+      const arrivalDate = new Date(r.dateArrivee + "T00:00:00Z"); // Assume dates are UTC for consistency
+      const departureDate = new Date(r.dateDepart + "T00:00:00Z"); // Use start of day for comparison
+      const monthStart = new Date(Date.UTC(filters.year!, filters.month!, 1));
+      const monthEnd = new Date(Date.UTC(filters.year!, filters.month! + 1, 0, 23, 59, 59, 999)); // End of the last day of the month
+      
+      // Check for overlap: (StartA <= EndB) and (EndA >= StartB)
       return (arrivalDate <= monthEnd && departureDate >= monthStart);
     });
   }
@@ -752,3 +754,9 @@ export const deleteReservation = async (id: string): Promise<boolean> => {
   reservations = reservations.filter(r => r.id !== id);
   return reservations.length < initialLength;
 };
+
+// --- General Data Logging ---
+log("Initial in-memory data loaded/defined.");
+log(`Users: ${users.length}, Hosts: ${hosts.length}, Global Sites: ${sites.length}, Locations: ${roomsOrTables.length}`);
+log(`Categories: ${serviceCategories.length}, Forms: ${customForms.length}, Fields: ${formFields.length}, Services: ${services.length}`);
+log(`Orders: ${orders.length}, Clients: ${clients.length}, Reservations: ${reservations.length}`);
