@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react'; // Added React import
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { 
@@ -31,9 +31,10 @@ import {
   startOfWeek,
   differenceInDays,
   max,
-  min
+  min,
+  isSameDay
 } from 'date-fns';
-import { fr } from 'date-fns/locale'; // For French day names
+import { fr } from 'date-fns/locale'; 
 
 import type { Reservation, RoomOrTable, Client, ReservationStatus } from '@/lib/types';
 import { 
@@ -74,18 +75,21 @@ import {
 import { Badge } from '@/components/ui/badge';
 
 const NO_CLIENT_SELECTED = "___NO_CLIENT_SELECTED___";
-const DAYS_IN_WEEK_VIEW = 7;
+const DAYS_TO_DISPLAY = 7; // Display 7 days at a time (a week)
 
 const getStatusColor = (status?: ReservationStatus): string => {
   switch (status) {
-    case 'pending': return 'bg-yellow-500/70 hover:bg-yellow-600/70';
-    case 'confirmed': return 'bg-blue-500/70 hover:bg-blue-600/70';
-    case 'checked-in': return 'bg-green-500/70 hover:bg-green-600/70';
-    case 'checked-out': return 'bg-gray-500/70 hover:bg-gray-600/70';
-    case 'cancelled': return 'bg-red-500/70 hover:bg-red-600/70';
-    default: return 'bg-gray-400/70 hover:bg-gray-500/70';
+    case 'pending': return 'bg-yellow-500/80 hover:bg-yellow-600/80 border-yellow-700';
+    case 'confirmed': return 'bg-blue-500/80 hover:bg-blue-600/80 border-blue-700';
+    case 'checked-in': return 'bg-green-500/80 hover:bg-green-600/80 border-green-700';
+    case 'checked-out': return 'bg-gray-500/80 hover:bg-gray-600/80 border-gray-700';
+    case 'cancelled': return 'bg-red-500/80 hover:bg-red-600/80 border-red-700';
+    default: return 'bg-gray-400/80 hover:bg-gray-500/80 border-gray-600';
   }
 };
+
+const reservationStatuses: ReservationStatus[] = ["pending", "confirmed", "checked-in", "checked-out", "cancelled"];
+
 
 export default function HostReservationsPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -96,7 +100,7 @@ export default function HostReservationsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [allReservations, setAllReservations] = useState<Reservation[]>([]);
   
-  const [viewStartDate, setViewStartDate] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 })); // Start week on Monday
+  const [viewStartDate, setViewStartDate] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [timelineDays, setTimelineDays] = useState<Date[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -118,9 +122,9 @@ export default function HostReservationsPage() {
       const [roomsData, clientsData, reservationsData] = await Promise.all([
         getRoomsOrTables(hostId).then(r => r.filter(loc => loc.type === 'Chambre')),
         getClients(hostId),
-        fetchReservations(hostId) // Fetch all reservations for the host
+        fetchReservations(hostId)
       ]);
-      setRooms(roomsData);
+      setRooms(roomsData.sort((a, b) => a.nom.localeCompare(b.nom)));
       setClients(clientsData);
       setAllReservations(reservationsData);
     } catch (error) {
@@ -141,7 +145,7 @@ export default function HostReservationsPage() {
 
   useEffect(() => {
     const days = [];
-    for (let i = 0; i < DAYS_IN_WEEK_VIEW; i++) {
+    for (let i = 0; i < DAYS_TO_DISPLAY; i++) {
       days.push(addDays(viewStartDate, i));
     }
     setTimelineDays(days);
@@ -150,7 +154,12 @@ export default function HostReservationsPage() {
   const openAddReservationDialog = (roomId: string, date: Date) => {
     setEditingReservation(null);
     setSelectedRoomForDialog(roomId);
-    setCurrentReservationData({ locationId: roomId, nombrePersonnes: 1, animauxDomestiques: false, status: 'pending' });
+    setCurrentReservationData({ 
+        locationId: roomId, 
+        nombrePersonnes: 1, 
+        animauxDomestiques: false, 
+        status: 'pending' 
+    });
     setArrivalDateForDialog(startOfDay(date));
     setDepartureDateForDialog(startOfDay(addDays(date, 1)));
     setSelectedClientForDialog(NO_CLIENT_SELECTED);
@@ -162,8 +171,15 @@ export default function HostReservationsPage() {
     setEditingReservation(reservation);
     setSelectedRoomForDialog(reservation.locationId);
     setCurrentReservationData({...reservation});
-    setArrivalDateForDialog(parseISO(reservation.dateArrivee));
-    setDepartureDateForDialog(parseISO(reservation.dateDepart));
+    try {
+        setArrivalDateForDialog(reservation.dateArrivee ? parseISO(reservation.dateArrivee) : undefined);
+        setDepartureDateForDialog(reservation.dateDepart ? parseISO(reservation.dateDepart) : undefined);
+    } catch (e) {
+        console.error("Error parsing reservation dates:", e);
+        setArrivalDateForDialog(undefined);
+        setDepartureDateForDialog(undefined);
+        toast({title: "Date Error", description: "Could not parse reservation dates.", variant:"destructive"});
+    }
     setSelectedClientForDialog(reservation.clientId || NO_CLIENT_SELECTED);
     setManualClientNameForDialog(reservation.clientId ? "" : reservation.clientName);
     setIsAddOrEditDialogOpen(true);
@@ -192,8 +208,8 @@ export default function HostReservationsPage() {
         toast({ title: "Missing Information", description: "Room and arrival date are required.", variant: "destructive" });
         return;
     }
-    if (!departureDateForDialog || isBefore(departureDateForDialog, arrivalDateForDialog) || isEqual(startOfDay(departureDateForDialog), startOfDay(arrivalDateForDialog))) {
-        toast({ title: "Invalid Departure Date", description: "Departure date must be after arrival date.", variant: "destructive" });
+    if (!departureDateForDialog || isBefore(startOfDay(departureDateForDialog), startOfDay(arrivalDateForDialog)) || isEqual(startOfDay(departureDateForDialog), startOfDay(arrivalDateForDialog))) {
+        toast({ title: "Invalid Departure Date", description: "Departure date must be after arrival date and not the same day.", variant: "destructive" });
         return;
     }
     let clientNameToSave = manualClientNameForDialog.trim();
@@ -208,20 +224,23 @@ export default function HostReservationsPage() {
         return;
     }
 
-    // Basic double booking check for the specific room
     const conflictingReservation = allReservations.find(res => {
-        if (res.locationId !== selectedRoomForDialog) return false; // Only check for the same room
+        if (res.locationId !== selectedRoomForDialog) return false; 
         if (editingReservation && res.id === editingReservation.id) return false; 
-        const existingArrival = startOfDay(parseISO(res.dateArrivee));
-        const existingDeparture = startOfDay(parseISO(res.dateDepart)); // Use start of day for departure to check actual booked nights
-        const newArrival = startOfDay(arrivalDateForDialog);
-        const newDeparture = startOfDay(departureDateForDialog);
-        // Check for overlap: (StartA < EndB) and (EndA > StartB)
-        return (newArrival < existingDeparture && newDeparture > existingArrival);
+        try {
+            const existingArrival = startOfDay(parseISO(res.dateArrivee));
+            const existingDeparture = startOfDay(parseISO(res.dateDepart)); 
+            const newArrival = startOfDay(arrivalDateForDialog);
+            const newDeparture = startOfDay(departureDateForDialog);
+            return (newArrival < existingDeparture && newDeparture > existingArrival);
+        } catch (e) {
+            console.error("Error parsing dates during conflict check:", e, res);
+            return false; // If dates are invalid, assume no conflict to avoid blocking saves
+        }
     });
 
     if (conflictingReservation) {
-        toast({ title: "Double Booking Alert", description: `This room is already booked for some of the selected dates (Reservation: ${conflictingReservation.clientName}). Please adjust dates.`, variant: "destructive", duration: 7000 });
+        toast({ title: "Double Booking Alert", description: `This room is already booked for some of the selected dates (Reservation for: ${conflictingReservation.clientName}). Please adjust dates.`, variant: "destructive", duration: 7000 });
         return;
     }
 
@@ -247,10 +266,10 @@ export default function HostReservationsPage() {
         await addReservationToData(reservationPayload);
         toast({ title: "Reservation Created" });
       }
-      if(user.hostId) fetchInitialData(user.hostId); // Refetch all data
+      if(user.hostId) fetchInitialData(user.hostId); 
     } catch (error) {
       console.error("Failed to save reservation:", error);
-      toast({ title: "Error Saving Reservation", variant: "destructive" });
+      toast({ title: "Error Saving Reservation", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
     } finally {
       setIsDialogLoading(false);
       setIsAddOrEditDialogOpen(false);
@@ -267,7 +286,7 @@ export default function HostReservationsPage() {
         setIsAddOrEditDialogOpen(false);
     } catch (error) {
         console.error("Failed to delete reservation:", error);
-        toast({ title: "Error Deleting Reservation", variant: "destructive"});
+        toast({ title: "Error Deleting Reservation", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive"});
     } finally {
         setIsDialogLoading(false);
     }
@@ -275,7 +294,7 @@ export default function HostReservationsPage() {
   
   const navigateTimeline = (direction: 'prev' | 'next') => {
     setViewStartDate(prevDate => {
-      return direction === 'prev' ? subDays(prevDate, DAYS_IN_WEEK_VIEW) : addDays(prevDate, DAYS_IN_WEEK_VIEW);
+      return direction === 'prev' ? subDays(prevDate, DAYS_TO_DISPLAY) : addDays(prevDate, DAYS_TO_DISPLAY);
     });
   };
 
@@ -292,18 +311,20 @@ export default function HostReservationsPage() {
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
       <Card className="shadow-xl">
         <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <CardTitle className="text-3xl font-bold">Reservations Timeline</CardTitle>
-              <CardDescription>
-                {format(viewStartDate, 'MMMM yyyy', { locale: fr })}: {format(timelineDays[0], 'd')} - {format(timelineDays[timelineDays.length - 1], 'd MMM', { locale: fr })}
-              </CardDescription>
+              {timelineDays.length > 0 && (
+                <CardDescription>
+                  {format(timelineDays[0], 'd MMM yyyy', { locale: fr })} - {format(timelineDays[timelineDays.length - 1], 'd MMM yyyy', { locale: fr })}
+                </CardDescription>
+              )}
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => setViewStartDate(startOfWeek(new Date(), { weekStartsOn: 1 }))}>Today</Button>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button variant="outline" onClick={() => setViewStartDate(startOfWeek(new Date(), { weekStartsOn: 1 }))} className="flex-1 sm:flex-none">Today</Button>
               <Button variant="outline" size="icon" onClick={() => navigateTimeline('prev')}><ChevronLeft/></Button>
               <Button variant="outline" size="icon" onClick={() => navigateTimeline('next')}><ChevronRight/></Button>
-              <Button onClick={() => openAddReservationDialog(rooms[0]?.id || '', new Date())} disabled={rooms.length === 0}>
+              <Button onClick={() => openAddReservationDialog(rooms[0]?.id || '', new Date())} disabled={rooms.length === 0} className="flex-1 sm:flex-none">
                 <PlusCircle className="mr-2 h-5 w-5" /> Add Reservation
               </Button>
             </div>
@@ -313,11 +334,11 @@ export default function HostReservationsPage() {
           {rooms.length === 0 ? (
              <p className="text-muted-foreground text-center py-10">No rooms configured. Please add rooms in 'My Locations'.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <div className="grid border-l border-t border-border min-w-[1000px]" 
-                   style={{ gridTemplateColumns: `150px repeat(${DAYS_IN_WEEK_VIEW}, 1fr)` }}>
+            <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+            <div className="grid min-w-[1200px]" 
+                 style={{ gridTemplateColumns: `150px repeat(${DAYS_TO_DISPLAY}, minmax(120px, 1fr))` }}>
                 {/* Header Row */}
-                <div className="p-2 border-r border-b border-border font-semibold bg-muted/50 sticky left-0 z-10">Room</div>
+                <div className="p-2 border-r border-b border-border font-semibold bg-muted/50 sticky left-0 z-20 text-sm">Room</div>
                 {timelineDays.map(day => (
                   <div key={day.toISOString()} className="p-2 text-center border-r border-b border-border bg-muted/50">
                     <div className="text-xs font-medium uppercase">{format(day, 'EEE', { locale: fr })}</div>
@@ -326,28 +347,26 @@ export default function HostReservationsPage() {
                 ))}
 
                 {/* Room Rows */}
-                {rooms.map(room => {
+                {rooms.map((room, roomIndex) => {
                   const reservationsForThisRoom = allReservations.filter(res => res.locationId === room.id);
                   return (
                     <React.Fragment key={room.id}>
-                      <div className="p-2 border-r border-b border-border font-medium sticky left-0 bg-card z-10 flex items-center">
-                        <BedDouble className="h-4 w-4 mr-2 text-primary" />{room.nom}
+                      <div className="p-2 border-r border-b border-border font-medium sticky left-0 bg-card z-10 flex items-center text-sm">
+                        <BedDouble className="h-4 w-4 mr-2 text-primary shrink-0" />
+                        <span className="truncate" title={room.nom}>{room.nom}</span>
                       </div>
                       {timelineDays.map((day, dayIndex) => {
-                        // Find reservations that START on this day for this room
-                        const startingReservations = reservationsForThisRoom.filter(res => 
-                          isValid(parseISO(res.dateArrivee)) && isEqual(startOfDay(parseISO(res.dateArrivee)), startOfDay(day))
+                        const reservationsStartingOnThisDay = reservationsForThisRoom.filter(res => 
+                           isValid(parseISO(res.dateArrivee)) && isEqual(startOfDay(parseISO(res.dateArrivee)), startOfDay(day))
                         );
                         
-                        // Check if this day is part of an ongoing reservation (not starting today)
                         let isDayBookedByOngoing = false;
-                        if (startingReservations.length === 0) {
+                        if (reservationsStartingOnThisDay.length === 0) {
                            isDayBookedByOngoing = reservationsForThisRoom.some(res => 
                             isValid(parseISO(res.dateArrivee)) && isValid(parseISO(res.dateDepart)) &&
                             isWithinInterval(day, { 
                               start: startOfDay(parseISO(res.dateArrivee)), 
-                              // Ensure departure date is exclusive for interval check, or adjust as needed
-                              end: startOfDay(subDays(parseISO(res.dateDepart),1)) // Reservation ends *before* departure date
+                              end: startOfDay(subDays(parseISO(res.dateDepart),1))
                             }) && !isEqual(startOfDay(parseISO(res.dateArrivee)), startOfDay(day))
                           );
                         }
@@ -355,57 +374,52 @@ export default function HostReservationsPage() {
                         return (
                           <div 
                             key={day.toISOString()} 
-                            className="p-0.5 border-r border-b border-border min-h-[60px] relative cursor-pointer hover:bg-secondary/30 transition-colors"
+                            className="p-0.5 border-r border-b border-border min-h-[60px] relative cursor-pointer hover:bg-secondary/30 transition-colors flex flex-col"
                             onClick={() => {
-                              const resOnThisDay = reservationsForThisRoom.find(r => 
-                                isValid(parseISO(r.dateArrivee)) && isValid(parseISO(r.dateDepart)) &&
-                                isWithinInterval(day, {start: startOfDay(parseISO(r.dateArrivee)), end: startOfDay(subDays(parseISO(r.dateDepart),1))})
-                              );
-                              if (resOnThisDay) openEditReservationDialog(resOnThisDay);
-                              else openAddReservationDialog(room.id, day);
+                                const resOnThisDay = reservationsForThisRoom.find(r => 
+                                    isValid(parseISO(r.dateArrivee)) && isValid(parseISO(r.dateDepart)) &&
+                                    isWithinInterval(day, {start: startOfDay(parseISO(r.dateArrivee)), end: startOfDay(subDays(parseISO(r.dateDepart),1))})
+                                );
+                                if (resOnThisDay) openEditReservationDialog(resOnThisDay);
+                                else openAddReservationDialog(room.id, day);
                             }}
                           >
-                            {startingReservations.map(res => {
-                              const arrival = startOfDay(parseISO(res.dateArrivee));
-                              const departure = startOfDay(parseISO(res.dateDepart));
-                              let duration = differenceInDays(departure, arrival);
-                              if (duration < 1) duration = 1; // Min 1 day visually
+                            {reservationsStartingOnThisDay.map(res => {
+                                let resArrival, resDeparture;
+                                try {
+                                    resArrival = startOfDay(parseISO(res.dateArrivee));
+                                    resDeparture = startOfDay(parseISO(res.dateDepart));
+                                } catch (e) {
+                                    console.error("Invalid date in reservation:", res, e);
+                                    return null; // Skip rendering this invalid reservation block
+                                }
+                                let durationInDays = differenceInDays(resDeparture, resArrival);
+                                if (durationInDays < 1) durationInDays = 1;
 
-                              // Clamp duration if it extends beyond the current view
-                              const viewEndDate = addDays(viewStartDate, DAYS_IN_WEEK_VIEW -1);
-                              if (isAfter(departure, addDays(day, duration -1))) {
-                                 if (isAfter(addDays(day, duration -1), viewEndDate)) {
-                                    duration = differenceInDays(viewEndDate, day) + 1;
-                                 }
-                              }
-                             
-                              return (
-                                <div
-                                  key={res.id}
-                                  className={`absolute top-0.5 left-0.5 right-0.5 p-1.5 rounded text-white text-xs shadow-md overflow-hidden ${getStatusColor(res.status)}`}
-                                  style={{ 
-                                    gridColumnStart: dayIndex + 2, // +1 for 1-based index, +1 for room name column
-                                    // This style will be applied by Tailwind's grid-cols-X on the parent
-                                    // Here, we just ensure it visually fits.
-                                    // For actual spanning, a different structure or absolute positioning based on width might be needed.
-                                    // This simplified version just places the block in the starting day cell.
-                                    // Actual spanning over multiple divs is complex with this simple grid.
-                                    // A better way for spanning is to place it directly on the main grid of the room row.
-                                    // Let's assume for now each reservation block is rendered in its start cell.
-                                    // The logic for gridColumnEnd for a single block is more complex
-                                  }}
-                                  onClick={(e) => { e.stopPropagation(); openEditReservationDialog(res); }}
-                                >
-                                  <p className="font-semibold truncate">{res.clientName}</p>
-                                  <p className="text-[10px] opacity-80">{format(arrival, 'HH:mm')} - {format(departure, 'HH:mm')}</p>
-                                  <Badge variant="secondary" className="mt-0.5 capitalize text-[9px] px-1 py-0 bg-black/20 border-none">
-                                    {res.status}
-                                  </Badge>
-                                </div>
-                              );
+                                const viewEndDate = startOfDay(timelineDays[timelineDays.length - 1]);
+                                const daysLeftInView = differenceInDays(viewEndDate, resArrival) + 1;
+                                const displayDuration = Math.min(durationInDays, daysLeftInView, DAYS_TO_DISPLAY - dayIndex);
+                                
+                                if (displayDuration <= 0) return null;
+
+                                return (
+                                    <div
+                                    key={res.id}
+                                    className={`m-0.5 p-1.5 rounded text-white text-xs shadow-md overflow-hidden cursor-grab border ${getStatusColor(res.status)}`}
+                                    style={{ 
+                                        width: `calc(${displayDuration * 100}% - 4px)`, // Span across cells, accounting for margin
+                                        zIndex: 10, // Ensure it's above empty cells
+                                    }}
+                                    onClick={(e) => { e.stopPropagation(); openEditReservationDialog(res); }}
+                                    title={`Reservation for ${res.clientName}\nStatus: ${res.status}\n${format(resArrival, 'PP')} - ${format(resDeparture, 'PP')}`}
+                                    >
+                                    <p className="font-semibold truncate text-[11px] leading-tight">{res.clientName}</p>
+                                    <p className="text-[9px] opacity-90 capitalize">{res.status}</p>
+                                    </div>
+                                );
                             })}
-                             {startingReservations.length === 0 && isDayBookedByOngoing && (
-                                <div className="h-full w-full bg-slate-300/30 dark:bg-slate-700/30"></div>
+                             {reservationsStartingOnThisDay.length === 0 && isDayBookedByOngoing && (
+                                <div className="h-full w-full bg-slate-200/50 dark:bg-slate-700/50 opacity-70"></div>
                              )}
                           </div>
                         );
@@ -414,7 +428,7 @@ export default function HostReservationsPage() {
                   );
                 })}
               </div>
-            </div>
+            </ScrollArea>
           )}
         </CardContent>
       </Card>
@@ -461,13 +475,13 @@ export default function HostReservationsPage() {
                     <Popover><PopoverTrigger asChild><Button variant="outline" className={`w-full justify-start text-left font-normal ${!arrivalDateForDialog && "text-muted-foreground"}`}><CalendarLucideIcon className="mr-2 h-4 w-4" />{arrivalDateForDialog ? format(arrivalDateForDialog, 'PPP', {locale: fr}) : <span>Pick arrival</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><ShadCalendar mode="single" selected={arrivalDateForDialog} onSelect={setArrivalDateForDialog} initialFocus /></PopoverContent></Popover>
                 </div>
                 <div className="space-y-1.5"><Label htmlFor="dateDepartDialog">Departure Date*</Label>
-                    <Popover><PopoverTrigger asChild><Button variant="outline" className={`w-full justify-start text-left font-normal ${!departureDateForDialog && "text-muted-foreground"}`} disabled={!arrivalDateForDialog}><CalendarLucideIcon className="mr-2 h-4 w-4" />{departureDateForDialog ? format(departureDateForDialog, 'PPP', {locale: fr}) : <span>Pick departure</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><ShadCalendar mode="single" selected={departureDateForDialog} onSelect={setDepartureDateForDialog} disabled={(date) => arrivalDateForDialog ? isBefore(date, addDays(arrivalDateForDialog,1)) || isEqual(date, arrivalDateForDialog) : false} initialFocus /></PopoverContent></Popover>
+                    <Popover><PopoverTrigger asChild><Button variant="outline" className={`w-full justify-start text-left font-normal ${!departureDateForDialog && "text-muted-foreground"}`} disabled={!arrivalDateForDialog}><CalendarLucideIcon className="mr-2 h-4 w-4" />{departureDateForDialog ? format(departureDateForDialog, 'PPP', {locale: fr}) : <span>Pick departure</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><ShadCalendar mode="single" selected={departureDateForDialog} onSelect={setDepartureDateForDialog} disabled={(date) => arrivalDateForDialog ? isBefore(date, addDays(arrivalDateForDialog,0)) || isEqual(date, arrivalDateForDialog) : false} initialFocus /></PopoverContent></Popover>
                 </div>
             </div>
             <div className="space-y-1.5"><Label htmlFor="nombrePersonnesDialog"><Users className="inline mr-1 h-4 w-4" />Number of Persons*</Label><Input id="nombrePersonnesDialog" name="nombrePersonnes" type="number" value={currentReservationData.nombrePersonnes || 1} onChange={handleDialogInputChange} min="1" /></div>
             <div className="flex items-center space-x-2"><Checkbox id="animauxDomestiquesDialog" name="animauxDomestiques" checked={currentReservationData.animauxDomestiques || false} onCheckedChange={(checked) => setCurrentReservationData(prev => ({...prev, animauxDomestiques: !!checked}))} /><Label htmlFor="animauxDomestiquesDialog" className="font-normal"><Dog className="inline mr-1 h-4 w-4" />Pets Allowed</Label></div>
             <div className="space-y-1.5"><Label htmlFor="statusDialog">Status</Label>
-                <Select value={currentReservationData.status || 'pending'} onValueChange={(val) => setCurrentReservationData(prev => ({...prev, status: val as ReservationStatus}))}><SelectTrigger id="statusDialog"><SelectValue /></SelectTrigger><SelectContent>{(["pending", "confirmed", "cancelled", "checked-in", "checked-out"] as ReservationStatus[]).map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent></Select>
+                <Select value={currentReservationData.status || 'pending'} onValueChange={(val) => setCurrentReservationData(prev => ({...prev, status: val as ReservationStatus}))}><SelectTrigger id="statusDialog"><SelectValue /></SelectTrigger><SelectContent>{reservationStatuses.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent></Select>
             </div>
             <div className="space-y-1.5"><Label htmlFor="notesDialog"><FileText className="inline mr-1 h-4 w-4" />Notes</Label><Textarea id="notesDialog" name="notes" value={currentReservationData.notes || ''} onChange={handleDialogInputChange} placeholder="e.g., Late check-in, specific requests..." /></div>
           </div></ScrollArea>)}
@@ -486,5 +500,3 @@ export default function HostReservationsPage() {
     </div>
   );
 }
-
-    
