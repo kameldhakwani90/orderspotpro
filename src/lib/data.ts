@@ -1,292 +1,237 @@
 
 import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType } from './types';
-import { db } from './firebase'; // Make sure db is correctly initialized and exported from firebase.ts
-import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
+// Firestore imports are removed for in-memory data management of Users and Hosts
+// import { db } from './firebase';
+// import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
 
-// --- Collection References ---
-const usersCollection = collection(db, 'users');
-const hostsCollection = collection(db, 'hosts');
-// Add other collection references here as they are migrated
+// --- In-memory data for Users ---
+let users: User[] = [
+  { id: 'user-admin-kamel', email: 'kamel@gmail.com', nom: 'Kamel Admin', role: 'admin', motDePasse: '0000' },
+  { id: 'user-host-01', email: 'manager@paradise.com', nom: 'Paradise Hotel Manager', role: 'host', hostId: 'host-01', motDePasse: '1234' },
+  { id: 'user-host-02', email: 'contact@delice.com', nom: 'Delice Restaurant Lead', role: 'host', hostId: 'host-02', motDePasse: '1234' },
+  { id: 'user-client-01', email: 'client1@example.com', nom: 'Alice Wonderland', role: 'client', motDePasse: 'clientpass' },
+  { id: 'user-client-02', email: 'client2@example.com', nom: 'Bob The Builder', role: 'client', motDePasse: 'clientpass' },
+  { id: 'user-dynamic-host', email: 'dynamic.host@example.com', nom: 'Dynamic Test Host User', role: 'host', hostId: 'host-1747669860022', motDePasse: '1234' },
+  { id: 'user-dynamic-client-01', email: 'dynamic_client@example.com', nom: 'Dynamic Test Client', role: 'client', motDePasse: 'clientpass' },
+];
 
-// --- User Management (Firestore) ---
-// Note: This section uses one-time fetches (getDoc, getDocs) and not onSnapshot.
+// --- In-memory data for Hosts ---
+let hosts: Host[] = [
+  { hostId: 'host-01', nom: 'Paradise Beach Resort', email: 'manager@paradise.com' },
+  { hostId: 'host-02', nom: 'Le Delice Downtown', email: 'contact@delice.com' },
+  { hostId: 'host-1747669860022', nom: 'Dynamic Test Establishment', email: 'dynamic.host@example.com' },
+];
+
+// --- User Management (In-Memory) ---
 export const getUserByEmail = async (email: string): Promise<User | undefined> => {
-  const q = query(usersCollection, where("email", "==", email));
-  const querySnapshot = await getDocs(q);
-  if (querySnapshot.empty) {
-    return undefined;
+  console.log(`[In-Memory Data] getUserByEmail called for: ${email}`);
+  const foundUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+  if (foundUser) {
+    console.log(`[In-Memory Data] User found:`, {id: foundUser.id, email: foundUser.email, role: foundUser.role});
+  } else {
+    console.log(`[In-Memory Data] User not found for email: ${email}`);
   }
-  const userDocSnap = querySnapshot.docs[0];
-  const data = userDocSnap.data();
-  
-  const user: User = {
-    id: userDocSnap.id,
-    email: data.email,
-    nom: data.nom || data.email?.split('@')[0] || data.email || 'Unnamed User',
-    role: data.role,
-    hostId: data.hostId,
-    motDePasse: data.motDePasse || data.password || '', 
-  };
-
-  if (!data.motDePasse && data.password) {
-      console.warn(`User ${email}: Using 'password' field from Firestore as 'motDePasse'. Consider renaming 'password' to 'motDePasse' in Firestore for consistency.`);
-  } else if (!data.motDePasse && !data.password) {
-      // This case should ideally not happen if passwords are required
-      console.error(`User ${email}: Missing 'motDePasse' (and 'password') field in Firestore. Login will likely fail.`);
-  }
-
-  if (!data.nom) {
-      console.warn(`User ${email}: Missing 'nom' field in Firestore. Using '${user.nom}' as fallback name.`);
-  }
-  return user;
+  return foundUser;
 };
 
-
 export const getUserById = async (id: string): Promise<User | undefined> => {
-  if (!id) return undefined;
-  const userDocRef = doc(db, 'users', id);
-  const userSnap = await getDoc(userDocRef);
-  if (userSnap.exists()) {
-    const data = userSnap.data();
-    const user: User = {
-        id: userSnap.id,
-        email: data.email,
-        nom: data.nom || data.email?.split('@')[0] || data.email || 'Unnamed User',
-        role: data.role,
-        hostId: data.hostId,
-        motDePasse: data.motDePasse || data.password || '',
-    };
-    return user;
-  }
-  return undefined;
+  console.log(`[In-Memory Data] getUserById called for: ${id}`);
+  return users.find(u => u.id === id);
 };
 
 export const getUsers = async (): Promise<User[]> => {
-  const usersSnapshot = await getDocs(usersCollection);
-  const userList = usersSnapshot.docs.map(docSnap => {
-    const data = docSnap.data();
-    return {
-      id: docSnap.id,
-      email: data.email,
-      nom: data.nom || data.email?.split('@')[0] || data.email || 'Unnamed User',
-      role: data.role,
-      hostId: data.hostId,
-      motDePasse: data.motDePasse || data.password || '',
-    } as User;
-  });
-  return userList.sort((a, b) => a.nom.localeCompare(b.nom));
+  console.log(`[In-Memory Data] getUsers called. Returning ${users.length} users.`);
+  return [...users].sort((a, b) => a.nom.localeCompare(b.nom));
 };
 
 export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
-  const existingUser = await getUserByEmail(userData.email);
+  console.log(`[In-Memory Data] addUser called for:`, userData.email);
+  const existingUser = users.find(u => u.email.toLowerCase() === userData.email.toLowerCase());
   if (existingUser) {
-    console.warn(`User with email ${userData.email} already exists in Firestore. Will attempt to update if hostId needs linking, otherwise returning existing user.`);
-    if (userData.hostId && existingUser.hostId !== userData.hostId) {
-        // This case is tricky: if a host is being created for an email that already exists as a different role or unassigned host.
-        // For now, let's assume we update if the role is becoming 'host'
-        const updatedData: Partial<User> = { role: userData.role, hostId: userData.hostId, nom: userData.nom };
-        await updateDoc(doc(usersCollection, existingUser.id), updatedData);
-        return { ...existingUser, ...updatedData };
-    }
-    return existingUser;
+    console.warn(`[In-Memory Data] User with email ${userData.email} already exists. Updating existing user.`);
+    existingUser.nom = userData.nom;
+    existingUser.role = userData.role;
+    if (userData.hostId) existingUser.hostId = userData.hostId;
+    if (userData.motDePasse) existingUser.motDePasse = userData.motDePasse;
+    return { ...existingUser };
   }
 
   const newUserId = `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-  const newUserForFirestore = {
+  const newUser: User = {
+    id: newUserId,
     email: userData.email,
     nom: userData.nom,
     role: userData.role,
     hostId: userData.hostId,
     motDePasse: userData.motDePasse,
   };
-
-  await setDoc(doc(usersCollection, newUserId), newUserForFirestore);
-  return { id: newUserId, ...userData };
+  users.push(newUser);
+  console.log(`[In-Memory Data] User ${newUser.email} added with ID ${newUser.id}. Total users: ${users.length}`);
+  return { ...newUser };
 };
 
 export const updateUser = async (userId: string, userData: Partial<Omit<User, 'id'>>): Promise<User | undefined> => {
-  const userDocRef = doc(db, 'users', userId);
-  const updateData: Partial<User> = { ...userData };
-  
-  if ('motDePasse' in updateData && (!updateData.motDePasse || updateData.motDePasse.trim() === '')) {
-    delete updateData.motDePasse; // Don't update with an empty or undefined password
-  } else if (updateData.motDePasse) {
-    // In a real app, you'd hash this password before saving if it's a password change.
-    // For now, we store it as is, which is not secure for production.
+  console.log(`[In-Memory Data] updateUser called for ID: ${userId} with data:`, userData);
+  const userIndex = users.findIndex(u => u.id === userId);
+  if (userIndex > -1) {
+    // Do not update password if it's empty or undefined in userData
+    const { motDePasse, ...otherData } = userData;
+    users[userIndex] = { ...users[userIndex], ...otherData };
+    if (motDePasse && motDePasse.trim() !== '') {
+      users[userIndex].motDePasse = motDePasse;
+    }
+    console.log(`[In-Memory Data] User ${users[userIndex].email} updated.`);
+    return { ...users[userIndex] };
   }
-  
-  await updateDoc(userDocRef, updateData);
-  return getUserById(userId); 
-};
-
-export const deleteUser = async (userId: string): Promise<boolean> => {
-  try {
-    const userDocRef = doc(db, 'users', userId);
-    await deleteDoc(userDocRef);
-    return true;
-  } catch (error) {
-    console.error("Error deleting user from Firestore:", error);
-    return false;
-  }
-};
-
-
-// --- Host Management (Firestore) ---
-// Note: This section uses one-time fetches (getDoc, getDocs) and not onSnapshot.
-export const getHosts = async (): Promise<Host[]> => {
-  const hostsSnapshot = await getDocs(hostsCollection);
-  const hostList = hostsSnapshot.docs.map(docSnap => ({ hostId: docSnap.id, ...docSnap.data() } as Host));
-  return hostList.sort((a, b) => a.nom.localeCompare(b.nom));
-};
-
-export const getHostById = async (hostId: string): Promise<Host | undefined> => {
-  if (!hostId) return undefined;
-  const hostDocRef = doc(db, 'hosts', hostId);
-  const hostSnap = await getDoc(hostDocRef);
-  if (hostSnap.exists()) {
-    return { hostId: hostSnap.id, ...hostSnap.data() } as Host;
-  }
+  console.warn(`[In-Memory Data] User with ID ${userId} not found for update.`);
   return undefined;
 };
 
+export const deleteUser = async (userId: string): Promise<boolean> => {
+  console.log(`[In-Memory Data] deleteUser called for ID: ${userId}`);
+  const initialLength = users.length;
+  users = users.filter(u => u.id !== userId);
+  const success = users.length < initialLength;
+  if(success) console.log(`[In-Memory Data] User ${userId} deleted. Total users: ${users.length}`);
+  else console.warn(`[In-Memory Data] User ${userId} not found for deletion.`);
+  return success;
+};
+
+// --- Host Management (In-Memory) ---
+export const getHosts = async (): Promise<Host[]> => {
+  console.log(`[In-Memory Data] getHosts called. Returning ${hosts.length} hosts.`);
+  return [...hosts].sort((a, b) => a.nom.localeCompare(b.nom));
+};
+
+export const getHostById = async (hostId: string): Promise<Host | undefined> => {
+  console.log(`[In-Memory Data] getHostById called for: ${hostId}`);
+  return hosts.find(h => h.hostId === hostId);
+};
+
 export const addHost = async (hostData: Omit<Host, 'hostId'>): Promise<Host> => {
-  const q = query(hostsCollection, where("email", "==", hostData.email));
-  const querySnapshot = await getDocs(q);
-
-  let hostIdToUse: string;
-  let finalHostData: Host;
-
-  if (!querySnapshot.empty) {
-    const existingHostDoc = querySnapshot.docs[0];
-    hostIdToUse = existingHostDoc.id;
-    // Update existing host document if it exists
-    await updateDoc(existingHostDoc.ref, { nom: hostData.nom, email: hostData.email });
-    finalHostData = { hostId: hostIdToUse, nom: hostData.nom, email: hostData.email };
-    console.warn(`Host with email ${hostData.email} already exists. Updated with new details. ID: ${hostIdToUse}`);
-  } else {
-    hostIdToUse = `host-${Date.now()}`;
-    finalHostData = { hostId: hostIdToUse, ...hostData };
-    const newHostRef = doc(hostsCollection, hostIdToUse);
-    await setDoc(newHostRef, { nom: hostData.nom, email: hostData.email }); // Save only nom and email for Host doc
-  }
-  
-  // Create or update associated user in Firestore
-  let associatedUser = await getUserByEmail(finalHostData.email);
-  if (associatedUser) {
-      await updateUser(associatedUser.id, { 
-        role: 'host', 
-        hostId: hostIdToUse, 
-        nom: finalHostData.nom, 
-        email: finalHostData.email 
-      });
-  } else {
+  console.log(`[In-Memory Data] addHost called for:`, hostData.email);
+  const existingHost = hosts.find(h => h.email.toLowerCase() === hostData.email.toLowerCase());
+  if (existingHost) {
+    console.warn(`[In-Memory Data] Host with email ${hostData.email} already exists. Updating existing host details.`);
+    existingHost.nom = hostData.nom;
+    // Ensure associated user is updated/created
+    let associatedUser = await getUserByEmail(existingHost.email);
+    if (associatedUser) {
+      await updateUser(associatedUser.id, { nom: existingHost.nom, role: 'host', hostId: existingHost.hostId });
+    } else {
       await addUser({
-          email: finalHostData.email,
-          nom: finalHostData.nom,
-          role: 'host',
-          hostId: hostIdToUse,
-          motDePasse: '1234', // Default password for new host users
+        email: existingHost.email,
+        nom: existingHost.nom,
+        role: 'host',
+        hostId: existingHost.hostId,
+        motDePasse: '1234', // Default password
       });
+    }
+    return { ...existingHost };
   }
-  return finalHostData;
+
+  const newHostId = `host-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const newHost: Host = { hostId: newHostId, ...hostData };
+  hosts.push(newHost);
+  console.log(`[In-Memory Data] Host ${newHost.email} added with ID ${newHost.hostId}. Total hosts: ${hosts.length}`);
+
+  // Create or update associated user
+  await addUser({
+    email: newHost.email,
+    nom: newHost.nom,
+    role: 'host',
+    hostId: newHost.hostId,
+    motDePasse: '1234', // Default password for new host users
+  });
+  return { ...newHost };
 };
 
 export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'hostId'>>): Promise<Host | undefined> => {
-  const hostDocRef = doc(db, 'hosts', hostId);
-  const originalHost = await getHostById(hostId); 
+  console.log(`[In-Memory Data] updateHost called for ID: ${hostId} with data:`, hostData);
+  const hostIndex = hosts.findIndex(h => h.hostId === hostId);
+  if (hostIndex > -1) {
+    const originalHost = { ...hosts[hostIndex] };
+    hosts[hostIndex] = { ...hosts[hostIndex], ...hostData };
+    const updatedHost = hosts[hostIndex];
 
-  await updateDoc(hostDocRef, hostData);
-  const updatedHost = await getHostById(hostId);
-
-  if (updatedHost && originalHost) {
-    // Determine which email to use for finding the associated user.
-    // If email is being changed, find user by original email. Otherwise, use current/updated email.
-    const userEmailToQuery = (hostData.email && hostData.email !== originalHost.email) ? originalHost.email : updatedHost.email;
-    let userToUpdate = await getUserByEmail(userEmailToQuery);
-    
-    // If user not found with original email (e.g., email was changed and user record has new email), try with new email.
-    if (!userToUpdate && updatedHost.email !== userEmailToQuery) { // This check is a bit redundant now but safe
-        userToUpdate = await getUserByEmail(updatedHost.email);
-    }
-
-    if (userToUpdate) {
-      await updateUser(userToUpdate.id, {
-        email: updatedHost.email, // Ensure user email matches host email
-        nom: updatedHost.nom,    // Ensure user name matches host name
-        role: 'host',            // Re-affirm role
-        hostId: hostId,          // Re-affirm hostId
-      });
-    } else { // If no user was found (e.g. if user was somehow deleted, or if email changed drastically and it's considered a new link)
-       // This might be an edge case. For now, let's assume we'd create a new user if one isn't clearly associated.
-       // However, typically, an update of a host implies an existing associated user.
-       // If an email changes such that no user is found, we might re-evaluate if we should create one
-       // or throw an error. For now, to be safe and match addHost logic:
-       console.warn(`No user found for host ${hostId} with email ${userEmailToQuery} or ${updatedHost.email}. Creating a new associated user.`);
-       await addUser({
+    // Update associated user if email or name changed
+    if (originalHost.email !== updatedHost.email || originalHost.nom !== updatedHost.nom) {
+      let userToUpdate = await getUserByEmail(originalHost.email); // Find by old email if it changed
+      if (userToUpdate) {
+        await updateUser(userToUpdate.id, {
           email: updatedHost.email,
           nom: updatedHost.nom,
           role: 'host',
-          hostId: hostId,
-          motDePasse: '1234', // Default password if creating a new one
-      });
+          hostId: updatedHost.hostId,
+        });
+      } else {
+        // If user not found with old email (e.g. email was changed), try to find by new email or create
+        userToUpdate = await getUserByEmail(updatedHost.email);
+        if(userToUpdate) {
+          await updateUser(userToUpdate.id, { nom: updatedHost.nom, role: 'host', hostId: updatedHost.hostId });
+        } else {
+          console.warn(`[In-Memory Data] No user found for host ${hostId}. Creating new associated user.`);
+          await addUser({ email: updatedHost.email, nom: updatedHost.nom, role: 'host', hostId: updatedHost.hostId, motDePasse: '1234' });
+        }
+      }
     }
-    return updatedHost;
+    console.log(`[In-Memory Data] Host ${updatedHost.email} updated.`);
+    return { ...updatedHost };
   }
+  console.warn(`[In-Memory Data] Host with ID ${hostId} not found for update.`);
   return undefined;
 };
 
 export const deleteHost = async (hostId: string): Promise<boolean> => {
-  const hostToDelete = await getHostById(hostId);
+  console.log(`[In-Memory Data] deleteHost called for ID: ${hostId}`);
+  const hostToDelete = hosts.find(h => h.hostId === hostId);
   if (!hostToDelete) {
-    console.warn(`Host with ID ${hostId} not found for deletion.`);
+    console.warn(`[In-Memory Data] Host with ID ${hostId} not found for deletion.`);
     return false;
   }
 
-  try {
-    const batch = writeBatch(db);
-    const hostDocRef = doc(db, 'hosts', hostId);
-    batch.delete(hostDocRef);
+  const initialLength = hosts.length;
+  hosts = hosts.filter(h => h.hostId !== hostId);
+  const success = hosts.length < initialLength;
 
+  if (success) {
+    console.log(`[In-Memory Data] Host ${hostToDelete.email} deleted.`);
     // Delete associated user
     const userToDelete = await getUserByEmail(hostToDelete.email);
-    if (userToDelete && userToDelete.role === 'host' && userToDelete.hostId === hostId) {
-      const userDocRef = doc(db, 'users', userToDelete.id);
-      batch.delete(userDocRef);
+    if (userToDelete && userToDelete.hostId === hostId) {
+      await deleteUser(userToDelete.id);
     }
-    // In a full Firestore migration, we would also query and delete related data
-    // from other collections (sites, roomsOrTables, services, etc.) where hostId matches.
-    // This requires careful planning (e.g., using batched writes or Cloud Functions).
-    // For now, we'll just delete the host and its direct user.
-    
-    await batch.commit();
-
-    // Remove from in-memory arrays (these will be fully removed once all data is in Firestore)
+    // Cascade delete for other in-memory data related to this hostId
     sites = sites.filter(s => s.hostId !== hostId);
     roomsOrTables = roomsOrTables.filter(rt => rt.hostId !== hostId);
     serviceCategories = serviceCategories.filter(sc => sc.hostId !== hostId);
     customForms = customForms.filter(cf => cf.hostId !== hostId);
+    formFields = formFields.filter(ff => {
+      const form = customForms.find(f => f.id === ff.formulaireId);
+      return !form || form.hostId !== hostId; // If form is gone, or form not for this host
+    });
     services = services.filter(s => s.hostId !== hostId);
     orders = orders.filter(o => o.hostId !== hostId);
     clients = clients.filter(c => c.hostId !== hostId);
+    console.log(`[In-Memory Data] Associated data for host ${hostId} also removed.`);
 
-    return true;
-  } catch (error) {
-    console.error("Error deleting host and associated user from Firestore:", error);
-    return false;
+  } else {
+    console.warn(`[In-Memory Data] Host ${hostId} could not be deleted (already removed or not found).`);
   }
+  return success;
 };
 
 
 // --- Site Management (Global Sites for Admin) --- (Still uses in-memory data)
 let sites: Site[] = [
   { siteId: 'site-01', nom: 'Paradise Beach Resort', hostId: 'host-01' },
-  { siteId: 'site-02', nom: 'Delice Downtown', hostId: 'host-02' },
+  { siteId: 'site-02', nom: 'Le Delice Downtown', hostId: 'host-02' },
   { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment', hostId: 'host-1747669860022' },
 ];
 
 export const getSites = async (hostId?: string): Promise<Site[]> => {
   if (hostId) return sites.filter(s => s.hostId === hostId);
-  return sites;
+  return [...sites];
 };
 
 export const getSiteById = async (siteId: string): Promise<Site | undefined> => {
@@ -337,13 +282,12 @@ let roomsOrTables: RoomOrTable[] = [
   { id: 'rt-dynamic-table1', nom: 'Dynamic Table Alpha', type: 'Table', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-main', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-table1`},
 ];
 
-
 export const getRoomsOrTables = async (hostId: string, globalSiteIdParam?: string): Promise<RoomOrTable[]> => {
   let filtered = roomsOrTables.filter(rt => rt.hostId === hostId);
   if (globalSiteIdParam) {
     filtered = filtered.filter(rt => rt.globalSiteId === globalSiteIdParam);
   }
-  return filtered.sort((a,b) => {
+  return [...filtered].sort((a,b) => {
     if (a.type === 'Site' && b.type !== 'Site') return -1;
     if (a.type !== 'Site' && b.type === 'Site') return 1;
     return a.nom.localeCompare(b.nom);
@@ -371,12 +315,11 @@ export const updateRoomOrTable = async (id: string, data: Partial<Omit<RoomOrTab
     const currentItem = roomsOrTables[itemIndex];
     roomsOrTables[itemIndex] = {
         ...currentItem,
-        ...data, // Apply updates from 'data'
-        // Explicitly carry over potentially unchanged fields if not in 'data'
+        ...data, 
         globalSiteId: data.globalSiteId !== undefined ? data.globalSiteId : currentItem.globalSiteId,
         parentLocationId: data.parentLocationId !== undefined ? data.parentLocationId : currentItem.parentLocationId,
     };
-    return roomsOrTables[itemIndex];
+    return { ...roomsOrTables[itemIndex] };
   }
   return undefined;
 };
@@ -386,25 +329,21 @@ export const deleteRoomOrTable = async (id: string): Promise<boolean> => {
     const locationToDelete = roomsOrTables.find(rt => rt.id === id);
 
     if (locationToDelete) {
-        // Re-parent children of the deleted location to its parent (or make them top-level under the global site)
         const children = roomsOrTables.filter(rt => rt.parentLocationId === id);
         children.forEach(child => {
             const childIndex = roomsOrTables.findIndex(c => c.id === child.id);
             if (childIndex > -1) {
-                // Assign to grandparent or undefined if parent was top-level site for host
                 roomsOrTables[childIndex].parentLocationId = locationToDelete.parentLocationId || undefined;
             }
         });
-        // Remove this location from any service target lists
         services.forEach(service => {
             if (service.targetLocationIds?.includes(id)) {
                 service.targetLocationIds = service.targetLocationIds.filter(targetId => targetId !== id);
             }
         });
-        // Unassign this location from any clients
         clients.forEach(client => {
             if (client.locationId === id) {
-                client.locationId = undefined; // Or set to a default, or prompt admin
+                client.locationId = undefined; 
             }
         });
     }
@@ -424,7 +363,7 @@ let serviceCategories: ServiceCategory[] = [
 ];
 
 export const getServiceCategories = async (hostId: string): Promise<ServiceCategory[]> => {
-  return serviceCategories.filter(sc => sc.hostId === hostId).sort((a,b) => a.nom.localeCompare(b.nom));
+  return [...serviceCategories].filter(sc => sc.hostId === hostId).sort((a,b) => a.nom.localeCompare(b.nom));
 };
 export const addServiceCategory = async (data: Omit<ServiceCategory, 'id' | 'data-ai-hint'>): Promise<ServiceCategory> => {
   const newCategory: ServiceCategory = { ...data, id: `cat-${Date.now()}`, "data-ai-hint": data.nom.toLowerCase().substring(0,15).replace(/\s+/g, ' ') };
@@ -435,21 +374,19 @@ export const updateServiceCategory = async (id: string, data: Partial<Omit<Servi
   const catIndex = serviceCategories.findIndex(sc => sc.id === id);
   if (catIndex > -1) {
     serviceCategories[catIndex] = { ...serviceCategories[catIndex], ...data, "data-ai-hint": data.nom ? data.nom.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : serviceCategories[catIndex]["data-ai-hint"] };
-    return serviceCategories[catIndex];
+    return { ...serviceCategories[catIndex] };
   }
   return undefined;
 };
 export const deleteServiceCategory = async (id: string): Promise<boolean> => {
     const initialLength = serviceCategories.length;
     serviceCategories = serviceCategories.filter(sc => sc.id !== id);
-    // Unassign this category from services
-    services = services.map(s => s.categorieId === id ? {...s, categorieId: ''} : s); // Or set to a default "Uncategorized" ID
+    services = services.map(s => s.categorieId === id ? {...s, categorieId: ''} : s); 
     return serviceCategories.length < initialLength;
 };
 export const getServiceCategoryById = async (id: string): Promise<ServiceCategory | undefined> => {
   return serviceCategories.find(sc => sc.id === id);
 };
-
 
 // --- CustomForm Management --- (Still uses in-memory data)
 let customForms: CustomForm[] = [
@@ -462,7 +399,7 @@ let customForms: CustomForm[] = [
 ];
 
 export const getCustomForms = async (hostId: string): Promise<CustomForm[]> => {
-  return customForms.filter(cf => cf.hostId === hostId).sort((a,b) => a.nom.localeCompare(b.nom));
+  return [...customForms].filter(cf => cf.hostId === hostId).sort((a,b) => a.nom.localeCompare(b.nom));
 };
 export const addCustomForm = async (data: Omit<CustomForm, 'id'>): Promise<CustomForm> => {
   const newForm: CustomForm = { ...data, id: `form-${Date.now()}` };
@@ -476,20 +413,17 @@ export const updateCustomForm = async (id: string, data: Partial<Omit<CustomForm
   const formIndex = customForms.findIndex(cf => cf.id === id);
   if (formIndex > -1) {
     customForms[formIndex] = { ...customForms[formIndex], ...data };
-    return customForms[formIndex];
+    return { ...customForms[formIndex] };
   }
   return undefined;
 };
 export const deleteCustomForm = async (id: string): Promise<boolean> => {
     const initialLength = customForms.length;
     customForms = customForms.filter(cf => cf.id !== id);
-    // Remove associated form fields
     formFields = formFields.filter(ff => ff.formulaireId !== id);
-    // Unassign this form from services
     services = services.map(s => s.formulaireId === id ? {...s, formulaireId: undefined} : s);
     return customForms.length < initialLength;
 };
-
 
 // --- FormField Management --- (Still uses in-memory data)
 let formFields: FormField[] = [
@@ -507,7 +441,7 @@ let formFields: FormField[] = [
 ];
 
 export const getFormFields = async (formulaireId: string): Promise<FormField[]> => {
-  return formFields.filter(ff => ff.formulaireId === formulaireId).sort((a, b) => a.ordre - b.ordre);
+  return [...formFields].filter(ff => ff.formulaireId === formulaireId).sort((a, b) => a.ordre - b.ordre);
 };
 export const addFormField = async (data: Omit<FormField, 'id'>): Promise<FormField> => {
   const newField: FormField = { ...data, id: `field-${Date.now()}` };
@@ -518,7 +452,7 @@ export const updateFormField = async (id: string, data: Partial<Omit<FormField, 
   const fieldIndex = formFields.findIndex(ff => ff.id === id);
   if (fieldIndex > -1) {
     formFields[fieldIndex] = { ...formFields[fieldIndex], ...data };
-    return formFields[fieldIndex];
+    return { ...formFields[fieldIndex] };
   }
   return undefined;
 };
@@ -547,12 +481,12 @@ export const getServices = async (
   clientCurrentLocationId?: string,
   categoryId?: string
 ): Promise<Service[]> => {
-  let hostServices = services.filter(s => s.hostId === hostId);
+  let hostServices = [...services].filter(s => s.hostId === hostId);
 
   if (clientCurrentLocationId) {
     const currentScannedLocation = await getRoomOrTableById(clientCurrentLocationId);
     if (!currentScannedLocation) {
-      console.error(`Location with ID ${clientCurrentLocationId} not found for service filtering.`);
+      console.error(`[In-Memory Data] Location with ID ${clientCurrentLocationId} not found for service filtering.`);
       return [];
     }
 
@@ -567,20 +501,11 @@ export const getServices = async (
         parentIdLoop = undefined;
       }
     }
-    // Ensure the global site itself is considered a "parent" for targeting if needed,
-    // even if it's not directly in the parentLocationId chain of RoomOrTable type 'Site'.
-    if (currentScannedLocation.globalSiteId && !ancestorAndSelfLocationIds.includes(currentScannedLocation.globalSiteId)) {
-        // This logic might be too simplistic. The targetLocationIds should ideally directly reference globalSiteId if it's a global target.
-        // For now, we assume services targeted at a globalSiteId are handled by not having specific targetLocationIds,
-        // or by targeting a top-level "Site" type RoomOrTable that represents the whole global site for that host.
-        // ancestorAndSelfLocationIds.push(currentScannedLocation.globalSiteId);
-    }
     
     hostServices = hostServices.filter(service => {
       if (!service.targetLocationIds || service.targetLocationIds.length === 0) {
-        return true; // Service is host-wide if no specific targets
+        return true; 
       }
-      // Service is available if its targets include the current location or any of its ancestors
       return service.targetLocationIds.some(targetId => ancestorAndSelfLocationIds.includes(targetId));
     });
   }
@@ -600,7 +525,7 @@ export const addService = async (data: Omit<Service, 'id' | 'data-ai-hint'>): Pr
     ...data,
     id: `svc-${Date.now()}`,
     "data-ai-hint": data.titre.toLowerCase().substring(0,15).replace(/\s+/g, ' '),
-    targetLocationIds: data.targetLocationIds || [] // Ensure it's an array
+    targetLocationIds: data.targetLocationIds || [] 
   };
   services.push(newService);
   return newService;
@@ -613,21 +538,18 @@ export const updateService = async (id: string, data: Partial<Omit<Service, 'id'
       ...services[serviceIndex],
       ...data,
       "data-ai-hint": data.titre ? data.titre.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : services[serviceIndex]["data-ai-hint"],
-      // Ensure targetLocationIds is preserved or updated correctly
       targetLocationIds: data.targetLocationIds !== undefined ? data.targetLocationIds : services[serviceIndex].targetLocationIds,
     };
-    return services[serviceIndex];
+    return { ...services[serviceIndex] };
   }
   return undefined;
 };
 export const deleteService = async (id: string): Promise<boolean> => {
     const initialLength = services.length;
     services = services.filter(s => s.id !== id);
-    // Remove this service from orders (or mark orders related to it) - more complex for real DB
     orders = orders.filter(o => o.serviceId !== id);
     return services.length < initialLength;
 };
-
 
 // --- Order Management --- (Still uses in-memory data)
 let orders: Order[] = [
@@ -640,7 +562,6 @@ let orders: Order[] = [
   { id: 'order-007', hostId: 'host-1747669860022', serviceId: 'svc-dynamic-roomclean', chambreTableId: 'rt-dynamic-room1', clientNom: 'Dynamic Test Client', userId: 'user-dynamic-client-01', donneesFormulaire: '{}', dateHeure: new Date(Date.now() - 3600000 * 3).toISOString(), status: 'completed' },
 ];
 
-
 export const getOrders = async (
   hostId: string,
   filters?: {
@@ -650,7 +571,7 @@ export const getOrders = async (
     clientName?: string;
   }
 ): Promise<Order[]> => {
-  let filteredOrders = orders.filter(o => o.hostId === hostId);
+  let filteredOrders = [...orders].filter(o => o.hostId === hostId);
 
   if (filters?.status && filters.status !== "all") {
     filteredOrders = filteredOrders.filter(o => o.status === filters.status);
@@ -659,7 +580,6 @@ export const getOrders = async (
   if (filters?.serviceId && filters.serviceId !== "all") {
     filteredOrders = filteredOrders.filter(o => o.serviceId === filters.serviceId);
   } else if (filters?.categoryId && filters.categoryId !== "all") {
-    // If filtering by category, first get all services in that category for the host
     const servicesInCategory = services.filter(s => s.categorieId === filters.categoryId && s.hostId === hostId).map(s => s.id);
     filteredOrders = filteredOrders.filter(o => servicesInCategory.includes(o.serviceId));
   }
@@ -672,8 +592,8 @@ export const getOrders = async (
 };
 
 export const getOrdersByClientName = async (hostId: string, clientName: string): Promise<Order[]> => {
-  if (!clientName) return []; // Return empty if clientName is not provided
-  const clientOrders = orders.filter(o => 
+  if (!clientName) return []; 
+  const clientOrders = [...orders].filter(o => 
     o.hostId === hostId && 
     o.clientNom && 
     o.clientNom.toLowerCase() === clientName.toLowerCase()
@@ -682,10 +602,9 @@ export const getOrdersByClientName = async (hostId: string, clientName: string):
 };
 
 export const getOrdersByUserId = async (userId: string): Promise<Order[]> => {
-  return orders.filter(o => o.userId === userId)
+  return [...orders].filter(o => o.userId === userId)
                .sort((a,b) => new Date(b.dateHeure).getTime() - new Date(a.dateHeure).getTime());
 };
-
 
 export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status'>): Promise<Order> => {
   const serviceDetails = await getServiceById(data.serviceId);
@@ -693,9 +612,9 @@ export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status'>)
     ...data,
     id: `order-${Date.now()}`,
     dateHeure: new Date().toISOString(),
-    status: 'pending', // Default status
-    prix: serviceDetails?.prix, // Get price from service if available
-    userId: data.userId // Include userId if provided
+    status: 'pending', 
+    prix: serviceDetails?.prix, 
+    userId: data.userId 
   };
   orders.push(newOrder);
   return newOrder;
@@ -704,7 +623,7 @@ export const updateOrderStatus = async (orderId: string, status: OrderStatus): P
   const orderIndex = orders.findIndex(o => o.id === orderId);
   if (orderIndex > -1) {
     orders[orderIndex].status = status;
-    return orders[orderIndex];
+    return { ...orders[orderIndex] };
   }
   return undefined;
 };
@@ -720,9 +639,8 @@ let clients: Client[] = [
     { id: 'client-user-client-02', hostId: 'host-01', nom: 'Bob The Builder', email: 'client2@example.com', type: 'passager', notes: 'Frequent visitor to the pool bar.' },
 ];
 
-
 export const getClients = async (hostId: string): Promise<Client[]> => {
-  return clients.filter(c => c.hostId === hostId).sort((a,b) => a.nom.localeCompare(b.nom));
+  return [...clients].filter(c => c.hostId === hostId).sort((a,b) => a.nom.localeCompare(b.nom));
 };
 
 export const getClientById = async (clientId: string): Promise<Client | undefined> => {
@@ -730,11 +648,9 @@ export const getClientById = async (clientId: string): Promise<Client | undefine
 };
 
 export const getClientRecordsByEmail = async (email: string): Promise<Client[]> => {
-  // This should find all client records (across potentially different hosts) associated with a user's email
-  return clients.filter(c => c.email?.toLowerCase() === email.toLowerCase())
+  return [...clients].filter(c => c.email?.toLowerCase() === email.toLowerCase())
                 .sort((a,b) => a.nom.localeCompare(b.nom));
 };
-
 
 export const addClientData = async (clientData: Omit<Client, 'id' | 'documents'>): Promise<Client> => {
   const newClient: Client = { ...clientData, id: `client-${Date.now()}-${Math.random().toString(36).substring(2, 7)}` };
@@ -746,7 +662,7 @@ export const updateClientData = async (clientId: string, clientData: Partial<Omi
   const clientIndex = clients.findIndex(c => c.id === clientId);
   if (clientIndex > -1) {
     clients[clientIndex] = { ...clients[clientIndex], ...clientData };
-    return clients[clientIndex];
+    return { ...clients[clientIndex] };
   }
   return undefined;
 };
@@ -754,43 +670,7 @@ export const updateClientData = async (clientId: string, clientData: Partial<Omi
 export const deleteClientData = async (clientId: string): Promise<boolean> => {
   const initialLength = clients.length;
   clients = clients.filter(c => c.id !== clientId);
-  // Consider if deleting a client record should impact orders (e.g., anonymize clientNom)
-  // For now, orders remain as is.
   return clients.length < initialLength;
 };
 
-// Final console log to indicate the data layer is initialized.
-console.log("Data layer initialized. Hosts and Users use Firestore. Other entities are in-memory.");
-
-// Initial seed for admin user - no longer needed here if manual entry in Firestore is done.
-// If no admin exists, the first host creation might trigger user creation,
-// which can then be promoted to admin in Firestore console.
-// Or, ensure an admin user is seeded directly in Firestore.
-const ensureAdminUserExists = async () => {
-    const adminEmail = 'kamel@gmail.com';
-    let adminUser = await getUserByEmail(adminEmail);
-    if (!adminUser) {
-        console.log(`Admin user ${adminEmail} not found in Firestore. Attempting to create...`);
-        try {
-            adminUser = await addUser({
-                email: adminEmail,
-                nom: 'Kamel Admin',
-                role: 'admin',
-                motDePasse: '0000', // Default password
-            });
-            console.log(`Admin user ${adminEmail} created with ID: ${adminUser.id}`);
-        } catch (error) {
-            console.error(`Failed to create admin user ${adminEmail}:`, error);
-        }
-    } else {
-        console.log(`Admin user ${adminEmail} already exists in Firestore.`);
-    }
-};
-
-// Call this during app initialization, but be mindful of server vs client execution.
-// For Next.js, this top-level call in data.ts might run multiple times or at build time.
-// A better place might be a global setup or a check within AuthProvider if no admin is found.
-// ensureAdminUserExists(); // Commenting out to avoid unintended side effects at module load.
-                          // Admin user should be managed directly in Firestore or via a setup script.
-
-    
+console.log("Data layer initialized. User and Host management reverted to in-memory. Other entities remain in-memory.");

@@ -1,88 +1,70 @@
 
 // src/lib/firebase.ts
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+// import { getFirestore } from 'firebase/firestore'; // Commented out
 
-// Configuration using user-provided details, with the new API key
+// Configuration using user-provided details
 const firebaseConfig = {
-  apiKey: "AIzaSyAejtOgaERXGgkaXJFjHXfjoIV-AA2Y2bA", // New API Key
+  apiKey: "AIzaSyAejtOgaERXGgkaXJFjHXfjoIV-AA2Y2bA", // This is the last key you provided
   authDomain: "connecthost.firebaseapp.com",
   projectId: "connecthost",
   storageBucket: "connecthost.firebasestorage.app",
   messagingSenderId: "812170721595",
-  appId: "1:812170721595:web:a1cf3f800ee375312a75f1e" // New App ID
+  appId: "1:812170721595:web:a1cf3f800ee375312a75f1e" // This is the last appId you provided
 };
 
-let app: FirebaseApp;
-let db: any; // Firestore database instance
+let app: FirebaseApp | undefined;
+// let db: any; // Firestore database instance - Commented out
 
 if (typeof window !== 'undefined') {
-  // Log the entire config being used for verification
-  console.log("[Firebase Setup] Using Firebase config:", JSON.parse(JSON.stringify(firebaseConfig))); 
-  console.log("[Firebase Setup] Attempting to initialize Firebase with projectId:", firebaseConfig.projectId);
-
-  // General placeholder check
-  if (!firebaseConfig.apiKey || 
-      firebaseConfig.apiKey.includes("YOUR_") || 
-      firebaseConfig.projectId.includes("YOUR_")) {
-    console.error(
-      "************************************************************************\n" +
-      "CRITICAL Firebase Configuration Warning:\n" +
-      "The API Key or Project ID in firebaseConfig (src/lib/firebase.ts)\n" +
-      "looks like a placeholder or is missing critical information.\n" +
-      "Please ensure you have replaced ALL placeholder values with your\n" +
-      "ACTUAL Firebase project configuration details from the Firebase console.\n" +
-      "Firestore connection WILL FAIL with incorrect or placeholder values.\n" +
-      "Current API Key being used: " + firebaseConfig.apiKey + "\n" +
-      "Current Project ID being used: " + firebaseConfig.projectId + "\n" +
-      "************************************************************************"
-    );
-  }
+  console.log("[Firebase Setup] Firebase initialization is currently BYPASSED for in-memory data testing.");
+  console.log("[Firebase Setup] Current Firebase config loaded in code:", JSON.parse(JSON.stringify(firebaseConfig)));
+  // We are not initializing the app or db to ensure in-memory data is used.
 }
+
+/*
+// Original Firebase initialization - Commented out for in-memory data testing
 
 if (!getApps().length) {
   try {
     app = initializeApp(firebaseConfig);
     if (typeof window !== 'undefined') {
-      console.log("[Firebase Setup] Firebase app initialized successfully.");
+      console.log("[Firebase Setup] Firebase app initialized successfully (but db connection might be deferred).");
     }
   } catch (error) {
     if (typeof window !== 'undefined') {
       console.error("[Firebase Setup] Error initializing Firebase app:", error);
       console.error("[Firebase Setup] Used config:", JSON.parse(JSON.stringify(firebaseConfig)));
     }
-    // Re-throw the error or handle it more gracefully if needed for the app's stability
-    // For now, if initialization fails, `app` will be undefined, and subsequent `getFirestore` will fail.
   }
 } else {
   app = getApp();
   if (typeof window !== 'undefined') {
-    console.log("[Firebase Setup] Existing Firebase app retrieved.");
+    console.log("[Firebase Setup] Existing Firebase app retrieved (but db connection might be deferred).");
   }
 }
 
-// Ensure `app` is defined before trying to get Firestore
-if (app!) { 
+if (app!) {
   try {
-    db = getFirestore(app);
+    // db = getFirestore(app); // Commented out
     if (typeof window !== 'undefined') {
-      console.log("[Firebase Setup] Firestore instance obtained successfully.");
+      // console.log("[Firebase Setup] Firestore instance would be obtained here.");
     }
   } catch (error) {
     if (typeof window !== 'undefined') {
       console.error("[Firebase Setup] Error obtaining Firestore instance:", error);
     }
-    // If Firestore can't be obtained, `db` will be undefined.
-    // Components trying to use `db` will likely fail.
   }
 } else {
   if (typeof window !== 'undefined') {
     console.error("[Firebase Setup] Firebase app was not initialized. Firestore cannot be accessed.");
   }
 }
+*/
 
-export { db };
+// export { db }; // Exporting 'db' is commented out
+// To use Firestore again, uncomment the initializations above and this export.
 
 if (typeof window !== 'undefined') {
-  console.log("[Firebase Setup] firebase.ts module loaded.");
+  console.log("[Firebase Setup] firebase.ts module loaded. Firestore usage is currently INACTIVE.");
 }
