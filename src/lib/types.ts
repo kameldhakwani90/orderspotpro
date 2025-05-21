@@ -30,6 +30,7 @@ export interface RoomOrTable {
   globalSiteId: string; // FK to Site.siteId (the overarching Global Site)
   parentLocationId?: string; // FK to another RoomOrTable.id (if this location is nested)
   urlPersonnalise: string;
+  capacity?: number; // Max number of persons
 }
 
 export interface ServiceCategory {
@@ -128,7 +129,7 @@ export type ReservationStatus = "pending" | "confirmed" | "cancelled" | "checked
 export interface Reservation {
   id: string;
   hostId: string;
-  locationId: string; // FK to RoomOrTable.id (specifically for chambres)
+  locationId: string; // FK to RoomOrTable.id (can be Chambre or Table)
   clientId?: string;   // Optional: FK to Client.id if client is registered
   clientName: string; // Name of the person making the reservation
   dateArrivee: string; // ISO date string e.g. "2024-12-25"
@@ -137,5 +138,6 @@ export interface Reservation {
   animauxDomestiques?: boolean; // Whether pets are included
   notes?: string;
   status?: ReservationStatus;
-  // Potentially add: createdAt, updatedAt
+  // channel?: string; // Future: For acquisition channel
 }
+
