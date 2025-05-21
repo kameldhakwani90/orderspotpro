@@ -22,6 +22,12 @@ export interface Host {
   email: string;
 }
 
+export interface Tag {
+  id: string;
+  name: string;
+  hostId: string;
+}
+
 export interface RoomOrTable {
   id: string;
   nom: string;
@@ -31,6 +37,7 @@ export interface RoomOrTable {
   parentLocationId?: string; // FK to another RoomOrTable.id (if this location is nested)
   urlPersonnalise: string;
   capacity?: number; // Max number of persons
+  tagIds?: string[]; // IDs of associated tags
 }
 
 export interface ServiceCategory {
@@ -133,11 +140,10 @@ export interface Reservation {
   clientId?: string;   // Optional: FK to Client.id if client is registered
   clientName: string; // Name of the person making the reservation
   dateArrivee: string; // ISO date string e.g. "2024-12-25"
-  dateDepart?: string;  // ISO date string e.g. "2024-12-28" - Optional, primarily for rooms
+  dateDepart?: string;  // ISO date string e.g. "2024-12-28" - Optional for tables
   nombrePersonnes: number;
   animauxDomestiques?: boolean; // Whether pets are included
   notes?: string;
   status?: ReservationStatus;
   // channel?: string; // Future: For acquisition channel
 }
-

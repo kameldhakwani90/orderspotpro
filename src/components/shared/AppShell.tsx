@@ -17,8 +17,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, QrCode, ChevronDown, ChevronUp, CalendarCheck
-} from 'lucide-react'; // Added CalendarCheck
+  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, QrCode, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon
+} from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -42,6 +42,7 @@ const hostNavItems: NavItem[] = [
     allowedRoles: ['host'],
     children: [
       { label: 'My Locations', href: '/host/locations', icon: MapPin, allowedRoles: ['host'] },
+      { label: 'Manage Tags', href: '/host/tags', icon: TagIcon, allowedRoles: ['host'] },
       { label: 'Service Categories', href: '/host/service-categories', icon: ListChecks, allowedRoles: ['host'] },
       { label: 'Custom Forms', href: '/host/forms', icon: FileText, allowedRoles: ['host'] },
       { label: 'My Services', href: '/host/services', icon: ClipboardList, allowedRoles: ['host'] },
