@@ -1,25 +1,27 @@
+
 // src/lib/firebase.ts
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
 // Configuration using user-provided details, with the new API key
 const firebaseConfig = {
-  apiKey: "AIzaSyAFc5A445t7gyhGraXM29qu69TSVmsNoRk", // New API Key
+  apiKey: "AIzaSyAejtOgaERXGgkaXJFjHXfjoIV-AA2Y2bA", // New API Key
   authDomain: "connecthost.firebaseapp.com",
   projectId: "connecthost",
   storageBucket: "connecthost.firebasestorage.app",
   messagingSenderId: "812170721595",
-  appId: "1:812170721595:web:bb01e08199c8fb31a75f1e"
+  appId: "1:812170721595:web:a1cf3f800ee375312a75f1e" // New App ID
 };
 
 let app: FirebaseApp;
 let db: any; // Firestore database instance
 
 if (typeof window !== 'undefined') {
-  console.log("[Firebase Setup] Using Firebase config:", JSON.parse(JSON.stringify(firebaseConfig))); // Log the entire config for verification
+  // Log the entire config being used for verification
+  console.log("[Firebase Setup] Using Firebase config:", JSON.parse(JSON.stringify(firebaseConfig))); 
   console.log("[Firebase Setup] Attempting to initialize Firebase with projectId:", firebaseConfig.projectId);
 
-  // General placeholder check - this new key should not trigger this unless it also contains "YOUR_"
+  // General placeholder check
   if (!firebaseConfig.apiKey || 
       firebaseConfig.apiKey.includes("YOUR_") || 
       firebaseConfig.projectId.includes("YOUR_")) {
@@ -49,6 +51,8 @@ if (!getApps().length) {
       console.error("[Firebase Setup] Error initializing Firebase app:", error);
       console.error("[Firebase Setup] Used config:", JSON.parse(JSON.stringify(firebaseConfig)));
     }
+    // Re-throw the error or handle it more gracefully if needed for the app's stability
+    // For now, if initialization fails, `app` will be undefined, and subsequent `getFirestore` will fail.
   }
 } else {
   app = getApp();
@@ -57,6 +61,7 @@ if (!getApps().length) {
   }
 }
 
+// Ensure `app` is defined before trying to get Firestore
 if (app!) { 
   try {
     db = getFirestore(app);
@@ -67,6 +72,8 @@ if (app!) {
     if (typeof window !== 'undefined') {
       console.error("[Firebase Setup] Error obtaining Firestore instance:", error);
     }
+    // If Firestore can't be obtained, `db` will be undefined.
+    // Components trying to use `db` will likely fail.
   }
 } else {
   if (typeof window !== 'undefined') {
