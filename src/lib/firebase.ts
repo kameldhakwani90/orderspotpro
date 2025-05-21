@@ -1,9 +1,11 @@
 
 // src/lib/firebase.ts
-import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import type { FirebaseApp } from 'firebase/app'; // Keep type import for reference if needed later
+// import { initializeApp, getApps, getApp } from 'firebase/app';
+// import { getFirestore } from 'firebase/firestore';
 
-// Configuration using user-provided details
+// Configuration using user-provided details - COMMENTED OUT TO USE IN-MEMORY DATA
+/*
 const firebaseConfig = {
   apiKey: "AIzaSyAejtOgaERXGgkaXJFjHXfjoIV-AA2Y2bA",
   authDomain: "connecthost.firebaseapp.com",
@@ -17,54 +19,49 @@ let app: FirebaseApp;
 let db: any; // Firestore database instance
 
 if (typeof window !== 'undefined') {
-  console.log("[Firebase Setup] Attempting to initialize Firebase with config:", JSON.parse(JSON.stringify(firebaseConfig)));
+  console.log("[Firebase Setup] Attempting to initialize Firebase with config (CURRENTLY DISABLED FOR IN-MEMORY DATA):", JSON.parse(JSON.stringify(firebaseConfig)));
 }
 
 if (!getApps().length) {
   try {
-    app = initializeApp(firebaseConfig);
+    // app = initializeApp(firebaseConfig);
     if (typeof window !== 'undefined') {
-      console.log("[Firebase Setup] Firebase app initialized successfully.");
+      // console.log("[Firebase Setup] Firebase app initialization would occur here.");
     }
   } catch (error) {
     if (typeof window !== 'undefined') {
-      console.error("[Firebase Setup] Error initializing Firebase app:", error);
-      console.error("[Firebase Setup] Used config:", JSON.parse(JSON.stringify(firebaseConfig)));
+      // console.error("[Firebase Setup] Error initializing Firebase app:", error);
     }
-    // Fallback or rethrow, depending on how critical Firebase is at startup
-    // For now, we'll let it proceed and db might remain undefined, causing issues downstream.
   }
 } else {
-  app = getApp();
+  // app = getApp();
   if (typeof window !== 'undefined') {
-    console.log("[Firebase Setup] Existing Firebase app retrieved.");
+    // console.log("[Firebase Setup] Existing Firebase app would be retrieved here.");
   }
 }
 
 // @ts-ignore
 if (app!) {
   try {
-    db = getFirestore(app);
+    // db = getFirestore(app);
     if (typeof window !== 'undefined') {
-      console.log("[Firebase Setup] Firestore instance obtained successfully.");
+      // console.log("[Firebase Setup] Firestore instance would be obtained here.");
     }
   } catch (error) {
     if (typeof window !== 'undefined') {
-      console.error("[Firebase Setup] Error obtaining Firestore instance:", error);
+      // console.error("[Firebase Setup] Error obtaining Firestore instance:", error);
     }
   }
 } else {
   if (typeof window !== 'undefined') {
-    console.error("[Firebase Setup] Firebase app was not initialized. Firestore cannot be accessed.");
+    // console.warn("[Firebase Setup] Firebase app is not initialized. Firestore cannot be accessed.");
   }
 }
+*/
 
-export { db }; // Export db for use in other modules
+// Export a null db when using in-memory data to satisfy imports if not removed elsewhere
+export const db = null;
 
 if (typeof window !== 'undefined') {
-  if (db) {
-    console.log("[Firebase Setup] firebase.ts module loaded. Firestore is configured.");
-  } else {
-    console.warn("[Firebase Setup] firebase.ts module loaded, but Firestore (db) instance is NOT available. Check initialization logs.");
-  }
+  console.warn("[Firebase Setup] firebase.ts is currently configured for IN-MEMORY DATA. Firebase and Firestore are NOT initialized.");
 }
