@@ -172,21 +172,38 @@ export default function HostReservationsPage() {
     return reservableLocations.filter(loc => loc.type === currentView);
   }, [reservableLocations, currentView]);
 
+  const currentSelectedLocationType = useMemo(() => {
+    if (editingReservation) {
+      return reservableLocations.find(loc => loc.id === editingReservation.locationId)?.type;
+    }
+    if (selectedLocationForDialog) {
+      return reservableLocations.find(loc => loc.id === selectedLocationForDialog)?.type;
+    }
+    return currentView;
+  }, [editingReservation, selectedLocationForDialog, reservableLocations, currentView]);
+
   useEffect(() => {
-    if (!arrivalDateForDialog || !departureDateForDialog || isBefore(startOfDay(departureDateForDialog), startOfDay(arrivalDateForDialog))) {
-       const initialFiltered = reservableLocations.filter(loc => 
-          loc.type === (editingReservation ? reservableLocations.find(r => r.id === editingReservation.locationId)?.type : currentView) &&
+    if (!arrivalDateForDialog || (currentSelectedLocationType === 'Chambre' && !departureDateForDialog)) {
+      const initialFiltered = reservableLocations.filter(loc => 
+          loc.type === currentSelectedLocationType &&
           (!currentReservationData.nombrePersonnes || (loc.capacity && loc.capacity >= currentReservationData.nombrePersonnes))
       );
       setAvailableLocationsForDialog(initialFiltered);
       return;
     }
-
+    
     const checkIn = startOfDay(arrivalDateForDialog);
-    const checkOut = startOfDay(departureDateForDialog);
+    // For tables, departure is same as arrival. For rooms, it's what's selected.
+    const checkOut = currentSelectedLocationType === 'Table' ? startOfDay(addDays(arrivalDateForDialog,1)) : (departureDateForDialog ? startOfDay(departureDateForDialog) : null);
+
+    if (!checkOut) { // departureDateForDialog is null for rooms, meaning incomplete selection
+         setAvailableLocationsForDialog(reservableLocations.filter(loc => loc.type === currentSelectedLocationType && (!currentReservationData.nombrePersonnes || (loc.capacity && loc.capacity >= currentReservationData.nombrePersonnes))));
+         return;
+    }
+
 
     const available = reservableLocations.filter(loc => {
-      if (loc.type !== (editingReservation ? reservableLocations.find(r => r.id === editingReservation.locationId)?.type : currentView)) return false;
+      if (loc.type !== currentSelectedLocationType) return false;
 
       if (currentReservationData.nombrePersonnes && currentReservationData.nombrePersonnes > 0) {
         if (!loc.capacity || loc.capacity < currentReservationData.nombrePersonnes) {
@@ -200,8 +217,8 @@ export default function HostReservationsPage() {
 
         try {
             const existingArrival = startOfDay(parseISO(res.dateArrivee));
-            const existingDeparture = startOfDay(parseISO(res.dateDepart));
-            return checkIn < existingDeparture && checkOut > existingArrival;
+            const existingDeparture = res.dateDepart ? startOfDay(parseISO(res.dateDepart)) : startOfDay(addDays(existingArrival, 1)); // Assume 1 day for table if no departure
+            return (checkIn < existingDeparture && checkOut > existingArrival);
         } catch (e) { return false; }
       });
       return !isLocationBooked;
@@ -211,15 +228,18 @@ export default function HostReservationsPage() {
     if (selectedLocationForDialog && !available.some(loc => loc.id === selectedLocationForDialog)) {
         setSelectedLocationForDialog(available.length > 0 ? available[0].id : undefined);
     }
-  }, [arrivalDateForDialog, departureDateForDialog, currentReservationData.nombrePersonnes, reservableLocations, allReservations, editingReservation, selectedLocationForDialog, currentView]);
+  }, [arrivalDateForDialog, departureDateForDialog, currentReservationData.nombrePersonnes, reservableLocations, allReservations, editingReservation, selectedLocationForDialog, currentSelectedLocationType]);
 
    useEffect(() => {
-    if (isAddOrEditDialogOpen && !editingReservation && arrivalDateForDialog && reservableLocations.find(loc => loc.id === selectedLocationForDialog)?.type === 'Table') {
+    // Auto-set departure date for tables when arrival date changes or view type dictates table
+    if (isAddOrEditDialogOpen && arrivalDateForDialog && currentSelectedLocationType === 'Table') {
         if (!departureDateForDialog || !isSameDay(arrivalDateForDialog, departureDateForDialog)) {
-            setDepartureDateForDialog(startOfDay(arrivalDateForDialog));
+             // For tables, departure is effectively the same day, duration is within the day
+             // So, we don't strictly set departureDateForDialog to arrival, but ensure it's handled
+             // In the save logic, dateDepart for tables will be set to dateArrivee
         }
     }
-  }, [arrivalDateForDialog, isAddOrEditDialogOpen, editingReservation, selectedLocationForDialog, departureDateForDialog, reservableLocations]);
+  }, [arrivalDateForDialog, isAddOrEditDialogOpen, currentSelectedLocationType, departureDateForDialog]);
 
 
   const filteredReservationsForTimeline = useMemo(() => {
@@ -233,8 +253,11 @@ export default function HostReservationsPage() {
   const handleDayCellClick = (location: RoomOrTable, date: Date) => {
     const resOnThisDay = filteredReservationsForTimeline.find(r => 
         r.locationId === location.id &&
-        isValid(parseISO(r.dateArrivee)) && isValid(parseISO(r.dateDepart)) &&
-        isWithinInterval(date, {start: startOfDay(parseISO(r.dateArrivee)), end: startOfDay(subDays(parseISO(r.dateDepart),1))})
+        isValid(parseISO(r.dateArrivee)) &&
+        (
+          (location.type === 'Chambre' && r.dateDepart && isValid(parseISO(r.dateDepart)) && isWithinInterval(date, {start: startOfDay(parseISO(r.dateArrivee)), end: startOfDay(subDays(parseISO(r.dateDepart),1))})) ||
+          (location.type === 'Table' && isSameDay(date, parseISO(r.dateArrivee)))
+        )
     );
     if (resOnThisDay) {
         openEditReservationDialog(resOnThisDay);
@@ -254,17 +277,19 @@ export default function HostReservationsPage() {
     setCurrentReservationData({ 
         locationId: initialSelectedLocationId, 
         nombrePersonnes: 1, 
-        animauxDomestiques: false, 
+        animauxDomestiques: initialLocationType === 'Chambre' ? false : undefined, 
         status: 'pending',
         _manualClientName: "",
         clientId: NO_CLIENT_SELECTED,
     });
     setArrivalDateForDialog(date ? startOfDay(date) : undefined);
-    const defaultDeparture = date ? startOfDay(addDays(date, 1)) : undefined;
+    
     if (initialLocationType === 'Table' && date) {
-        setDepartureDateForDialog(startOfDay(date));
+        setDepartureDateForDialog(startOfDay(date)); // Not strictly needed, dateDepart is optional
+    } else if (initialLocationType === 'Chambre' && date) {
+        setDepartureDateForDialog(startOfDay(addDays(date, 1)));
     } else {
-        setDepartureDateForDialog(defaultDeparture);
+        setDepartureDateForDialog(undefined);
     }
     setIsAddOrEditDialogOpen(true);
   };
@@ -272,14 +297,20 @@ export default function HostReservationsPage() {
   const openEditReservationDialog = (reservation: Reservation) => {
     setEditingReservation(reservation);
     setSelectedLocationForDialog(reservation.locationId); 
+    const locationType = reservableLocations.find(loc => loc.id === reservation.locationId)?.type;
     setCurrentReservationData({
         ...reservation, 
         _manualClientName: reservation.clientId ? "" : reservation.clientName || "",
         clientId: reservation.clientId || NO_CLIENT_SELECTED,
+        animauxDomestiques: locationType === 'Chambre' ? reservation.animauxDomestiques : undefined,
     });
     try {
         setArrivalDateForDialog(reservation.dateArrivee ? parseISO(reservation.dateArrivee) : undefined);
-        setDepartureDateForDialog(reservation.dateDepart ? parseISO(reservation.dateDepart) : undefined);
+        if (locationType === 'Chambre') {
+            setDepartureDateForDialog(reservation.dateDepart ? parseISO(reservation.dateDepart) : undefined);
+        } else {
+            setDepartureDateForDialog(reservation.dateArrivee ? parseISO(reservation.dateArrivee) : undefined); // For table, depart not shown, keep consistent
+        }
     } catch (e) {
         setArrivalDateForDialog(undefined); setDepartureDateForDialog(undefined);
         toast({title: "Date Error", description: "Could not parse reservation dates.", variant:"destructive"});
@@ -307,10 +338,13 @@ export default function HostReservationsPage() {
   const handleLocationSelectionForDialog = (value: string) => {
     setSelectedLocationForDialog(value);
     setCurrentReservationData(prev => ({ ...prev, locationId: value }));
-    // If type changes, adjust departure date for tables
-    const newLoc = reservableLocations.find(loc => loc.id === value);
-    if (newLoc?.type === 'Table' && arrivalDateForDialog) {
-        setDepartureDateForDialog(startOfDay(arrivalDateForDialog));
+    const newLocType = reservableLocations.find(loc => loc.id === value)?.type;
+    if (newLocType === 'Table' && arrivalDateForDialog) {
+      // For tables, dateDepart is not a primary concern in dialog
+      // It will be set to dateArrivee on save.
+      // We don't need to force setDepartureDateForDialog here as it's hidden.
+    } else if (newLocType === 'Chambre' && arrivalDateForDialog && !departureDateForDialog) {
+        setDepartureDateForDialog(addDays(arrivalDateForDialog, 1)); // Default 1 night for rooms
     }
   };
 
@@ -322,24 +356,20 @@ export default function HostReservationsPage() {
     }
     
     const selectedLocationDetails = reservableLocations.find(loc => loc.id === selectedLocationForDialog);
-    let effectiveDepartureDate = departureDateForDialog;
+    if (!selectedLocationDetails) {
+        toast({ title: "Error", description: "Selected location not found.", variant: "destructive" });
+        return;
+    }
 
-    if (selectedLocationDetails?.type === 'Table') {
-        if (!departureDateForDialog || !isSameDay(arrivalDateForDialog, departureDateForDialog)) {
-            // For tables, if departure isn't set or isn't same day, force it to be same as arrival.
-            // Or, one could argue that for tables, departure date might not even be necessary in the UI or model if it's always single day.
-            // For now, we ensure it is at least the same day as arrival.
-            effectiveDepartureDate = startOfDay(arrivalDateForDialog);
-            // Optionally, if you want table reservations to strictly be single day, ensure departureDateForDialog is arrivalDateForDialog
-            if (departureDateForDialog && !isSameDay(arrivalDateForDialog, departureDateForDialog)) {
-                 toast({ title: "Table Reservation Rule", description: "Table reservations are for a single day. Departure date adjusted.", variant: "default" });
-            }
-        }
-    } else { // For 'Chambre'
+    let effectiveDepartureDateStr: string | undefined;
+    if (selectedLocationDetails.type === 'Chambre') {
         if (!departureDateForDialog || isBefore(startOfDay(departureDateForDialog), startOfDay(arrivalDateForDialog)) || isEqual(startOfDay(departureDateForDialog), startOfDay(arrivalDateForDialog))) {
             toast({ title: "Invalid Departure Date", description: "Departure date must be after arrival date for rooms.", variant: "destructive" });
             return;
         }
+        effectiveDepartureDateStr = format(departureDateForDialog, 'yyyy-MM-dd');
+    } else { // For 'Table'
+        effectiveDepartureDateStr = format(arrivalDateForDialog, 'yyyy-MM-dd'); // Table reservations are for a single day
     }
 
 
@@ -366,15 +396,15 @@ export default function HostReservationsPage() {
         if (editingReservation && res.id === editingReservation.id) return false; 
         try {
             const existingArrival = startOfDay(parseISO(res.dateArrivee));
-            const existingDeparture = startOfDay(parseISO(res.dateDepart)); 
+            const existingDeparture = res.dateDepart ? startOfDay(parseISO(res.dateDepart)) : startOfDay(addDays(existingArrival,1)); // Handle table case for conflict check
             const newArrival = startOfDay(arrivalDateForDialog);
-            const newDeparture = startOfDay(effectiveDepartureDate!); // Use effectiveDepartureDate
+            const newDeparture = selectedLocationDetails.type === 'Table' ? startOfDay(addDays(arrivalDateForDialog,1)) : startOfDay(parseISO(effectiveDepartureDateStr!));
             return (newArrival < existingDeparture && newDeparture > existingArrival);
         } catch (e) { return false; }
     });
 
     if (conflictingReservation) {
-        toast({ title: "Double Booking Alert", description: `This location is already booked for some of the selected dates (Reservation for: ${conflictingReservation.clientName}). Please adjust dates.`, variant: "destructive", duration: 7000 });
+        toast({ title: "Double Booking Alert", description: `This ${selectedLocationDetails.type.toLowerCase()} is already booked for some of the selected dates (Reservation for: ${conflictingReservation.clientName}). Please adjust dates.`, variant: "destructive", duration: 7000 });
         return;
     }
 
@@ -385,9 +415,9 @@ export default function HostReservationsPage() {
         clientName: clientNameToSave,
         clientId: clientIdToSave,
         dateArrivee: format(arrivalDateForDialog, 'yyyy-MM-dd'),
-        dateDepart: format(effectiveDepartureDate!, 'yyyy-MM-dd'), // Use effectiveDepartureDate
+        dateDepart: selectedLocationDetails.type === 'Chambre' ? effectiveDepartureDateStr : undefined, // Only set depart for rooms
         nombrePersonnes: currentReservationData.nombrePersonnes || 1,
-        animauxDomestiques: currentReservationData.animauxDomestiques || false,
+        animauxDomestiques: selectedLocationDetails.type === 'Chambre' ? (currentReservationData.animauxDomestiques || false) : undefined,
         notes: currentReservationData.notes || '',
         status: currentReservationData.status || 'pending',
     };
@@ -436,7 +466,7 @@ export default function HostReservationsPage() {
     setFilterClientName("");
     setFilterStatus("all");
     setViewStartDate(startOfDay(new Date())); 
-    setCurrentView('Chambre');
+    // currentView remains as is or could be reset to 'Chambre'
   };
 
   const getLocationIcon = (type: RoomOrTable['type']) => {
@@ -455,6 +485,8 @@ export default function HostReservationsPage() {
       </div>
     );
   }
+  
+  const dialogLocationType = selectedLocationForDialog ? reservableLocations.find(l => l.id === selectedLocationForDialog)?.type : currentView;
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
@@ -469,7 +501,7 @@ export default function HostReservationsPage() {
                 </CardDescription>
               )}
             </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
               <Button 
                 variant={currentView === 'Chambre' ? "default" : "outline"} 
                 onClick={() => setCurrentView('Chambre')}
@@ -539,7 +571,7 @@ export default function HostReservationsPage() {
             <div className="grid min-w-[1200px]" 
                  style={{ gridTemplateColumns: `minmax(200px, 1.5fr) repeat(${DAYS_TO_DISPLAY}, minmax(130px, 1fr))` }}>
                 <div className="p-2 border-r border-b border-border font-semibold bg-muted sticky left-0 z-20 text-sm flex items-center">
-                    <FilterIcon className="h-4 w-4 mr-2 text-primary"/> Location ({currentView})
+                    <FilterIcon className="h-4 w-4 mr-2 text-primary"/> {currentView}
                 </div>
                 {timelineDays.map(day => (
                   <div key={day.toISOString()} className="p-2 text-center border-r border-b border-border bg-muted">
@@ -568,11 +600,13 @@ export default function HostReservationsPage() {
                         if (reservationsStartingThisCell.length === 0) {
                            isOccupiedByOngoing = filteredReservationsForTimeline.some(res => 
                                 res.locationId === location.id &&
-                                isValid(parseISO(res.dateArrivee)) && isValid(parseISO(res.dateDepart)) &&
-                                isWithinInterval(dayStart, { 
-                                  start: startOfDay(parseISO(res.dateArrivee)), 
-                                  end: startOfDay(subDays(parseISO(res.dateDepart),1)) 
-                                }) && !isSameDay(parseISO(res.dateArrivee), dayStart)
+                                isValid(parseISO(res.dateArrivee)) && 
+                                (location.type === 'Chambre' && res.dateDepart && isValid(parseISO(res.dateDepart)) ? 
+                                  isWithinInterval(dayStart, { 
+                                    start: startOfDay(parseISO(res.dateArrivee)), 
+                                    end: startOfDay(subDays(parseISO(res.dateDepart),1)) 
+                                  }) && !isSameDay(parseISO(res.dateArrivee), dayStart)
+                                : (location.type === 'Table' && isSameDay(parseISO(res.dateArrivee), dayStart) && !isSameDay(parseISO(res.dateArrivee), dayStart))) // For table ongoing logic, it only lasts one day
                             );
                         }
 
@@ -583,28 +617,26 @@ export default function HostReservationsPage() {
                             onClick={() => handleDayCellClick(location, dayStart)}
                           >
                             {reservationsStartingThisCell.map(res => {
-                                let resArrival, resDeparture;
+                                let resArrival, resDepartureEffective;
                                 try {
                                     resArrival = startOfDay(parseISO(res.dateArrivee));
-                                    resDeparture = startOfDay(parseISO(res.dateDepart));
+                                    resDepartureEffective = location.type === 'Chambre' && res.dateDepart ? startOfDay(parseISO(res.dateDepart)) : startOfDay(addDays(resArrival, 1)); // tables are 1 day
                                 } catch (e) { console.error("Date parsing error for res block:", e, res); return null; }
                                 
                                 const visibleStart = max([resArrival, startOfDay(timelineDays[0])]);
-                                const visibleEnd = min([resDeparture, startOfDay(addDays(timelineDays[timelineDays.length - 1], 1))]);
-                                let displayDuration = differenceInDays(visibleEnd, visibleStart);
+                                let displayDuration = differenceInDays(resDepartureEffective, visibleStart);
                                 if (displayDuration <=0) displayDuration = 1; 
                                 
                                 const startIndexInTimeline = timelineDays.findIndex(d => isSameDay(d, resArrival));
                                 if(startIndexInTimeline !== -1) {
                                    const remainingDaysInView = DAYS_TO_DISPLAY - startIndexInTimeline;
                                    displayDuration = Math.min(displayDuration, remainingDaysInView);
-                                } else if (resArrival < timelineDays[0]) { // Starts before view
-                                  // Adjust display duration if it starts before the view
+                                } else if (resArrival < timelineDays[0]) { 
                                   const daysBeforeView = differenceInDays(timelineDays[0], resArrival);
-                                  displayDuration = differenceInDays(resDeparture, resArrival) - daysBeforeView;
+                                  displayDuration = differenceInDays(resDepartureEffective, resArrival) - daysBeforeView;
                                   displayDuration = Math.min(displayDuration, DAYS_TO_DISPLAY);
                                 }
-                                if (displayDuration <=0) return null; // Don't render if not visible
+                                if (displayDuration <=0) return null; 
 
                                 return (
                                     <div
@@ -617,7 +649,7 @@ export default function HostReservationsPage() {
                                             zIndex: 10, 
                                         }}
                                         onClick={(e) => { e.stopPropagation(); openEditReservationDialog(res); }}
-                                        title={`${res.clientName}\nStatut: ${res.status}\n${format(resArrival, 'PP', {locale:fr})} - ${format(resDeparture, 'PP', {locale:fr})}`}
+                                        title={`${res.clientName}\nStatut: ${res.status}\n${format(resArrival, 'PP', {locale:fr})} ${location.type === 'Chambre' && res.dateDepart ? `- ${format(parseISO(res.dateDepart), 'PP', {locale:fr})}` : ''}`}
                                     >
                                         <p className="font-semibold truncate leading-tight">{res.clientName}</p>
                                         <p className="opacity-90 capitalize text-[9px]">{res.status}</p>
@@ -656,25 +688,27 @@ export default function HostReservationsPage() {
                 <div className="space-y-1.5"><Label htmlFor="dateArriveeDialog">Arrival Date*</Label>
                     <Popover><PopoverTrigger asChild><Button variant="outline" className={`w-full justify-start text-left font-normal ${!arrivalDateForDialog && "text-muted-foreground"}`}><CalendarIconLucide className="mr-2 h-4 w-4" />{arrivalDateForDialog ? format(arrivalDateForDialog, 'PPP', {locale: fr}) : <span>Pick arrival</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><ShadCalendar mode="single" selected={arrivalDateForDialog} onSelect={setArrivalDateForDialog} initialFocus /></PopoverContent></Popover>
                 </div>
-                <div className="space-y-1.5"><Label htmlFor="dateDepartDialog">Departure Date*</Label>
-                    <Popover><PopoverTrigger asChild><Button variant="outline" className={`w-full justify-start text-left font-normal ${!departureDateForDialog && "text-muted-foreground"}`} disabled={!arrivalDateForDialog}><CalendarIconLucide className="mr-2 h-4 w-4" />{departureDateForDialog ? format(departureDateForDialog, 'PPP', {locale: fr}) : <span>Pick departure</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><ShadCalendar mode="single" selected={departureDateForDialog} onSelect={setDepartureDateForDialog} disabled={(date) => arrivalDateForDialog ? isBefore(date, arrivalDateForDialog) : false} initialFocus /></PopoverContent></Popover>
-                </div>
+                {dialogLocationType === 'Chambre' && (
+                  <div className="space-y-1.5"><Label htmlFor="dateDepartDialog">Departure Date*</Label>
+                      <Popover><PopoverTrigger asChild><Button variant="outline" className={`w-full justify-start text-left font-normal ${!departureDateForDialog && "text-muted-foreground"}`} disabled={!arrivalDateForDialog}><CalendarIconLucide className="mr-2 h-4 w-4" />{departureDateForDialog ? format(departureDateForDialog, 'PPP', {locale: fr}) : <span>Pick departure</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><ShadCalendar mode="single" selected={departureDateForDialog} onSelect={setDepartureDateForDialog} disabled={(date) => arrivalDateForDialog ? isBefore(date, arrivalDateForDialog) || isEqual(date, arrivalDateForDialog) : false} initialFocus /></PopoverContent></Popover>
+                  </div>
+                )}
             </div>
             <div className="space-y-1.5"><Label htmlFor="nombrePersonnesDialog"><UsersIcon className="inline mr-1 h-4 w-4" />Number of Persons*</Label><Input id="nombrePersonnesDialog" name="nombrePersonnes" type="number" value={currentReservationData.nombrePersonnes || 1} onChange={handleDialogInputChange} min="1" /></div>
             
             <div className="space-y-1.5">
-              <Label htmlFor="locationIdDialog">{currentView === 'Chambre' ? 'Room' : 'Table'}*</Label>
+              <Label htmlFor="locationIdDialog">{currentSelectedLocationType === 'Chambre' ? 'Room' : 'Table'}*</Label>
               <Select 
                 value={selectedLocationForDialog || ""} 
                 onValueChange={handleLocationSelectionForDialog} 
                 disabled={availableLocationsForDialog.length === 0 && !editingReservation }
               >
                 <SelectTrigger id="locationIdDialog">
-                    <SelectValue placeholder={availableLocationsForDialog.length > 0 ? `Select a ${currentView.toLowerCase()}` : `No ${currentView.toLowerCase()}s available for criteria`} />
+                    <SelectValue placeholder={availableLocationsForDialog.length > 0 ? `Select a ${currentSelectedLocationType?.toLowerCase()}` : `No ${currentSelectedLocationType?.toLowerCase()}s available for criteria`} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableLocationsForDialog.map(loc => <SelectItem key={loc.id} value={loc.id}>{loc.nom} ({loc.type} - Cap: {loc.capacity || 'N/A'})</SelectItem>)}
-                  {availableLocationsForDialog.length === 0 && !editingReservation && <SelectItem value="no_available_placeholder" disabled>No {currentView.toLowerCase()}s match criteria</SelectItem>}
+                  {availableLocationsForDialog.length === 0 && !editingReservation && <SelectItem value="no_available_placeholder" disabled>No {currentSelectedLocationType?.toLowerCase()}s match criteria</SelectItem>}
                   {editingReservation && !availableLocationsForDialog.some(l => l.id === editingReservation.locationId) && 
                     <SelectItem value={editingReservation.locationId} disabled>
                         {reservableLocations.find(l => l.id === editingReservation.locationId)?.nom} (Currently selected, may conflict)
@@ -700,7 +734,9 @@ export default function HostReservationsPage() {
                 <Input id="manualClientNameDialog" name="_manualClientName" value={currentReservationData._manualClientName || ''} onChange={handleDialogInputChange} disabled={currentReservationData.clientId !== NO_CLIENT_SELECTED} placeholder="e.g., John Doe"/>
             </div>
             
-            <div className="flex items-center space-x-2"><Checkbox id="animauxDomestiquesDialog" name="animauxDomestiques" checked={currentReservationData.animauxDomestiques || false} onCheckedChange={(checked) => setCurrentReservationData(prev => ({...prev, animauxDomestiques: !!checked}))} /><Label htmlFor="animauxDomestiquesDialog" className="font-normal"><Dog className="inline mr-1 h-4 w-4" />Pets Allowed</Label></div>
+            {dialogLocationType === 'Chambre' && (
+              <div className="flex items-center space-x-2"><Checkbox id="animauxDomestiquesDialog" name="animauxDomestiques" checked={currentReservationData.animauxDomestiques || false} onCheckedChange={(checked) => setCurrentReservationData(prev => ({...prev, animauxDomestiques: !!checked}))} /><Label htmlFor="animauxDomestiquesDialog" className="font-normal"><Dog className="inline mr-1 h-4 w-4" />Pets Allowed</Label></div>
+            )}
             <div className="space-y-1.5"><Label htmlFor="statusDialog">Status</Label>
                 <Select value={currentReservationData.status || 'pending'} onValueChange={(val) => setCurrentReservationData(prev => ({...prev, status: val as ReservationStatus}))}><SelectTrigger id="statusDialog"><SelectValue /></SelectTrigger><SelectContent>{reservationStatuses.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent></Select>
             </div>
@@ -711,7 +747,7 @@ export default function HostReservationsPage() {
             <Button variant="outline" onClick={() => setIsAddOrEditDialogOpen(false)} disabled={isDialogLoading}>Cancel</Button>
             <Button 
               onClick={handleSaveReservation} 
-              disabled={isDialogLoading || !selectedLocationForDialog || (!currentReservationData._manualClientName?.trim() && currentReservationData.clientId === NO_CLIENT_SELECTED) || !arrivalDateForDialog || !departureDateForDialog}
+              disabled={isDialogLoading || !selectedLocationForDialog || (!currentReservationData._manualClientName?.trim() && currentReservationData.clientId === NO_CLIENT_SELECTED) || !arrivalDateForDialog || (dialogLocationType === 'Chambre' && !departureDateForDialog) }
             >
               {isDialogLoading ? "Saving..." : (editingReservation ? 'Save Changes' : 'Create Reservation')}
             </Button>
