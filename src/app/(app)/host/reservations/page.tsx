@@ -4,10 +4,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Calendar as CalendarIcon, BedDouble, PlusCircle, Users, Dog, FileText, Edit2, Trash2 } from 'lucide-react';
+import { Calendar as CalendarLucideIcon, BedDouble, PlusCircle, Users, Dog, FileText, Edit2, Trash2 } from 'lucide-react';
 import { format, parseISO, isWithinInterval, eachDayOfInterval, addMonths, subMonths, startOfMonth, endOfMonth, isEqual, isBefore, isValid } from 'date-fns';
+import type { DayContentProps, DayProps as DayPickerDayProps } from 'react-day-picker'; // Corrected import for DayContentProps
 
-import type { Reservation, RoomOrTable, Client } from '@/lib/types';
+import type { Reservation, RoomOrTable, Client, ReservationStatus } from '@/lib/types';
 import { getReservations as fetchReservations, addReservation as addReservationToData, updateReservation as updateReservationInData, deleteReservation as deleteReservationInData, getRoomsOrTables, getClients } from '@/lib/data';
 
 import { Button } from '@/components/ui/button';
@@ -23,7 +24,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -94,7 +94,7 @@ export default function HostReservationsPage() {
     setIsReservationsLoading(true);
     try {
       const year = month.getFullYear();
-      const monthIndex = month.getMonth(); // 0-11
+      const monthIndex = month.getMonth();
       const reservationsData = await fetchReservations(hostId, { locationId: roomId, month: monthIndex, year: year });
       setReservationsForSelectedRoom(reservationsData);
       setDisplayedReservations(reservationsData);
@@ -120,7 +120,7 @@ export default function HostReservationsPage() {
     if (user?.hostId && selectedRoomId) {
       fetchRoomReservations(user.hostId, selectedRoomId, currentMonth);
     } else if (!selectedRoomId) {
-      setReservationsForSelectedRoom([]); // Clear reservations if no room is selected
+      setReservationsForSelectedRoom([]);
       setDisplayedReservations([]);
     }
   }, [user?.hostId, selectedRoomId, currentMonth, fetchRoomReservations]);
@@ -128,7 +128,6 @@ export default function HostReservationsPage() {
   const bookedDays = displayedReservations.flatMap(res => {
     const start = parseISO(res.dateArrivee);
     const end = parseISO(res.dateDepart);
-     // For display, we want to include the departure day itself if the booking ends on that day
     if (isValid(start) && isValid(end) && !isBefore(end, start)) {
        return eachDayOfInterval({ start, end }); 
     }
@@ -136,15 +135,11 @@ export default function HostReservationsPage() {
   });
 
   const handleDayClick = (day: Date) => {
-    const reservationsOnDay = displayedReservations.filter(res => {
-      const arrival = parseISO(res.dateArrivee);
-      const departure = parseISO(res.dateDepart);
-      // A day is considered part of a reservation if it's between arrival (inclusive) and departure (inclusive)
-      return isValid(arrival) && isValid(departure) && isWithinInterval(day, { start: arrival, end: departure });
-    });
+    if (!selectedRoomId) return;
+    const reservationsOnDay = getReservationsForDay(day, displayedReservations);
 
     if (reservationsOnDay.length > 0) {
-      const resToEdit = reservationsOnDay[0]; // Prioritize editing an existing one on click
+      const resToEdit = reservationsOnDay[0]; 
       setEditingReservation(resToEdit);
       setCurrentReservationData({...resToEdit});
       setArrivalDate(parseISO(resToEdit.dateArrivee));
@@ -152,8 +147,7 @@ export default function HostReservationsPage() {
       setSelectedClientForDialog(resToEdit.clientId || NO_CLIENT_SELECTED);
       setManualClientNameForDialog(resToEdit.clientId ? "" : resToEdit.clientName);
       setIsAddOrEditDialogOpen(true);
-    } else if (selectedRoomId) {
-      // Day is free, open new reservation dialog
+    } else {
       setEditingReservation(null);
       setCurrentReservationData({ locationId: selectedRoomId, nombrePersonnes: 1, animauxDomestiques: false, status: 'pending' });
       setArrivalDate(day);
@@ -207,10 +201,6 @@ export default function HostReservationsPage() {
         if (editingReservation && res.id === editingReservation.id) return false; 
         const existingArrival = parseISO(res.dateArrivee);
         const existingDeparture = parseISO(res.dateDepart);
-        // For checking overlap, new departure should be exclusive for the last day.
-        // So, if new arrival is 10th and new departure is 12th, it's for 10th, 11th.
-        // If existing is 11th to 13th, there's an overlap.
-        // (StartA < EndB) and (EndA > StartB)
         return (arrivalDate < existingDeparture && departureDate > existingArrival);
     });
 
@@ -218,7 +208,6 @@ export default function HostReservationsPage() {
         toast({ title: "Double Booking Alert", description: `This room is already booked for the selected dates (Reservation ID: ${conflictingReservation.id.slice(-5)}).`, variant: "destructive" });
         return;
     }
-
 
     setIsDialogLoading(true);
     const reservationPayload: Omit<Reservation, 'id'> = {
@@ -268,6 +257,31 @@ export default function HostReservationsPage() {
     }
   };
 
+  const getReservationsForDay = (day: Date, reservations: Reservation[]): Reservation[] => {
+    return reservations.filter(res => {
+      const arrival = parseISO(res.dateArrivee);
+      const departure = parseISO(res.dateDepart);
+      return isValid(arrival) && isValid(departure) && isWithinInterval(day, { start: arrival, end: departure });
+    });
+  };
+
+  function CustomDayContent(props: DayContentProps) {
+    const dayReservations = getReservationsForDay(props.date, displayedReservations);
+  
+    return (
+      <div className="relative h-full w-full flex flex-col items-center justify-center p-1">
+        <span className="text-sm">{format(props.date, "d")}</span>
+        {dayReservations.length > 0 && (
+          <div className="absolute bottom-0.5 left-0 right-0 flex justify-center items-end" style={{ height: '10px' }}>
+            {dayReservations.slice(0, 3).map((_res, index) => (
+              <span key={index} className="inline-block h-1.5 w-1.5 bg-primary rounded-full mx-px"></span>
+            ))}
+            {dayReservations.length > 3 && <span className="text-xs leading-none ml-0.5">&hellip;</span>}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (authLoading || isLoading) {
     return (
@@ -351,17 +365,17 @@ export default function HostReservationsPage() {
                     </CardDescription>
                 </div>
                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>Prev</Button>
-                    <Button variant="outline" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>Next</Button>
+                    <Button variant="outline" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} disabled={isReservationsLoading || !selectedRoomId}>Prev</Button>
+                    <Button variant="outline" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} disabled={isReservationsLoading || !selectedRoomId}>Next</Button>
                 </div>
             </CardHeader>
-            <CardContent className="flex justify-center">
+            <CardContent className="flex">
               {isReservationsLoading ? (
-                 <Skeleton className="h-[320px] w-full max-w-md" />
+                 <Skeleton className="h-[320px] w-full" />
               ) : !selectedRoomId && rooms.length > 0 ? (
-                <p className="text-muted-foreground text-center py-10 h-[320px] flex items-center justify-center">Select a room to see its calendar.</p>
+                <p className="text-muted-foreground text-center py-10 h-[320px] flex items-center justify-center w-full">Select a room to see its calendar.</p>
               ) : rooms.length === 0 ? (
-                <p className="text-muted-foreground text-center py-10 h-[320px] flex items-center justify-center">No rooms available to display reservations.</p>
+                <p className="text-muted-foreground text-center py-10 h-[320px] flex items-center justify-center w-full">No rooms available to display reservations.</p>
               ) : (
                 <Calendar
                     mode="single"
@@ -371,13 +385,13 @@ export default function HostReservationsPage() {
                     onMonthChange={setCurrentMonth}
                     modifiers={{ booked: bookedDays }}
                     modifiersClassNames={{ booked: "bg-primary/20 text-primary-foreground rounded-md" }}
-                    disabled={!selectedRoomId}
-                    className="rounded-md border shadow-sm p-3"
+                    components={{ DayContent: CustomDayContent }}
+                    disabled={!selectedRoomId || isReservationsLoading}
+                    className="rounded-md border shadow-sm p-3 w-full" // Added w-full
                 />
               )}
             </CardContent>
           </Card>
-          {/* Reservation List/Details for selected day/room can go here */}
            <Card className="shadow-lg">
             <CardHeader>
                 <CardTitle>Reservations for {rooms.find(r=>r.id===selectedRoomId)?.nom || "Selected Room"}</CardTitle>
@@ -389,7 +403,7 @@ export default function HostReservationsPage() {
                  rooms.length === 0 ? <p className="text-muted-foreground">No rooms available.</p> :
                  displayedReservations.length === 0 ? <p className="text-muted-foreground">No reservations for this room in {format(currentMonth, 'MMMM')}.</p> :
                 (
-                    <ScrollArea className="h-60">
+                    <ScrollArea className="h-60 w-full">
                         <ul className="space-y-3">
                             {displayedReservations.map(res => (
                                 <li key={res.id} className="p-3 border rounded-md bg-secondary/30">
@@ -422,7 +436,7 @@ export default function HostReservationsPage() {
         </div>
       </div>
 
-      <Dialog open={isAddOrEditDialogOpen} onOpenChange={setIsAddOrEditDialogOpen}>
+      <Dialog open={isAddOrEditDialogOpen} onOpenChange={(open) => { if(!isDialogLoading) setIsAddOrEditDialogOpen(open);}}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingReservation ? 'Edit Reservation' : 'Add New Reservation'}</DialogTitle>
@@ -434,7 +448,7 @@ export default function HostReservationsPage() {
           <ScrollArea className="max-h-[70vh] pr-4">
           <div className="grid gap-4 py-4">
             
-             {(!editingReservation && !selectedRoomId) && ( // Only show if adding AND no room selected from main page
+             {(!editingReservation && !selectedRoomId && rooms.length > 0) && (
                 <div className="space-y-1.5">
                     <Label htmlFor="locationIdDialog">Room*</Label>
                     <Select 
@@ -481,7 +495,7 @@ export default function HostReservationsPage() {
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button variant="outline" className={`w-full justify-start text-left font-normal ${!arrivalDate && "text-muted-foreground"}`}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                <CalendarLucideIcon className="mr-2 h-4 w-4" />
                                 {arrivalDate ? format(arrivalDate, 'PPP') : <span>Pick arrival</span>}
                             </Button>
                         </PopoverTrigger>
@@ -493,7 +507,7 @@ export default function HostReservationsPage() {
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button variant="outline" className={`w-full justify-start text-left font-normal ${!departureDate && "text-muted-foreground"}`} disabled={!arrivalDate}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                <CalendarLucideIcon className="mr-2 h-4 w-4" />
                                 {departureDate ? format(departureDate, 'PPP') : <span>Pick departure</span>}
                             </Button>
                         </PopoverTrigger>
@@ -545,3 +559,6 @@ export default function HostReservationsPage() {
     </div>
   );
 }
+
+
+    
