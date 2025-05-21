@@ -1,11 +1,11 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { 
-  Calendar as CalendarLucideIcon, 
+  Calendar as CalendarIcon, // Renamed to avoid conflict with ShadCN Calendar
   BedDouble, 
   PlusCircle, 
   Users, 
@@ -14,7 +14,8 @@ import {
   Edit2, 
   Trash2, 
   ChevronLeft, 
-  ChevronRight 
+  ChevronRight,
+  Filter as FilterIcon // Icon for filter section
 } from 'lucide-react';
 import { 
   format, 
@@ -46,7 +47,7 @@ import {
 } from '@/lib/data';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; // Removed CardFooter
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -63,7 +64,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as ShadCalendar } from "@/components/ui/calendar"; // Renamed to ShadCalendar
+import { Calendar as ShadCalendar } from "@/components/ui/calendar"; 
 import {
   Select,
   SelectContent,
@@ -114,17 +115,20 @@ export default function HostReservationsPage() {
   const [manualClientNameForDialog, setManualClientNameForDialog] = useState<string>("");
   const [selectedRoomForDialog, setSelectedRoomForDialog] = useState<string | undefined>(undefined);
 
+  // Filter states
+  const [filterClientName, setFilterClientName] = useState<string>("");
+  const [filterStatus, setFilterStatus] = useState<ReservationStatus | "all">("all");
+
 
   const fetchInitialData = useCallback(async (hostId: string) => {
     setIsLoading(true);
     try {
       const [allLocationsData, clientsData, reservationsData] = await Promise.all([
-        getRoomsOrTables(hostId), // Fetch all locations
+        getRoomsOrTables(hostId),
         getClients(hostId),
-        fetchReservations(hostId) // Fetch all reservations for the host
+        fetchReservations(hostId)
       ]);
 
-      // Explicitly filter for 'Chambre' type and sort
       const filteredAndSortedRooms = allLocationsData
         .filter(loc => loc.type === 'Chambre')
         .sort((a, b) => a.nom.localeCompare(b.nom));
@@ -155,9 +159,17 @@ export default function HostReservationsPage() {
     }
     setTimelineDays(days);
   }, [viewStartDate]);
+
+  const filteredReservations = useMemo(() => {
+    return allReservations.filter(res => {
+      const clientNameMatch = filterClientName === "" || (res.clientName && res.clientName.toLowerCase().includes(filterClientName.toLowerCase()));
+      const statusMatch = filterStatus === "all" || res.status === filterStatus;
+      return clientNameMatch && statusMatch;
+    });
+  }, [allReservations, filterClientName, filterStatus]);
   
   const handleDayCellClick = (roomId: string, date: Date) => {
-    const resOnThisDay = allReservations.find(r => 
+    const resOnThisDay = filteredReservations.find(r => 
         r.locationId === roomId &&
         isValid(parseISO(r.dateArrivee)) && isValid(parseISO(r.dateDepart)) &&
         isWithinInterval(date, {start: startOfDay(parseISO(r.dateArrivee)), end: startOfDay(subDays(parseISO(r.dateDepart),1))})
@@ -315,11 +327,18 @@ export default function HostReservationsPage() {
       return direction === 'prev' ? subDays(prevDate, DAYS_TO_DISPLAY) : addDays(prevDate, DAYS_TO_DISPLAY);
     });
   };
+  
+  const resetFilters = () => {
+    setFilterClientName("");
+    setFilterStatus("all");
+    setViewStartDate(startOfDay(new Date())); // Reset date to today
+  };
 
   if (authLoading || isLoading) {
     return (
       <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8 space-y-6">
         <div className="flex justify-between items-center mb-4"><Skeleton className="h-10 w-1/3" /><Skeleton className="h-10 w-32" /></div>
+        <Skeleton className="h-24 w-full mb-4" /> {/* Filter section skeleton */}
         <Skeleton className="h-[500px] w-full" />
       </div>
     );
@@ -327,7 +346,7 @@ export default function HostReservationsPage() {
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
-      <Card className="shadow-xl">
+      <Card className="shadow-xl mb-6">
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
@@ -339,9 +358,6 @@ export default function HostReservationsPage() {
               )}
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Button variant="outline" onClick={() => setViewStartDate(startOfDay(new Date()))} className="flex-1 sm:flex-none">Today</Button>
-              <Button variant="outline" size="icon" onClick={() => navigateTimeline('prev')}><ChevronLeft/></Button>
-              <Button variant="outline" size="icon" onClick={() => navigateTimeline('next')}><ChevronRight/></Button>
               <Button onClick={() => openAddReservationDialog(rooms[0]?.id || '', new Date())} disabled={rooms.length === 0} className="flex-1 sm:flex-none">
                 <PlusCircle className="mr-2 h-5 w-5" /> Add Reservation
               </Button>
@@ -349,18 +365,59 @@ export default function HostReservationsPage() {
           </div>
         </CardHeader>
         <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-end mb-6 p-4 border rounded-lg bg-muted/30">
+            <div className="space-y-1.5">
+              <Label htmlFor="viewStartDatePicker">Start Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button id="viewStartDatePicker" variant="outline" className="w-full justify-start text-left font-normal bg-card">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(viewStartDate, 'PPP', { locale: fr })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <ShadCalendar mode="single" selected={viewStartDate} onSelect={(date) => date && setViewStartDate(startOfDay(date))} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="flex items-end gap-2">
+              <Button variant="outline" onClick={() => setViewStartDate(startOfDay(new Date()))} className="flex-1">Today</Button>
+              <Button variant="outline" size="icon" onClick={() => navigateTimeline('prev')}><ChevronLeft/></Button>
+              <Button variant="outline" size="icon" onClick={() => navigateTimeline('next')}><ChevronRight/></Button>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="filterClientName">Client Name</Label>
+              <Input id="filterClientName" placeholder="Search client..." value={filterClientName} onChange={(e) => setFilterClientName(e.target.value)} className="bg-card"/>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="filterStatus">Status</Label>
+              <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value as ReservationStatus | "all")}>
+                <SelectTrigger id="filterStatus" className="bg-card"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  {reservationStatuses.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="lg:col-start-4 flex items-end">
+                 <Button variant="outline" onClick={resetFilters} className="w-full">Reset Filters</Button>
+            </div>
+          </div>
+        
           {rooms.length === 0 ? (
              <p className="text-muted-foreground text-center py-10">No rooms configured. Please add rooms of type 'Chambre' in 'My Locations'.</p>
           ) : (
             <ScrollArea className="w-full whitespace-nowrap rounded-md border">
             <div className="grid min-w-[1200px]" 
-                 style={{ gridTemplateColumns: `minmax(150px, 1.5fr) repeat(${DAYS_TO_DISPLAY}, minmax(100px, 1fr))` }}>
+                 style={{ gridTemplateColumns: `minmax(180px, 1.5fr) repeat(${DAYS_TO_DISPLAY}, minmax(120px, 1fr))` }}>
                 {/* Header Row */}
-                <div className="p-2 border-r border-b border-border font-semibold bg-muted/50 sticky left-0 z-20 text-sm">Room</div>
+                <div className="p-2 border-r border-b border-border font-semibold bg-muted sticky left-0 z-20 text-sm flex items-center">
+                    <FilterIcon className="h-4 w-4 mr-2 text-primary"/> Room
+                </div>
                 {timelineDays.map(day => (
-                  <div key={day.toISOString()} className="p-2 text-center border-r border-b border-border bg-muted/50">
-                    <div className="text-xs font-medium uppercase">{format(day, 'EEE', { locale: fr })}</div>
-                    <div className="text-lg font-semibold">{format(day, 'd')}</div>
+                  <div key={day.toISOString()} className="p-2 text-center border-r border-b border-border bg-muted">
+                    <div className="text-xs font-semibold uppercase text-muted-foreground">{format(day, 'EEE', { locale: fr })}</div>
+                    <div className="text-lg font-bold">{format(day, 'd')}</div>
                   </div>
                 ))}
 
@@ -374,71 +431,69 @@ export default function HostReservationsPage() {
                       </div>
                       {timelineDays.map((day) => {
                         const dayStart = startOfDay(day);
-                        
-                        // Find reservations that *start* on this day for this room
-                        const reservationsStartingThisDay = allReservations.filter(res => 
+                        const reservationsForCell = filteredReservations.filter(res => 
                             res.locationId === room.id &&
-                            isValid(parseISO(res.dateArrivee)) &&
-                            isSameDay(parseISO(res.dateArrivee), dayStart)
+                            isValid(parseISO(res.dateArrivee)) && isValid(parseISO(res.dateDepart)) &&
+                            isSameDay(dayStart, parseISO(res.dateArrivee)) // Only consider reservations STARTING this day for block drawing start
                         );
 
-                        // Check if the current day is part of an ongoing reservation that didn't start today
-                        let isDayOccupiedByOngoing = false;
-                        if (reservationsStartingThisDay.length === 0) {
-                             isDayOccupiedByOngoing = allReservations.some(res => 
+                        // Check if the cell is part of an ongoing reservation not starting today
+                        let isOccupiedByOngoing = false;
+                        if (reservationsForCell.length === 0) {
+                           isOccupiedByOngoing = filteredReservations.some(res => 
                                 res.locationId === room.id &&
                                 isValid(parseISO(res.dateArrivee)) && isValid(parseISO(res.dateDepart)) &&
                                 isWithinInterval(dayStart, { 
                                   start: startOfDay(parseISO(res.dateArrivee)), 
-                                  end: startOfDay(subDays(parseISO(res.dateDepart),1)) // Interval is inclusive of start, exclusive of end
-                                }) && !isSameDay(parseISO(res.dateArrivee), dayStart) // Exclude if it starts today
+                                  end: startOfDay(subDays(parseISO(res.dateDepart),1)) 
+                                }) && !isSameDay(parseISO(res.dateArrivee), dayStart)
                             );
                         }
-
 
                         return (
                           <div 
                             key={`${room.id}-${day.toISOString()}`} 
-                            className="p-0.5 border-r border-b border-border min-h-[60px] relative cursor-pointer hover:bg-secondary/30 transition-colors flex flex-col group"
+                            className="p-0.5 border-r border-b border-border min-h-[70px] relative cursor-pointer hover:bg-secondary/30 transition-colors flex flex-col group"
+                            style={{ gridColumn: `${timelineDays.findIndex(d => isEqual(d, dayStart)) + 2}` }}
                             onClick={() => handleDayCellClick(room.id, dayStart)}
                           >
-                            {reservationsStartingThisDay.map(res => {
+                            {reservationsForCell.map(res => {
                                 let resArrival, resDeparture;
                                 try {
                                     resArrival = startOfDay(parseISO(res.dateArrivee));
                                     resDeparture = startOfDay(parseISO(res.dateDepart));
-                                } catch (e) { return null; }
+                                } catch (e) { console.error("Date parsing error for res block:", e, res); return null; }
                                 
                                 let durationInDays = differenceInDays(resDeparture, resArrival);
-                                if (durationInDays < 1) durationInDays = 1; // Min 1 day block
+                                if (durationInDays < 1) durationInDays = 1;
 
-                                // Calculate how many days of this reservation are visible in the current timeline window
                                 const currentViewEndDate = startOfDay(timelineDays[timelineDays.length - 1]);
-                                const reservationVisibleEndDate = min([resDeparture, addDays(currentViewEndDate, 1)]); // Cap at view end + 1 day for correct diff
-                                const displayDuration = differenceInDays(reservationVisibleEndDate, resArrival);
-                                
+                                const reservationVisibleEndDate = min([resDeparture, addDays(currentViewEndDate, 1)]);
+                                let displayDuration = differenceInDays(reservationVisibleEndDate, resArrival);
                                 if (displayDuration <= 0) return null;
+                                displayDuration = Math.min(displayDuration, DAYS_TO_DISPLAY - timelineDays.findIndex(d => isEqual(d, dayStart)));
+
 
                                 return (
                                     <div
                                         key={res.id}
-                                        className={`m-0.5 p-1.5 rounded text-white text-xs shadow-md overflow-hidden cursor-grab border ${getStatusColorClass(res.status)}`}
+                                        className={`m-0.5 p-1.5 rounded text-white text-[10px] shadow-md overflow-hidden cursor-grab border ${getStatusColorClass(res.status)}`}
                                         style={{ 
-                                            width: `calc(${displayDuration * 100}% - ${displayDuration > 1 ? (displayDuration-1)*1 : 0}px)`, // Span across cells, account for potential grid gaps (1px here)
-                                            position: 'absolute', // Position relative to the cell if it's the start
-                                            top: '2px', left: '2px', right: '2px', bottom: '2px', // Use padding of parent as margin
+                                            width: `calc(${displayDuration * 100}% - ${displayDuration > 1 ? (displayDuration-1)*2 : 0}px)`, 
+                                            position: 'absolute', 
+                                            top: '2px', left: '2px', bottom: '2px', 
                                             zIndex: 10, 
                                         }}
                                         onClick={(e) => { e.stopPropagation(); openEditReservationDialog(res); }}
                                         title={`${res.clientName}\nStatut: ${res.status}\n${format(resArrival, 'PP', {locale:fr})} - ${format(resDeparture, 'PP', {locale:fr})}`}
                                     >
-                                        <p className="font-semibold truncate text-[10px] leading-tight">{res.clientName}</p>
-                                        <p className="text-[9px] opacity-90 capitalize">{res.status}</p>
+                                        <p className="font-semibold truncate leading-tight">{res.clientName}</p>
+                                        <p className="opacity-90 capitalize text-[9px]">{res.status}</p>
                                     </div>
                                 );
                             })}
-                             {reservationsStartingThisDay.length === 0 && isDayOccupiedByOngoing && (
-                                <div className="h-full w-full bg-slate-200/50 dark:bg-slate-700/50 opacity-70 pointer-events-none"></div>
+                             {reservationsForCell.length === 0 && isOccupiedByOngoing && (
+                                <div className="h-full w-full bg-slate-200/50 dark:bg-slate-700/50 opacity-70 pointer-events-none rounded-sm"></div>
                              )}
                               <Button variant="ghost" size="icon" className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 z-20" onClick={(e) => { e.stopPropagation(); openAddReservationDialog(room.id, dayStart); }}>
                                 <PlusCircle className="w-4 h-4 text-muted-foreground" />
@@ -494,10 +549,10 @@ export default function HostReservationsPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5"><Label htmlFor="dateArriveeDialog">Arrival Date*</Label>
-                    <Popover><PopoverTrigger asChild><Button variant="outline" className={`w-full justify-start text-left font-normal ${!arrivalDateForDialog && "text-muted-foreground"}`}><CalendarLucideIcon className="mr-2 h-4 w-4" />{arrivalDateForDialog ? format(arrivalDateForDialog, 'PPP', {locale: fr}) : <span>Pick arrival</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><ShadCalendar mode="single" selected={arrivalDateForDialog} onSelect={setArrivalDateForDialog} initialFocus /></PopoverContent></Popover>
+                    <Popover><PopoverTrigger asChild><Button variant="outline" className={`w-full justify-start text-left font-normal ${!arrivalDateForDialog && "text-muted-foreground"}`}><CalendarIcon className="mr-2 h-4 w-4" />{arrivalDateForDialog ? format(arrivalDateForDialog, 'PPP', {locale: fr}) : <span>Pick arrival</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><ShadCalendar mode="single" selected={arrivalDateForDialog} onSelect={setArrivalDateForDialog} initialFocus /></PopoverContent></Popover>
                 </div>
                 <div className="space-y-1.5"><Label htmlFor="dateDepartDialog">Departure Date*</Label>
-                    <Popover><PopoverTrigger asChild><Button variant="outline" className={`w-full justify-start text-left font-normal ${!departureDateForDialog && "text-muted-foreground"}`} disabled={!arrivalDateForDialog}><CalendarLucideIcon className="mr-2 h-4 w-4" />{departureDateForDialog ? format(departureDateForDialog, 'PPP', {locale: fr}) : <span>Pick departure</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><ShadCalendar mode="single" selected={departureDateForDialog} onSelect={setDepartureDateForDialog} disabled={(date) => arrivalDateForDialog ? isBefore(date, addDays(arrivalDateForDialog,0)) || isEqual(date, arrivalDateForDialog) : false} initialFocus /></PopoverContent></Popover>
+                    <Popover><PopoverTrigger asChild><Button variant="outline" className={`w-full justify-start text-left font-normal ${!departureDateForDialog && "text-muted-foreground"}`} disabled={!arrivalDateForDialog}><CalendarIcon className="mr-2 h-4 w-4" />{departureDateForDialog ? format(departureDateForDialog, 'PPP', {locale: fr}) : <span>Pick departure</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><ShadCalendar mode="single" selected={departureDateForDialog} onSelect={setDepartureDateForDialog} disabled={(date) => arrivalDateForDialog ? isBefore(date, addDays(arrivalDateForDialog,0)) || isEqual(date, arrivalDateForDialog) : false} initialFocus /></PopoverContent></Popover>
                 </div>
             </div>
             <div className="space-y-1.5"><Label htmlFor="nombrePersonnesDialog"><Users className="inline mr-1 h-4 w-4" />Number of Persons*</Label><Input id="nombrePersonnesDialog" name="nombrePersonnes" type="number" value={currentReservationData.nombrePersonnes || 1} onChange={handleDialogInputChange} min="1" /></div>
