@@ -14,6 +14,8 @@ export interface Site { // Represents a Global Site
   siteId: string;
   nom: string;
   hostId: string;
+  logoUrl?: string;
+  logoAiHint?: string;
 }
 
 export interface Host {
@@ -140,7 +142,7 @@ export interface Reservation {
   clientId?: string;   // Optional: FK to Client.id if client is registered
   clientName: string; // Name of the person making the reservation
   dateArrivee: string; // ISO date string e.g. "2024-12-25"
-  dateDepart?: string;  // ISO date string e.g. "2024-12-28" - Optional for tables
+  dateDepart?: string;  // ISO date string e.g. "2024-12-28" - Optional for tables, used for rooms
   nombrePersonnes: number;
   animauxDomestiques?: boolean; // Whether pets are included
   notes?: string;

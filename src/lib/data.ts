@@ -30,9 +30,9 @@ let hostsInMemory: Host[] = [
 ];
 
 let sitesInMemory: Site[] = [
-  { siteId: 'site-01', nom: 'Paradise Beach Resort (In-Mem)', hostId: 'host-01-inmem' },
-  { siteId: 'site-02', nom: 'Le Delice Downtown (In-Mem)', hostId: 'host-02-inmem' },
-  { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment (In-Mem)', hostId: 'host-1747669860022' },
+  { siteId: 'site-01', nom: 'Paradise Beach Resort (In-Mem)', hostId: 'host-01-inmem', logoUrl: 'https://placehold.co/100x100.png', logoAiHint: 'resort beach' },
+  { siteId: 'site-02', nom: 'Le Delice Downtown (In-Mem)', hostId: 'host-02-inmem', logoUrl: 'https://placehold.co/100x100.png', logoAiHint: 'restaurant city' },
+  { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment (In-Mem)', hostId: 'host-1747669860022', logoUrl: 'https://placehold.co/100x100.png', logoAiHint: 'test establishment' },
 ];
 
 let roomsOrTablesInMemory: RoomOrTable[] = [
@@ -131,11 +131,11 @@ let clientsInMemory: Client[] = [
 ];
 
 let reservationsInMemory: Reservation[] = [
-    { id: 'res-001-inmem', hostId: 'host-01-inmem', locationId: 'room-101', clientName: 'Alice Wonderland (In-Mem)', clientId: 'client-mock-1-inmem', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', nombrePersonnes: 2, status: 'confirmed', notes: 'Early check-in requested', type: 'Chambre' },
-    { id: 'res-002-inmem', hostId: 'host-01-inmem', locationId: 'room-102', clientName: 'Bob The Builder (In-Mem)', clientId: 'client-mock-2-inmem', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', nombrePersonnes: 1, animauxDomestiques: true, status: 'checked-in', type: 'Chambre' },
-    { id: 'res-003-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-room1', clientName: 'Dynamic Test Client (In-Mem)', clientId: 'client-mock-dynamic-inmem', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', nombrePersonnes: 2, notes: "Needs a crib", status: 'pending', type: 'Chambre' },
-    { id: 'res-004-inmem', hostId: 'host-02-inmem', locationId: 'table-5', clientName: 'Charlie Passager (In-Mem)', clientId: 'client-mock-3-inmem', dateArrivee: '2024-07-20', dateDepart: '2024-07-20', nombrePersonnes: 4, status: 'confirmed', notes: 'Dinner reservation for 8 PM', type: 'Table' },
-    { id: 'res-dynamic-table-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-table1', clientName: 'Test Diner', dateArrivee: '2024-08-03', dateDepart: '2024-08-03', nombrePersonnes: 2, status: 'confirmed', notes: 'Table reservation for dynamic host.', type: 'Table' },
+    { id: 'res-001-inmem', hostId: 'host-01-inmem', locationId: 'room-101', clientName: 'Alice Wonderland (In-Mem)', clientId: 'client-mock-1-inmem', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', nombrePersonnes: 2, status: 'confirmed', notes: 'Early check-in requested', animauxDomestiques: false },
+    { id: 'res-002-inmem', hostId: 'host-01-inmem', locationId: 'room-102', clientName: 'Bob The Builder (In-Mem)', clientId: 'client-mock-2-inmem', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', nombrePersonnes: 1, animauxDomestiques: true, status: 'checked-in' },
+    { id: 'res-003-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-room1', clientName: 'Dynamic Test Client (In-Mem)', clientId: 'client-mock-dynamic-inmem', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', nombrePersonnes: 2, notes: "Needs a crib", status: 'pending', animauxDomestiques: false },
+    { id: 'res-004-inmem', hostId: 'host-02-inmem', locationId: 'table-5', clientName: 'Charlie Passager (In-Mem)', clientId: 'client-mock-3-inmem', dateArrivee: '2024-07-20', dateDepart: '2024-07-20', nombrePersonnes: 4, status: 'confirmed', notes: 'Dinner reservation for 8 PM' },
+    { id: 'res-dynamic-table-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-table1', clientName: 'Test Diner', dateArrivee: '2024-08-03', dateDepart: '2024-08-03', nombrePersonnes: 2, status: 'confirmed', notes: 'Table reservation for dynamic host.' },
 ];
 
 
@@ -145,15 +145,11 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
   const user = usersInMemory.find(u => u.email.toLowerCase() === email.toLowerCase());
   if (user) {
     const userData = { ...user };
-    if (!userData.motDePasse && (user as any).password) { 
+    if (!userData.motDePasse && (user as any).password) { // Check for old 'password' field
       userData.motDePasse = (user as any).password;
     }
-     if (userData.motDePasse === undefined) {
-        log(`User ${email} found but has no password field. Login will fail.`);
-        return { ...userData, motDePasse: "INVALID_NO_PASSWORD_FIELD" }; 
-    }
     if (!userData.nom && userData.email) {
-        userData.nom = userData.email.split('@')[0];
+      userData.nom = userData.email.split('@')[0];
     }
     return userData;
   }
@@ -194,11 +190,12 @@ export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
     existingUser.nom = userData.nom;
     existingUser.role = userData.role;
     existingUser.hostId = userData.hostId || undefined;
-    if (userData.motDePasse) existingUser.motDePasse = userData.motDePasse;
+    if (userData.motDePasse && userData.motDePasse.trim() !== '') existingUser.motDePasse = userData.motDePasse.trim();
     return { ...existingUser };
   }
   const newUser: User = {
     id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    motDePasse: userData.motDePasse.trim(),
     ...userData,
   };
   usersInMemory.push(newUser);
@@ -213,8 +210,9 @@ export const updateUser = async (userId: string, userData: Partial<Omit<User, 'i
     const updatedUser = { ...usersInMemory[userIndex], ...userData };
      if (userData.motDePasse && userData.motDePasse.trim() !== '') {
         updatedUser.motDePasse = userData.motDePasse.trim();
-    } else if (userData.hasOwnProperty('motDePasse') && userData.motDePasse === '') {
-        // Password not changed if empty string is explicitly passed
+    } else if (userData.hasOwnProperty('motDePasse') && (userData.motDePasse === '' || userData.motDePasse === null || userData.motDePasse === undefined)) {
+        // Password not changed if empty or null/undefined is passed
+        delete updatedUser.motDePasse; // Or keep existing: updatedUser.motDePasse = usersInMemory[userIndex].motDePasse
     }
     if (userData.hasOwnProperty('hostId')) {
         updatedUser.hostId = userData.hostId || undefined;
@@ -297,19 +295,13 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
     log(`Host ${hostId} updated (in-memory).`);
     const updatedHost = hostsInMemory[hostIndex];
     if ((hostData.email && hostData.email !== originalHostData.email) || (hostData.nom && hostData.nom !== originalHostData.nom)) {
-        let userToUpdate = usersInMemory.find(u => u.email.toLowerCase() === originalHostData.email.toLowerCase() && u.hostId === hostId);
+        let userToUpdate = usersInMemory.find(u => u.hostId === hostId); // Find by hostId for reliability
         if (userToUpdate) {
             await updateUser(userToUpdate.id, {
                 email: updatedHost.email, 
                 nom: updatedHost.nom,     
             });
             log(`Associated user for host ${hostId} also updated (in-memory).`);
-        } else if (hostData.email && hostData.email !== originalHostData.email) { 
-            userToUpdate = usersInMemory.find(u => u.email.toLowerCase() === updatedHost.email.toLowerCase() && u.hostId === hostId);
-            if (userToUpdate) {
-                await updateUser(userToUpdate.id, { nom: updatedHost.nom });
-                 log(`Associated user for host ${hostId} found by new email and updated (in-memory).`);
-            }
         }
     }
     return { ...hostsInMemory[hostIndex] };
@@ -326,7 +318,7 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
     return false;
   }
 
-  const userToDelete = usersInMemory.find(u => u.hostId === hostId); 
+  const userToDelete = usersInMemory.find(u => u.hostId === hostId && u.email.toLowerCase() === hostToDelete.email.toLowerCase()); 
   if (userToDelete) {
     await deleteUser(userToDelete.id);
     log(`Associated user ${userToDelete.email} deleted (in-memory).`);
@@ -372,17 +364,25 @@ export const getSiteById = async (siteId: string): Promise<Site | undefined> => 
   log(`getSiteById called for: ${siteId}. Using in-memory data.`);
   return sitesInMemory.find(s => s.siteId === siteId);
 };
-export const addSite = async (siteData: Omit<Site, 'siteId'>): Promise<Site> => {
+export const addSite = async (siteData: Omit<Site, 'siteId' | 'logoAiHint'>): Promise<Site> => {
   log(`addSite called. Data: ${JSON.stringify(siteData)}. Using in-memory data.`);
-  const newSite: Site = { ...siteData, siteId: `globalsite-${Date.now()}-${Math.random().toString(36).substring(2, 5)}` };
+  const newSite: Site = {
+    ...siteData,
+    siteId: `globalsite-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+    logoAiHint: siteData.logoUrl && siteData.nom ? siteData.nom.toLowerCase().split(' ').slice(0,2).join(' ') : undefined,
+  };
   sitesInMemory.push(newSite);
   return newSite;
 };
-export const updateSite = async (siteId: string, siteData: Partial<Omit<Site, 'siteId'>>): Promise<Site | undefined> => {
-  log(`updateSite called for ID: ${siteId}. Using in-memory data.`);
+export const updateSiteInData = async (siteId: string, siteData: Partial<Omit<Site, 'siteId' | 'logoAiHint'>>): Promise<Site | undefined> => {
+  log(`updateSiteInData called for ID: ${siteId}. Using in-memory data.`);
   const siteIndex = sitesInMemory.findIndex(s => s.siteId === siteId);
   if (siteIndex > -1) {
-    sitesInMemory[siteIndex] = { ...sitesInMemory[siteIndex], ...siteData };
+    sitesInMemory[siteIndex] = {
+      ...sitesInMemory[siteIndex],
+      ...siteData,
+      logoAiHint: siteData.logoUrl && siteData.nom ? siteData.nom.toLowerCase().split(' ').slice(0,2).join(' ') : sitesInMemory[siteIndex].logoAiHint,
+    };
     return sitesInMemory[siteIndex];
   }
   return undefined;
@@ -854,6 +854,10 @@ export const deleteClientData = async (clientId: string): Promise<boolean> => {
   log(`deleteClientData called for: ${clientId}. Using in-memory data.`);
   const initialLength = clientsInMemory.length;
   clientsInMemory = clientsInMemory.filter(c => c.id !== clientId);
+  // Also remove associated reservations if any (using client ID)
+  if (clientsInMemory.length < initialLength) {
+    reservationsInMemory = reservationsInMemory.filter(r => r.clientId !== clientId);
+  }
   return clientsInMemory.length < initialLength;
 };
 
@@ -879,13 +883,14 @@ export const getReservations = async (
       hostReservations = hostReservations.filter(r => {
         try {
           const arrivalDate = new Date(r.dateArrivee + "T00:00:00"); 
-          const departureDate = (r.type === 'Table' || !r.dateDepart) 
-              ? new Date(r.dateArrivee + "T23:59:59") 
-              : new Date(r.dateDepart + "T00:00:00"); 
+          const departureDateForRoom = r.dateDepart ? new Date(r.dateDepart + "T00:00:00") : null;
+          const effectiveDeparture = r.type === 'Table' ? new Date(r.dateArrivee + "T23:59:59") : departureDateForRoom;
+
+          if (!effectiveDeparture) return false; // Should not happen for rooms with valid data
 
           const monthStart = new Date(filters.year!, filters.month!, 1);
           const monthEnd = new Date(filters.year!, filters.month! + 1, 0, 23, 59, 59, 999);
-          return (arrivalDate <= monthEnd && departureDate >= monthStart);
+          return (arrivalDate <= monthEnd && effectiveDeparture >= monthStart);
         } catch (e) {
           log("Error parsing date for reservation filtering", { reservationId: r.id, error: e });
           return false;
@@ -900,7 +905,8 @@ export const getReservations = async (
 };
 export const addReservation = async (data: Omit<Reservation, 'id'>): Promise<Reservation> => {
   log(`addReservation called. Data: ${JSON.stringify(data)}. Using in-memory data.`);
-  const newReservation: Reservation = { ...data, id: `res-${Date.now()}` };
+  const location = await getRoomOrTableById(data.locationId);
+  const newReservation: Reservation = { ...data, id: `res-${Date.now()}`, type: location?.type as ('Chambre' | 'Table') };
   reservationsInMemory.push(newReservation);
   return newReservation;
 };
@@ -908,7 +914,12 @@ export const updateReservation = async (id: string, data: Partial<Omit<Reservati
   log(`updateReservation called for ID: ${id}. Data: ${JSON.stringify(data)}. Using in-memory data.`);
   const resIndex = reservationsInMemory.findIndex(r => r.id === id);
   if (resIndex > -1) {
-    reservationsInMemory[resIndex] = { ...reservationsInMemory[resIndex], ...data };
+    const location = data.locationId ? await getRoomOrTableById(data.locationId) : undefined;
+    reservationsInMemory[resIndex] = {
+      ...reservationsInMemory[resIndex],
+      ...data,
+      type: location?.type as ('Chambre' | 'Table') || reservationsInMemory[resIndex].type
+    };
     return { ...reservationsInMemory[resIndex] };
   }
   return undefined;
@@ -926,17 +937,3 @@ log("Initial in-memory data loaded/defined.");
 log(`Users: ${usersInMemory.length}, Hosts: ${hostsInMemory.length}, Global Sites: ${sitesInMemory.length}, Locations: ${roomsOrTablesInMemory.length}`);
 log(`Categories: ${serviceCategoriesInMemory.length}, Forms: ${customFormsInMemory.length}, Fields: ${formFieldsInMemory.length}, Services: ${servicesInMemory.length}`);
 log(`Orders: ${ordersInMemory.length}, Clients: ${clientsInMemory.length}, Reservations: ${reservationsInMemory.length}, Tags: ${tagsInMemory.length}`);
-
-
-// Augment RoomOrTable type in Reservation - This should be in types.ts or a d.ts file.
-// For the purpose of this example, assuming it's implicitly handled or defined elsewhere.
-// If type errors arise for Reservation.type, it needs to be properly declared.
-// For example, in types.ts:
-// export interface Reservation {
-//   // ... other fields
-//   type?: RoomOrTable['type']; // if you derive it from locationId's type
-// }
-// For now, the logic in reservations page derives this manually when needed.
-
-    
-

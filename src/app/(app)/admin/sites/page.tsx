@@ -2,16 +2,18 @@
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getSites, addSite as addSiteToData, getHosts, updateSite as updateSiteInData, deleteSiteInData } from '@/lib/data';
+import { getSites, addSite as addSiteToData, getHosts, updateSiteInData, deleteSiteInData } from '@/lib/data';
 import type { Site, Host } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Edit2, Trash2, Building2, ShieldAlert } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, Building2, ShieldAlert, Copy, ImageIcon } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -40,11 +42,13 @@ export default function AdminSitesPage() {
   const [hosts, setHosts] = useState<Host[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingSite, setEditingSite] = useState<Partial<Site> | null>(null);
   
-  const [newSite, setNewSite] = useState<{ nom: string; hostId: string }>({
+  const [currentSiteData, setCurrentSiteData] = useState<{ nom: string; hostId: string; logoUrl?: string }>({
     nom: '',
     hostId: '',
+    logoUrl: '',
   });
 
   const fetchData = useCallback(async () => {
@@ -56,10 +60,10 @@ export default function AdminSitesPage() {
       ]);
       setSites(sitesData);
       setHosts(hostsData);
-      if (hostsData.length > 0 && !newSite.hostId) {
-        setNewSite(prev => ({ ...prev, hostId: hostsData[0].hostId }));
+      if (hostsData.length > 0 && !currentSiteData.hostId) {
+        setCurrentSiteData(prev => ({ ...prev, hostId: hostsData[0].hostId }));
       } else if (hostsData.length === 0) {
-        setNewSite(prev => ({ ...prev, hostId: '' }));
+        setCurrentSiteData(prev => ({ ...prev, hostId: '' }));
       }
     } catch (error) {
       console.error("Failed to load sites/hosts data:", error);
@@ -67,7 +71,7 @@ export default function AdminSitesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast, newSite.hostId]);
+  }, [toast, currentSiteData.hostId]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -81,38 +85,54 @@ export default function AdminSitesPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    const currentSetter = editingSite ? setEditingSite : setNewSite;
-    currentSetter(prev => ({ ...prev, [name]: value }));
+    setCurrentSiteData(prev => ({ ...prev, [name]: value }));
   };
   
   const handleHostSelectChange = (value: string) => {
-    const currentSetter = editingSite ? setEditingSite : setNewSite;
-    currentSetter(prev => ({ ...prev, hostId: value }));
+    setCurrentSiteData(prev => ({ ...prev, hostId: value }));
   };
 
   const handleSubmitSite = async () => {
+    setIsSubmitting(true);
     const isEditing = !!(editingSite && editingSite.siteId);
-    const dataToSubmit = isEditing ? 
-      { ...(sites.find(s => s.siteId === editingSite!.siteId) || {}), ...editingSite } : 
-      { ...newSite };
+    
+    let dataToSubmit: Partial<Site>;
 
+    if (isEditing && editingSite?.siteId) {
+        dataToSubmit = {
+            ...sites.find(s => s.siteId === editingSite!.siteId), // Get full existing site data
+            ...currentSiteData // Override with current form data
+        };
+    } else {
+        dataToSubmit = { ...currentSiteData };
+    }
+    
     if (!dataToSubmit.nom || !dataToSubmit.hostId) {
       toast({ title: "Missing Information", description: "Please provide a site name and assign a host.", variant: "destructive" });
+      setIsSubmitting(false);
       return;
     }
 
     if (!hosts.some(h => h.hostId === dataToSubmit.hostId)) {
       toast({ title: "Invalid Host", description: "Please select a valid host.", variant: "destructive" });
+      setIsSubmitting(false);
       return;
     }
 
+    const payload: Partial<Omit<Site, 'siteId' | 'logoAiHint'>> = {
+        nom: dataToSubmit.nom.trim(),
+        hostId: dataToSubmit.hostId,
+        logoUrl: dataToSubmit.logoUrl?.trim() || undefined,
+    };
+
+
     try {
-      if (isEditing) { 
-        await updateSiteInData(editingSite!.siteId!, dataToSubmit as Partial<Site>);
-        toast({ title: "Global Site Updated", description: `${dataToSubmit.nom} has been updated.` });
+      if (isEditing && editingSite?.siteId) { 
+        await updateSiteInData(editingSite.siteId, payload);
+        toast({ title: "Global Site Updated", description: `${payload.nom} has been updated.` });
       } else { 
-        await addSiteToData(dataToSubmit as Omit<Site, 'siteId'>);
-        toast({ title: "Global Site Created", description: `${dataToSubmit.nom} has been added and assigned to a host.` });
+        await addSiteToData(payload as Omit<Site, 'siteId' | 'logoAiHint'>);
+        toast({ title: "Global Site Created", description: `${payload.nom} has been added and assigned to a host.` });
       }
       fetchData(); 
     } catch (error) {
@@ -121,8 +141,9 @@ export default function AdminSitesPage() {
     }
     
     setIsDialogOpen(false);
-    setNewSite({ nom: '', hostId: hosts.length > 0 ? hosts[0].hostId : '' });
+    setCurrentSiteData({ nom: '', hostId: hosts.length > 0 ? hosts[0].hostId : '', logoUrl: '' });
     setEditingSite(null);
+    setIsSubmitting(false);
   };
   
   const openAddDialog = () => {
@@ -131,24 +152,40 @@ export default function AdminSitesPage() {
       return;
     }
     setEditingSite(null);
-    setNewSite({ nom: '', hostId: hosts.length > 0 ? hosts[0].hostId : '' });
+    setCurrentSiteData({ nom: '', hostId: hosts.length > 0 ? hosts[0].hostId : '', logoUrl: '' });
     setIsDialogOpen(true);
   };
 
   const openEditDialog = (siteToEdit: Site) => {
     setEditingSite({ ...siteToEdit });
+    setCurrentSiteData({
+        nom: siteToEdit.nom,
+        hostId: siteToEdit.hostId,
+        logoUrl: siteToEdit.logoUrl || ''
+    });
     setIsDialogOpen(true);
   };
   
-  const handleDeleteSite = async (siteId: string) => {
+  const handleDeleteSite = async (siteId: string, siteName: string) => {
+     if (!window.confirm(`Are you sure you want to delete Global Site "${siteName}"? This may affect related locations and services.`)) {
+        return;
+     }
+     setIsSubmitting(true);
      try {
         await deleteSiteInData(siteId);
-        toast({ title: "Global Site Deleted", description: `Site has been deleted.`, variant: "destructive" });
+        toast({ title: "Global Site Deleted", description: `Site "${siteName}" has been deleted.`, variant: "destructive" });
         fetchData();
      } catch (error) {
         console.error("Failed to delete site:", error);
         toast({ title: "Error deleting site", description: `Could not delete the site. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
      }
+     setIsSubmitting(false);
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+      .then(() => toast({ title: "Copied to clipboard!", description: text }))
+      .catch(err => toast({ title: "Copy failed", description: err.message, variant: "destructive" }));
   };
 
   if (isLoading || authLoading) {
@@ -169,11 +206,12 @@ export default function AdminSitesPage() {
                 <CardContent>
                     <div className="space-y-4">
                         {[...Array(3)].map((_, i) => (
-                            <div key={i} className="grid grid-cols-4 gap-4 items-center">
-                                <Skeleton className="h-6 w-full" />
-                                <Skeleton className="h-6 w-full" />
-                                <Skeleton className="h-6 w-full" />
-                                <Skeleton className="h-8 w-full" />
+                            <div key={i} className="grid grid-cols-5 gap-4 items-center"> {/* Increased to 5 for new columns */}
+                                <Skeleton className="h-10 w-10" /> {/* Logo */}
+                                <Skeleton className="h-6 w-full" /> {/* Name */}
+                                <Skeleton className="h-6 w-full" /> {/* Host */}
+                                <Skeleton className="h-6 w-full" /> {/* URL */}
+                                <Skeleton className="h-8 w-full" /> {/* Actions */}
                             </div>
                         ))}
                     </div>
@@ -183,8 +221,6 @@ export default function AdminSitesPage() {
     );
   }
   
-  const currentFormData = editingSite || newSite;
-
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
       <div className="flex justify-between items-center mb-8">
@@ -192,7 +228,7 @@ export default function AdminSitesPage() {
           <h1 className="text-4xl font-bold tracking-tight text-foreground">Manage Global Sites</h1>
           <p className="text-lg text-muted-foreground">Administer all global establishments (e.g., Hotels, Restaurants) and assign them to Hosts.</p>
         </div>
-        <Button onClick={openAddDialog} disabled={hosts.length === 0}>
+        <Button onClick={openAddDialog} disabled={isSubmitting || hosts.length === 0}>
           <PlusCircle className="mr-2 h-5 w-5" /> Add New Global Site
         </Button>
       </div>
@@ -220,8 +256,10 @@ export default function AdminSitesPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[70px]">Logo</TableHead>
                 <TableHead>Global Site Name</TableHead>
                 <TableHead>Managed by Host</TableHead>
+                <TableHead>Reservation URL</TableHead>
                 <TableHead>Site ID</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -229,19 +267,54 @@ export default function AdminSitesPage() {
             <TableBody>
               {sites.map((site) => {
                 const hostName = hosts.find(h => h.hostId === site.hostId)?.nom || 'N/A (Host not found)';
+                const reservationUrl = `/reserve/${site.siteId}`;
+                const fullReservationUrl = typeof window !== 'undefined' ? `${window.location.origin}${reservationUrl}` : reservationUrl;
                 return (
                     <TableRow key={site.siteId}>
+                    <TableCell>
+                      {site.logoUrl ? (
+                        <Image
+                          src={site.logoUrl}
+                          alt={`${site.nom} logo`}
+                          width={50}
+                          height={50}
+                          className="rounded-md object-contain aspect-square bg-muted"
+                          data-ai-hint={site.logoAiHint || site.nom.toLowerCase().split(' ').slice(0,2).join(' ')}
+                        />
+                      ) : (
+                        <div className="w-[50px] h-[50px] bg-muted rounded-md flex items-center justify-center">
+                          <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell className="font-medium flex items-center">
-                        <Building2 className="mr-2 h-5 w-5 text-primary" />
+                        <Building2 className="mr-2 h-5 w-5 text-primary invisible md:visible" />
                         {site.nom}
                     </TableCell>
                     <TableCell>{hostName}</TableCell>
-                    <TableCell>{site.siteId}</TableCell>
-                    <TableCell className="text-right space-x-2">
-                        <Button variant="outline" size="icon" onClick={() => openEditDialog(site)} title="Edit Site" disabled={hosts.length === 0}>
+                    <TableCell>
+                        <div className="flex items-center gap-1">
+                            <Link href={reservationUrl} className="text-primary hover:underline text-xs" target="_blank">
+                                {reservationUrl}
+                            </Link>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => copyToClipboard(fullReservationUrl)}
+                                title="Copy Reservation URL"
+                                disabled={isSubmitting}
+                            >
+                                <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                        </div>
+                    </TableCell>
+                    <TableCell className="text-xs">{site.siteId}</TableCell>
+                    <TableCell className="text-right space-x-1">
+                        <Button variant="outline" size="icon" onClick={() => openEditDialog(site)} title="Edit Site" disabled={isSubmitting || hosts.length === 0}>
                         <Edit2 className="h-4 w-4" />
                         </Button>
-                        <Button variant="destructive" size="icon" onClick={() => handleDeleteSite(site.siteId)} title="Delete Site">
+                        <Button variant="destructive" size="icon" onClick={() => handleDeleteSite(site.siteId, site.nom)} title="Delete Site" disabled={isSubmitting}>
                         <Trash2 className="h-4 w-4" />
                         </Button>
                     </TableCell>
@@ -254,8 +327,8 @@ export default function AdminSitesPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+      <Dialog open={isDialogOpen} onOpenChange={(open) => {if (!isSubmitting) setIsDialogOpen(open)}}>
+        <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle>{editingSite ? 'Edit Global Site' : 'Add New Global Site'}</DialogTitle>
             <DialogDescription>
@@ -264,15 +337,15 @@ export default function AdminSitesPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="nom" className="text-right">Site Name</Label>
-              <Input id="nom" name="nom" value={currentFormData.nom || ''} onChange={handleInputChange} className="col-span-3" placeholder="e.g., Grand Hotel Downtown" />
+              <Label htmlFor="nom" className="text-right">Site Name*</Label>
+              <Input id="nom" name="nom" value={currentSiteData.nom || ''} onChange={handleInputChange} className="col-span-3" placeholder="e.g., Grand Hotel Downtown" disabled={isSubmitting}/>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="hostId" className="text-right">Managed by</Label>
+              <Label htmlFor="hostId" className="text-right">Managed by*</Label>
               <Select 
-                value={currentFormData.hostId || ''} 
+                value={currentSiteData.hostId || ''} 
                 onValueChange={handleHostSelectChange} 
-                disabled={hosts.length === 0}
+                disabled={isSubmitting || hosts.length === 0}
               >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder={hosts.length > 0 ? "Select a Host" : "No Hosts available"} />
@@ -285,11 +358,18 @@ export default function AdminSitesPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="logoUrl" className="text-right">Logo URL</Label>
+              <Input id="logoUrl" name="logoUrl" value={currentSiteData.logoUrl || ''} onChange={handleInputChange} className="col-span-3" placeholder="https://placehold.co/100x100.png" disabled={isSubmitting}/>
+            </div>
+            <p className="text-xs text-muted-foreground col-span-4 text-center px-4">
+                Tip for Logo URL: Use image URLs starting with `https://placehold.co/` or ensure your desired image hosts are configured in `next.config.ts`.
+            </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmitSite} disabled={hosts.length === 0 || !currentFormData.hostId}>
-                {editingSite ? 'Save Changes' : 'Create Global Site'}
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
+            <Button onClick={handleSubmitSite} disabled={isSubmitting || hosts.length === 0 || !currentSiteData.hostId || !currentSiteData.nom.trim()}>
+                {editingSite ? (isSubmitting ? 'Saving...' : 'Save Changes') : (isSubmitting ? 'Creating...' : 'Create Global Site')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -297,5 +377,3 @@ export default function AdminSitesPage() {
     </div>
   );
 }
-
-    
