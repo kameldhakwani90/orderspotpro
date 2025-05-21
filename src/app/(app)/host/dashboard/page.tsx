@@ -107,7 +107,7 @@ export default function HostDashboardPage() {
     } finally {
         setIsDataLoading(false);
     }
-  }, [toast]);
+  }, []); // Removed toast
 
   useEffect(() => {
     if (!authLoading && user?.role !== 'host') {
@@ -135,16 +135,25 @@ export default function HostDashboardPage() {
       setDialogServices(services);
       setDialogCustomForms(forms);
 
-      // Set defaults
+      // Set defaults only if the corresponding state is currently empty
       if (locations.length > 0 && !selectedLocation) setSelectedLocation(locations[0].id);
       if (categories.length > 0 && !selectedCategory) setSelectedCategory(categories[0].id);
 
     } catch (error) {
       toast({ title: "Error", description: "Could not load data for new order form.", variant: "destructive" });
+      // Reset states on error to prevent rendering with inconsistent data
+      setDialogLocations([]);
+      setDialogClients([]);
+      setDialogCategories([]);
+      setDialogServices([]);
+      setDialogCustomForms([]);
+      setSelectedLocation("");
+      setSelectedCategory("");
+      setSelectedService("");
     } finally {
       setIsDialogDataLoading(false);
     }
-  }, [user?.hostId, isAddOrderDialogOpen, toast, selectedLocation, selectedCategory]);
+  }, [user?.hostId, isAddOrderDialogOpen, selectedLocation, selectedCategory]); // Removed toast
 
   useEffect(() => {
     if (isAddOrderDialogOpen) {
@@ -177,7 +186,7 @@ export default function HostDashboardPage() {
       setSelectedServiceDetails(null);
       setDialogFormFields([]);
     }
-  }, [selectedService, dialogServices, toast]);
+  }, [selectedService, dialogServices]); // Removed toast
 
   const resetDialogForm = () => {
     setSelectedLocation(dialogLocations.length > 0 ? dialogLocations[0].id : "");
@@ -214,12 +223,14 @@ export default function HostDashboardPage() {
 
     setIsSubmittingOrder(true);
     try {
+      const serviceForOrder = dialogServices.find(s => s.id === selectedService);
       await addOrder({
         hostId: user.hostId,
         chambreTableId: selectedLocation,
         serviceId: selectedService,
         clientNom: clientNameToSubmit,
         donneesFormulaire: JSON.stringify(formData),
+        prix: serviceForOrder?.prix, // Pass price from selected service
         // status and dateHeure are set by addOrder function
       });
       toast({ title: "Order Created", description: `New order for ${clientNameToSubmit} has been submitted.` });
@@ -304,6 +315,7 @@ export default function HostDashboardPage() {
                   <SelectContent>
                      <SelectItem value="">None (Enter name below)</SelectItem>
                     {dialogClients.map(client => <SelectItem key={client.id} value={client.id}>{client.nom}</SelectItem>)}
+                    {dialogClients.length === 0 && <SelectItem value="no_clients" disabled>No registered clients</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
@@ -334,7 +346,7 @@ export default function HostDashboardPage() {
                 </Select>
               </div>
 
-              {selectedServiceDetails?.prix && (
+              {selectedServiceDetails?.prix !== undefined && ( // Check for undefined specifically for price
                 <p className="text-lg font-semibold text-primary">Price: ${selectedServiceDetails.prix.toFixed(2)}</p>
               )}
 
@@ -345,13 +357,13 @@ export default function HostDashboardPage() {
                   fields={dialogFormFields}
                   onSubmit={handleOrderSubmit}
                   isLoading={isSubmittingOrder}
-                  submitButtonText={selectedServiceDetails.prix ? `Submit Order ($${selectedServiceDetails.prix.toFixed(2)})` : "Submit Order"}
+                  submitButtonText={selectedServiceDetails.prix !== undefined ? `Submit Order ($${selectedServiceDetails.prix.toFixed(2)})` : "Submit Order"}
                 />
               )}
               
               {selectedServiceDetails && !selectedServiceDetails.formulaireId && (
                  <Button onClick={() => handleOrderSubmit({})} className="w-full mt-4" disabled={isSubmittingOrder || !selectedLocation || (!selectedClient && !manualClientName.trim())}>
-                    {isSubmittingOrder ? 'Submitting...' : (selectedServiceDetails.prix ? `Submit Order ($${selectedServiceDetails.prix.toFixed(2)})` : "Submit Order")}
+                    {isSubmittingOrder ? 'Submitting...' : (selectedServiceDetails.prix !== undefined ? `Submit Order ($${selectedServiceDetails.prix.toFixed(2)})` : "Submit Order")}
                  </Button>
               )}
 
@@ -411,7 +423,12 @@ export default function HostDashboardPage() {
                   <li key={order.id} className="text-sm p-2 border-b last:border-b-0">
                     <div className="flex justify-between">
                       <span>Order #{order.id.slice(-5)} for Room/Table: {order.chambreTableId}</span>
-                      <span className={`px-2 py-0.5 rounded-full text-xs ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100' : 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'}`}>{order.status}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs ${
+                        order.status === 'pending' ? 'bg-yellow-400/20 text-yellow-600 dark:bg-yellow-600/20 dark:text-yellow-400' : 
+                        order.status === 'completed' ? 'bg-green-400/20 text-green-600 dark:bg-green-600/20 dark:text-green-400' :
+                        order.status === 'confirmed' ? 'bg-blue-400/20 text-blue-600 dark:bg-blue-600/20 dark:text-blue-400' :
+                        'bg-red-400/20 text-red-600 dark:bg-red-600/20 dark:text-red-400' // for cancelled or other
+                      }`}>{order.status}</span>
                     </div>
                     <div className="text-xs text-muted-foreground">{new Date(order.dateHeure).toLocaleString()}</div>
                   </li>
@@ -429,3 +446,5 @@ export default function HostDashboardPage() {
     </div>
   );
 }
+
+    
