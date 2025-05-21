@@ -1,8 +1,9 @@
 
-import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType } from './types';
-// Firestore imports are removed for in-memory data management of Users and Hosts
+// src/lib/data.ts
+// Temporarily disabling Firestore to revert to in-memory data
+import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus } from './types';
 // import { db } from './firebase';
-// import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
+// import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp } from 'firebase/firestore';
 
 // --- In-memory data for Users ---
 let users: User[] = [
@@ -27,21 +28,34 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
   console.log(`[In-Memory Data] getUserByEmail called for: ${email}`);
   const foundUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
   if (foundUser) {
-    console.log(`[In-Memory Data] User found:`, {id: foundUser.id, email: foundUser.email, role: foundUser.role});
+    const userToReturn = { ...foundUser };
+    if (!userToReturn.nom && userToReturn.email) {
+        userToReturn.nom = userToReturn.email.split('@')[0]; // Default nom
+    }
+    console.log(`[In-Memory Data] User found:`, {id: userToReturn.id, email: userToReturn.email, role: userToReturn.role});
+    return userToReturn;
   } else {
     console.log(`[In-Memory Data] User not found for email: ${email}`);
   }
-  return foundUser;
+  return undefined;
 };
 
 export const getUserById = async (id: string): Promise<User | undefined> => {
   console.log(`[In-Memory Data] getUserById called for: ${id}`);
-  return users.find(u => u.id === id);
+  const foundUser = users.find(u => u.id === id);
+    if (foundUser) {
+    const userToReturn = { ...foundUser };
+    if (!userToReturn.nom && userToReturn.email) {
+        userToReturn.nom = userToReturn.email.split('@')[0]; // Default nom
+    }
+    return userToReturn;
+  }
+  return undefined;
 };
 
 export const getUsers = async (): Promise<User[]> => {
   console.log(`[In-Memory Data] getUsers called. Returning ${users.length} users.`);
-  return [...users].sort((a, b) => a.nom.localeCompare(b.nom));
+  return [...users].sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
 };
 
 export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
@@ -51,7 +65,7 @@ export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
     console.warn(`[In-Memory Data] User with email ${userData.email} already exists. Updating existing user.`);
     existingUser.nom = userData.nom;
     existingUser.role = userData.role;
-    if (userData.hostId) existingUser.hostId = userData.hostId;
+    if (userData.hostId !== undefined) existingUser.hostId = userData.hostId; else delete existingUser.hostId;
     if (userData.motDePasse) existingUser.motDePasse = userData.motDePasse;
     return { ...existingUser };
   }
@@ -62,9 +76,9 @@ export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
     email: userData.email,
     nom: userData.nom,
     role: userData.role,
-    hostId: userData.hostId,
     motDePasse: userData.motDePasse,
   };
+  if (userData.hostId !== undefined) newUser.hostId = userData.hostId;
   users.push(newUser);
   console.log(`[In-Memory Data] User ${newUser.email} added with ID ${newUser.id}. Total users: ${users.length}`);
   return { ...newUser };
@@ -75,10 +89,15 @@ export const updateUser = async (userId: string, userData: Partial<Omit<User, 'i
   const userIndex = users.findIndex(u => u.id === userId);
   if (userIndex > -1) {
     // Do not update password if it's empty or undefined in userData
-    const { motDePasse, ...otherData } = userData;
+    const { motDePasse, hostId, ...otherData } = userData;
     users[userIndex] = { ...users[userIndex], ...otherData };
     if (motDePasse && motDePasse.trim() !== '') {
-      users[userIndex].motDePasse = motDePasse;
+      users[userIndex].motDePasse = motDePasse.trim();
+    }
+    if (hostId !== undefined) {
+        users[userIndex].hostId = hostId;
+    } else if (userData.hasOwnProperty('hostId') && hostId === undefined) { // Explicitly setting to undefined
+        delete users[userIndex].hostId;
     }
     console.log(`[In-Memory Data] User ${users[userIndex].email} updated.`);
     return { ...users[userIndex] };
@@ -114,7 +133,6 @@ export const addHost = async (hostData: Omit<Host, 'hostId'>): Promise<Host> => 
   if (existingHost) {
     console.warn(`[In-Memory Data] Host with email ${hostData.email} already exists. Updating existing host details.`);
     existingHost.nom = hostData.nom;
-    // Ensure associated user is updated/created
     let associatedUser = await getUserByEmail(existingHost.email);
     if (associatedUser) {
       await updateUser(associatedUser.id, { nom: existingHost.nom, role: 'host', hostId: existingHost.hostId });
@@ -124,7 +142,7 @@ export const addHost = async (hostData: Omit<Host, 'hostId'>): Promise<Host> => 
         nom: existingHost.nom,
         role: 'host',
         hostId: existingHost.hostId,
-        motDePasse: '1234', // Default password
+        motDePasse: '1234',
       });
     }
     return { ...existingHost };
@@ -134,14 +152,12 @@ export const addHost = async (hostData: Omit<Host, 'hostId'>): Promise<Host> => 
   const newHost: Host = { hostId: newHostId, ...hostData };
   hosts.push(newHost);
   console.log(`[In-Memory Data] Host ${newHost.email} added with ID ${newHost.hostId}. Total hosts: ${hosts.length}`);
-
-  // Create or update associated user
   await addUser({
     email: newHost.email,
     nom: newHost.nom,
     role: 'host',
     hostId: newHost.hostId,
-    motDePasse: '1234', // Default password for new host users
+    motDePasse: '1234',
   });
   return { ...newHost };
 };
@@ -154,9 +170,8 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
     hosts[hostIndex] = { ...hosts[hostIndex], ...hostData };
     const updatedHost = hosts[hostIndex];
 
-    // Update associated user if email or name changed
     if (originalHost.email !== updatedHost.email || originalHost.nom !== updatedHost.nom) {
-      let userToUpdate = await getUserByEmail(originalHost.email); // Find by old email if it changed
+      let userToUpdate = await getUserByEmail(originalHost.email);
       if (userToUpdate) {
         await updateUser(userToUpdate.id, {
           email: updatedHost.email,
@@ -165,7 +180,6 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
           hostId: updatedHost.hostId,
         });
       } else {
-        // If user not found with old email (e.g. email was changed), try to find by new email or create
         userToUpdate = await getUserByEmail(updatedHost.email);
         if(userToUpdate) {
           await updateUser(userToUpdate.id, { nom: updatedHost.nom, role: 'host', hostId: updatedHost.hostId });
@@ -196,25 +210,24 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
 
   if (success) {
     console.log(`[In-Memory Data] Host ${hostToDelete.email} deleted.`);
-    // Delete associated user
     const userToDelete = await getUserByEmail(hostToDelete.email);
     if (userToDelete && userToDelete.hostId === hostId) {
       await deleteUser(userToDelete.id);
     }
-    // Cascade delete for other in-memory data related to this hostId
     sites = sites.filter(s => s.hostId !== hostId);
     roomsOrTables = roomsOrTables.filter(rt => rt.hostId !== hostId);
     serviceCategories = serviceCategories.filter(sc => sc.hostId !== hostId);
-    customForms = customForms.filter(cf => cf.hostId !== hostId);
-    formFields = formFields.filter(ff => {
-      const form = customForms.find(f => f.id === ff.formulaireId);
-      return !form || form.hostId !== hostId; // If form is gone, or form not for this host
-    });
+    
+    const formsForHost = customForms.filter(cf => cf.hostId === hostId);
+    const formIdsForHost = formsForHost.map(f => f.id);
+    formFields = formFields.filter(ff => !formIdsForHost.includes(ff.formulaireId));
+    customForms = customForms.filter(cf => cf.hostId !== hostId); // Now filter customForms
+
     services = services.filter(s => s.hostId !== hostId);
     orders = orders.filter(o => o.hostId !== hostId);
     clients = clients.filter(c => c.hostId !== hostId);
+    reservations = reservations.filter(r => r.hostId !== hostId);
     console.log(`[In-Memory Data] Associated data for host ${hostId} also removed.`);
-
   } else {
     console.warn(`[In-Memory Data] Host ${hostId} could not be deleted (already removed or not found).`);
   }
@@ -222,15 +235,15 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
 };
 
 
-// --- Site Management (Global Sites for Admin) --- (Still uses in-memory data)
+// --- Site Management (Global Sites for Admin) --- (In-memory data)
 let sites: Site[] = [
   { siteId: 'site-01', nom: 'Paradise Beach Resort', hostId: 'host-01' },
   { siteId: 'site-02', nom: 'Le Delice Downtown', hostId: 'host-02' },
   { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment', hostId: 'host-1747669860022' },
 ];
 
-export const getSites = async (hostId?: string): Promise<Site[]> => {
-  if (hostId) return sites.filter(s => s.hostId === hostId);
+export const getSites = async (hostIdParam?: string): Promise<Site[]> => { // Renamed hostId to hostIdParam
+  if (hostIdParam) return sites.filter(s => s.hostId === hostIdParam);
   return [...sites];
 };
 
@@ -256,13 +269,12 @@ export const updateSite = async (siteId: string, siteData: Partial<Omit<Site, 's
 export const deleteSiteInData = async (siteId: string): Promise<boolean> => {
     const initialLength = sites.length;
     sites = sites.filter(s => s.siteId !== siteId);
-    // Also remove any RoomOrTable that belongs to this global site
     roomsOrTables = roomsOrTables.filter(rt => rt.globalSiteId !== siteId);
     return sites.length < initialLength;
 };
 
 
-// --- RoomOrTable Management (Host Locations) --- (Still uses in-memory data)
+// --- RoomOrTable Management (Host Locations) --- (In-memory data)
 let roomsOrTables: RoomOrTable[] = [
   { id: 'rt-globalsite-root-site-01', nom: 'Paradise Resort Main Area', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: undefined, urlPersonnalise: `/client/host-01/rt-globalsite-root-site-01`},
     { id: 'rt-lobby-01', nom: 'Lobby Zone', type: 'Site', hostId: 'host-01', globalSiteId: 'site-01', parentLocationId: 'rt-globalsite-root-site-01', urlPersonnalise: `/client/host-01/rt-lobby-01`},
@@ -315,7 +327,9 @@ export const updateRoomOrTable = async (id: string, data: Partial<Omit<RoomOrTab
     const currentItem = roomsOrTables[itemIndex];
     roomsOrTables[itemIndex] = {
         ...currentItem,
-        ...data, 
+        ...data,
+        nom: data.nom !== undefined ? data.nom : currentItem.nom,
+        type: data.type !== undefined ? data.type : currentItem.type,
         globalSiteId: data.globalSiteId !== undefined ? data.globalSiteId : currentItem.globalSiteId,
         parentLocationId: data.parentLocationId !== undefined ? data.parentLocationId : currentItem.parentLocationId,
     };
@@ -346,12 +360,17 @@ export const deleteRoomOrTable = async (id: string): Promise<boolean> => {
                 client.locationId = undefined; 
             }
         });
+        reservations.forEach(reservation => { 
+            if (reservation.locationId === id) {
+                console.warn(`Reservation ${reservation.id} was for deleted location ${id}. Consider handling this explicitly.`);
+            }
+        });
     }
     roomsOrTables = roomsOrTables.filter(rt => rt.id !== id);
     return roomsOrTables.length < initialLength;
 };
 
-// --- ServiceCategory Management --- (Still uses in-memory data)
+// --- ServiceCategory Management --- (In-memory data)
 let serviceCategories: ServiceCategory[] = [
   { id: 'cat-roomservice', nom: 'Room Service', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "room service" },
   { id: 'cat-transport', nom: 'Transport & Tours', hostId: 'host-01', image: 'https://placehold.co/300x200.png', "data-ai-hint": "transportation tour" },
@@ -388,7 +407,7 @@ export const getServiceCategoryById = async (id: string): Promise<ServiceCategor
   return serviceCategories.find(sc => sc.id === id);
 };
 
-// --- CustomForm Management --- (Still uses in-memory data)
+// --- CustomForm Management --- (In-memory data)
 let customForms: CustomForm[] = [
   { id: 'form-booking', nom: 'Booking Details', hostId: 'host-01' },
   { id: 'form-foodorder', nom: 'Food Order Preferences', hostId: 'host-02' },
@@ -425,7 +444,7 @@ export const deleteCustomForm = async (id: string): Promise<boolean> => {
     return customForms.length < initialLength;
 };
 
-// --- FormField Management --- (Still uses in-memory data)
+// --- FormField Management --- (In-memory data)
 let formFields: FormField[] = [
   { id: 'field-persons', formulaireId: 'form-booking', label: 'Number of Persons', type: 'number', obligatoire: true, ordre: 1, placeholder: 'e.g., 2' },
   { id: 'field-date', formulaireId: 'form-booking', label: 'Desired Date', type: 'date', obligatoire: true, ordre: 2 },
@@ -462,7 +481,7 @@ export const deleteFormField = async (id: string): Promise<boolean> => {
     return formFields.length < initialLength;
 };
 
-// --- Service Management --- (Still uses in-memory data)
+// --- Service Management --- (In-memory data)
 let services: Service[] = [
   { id: 'svc-taxi', titre: 'Airport Taxi', description: 'Book a taxi to or from the airport. Reliable and comfortable.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "taxi airport", categorieId: 'cat-transport', hostId: 'host-01', formulaireId: 'form-booking', prix: 50, targetLocationIds: [], loginRequired: true },
   { id: 'svc-breakfast', titre: 'In-Room Breakfast', description: 'Order your breakfast selection to be delivered directly to your room.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "breakfast room", categorieId: 'cat-roomservice', hostId: 'host-01', formulaireId: 'form-foodorder', prix: 25, targetLocationIds: ['room-101', 'room-102'], loginRequired: false },
@@ -551,7 +570,7 @@ export const deleteService = async (id: string): Promise<boolean> => {
     return services.length < initialLength;
 };
 
-// --- Order Management --- (Still uses in-memory data)
+// --- Order Management --- (In-memory data)
 let orders: Order[] = [
   { id: 'order-001', serviceId: 'svc-taxi', hostId: 'host-01', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({ persons: 2, date: '2024-08-15', time: '10:00' }), dateHeure: new Date(Date.now() - 3600000 * 2).toISOString(), status: 'pending', prix: 50 },
   { id: 'order-002', serviceId: 'svc-breakfast', hostId: 'host-01', chambreTableId: 'room-102', clientNom: 'Bob The Builder', userId: 'user-client-02', donneesFormulaire: JSON.stringify({ dish: "Continental Breakfast", notes: "Extra orange juice"}), dateHeure: new Date(Date.now() - 3600000 * 5).toISOString(), status: 'completed', prix: 25},
@@ -628,15 +647,13 @@ export const updateOrderStatus = async (orderId: string, status: OrderStatus): P
   return undefined;
 };
 
-// --- Client Management (Host Side) --- (Still uses in-memory data)
+// --- Client Management (Host Side) --- (In-memory data)
 let clients: Client[] = [
     { id: 'client-mock-1', hostId: 'host-01', nom: 'Alice Wonderland', email: 'client1@example.com', type: 'heberge', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', locationId: 'room-101', notes: 'Prefers quiet room. Likes extra pillows.', credit: 50 },
     { id: 'client-mock-2', hostId: 'host-01', nom: 'Bob The Builder', email: 'client2@example.com', type: 'heberge', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', locationId: 'room-102', credit: 0 },
     { id: 'client-mock-3', hostId: 'host-02', nom: 'Charlie Passager', telephone: '+1123456789', type: 'passager', notes: 'Regular for lunch on Fridays.', credit: 10 },
     { id: 'client-mock-4', hostId: 'host-01', nom: 'Diana Visitor', email: 'diana@example.com', type: 'passager', notes: 'Interested in spa services.'},
     { id: 'client-mock-dynamic', hostId: 'host-1747669860022', nom: 'Dynamic Test Client', email: 'dynamic_client@example.com', type: 'heberge', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', locationId: 'rt-dynamic-room1', notes: 'Testing client for dynamic host.', credit: 100 },
-    { id: 'client-user-client-01', hostId: 'host-01', nom: 'Alice Wonderland', email: 'client1@example.com', type: 'heberge', dateArrivee: '2024-08-01', dateDepart: '2024-08-10', locationId: 'room-101', credit: 20 },
-    { id: 'client-user-client-02', hostId: 'host-01', nom: 'Bob The Builder', email: 'client2@example.com', type: 'passager', notes: 'Frequent visitor to the pool bar.' },
 ];
 
 export const getClients = async (hostId: string): Promise<Client[]> => {
@@ -673,4 +690,60 @@ export const deleteClientData = async (clientId: string): Promise<boolean> => {
   return clients.length < initialLength;
 };
 
-console.log("Data layer initialized. User and Host management reverted to in-memory. Other entities remain in-memory.");
+// --- Reservation Management --- (In-memory data)
+let reservations: Reservation[] = [
+    { id: 'res-001', hostId: 'host-01', locationId: 'room-101', clientName: 'Alice Wonderland', clientId: 'client-mock-1', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', nombrePersonnes: 2, status: 'confirmed' },
+    { id: 'res-002', hostId: 'host-01', locationId: 'room-102', clientName: 'Bob The Builder', clientId: 'client-mock-2', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', nombrePersonnes: 1, animauxDomestiques: true, status: 'checked-in' },
+    { id: 'res-003', hostId: 'host-1747669860022', locationId: 'rt-dynamic-room1', clientName: 'Dynamic Test Client', clientId: 'client-mock-dynamic', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', nombrePersonnes: 2, notes: "Needs a crib", status: 'pending' },
+];
+
+export const getReservations = async (
+  hostId: string,
+  filters?: {
+    locationId?: string;
+    month?: number; // 0-11 for Jan-Dec
+    year?: number;
+  }
+): Promise<Reservation[]> => {
+  let hostReservations = reservations.filter(r => r.hostId === hostId);
+  if (filters?.locationId) {
+    hostReservations = hostReservations.filter(r => r.locationId === filters.locationId);
+  }
+  if (filters?.month !== undefined && filters?.year !== undefined) {
+    hostReservations = hostReservations.filter(r => {
+      const arrivalDate = new Date(r.dateArrivee + "T00:00:00"); // Add time to avoid timezone issues with just date
+      const departureDate = new Date(r.dateDepart + "T23:59:59"); // Add time to avoid timezone issues
+      
+      const monthStart = new Date(filters.year!, filters.month, 1);
+      const monthEnd = new Date(filters.year!, filters.month + 1, 0, 23, 59, 59);
+
+      // Check for overlap: (StartA <= EndB) and (EndA >= StartB)
+      return (arrivalDate <= monthEnd && departureDate >= monthStart);
+    });
+  }
+  return [...hostReservations].sort((a,b) => new Date(a.dateArrivee).getTime() - new Date(b.dateArrivee).getTime());
+};
+
+export const addReservation = async (data: Omit<Reservation, 'id'>): Promise<Reservation> => {
+  const newReservation: Reservation = { ...data, id: `res-${Date.now()}` };
+  reservations.push(newReservation);
+  return newReservation;
+};
+
+export const updateReservation = async (id: string, data: Partial<Omit<Reservation, 'id' | 'hostId'>>): Promise<Reservation | undefined> => {
+  const resIndex = reservations.findIndex(r => r.id === id);
+  if (resIndex > -1) {
+    reservations[resIndex] = { ...reservations[resIndex], ...data };
+    return { ...reservations[resIndex] };
+  }
+  return undefined;
+};
+
+export const deleteReservation = async (id: string): Promise<boolean> => {
+  const initialLength = reservations.length;
+  reservations = reservations.filter(r => r.id !== id);
+  return reservations.length < initialLength;
+};
+
+
+console.log("Data layer initialized with in-memory data management for all entities.");

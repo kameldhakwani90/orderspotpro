@@ -70,7 +70,7 @@ export interface Service {
   formulaireId?: string; // Optional: A service might not need a form
   prix?: number;
   targetLocationIds?: string[];
-  loginRequired?: boolean; // NEW: True if login is needed to order
+  loginRequired?: boolean; // True if login is needed to order
 }
 
 export type OrderStatus = "pending" | "confirmed" | "completed" | "cancelled";
@@ -79,7 +79,7 @@ export interface Order {
   id: string;
   serviceId: string;
   hostId: string;
-  chambreTableId: string;
+  chambreTableId: string; // This is the RoomOrTable ID where the order was placed
   clientNom?: string; // Name of the client (could be from registered user or typed manually)
   userId?: string; // Optional: ID of the registered user if they were logged in
   donneesFormulaire: string;
@@ -120,5 +120,22 @@ export interface Client { // For Host's client management records
     locationId?: string; 
     notes?: string;
     documents?: Array<{ name: string; url: string; uploadedAt: string }>;
-    credit?: number; // NEW: For client's usable credit at this host
+    credit?: number;
+}
+
+export type ReservationStatus = "pending" | "confirmed" | "cancelled" | "checked-in" | "checked-out";
+
+export interface Reservation {
+  id: string;
+  hostId: string;
+  locationId: string; // FK to RoomOrTable.id (specifically for chambres)
+  clientId?: string;   // Optional: FK to Client.id if client is registered
+  clientName: string; // Name of the person making the reservation
+  dateArrivee: string; // ISO date string e.g. "2024-12-25"
+  dateDepart: string;  // ISO date string e.g. "2024-12-28"
+  nombrePersonnes: number;
+  animauxDomestiques?: boolean; // Whether pets are included
+  notes?: string;
+  status?: ReservationStatus;
+  // Potentially add: createdAt, updatedAt
 }

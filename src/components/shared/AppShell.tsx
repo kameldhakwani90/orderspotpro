@@ -17,8 +17,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, QrCode, ChevronDown, ChevronUp
-} from 'lucide-react';
+  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, QrCode, ChevronDown, ChevronUp, CalendarCheck
+} from 'lucide-react'; // Added CalendarCheck
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -33,11 +33,12 @@ const adminNavItems: NavItem[] = [
 const hostNavItems: NavItem[] = [
   { label: 'Dashboard', href: '/host/dashboard', icon: Home, allowedRoles: ['host'] },
   { label: 'Client Orders', href: '/host/orders', icon: ShoppingCart, allowedRoles: ['host'] },
+  { label: 'Reservations', href: '/host/reservations', icon: CalendarCheck, allowedRoles: ['host'] }, 
   { label: 'Gestion Clients', href: '/host/clients', icon: Users, allowedRoles: ['host'] },
   {
     label: 'Configuration',
-    href: '#', // Non-navigable parent
-    icon: Settings, // Group icon
+    href: '#', 
+    icon: Settings, 
     allowedRoles: ['host'],
     children: [
       { label: 'My Locations', href: '/host/locations', icon: MapPin, allowedRoles: ['host'] },
@@ -79,7 +80,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return initialOpenMenus;
   });
   
-  useEffect(() => { // Re-evaluate open menus if pathname changes and user exists
+  useEffect(() => { 
     if (user) {
         const navItemsForCurrentUserRole = () => {
             switch (user.role) {
@@ -95,10 +96,8 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             newOpenMenus[item.label] = true;
           }
         });
-        // Only update if there's a change to avoid infinite loops if other dependencies are added
-        if (JSON.stringify(newOpenMenus) !== JSON.stringify(openMenus)) {
-            setOpenMenus(prev => ({...prev, ...newOpenMenus}));
-        }
+        
+        setOpenMenus(prev => ({...prev, ...newOpenMenus}));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, user]);
@@ -140,7 +139,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   }
 
   let allNavItemsForUser: NavItem[];
-  if (user.role !== 'host') { // Hosts have settings within 'Configuration'
+  if (user.role !== 'host') { 
     const settingsItem: NavItem = { label: 'Settings', href: '/settings', icon: Settings, allowedRoles: ['admin', 'client'] };
     allNavItemsForUser = [...currentNavItems, settingsItem];
   } else {
@@ -160,13 +159,15 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }
 
     let isActive;
-    // Exact match for dashboard or if it's a parent group, check children.
-    if (item.href === '/dashboard' || item.href === `/${user.role}/dashboard`) {
+    
+    const isDashboardLink = item.href === '/dashboard' || (user && item.href === `/${user.role}/dashboard`);
+
+    if (isDashboardLink) {
         isActive = pathname === item.href;
     } else if (hasChildren) {
         isActive = isParentActive;
     } else {
-        isActive = pathname.startsWith(item.href); // For non-group items
+        isActive = pathname.startsWith(item.href); 
     }
     
     const isMenuOpen = openMenus[item.label] || false;
@@ -239,8 +240,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                <Link href={item.href === '#' ? (item.children && item.children[0].href) || '/dashboard' : item.href} key={`${item.label + item.href}-icon`} legacyBehavior>
                 <a title={item.label} className={cn(
                   "flex items-center justify-center h-10 w-10 rounded-lg transition-colors",
-                   pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== `/${user.role}/dashboard` && item.href !== '#' ? "bg-primary/20 text-primary" : (pathname === item.href && item.href !== '#' ? "bg-primary/20 text-primary" : "hover:bg-secondary text-sidebar-foreground"),
-                   // Special handling for parent group active state when collapsed
+                   pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== (user && `/${user.role}/dashboard`) && item.href !== '#' ? "bg-primary/20 text-primary" : (pathname === item.href && item.href !== '#' ? "bg-primary/20 text-primary" : "hover:bg-secondary text-sidebar-foreground"),
                    item.children && item.children.some(child => pathname.startsWith(child.href) && child.href !== '#') && "bg-primary/20 text-primary"
                 )}>
                   <item.icon className="h-5 w-5" />
@@ -301,4 +301,3 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 export default AppShell;
-
