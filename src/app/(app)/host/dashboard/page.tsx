@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -25,11 +24,11 @@ import { MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, BarChart3, P
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
-import type { Order, Service, RoomOrTable, Client, ServiceCategory, CustomForm, FormField } from "@/lib/types";
+import { useEffect, useState, useCallback, useRef } from "react"; // Added useRef
+import type { Order, Service, RoomOrTable, Client, ServiceCategory, CustomForm, FormField as FormFieldType } from "@/lib/types";
 import { getOrders, getServices, getRoomsOrTables, getClients, getServiceCategories, getCustomForms, getFormFields, addOrder } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
-import { DynamicFormRenderer } from "@/components/shared/DynamicFormRenderer";
+import { DynamicFormRenderer, type DynamicFormRendererRef } from "@/components/shared/DynamicFormRenderer"; // Import ref type
 import { Skeleton } from "@/components/ui/skeleton";
 
 const NO_CLIENT_SELECTED_VALUE = "__NO_CLIENT_SELECTED_PLACEHOLDER__";
@@ -61,6 +60,7 @@ export default function HostDashboardPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const dynamicFormRef = useRef<DynamicFormRendererRef>(null); // Ref for DynamicFormRenderer
 
   const [stats, setStats] = useState({
     totalOrders: 0,
@@ -71,18 +71,17 @@ export default function HostDashboardPage() {
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
 
-  // State for Add Order Dialog
   const [isAddOrderDialogOpen, setIsAddOrderDialogOpen] = useState(false);
   const [isDialogDataLoading, setIsDialogDataLoading] = useState(false);
   const [dialogLocations, setDialogLocations] = useState<RoomOrTable[]>([]);
   const [dialogClients, setDialogClients] = useState<Client[]>([]);
   const [dialogCategories, setDialogCategories] = useState<ServiceCategory[]>([]);
   const [dialogServices, setDialogServices] = useState<Service[]>([]);
-  const [dialogCustomForms, setDialogCustomForms] = useState<CustomForm[]>([]);
-  const [dialogFormFields, setDialogFormFields] = useState<FormField[]>([]);
+  // dialogCustomForms is not directly used for rendering, but formFields are fetched based on selectedServiceDetails.formulaireId
+  const [dialogFormFields, setDialogFormFields] = useState<FormFieldType[]>([]);
 
   const [selectedLocation, setSelectedLocation] = useState<string>("");
-  const [selectedClient, setSelectedClient] = useState<string>(""); // Stores client.id or ""
+  const [selectedClient, setSelectedClient] = useState<string>(NO_CLIENT_SELECTED_VALUE);
   const [manualClientName, setManualClientName] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedService, setSelectedService] = useState<string>("");
@@ -127,18 +126,18 @@ export default function HostDashboardPage() {
     if (!user?.hostId || !isAddOrderDialogOpen) return;
     setIsDialogDataLoading(true);
     try {
-      const [locations, clients, categories, services, forms] = await Promise.all([
+      const [locations, clients, categories, services, /* forms */] = await Promise.all([ // forms not directly used
         getRoomsOrTables(user.hostId),
         getClients(user.hostId),
         getServiceCategories(user.hostId),
         getServices(user.hostId),
-        getCustomForms(user.hostId)
+        getCustomForms(user.hostId) // Still fetching forms in case they are needed by other logic, or future use
       ]);
       setDialogLocations(locations);
       setDialogClients(clients);
       setDialogCategories(categories);
       setDialogServices(services);
-      setDialogCustomForms(forms);
+      // setDialogCustomForms(forms); // Not directly bound to UI but good to have if logic depends on it
 
       if (locations.length > 0 && !selectedLocation) setSelectedLocation(locations[0].id);
       if (categories.length > 0 && !selectedCategory) setSelectedCategory(categories[0].id);
@@ -149,7 +148,7 @@ export default function HostDashboardPage() {
       setDialogClients([]);
       setDialogCategories([]);
       setDialogServices([]);
-      setDialogCustomForms([]);
+      // setDialogCustomForms([]);
       setSelectedLocation("");
       setSelectedCategory("");
       setSelectedService("");
@@ -193,7 +192,7 @@ export default function HostDashboardPage() {
 
   const resetDialogForm = () => {
     setSelectedLocation(dialogLocations.length > 0 ? dialogLocations[0].id : "");
-    setSelectedClient("");
+    setSelectedClient(NO_CLIENT_SELECTED_VALUE);
     setManualClientName("");
     setSelectedCategory(dialogCategories.length > 0 ? dialogCategories[0].id : "");
     setSelectedService("");
@@ -209,22 +208,21 @@ export default function HostDashboardPage() {
   }
 
   const handleClientSelectionChange = (value: string) => {
-    if (value === NO_CLIENT_SELECTED_VALUE) {
-        setSelectedClient(""); // Enable manual input
-    } else {
-        setSelectedClient(value); // Set to actual client ID
-        setManualClientName(""); // Clear manual input if registered client is chosen
+    setSelectedClient(value);
+    if (value !== NO_CLIENT_SELECTED_VALUE) {
+        setManualClientName(""); 
     }
   };
 
-  const handleOrderSubmit = async (formData: Record<string, any>) => {
+  // This function will be called by DynamicFormRenderer on its internal submit
+  const handleActualOrderSubmit = async (formData: Record<string, any>) => {
     if (!user?.hostId || !selectedLocation || !selectedService) {
       toast({ title: "Missing Information", description: "Please select location and service.", variant: "destructive" });
       return;
     }
 
     let clientNameToSubmit = manualClientName.trim();
-    if (!clientNameToSubmit && selectedClient) {
+    if (selectedClient !== NO_CLIENT_SELECTED_VALUE) {
         const clientObj = dialogClients.find(c => c.id === selectedClient);
         clientNameToSubmit = clientObj?.nom || "Unknown Client";
     }
@@ -241,8 +239,9 @@ export default function HostDashboardPage() {
         chambreTableId: selectedLocation,
         serviceId: selectedService,
         clientNom: clientNameToSubmit,
-        donneesFormulaire: JSON.stringify(formData),
+        donneesFormulaire: JSON.stringify(formData), // formData comes from DynamicFormRenderer or is {}
         prix: serviceForOrder?.prix, 
+        userId: selectedClient !== NO_CLIENT_SELECTED_VALUE ? selectedClient : undefined // Pass client ID if selected
       });
       toast({ title: "Order Created", description: `New order for ${clientNameToSubmit} has been submitted.` });
       fetchDashboardData(user.hostId); 
@@ -255,6 +254,18 @@ export default function HostDashboardPage() {
       setIsSubmittingOrder(false);
     }
   };
+  
+  // This function is triggered by the button in DialogFooter
+  const triggerOrderSubmission = () => {
+    if (selectedServiceDetails?.formulaireId && dialogFormFields.length > 0 && dynamicFormRef.current) {
+      dynamicFormRef.current.submit(); // Calls submit on DynamicFormRenderer
+    } else if (selectedServiceDetails) {
+      handleActualOrderSubmit({}); // No form, submit with empty form data
+    } else {
+      toast({ title: "Cannot Submit", description: "Please select a service first.", variant: "destructive"});
+    }
+  };
+
 
   const filteredServices = selectedCategory ? dialogServices.filter(s => s.categorieId === selectedCategory) : dialogServices;
 
@@ -331,12 +342,18 @@ export default function HostDashboardPage() {
                 </Select>
               </div>
                <div>
-                <Label htmlFor="manualClientName">Or Enter Client Name</Label>
-                <Input id="manualClientName" value={manualClientName} onChange={(e) => setManualClientName(e.target.value)} placeholder="e.g., John Doe, Table 5 Guest" disabled={!!selectedClient}/>
+                <Label htmlFor="manualClientName">Or Enter Client Name *</Label>
+                <Input 
+                    id="manualClientName" 
+                    value={manualClientName} 
+                    onChange={(e) => setManualClientName(e.target.value)} 
+                    placeholder="e.g., John Doe, Table 5 Guest" 
+                    disabled={selectedClient !== NO_CLIENT_SELECTED_VALUE}
+                />
               </div>
 
               <div>
-                <Label htmlFor="dialogCategory">Service Category</Label>
+                <Label htmlFor="dialogCategory">Service Category *</Label>
                 <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={dialogCategories.length === 0}>
                   <SelectTrigger id="dialogCategory"><SelectValue placeholder="Select a category" /></SelectTrigger>
                   <SelectContent>
@@ -347,7 +364,7 @@ export default function HostDashboardPage() {
               </div>
 
               <div>
-                <Label htmlFor="dialogService">Service</Label>
+                <Label htmlFor="dialogService">Service *</Label>
                 <Select value={selectedService} onValueChange={setSelectedService} disabled={filteredServices.length === 0 || !selectedCategory}>
                   <SelectTrigger id="dialogService"><SelectValue placeholder="Select a service" /></SelectTrigger>
                   <SelectContent>
@@ -363,28 +380,29 @@ export default function HostDashboardPage() {
 
               {selectedServiceDetails?.formulaireId && dialogFormFields.length > 0 && (
                 <DynamicFormRenderer
+                  ref={dynamicFormRef} // Assign ref
                   formName={`Order: ${selectedServiceDetails.titre}`}
-                  formDescription={dialogCustomForms.find(f => f.id === selectedServiceDetails.formulaireId)?.nom || "Additional Information"}
+                  formDescription={dialogServices.find(f => f.id === selectedServiceDetails.formulaireId)?.titre || "Additional Information"} // Using service titre if form name not available
                   fields={dialogFormFields}
-                  onSubmit={handleOrderSubmit}
-                  isLoading={isSubmittingOrder}
-                  submitButtonText={selectedServiceDetails.prix !== undefined ? `Submit Order ($${selectedServiceDetails.prix.toFixed(2)})` : "Submit Order"}
+                  onSubmit={handleActualOrderSubmit} // This will be called by the form's internal submit
                 />
               )}
-              
-              {selectedServiceDetails && !selectedServiceDetails.formulaireId && (
-                 <Button onClick={() => handleOrderSubmit({})} className="w-full mt-4" disabled={isSubmittingOrder || !selectedLocation || (!selectedClient && !manualClientName.trim())}>
-                    {isSubmittingOrder ? 'Submitting...' : (selectedServiceDetails.prix !== undefined ? `Submit Order ($${selectedServiceDetails.prix.toFixed(2)})` : "Submit Order")}
-                 </Button>
-              )}
-
             </div>
             )}
-            {!selectedServiceDetails?.formulaireId && (
-              <DialogFooter className="mt-auto pt-4 border-t">
+            <DialogFooter className="mt-auto pt-4 border-t">
                 <Button variant="outline" onClick={() => handleAddOrderDialogChange(false)} disabled={isSubmittingOrder}>Cancel</Button>
-              </DialogFooter>
-            )}
+                <Button 
+                    onClick={triggerOrderSubmission} 
+                    disabled={
+                        isSubmittingOrder || 
+                        !selectedLocation || 
+                        !selectedService ||
+                        (selectedClient === NO_CLIENT_SELECTED_VALUE && !manualClientName.trim())
+                    }
+                >
+                    {isSubmittingOrder ? 'Submitting...' : (selectedServiceDetails?.prix !== undefined ? `Submit Order ($${selectedServiceDetails.prix.toFixed(2)})` : "Submit Order")}
+                </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
@@ -434,10 +452,10 @@ export default function HostDashboardPage() {
                     <div className="flex justify-between">
                       <span>Order #{order.id.slice(-5)} for Room/Table: {order.chambreTableId}</span>
                       <span className={`px-2 py-0.5 rounded-full text-xs ${
-                        order.status === 'pending' ? 'bg-yellow-400/20 text-yellow-600 dark:text-yellow-400' : 
-                        order.status === 'completed' ? 'bg-green-400/20 text-green-600 dark:text-green-400' :
-                        order.status === 'confirmed' ? 'bg-blue-400/20 text-blue-600 dark:text-blue-400' :
-                        'bg-red-400/20 text-red-600 dark:text-red-400' 
+                        order.status === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-700/30 dark:text-yellow-300' : 
+                        order.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-700/30 dark:text-green-300' :
+                        order.status === 'confirmed' ? 'bg-blue-100 text-blue-700 dark:bg-blue-700/30 dark:text-blue-300' :
+                        'bg-red-100 text-red-700 dark:bg-red-700/30 dark:text-red-300' 
                       }`}>{order.status}</span>
                     </div>
                     <div className="text-xs text-muted-foreground">{new Date(order.dateHeure).toLocaleString()}</div>
