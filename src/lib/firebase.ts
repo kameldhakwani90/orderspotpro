@@ -5,6 +5,9 @@ import { getFirestore } from 'firebase/firestore';
 // import { getAuth } from 'firebase/auth'; // à activer plus tard si besoin
 
 // Your web app's Firebase configuration (FROM USER INPUT)
+// IMPORTANT: Ensure these values are your ACTUAL Firebase project credentials.
+// The apiKey below (AIzaSyAZgZ95qTjzzXtICx9O--m9U706mrFR_50) is often a placeholder.
+// If it is, your app WILL NOT connect to Firebase services correctly.
 const firebaseConfig = {
   apiKey: "AIzaSyAZgZ95qTjzzXtICx9O--m9U706mrFR_50",
   authDomain: "connecthost.firebaseapp.com",
@@ -17,22 +20,8 @@ const firebaseConfig = {
 // Log the projectId being used, especially important for client-side.
 if (typeof window !== 'undefined') { // Only run this client-side check in the browser
   console.log("[Firebase Setup] Attempting to initialize Firebase with projectId:", firebaseConfig.projectId);
-  // Check if the API key is the known placeholder or looks like one
-  if (firebaseConfig.apiKey === "AIzaSyAZgZ95qTjzzXtICx9O--m9U706mrFR_50" || 
-      !firebaseConfig.apiKey || 
-      firebaseConfig.apiKey.includes("YOUR_") || 
-      firebaseConfig.projectId.includes("YOUR_")) {
-    console.error(
-      "************************************************************************\n" +
-      "CRITICAL Firebase Configuration Error:\n" +
-      "The API Key or Project ID in firebaseConfig (src/lib/firebase.ts)\n" +
-      "looks like a placeholder or is missing critical information.\n" +
-      "Please ensure you have replaced ALL placeholder values with your\n" +
-      "ACTUAL Firebase project configuration details from the Firebase console.\n" +
-      "Firestore connection WILL FAIL with incorrect or placeholder values.\n" +
-      "************************************************************************"
-    );
-  }
+  // The explicit check for the placeholder API key has been removed as per user request.
+  // However, if the apiKey above is a placeholder, Firebase connection will still fail.
 }
 
 // Initialize Firebase
