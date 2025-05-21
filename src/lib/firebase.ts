@@ -5,10 +5,8 @@ import { getFirestore } from 'firebase/firestore';
 // import { getAuth } from 'firebase/auth'; // à activer plus tard si besoin
 
 // Your web app's Firebase configuration (FROM USER INPUT)
-// IMPORTANT: The apiKey below is a KNOWN PLACEHOLDER. 
-// You MUST replace it with your project's actual Web API Key from the Firebase console.
 const firebaseConfig = {
-  apiKey: "AIzaSyAZgZ95qTjzzXtICx9O--m9U706mrFR_50", // <<< --- !!! REPLACE THIS WITH YOUR REAL API KEY !!!
+  apiKey: "AIzaSyAZgZ95qTjzzXtICx9O--m9U706mrFR_50",
   authDomain: "connecthost.firebaseapp.com",
   projectId: "connecthost",
   storageBucket: "connecthost.firebasestorage.app",
@@ -42,7 +40,7 @@ let app;
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
   if (typeof window !== 'undefined') {
-    console.log("[Firebase Setup] Firebase app initialized successfully.");
+    console.log("[Firebase Setup] Firebase app initialized successfully with provided config.");
   }
 } else {
   app = getApp();
