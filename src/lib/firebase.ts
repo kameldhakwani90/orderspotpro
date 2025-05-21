@@ -5,8 +5,10 @@ import { getFirestore } from 'firebase/firestore';
 // import { getAuth } from 'firebase/auth'; // à activer plus tard si besoin
 
 // Your web app's Firebase configuration (FROM USER INPUT)
+// IMPORTANT: The apiKey below is a KNOWN PLACEHOLDER. 
+// You MUST replace it with your project's actual Web API Key from the Firebase console.
 const firebaseConfig = {
-  apiKey: "AIzaSyAZgZ95qTjzzXtICx9O--m9U706mrFR_50", // IMPORTANT: User needs to replace this with their actual API key
+  apiKey: "AIzaSyAZgZ95qTjzzXtICx9O--m9U706mrFR_50", // <<< --- !!! REPLACE THIS WITH YOUR REAL API KEY !!!
   authDomain: "connecthost.firebaseapp.com",
   projectId: "connecthost",
   storageBucket: "connecthost.firebasestorage.app",
@@ -17,7 +19,7 @@ const firebaseConfig = {
 // Log the projectId being used, especially important for client-side.
 if (typeof window !== 'undefined') { // Only run this client-side check in the browser
   console.log("[Firebase Setup] Attempting to initialize Firebase with projectId:", firebaseConfig.projectId);
-  // Check if the API key is the known placeholder
+  // Check if the API key is the known placeholder or looks like one
   if (firebaseConfig.apiKey === "AIzaSyAZgZ95qTjzzXtICx9O--m9U706mrFR_50" || 
       !firebaseConfig.apiKey || 
       firebaseConfig.apiKey.includes("YOUR_") || 
@@ -25,9 +27,10 @@ if (typeof window !== 'undefined') { // Only run this client-side check in the b
     console.error(
       "************************************************************************\n" +
       "CRITICAL Firebase Configuration Error:\n" +
-      "The API Key in firebaseConfig (src/lib/firebase.ts) is a placeholder.\n" +
-      "You MUST replace 'AIzaSyAZgZ95qTjzzXtICx9O--m9U706mrFR_50' with your\n" +
-      "ACTUAL Firebase project API Key from the Firebase console.\n" +
+      "The API Key or Project ID in firebaseConfig (src/lib/firebase.ts)\n" +
+      "looks like a placeholder or is missing critical information.\n" +
+      "Please ensure you have replaced ALL placeholder values with your\n" +
+      "ACTUAL Firebase project configuration details from the Firebase console.\n" +
       "Firestore connection WILL FAIL with incorrect or placeholder values.\n" +
       "************************************************************************"
     );
