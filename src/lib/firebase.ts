@@ -2,12 +2,12 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
-// Configuration based on user's provided details
+// Configuration using user-provided details, with the new API key
 const firebaseConfig = {
-  apiKey: "AIzaSyAZgZ95qTjzzXtICx9O--m9U706mrFR_50", // As provided by user
+  apiKey: "AIzaSyAFc5A445t7gyhGraXM29qu69TSVmsNoRk", // New API Key
   authDomain: "connecthost.firebaseapp.com",
   projectId: "connecthost",
-  storageBucket: "connecthost.firebasestorage.app", // As provided by user
+  storageBucket: "connecthost.firebasestorage.app",
   messagingSenderId: "812170721595",
   appId: "1:812170721595:web:bb01e08199c8fb31a75f1e"
 };
@@ -16,23 +16,21 @@ let app: FirebaseApp;
 let db: any; // Firestore database instance
 
 if (typeof window !== 'undefined') {
-  console.log("[Firebase Setup] Using Firebase config:", JSON.parse(JSON.stringify(firebaseConfig)));
+  console.log("[Firebase Setup] Using Firebase config:", JSON.parse(JSON.stringify(firebaseConfig))); // Log the entire config for verification
   console.log("[Firebase Setup] Attempting to initialize Firebase with projectId:", firebaseConfig.projectId);
 
-  // Adjusted condition: Removed the direct check for "AIzaSyAZgZ95qTjzzXtICx9O--m9U706mrFR_50"
-  // Kept general placeholder checks like "YOUR_..."
-  if (!firebaseConfig.apiKey ||
-      firebaseConfig.apiKey.includes("YOUR_API_KEY") || // Check for common placeholder patterns
-      !firebaseConfig.projectId ||
-      firebaseConfig.projectId.includes("YOUR_PROJECT_ID")) {
+  // General placeholder check - this new key should not trigger this unless it also contains "YOUR_"
+  if (!firebaseConfig.apiKey || 
+      firebaseConfig.apiKey.includes("YOUR_") || 
+      firebaseConfig.projectId.includes("YOUR_")) {
     console.error(
       "************************************************************************\n" +
       "CRITICAL Firebase Configuration Warning:\n" +
       "The API Key or Project ID in firebaseConfig (src/lib/firebase.ts)\n" +
-      "might be a placeholder or missing critical information.\n" +
-      "Please ensure you have verified ALL configuration values with your\n" +
+      "looks like a placeholder or is missing critical information.\n" +
+      "Please ensure you have replaced ALL placeholder values with your\n" +
       "ACTUAL Firebase project configuration details from the Firebase console.\n" +
-      "Firestore connection may FAIL with incorrect or placeholder values.\n" +
+      "Firestore connection WILL FAIL with incorrect or placeholder values.\n" +
       "Current API Key being used: " + firebaseConfig.apiKey + "\n" +
       "Current Project ID being used: " + firebaseConfig.projectId + "\n" +
       "************************************************************************"
@@ -51,7 +49,6 @@ if (!getApps().length) {
       console.error("[Firebase Setup] Error initializing Firebase app:", error);
       console.error("[Firebase Setup] Used config:", JSON.parse(JSON.stringify(firebaseConfig)));
     }
-    // Rethrow or handle as appropriate if initialization fails critically
   }
 } else {
   app = getApp();
@@ -60,8 +57,7 @@ if (!getApps().length) {
   }
 }
 
-// Ensure app is defined before calling getFirestore
-if (app!) { // The non-null assertion operator assumes 'app' will be defined.
+if (app!) { 
   try {
     db = getFirestore(app);
     if (typeof window !== 'undefined') {
@@ -71,7 +67,6 @@ if (app!) { // The non-null assertion operator assumes 'app' will be defined.
     if (typeof window !== 'undefined') {
       console.error("[Firebase Setup] Error obtaining Firestore instance:", error);
     }
-    // db will remain undefined, subsequent calls might fail
   }
 } else {
   if (typeof window !== 'undefined') {
