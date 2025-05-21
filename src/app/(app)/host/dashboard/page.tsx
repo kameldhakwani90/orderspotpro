@@ -32,6 +32,11 @@ import { useToast } from "@/hooks/use-toast";
 import { DynamicFormRenderer } from "@/components/shared/DynamicFormRenderer";
 import { Skeleton } from "@/components/ui/skeleton";
 
+const NO_CLIENT_SELECTED_VALUE = "__NO_CLIENT_SELECTED_PLACEHOLDER__";
+const NO_LOCATIONS_PLACEHOLDER_VALUE = "__NO_LOCATIONS_PLACEHOLDER__";
+const NO_CATEGORIES_PLACEHOLDER_VALUE = "__NO_CATEGORIES_PLACEHOLDER__";
+const NO_SERVICES_PLACEHOLDER_VALUE = "__NO_SERVICES_PLACEHOLDER__";
+
 
 const StatCard = ({ title, value, icon: Icon, link, buttonText }: { title: string, value: string | number, icon: React.ElementType, link?: string, buttonText?: string }) => (
   <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
@@ -77,7 +82,7 @@ export default function HostDashboardPage() {
   const [dialogFormFields, setDialogFormFields] = useState<FormField[]>([]);
 
   const [selectedLocation, setSelectedLocation] = useState<string>("");
-  const [selectedClient, setSelectedClient] = useState<string>(""); // Stores client.id
+  const [selectedClient, setSelectedClient] = useState<string>(""); // Stores client.id or ""
   const [manualClientName, setManualClientName] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedService, setSelectedService] = useState<string>("");
@@ -107,7 +112,7 @@ export default function HostDashboardPage() {
     } finally {
         setIsDataLoading(false);
     }
-  }, []); // Removed toast
+  }, [toast]); 
 
   useEffect(() => {
     if (!authLoading && user?.role !== 'host') {
@@ -135,13 +140,11 @@ export default function HostDashboardPage() {
       setDialogServices(services);
       setDialogCustomForms(forms);
 
-      // Set defaults only if the corresponding state is currently empty
       if (locations.length > 0 && !selectedLocation) setSelectedLocation(locations[0].id);
       if (categories.length > 0 && !selectedCategory) setSelectedCategory(categories[0].id);
 
     } catch (error) {
       toast({ title: "Error", description: "Could not load data for new order form.", variant: "destructive" });
-      // Reset states on error to prevent rendering with inconsistent data
       setDialogLocations([]);
       setDialogClients([]);
       setDialogCategories([]);
@@ -153,7 +156,7 @@ export default function HostDashboardPage() {
     } finally {
       setIsDialogDataLoading(false);
     }
-  }, [user?.hostId, isAddOrderDialogOpen, selectedLocation, selectedCategory]); // Removed toast
+  }, [user?.hostId, isAddOrderDialogOpen, selectedLocation, selectedCategory, toast]); 
 
   useEffect(() => {
     if (isAddOrderDialogOpen) {
@@ -186,7 +189,7 @@ export default function HostDashboardPage() {
       setSelectedServiceDetails(null);
       setDialogFormFields([]);
     }
-  }, [selectedService, dialogServices]); // Removed toast
+  }, [selectedService, dialogServices, toast]); 
 
   const resetDialogForm = () => {
     setSelectedLocation(dialogLocations.length > 0 ? dialogLocations[0].id : "");
@@ -204,6 +207,15 @@ export default function HostDashboardPage() {
       resetDialogForm();
     }
   }
+
+  const handleClientSelectionChange = (value: string) => {
+    if (value === NO_CLIENT_SELECTED_VALUE) {
+        setSelectedClient(""); // Enable manual input
+    } else {
+        setSelectedClient(value); // Set to actual client ID
+        setManualClientName(""); // Clear manual input if registered client is chosen
+    }
+  };
 
   const handleOrderSubmit = async (formData: Record<string, any>) => {
     if (!user?.hostId || !selectedLocation || !selectedService) {
@@ -230,11 +242,10 @@ export default function HostDashboardPage() {
         serviceId: selectedService,
         clientNom: clientNameToSubmit,
         donneesFormulaire: JSON.stringify(formData),
-        prix: serviceForOrder?.prix, // Pass price from selected service
-        // status and dateHeure are set by addOrder function
+        prix: serviceForOrder?.prix, 
       });
       toast({ title: "Order Created", description: `New order for ${clientNameToSubmit} has been submitted.` });
-      fetchDashboardData(user.hostId); // Refresh dashboard stats
+      fetchDashboardData(user.hostId); 
       setIsAddOrderDialogOpen(false);
       resetDialogForm();
     } catch (error) {
@@ -303,19 +314,19 @@ export default function HostDashboardPage() {
                   <SelectTrigger id="dialogLocation"><SelectValue placeholder="Select a location" /></SelectTrigger>
                   <SelectContent>
                     {dialogLocations.map(loc => <SelectItem key={loc.id} value={loc.id}>{loc.type} - {loc.nom}</SelectItem>)}
-                    {dialogLocations.length === 0 && <SelectItem value="none" disabled>No locations available</SelectItem>}
+                    {dialogLocations.length === 0 && <SelectItem value={NO_LOCATIONS_PLACEHOLDER_VALUE} disabled>No locations available</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
                 <Label htmlFor="dialogClient">Registered Client (Optional)</Label>
-                <Select value={selectedClient} onValueChange={setSelectedClient} disabled={dialogClients.length === 0}>
+                <Select value={selectedClient} onValueChange={handleClientSelectionChange} disabled={dialogClients.length === 0}>
                   <SelectTrigger id="dialogClient"><SelectValue placeholder="Select a registered client" /></SelectTrigger>
                   <SelectContent>
-                     <SelectItem value="">None (Enter name below)</SelectItem>
+                     <SelectItem value={NO_CLIENT_SELECTED_VALUE}>None (Enter name below)</SelectItem>
                     {dialogClients.map(client => <SelectItem key={client.id} value={client.id}>{client.nom}</SelectItem>)}
-                    {dialogClients.length === 0 && <SelectItem value="no_clients" disabled>No registered clients</SelectItem>}
+                    {dialogClients.length === 0 && <SelectItem value="__NO_REGISTERED_CLIENTS__" disabled>No registered clients</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
@@ -330,7 +341,7 @@ export default function HostDashboardPage() {
                   <SelectTrigger id="dialogCategory"><SelectValue placeholder="Select a category" /></SelectTrigger>
                   <SelectContent>
                     {dialogCategories.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.nom}</SelectItem>)}
-                     {dialogCategories.length === 0 && <SelectItem value="none" disabled>No categories available</SelectItem>}
+                     {dialogCategories.length === 0 && <SelectItem value={NO_CATEGORIES_PLACEHOLDER_VALUE} disabled>No categories available</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
@@ -340,13 +351,13 @@ export default function HostDashboardPage() {
                 <Select value={selectedService} onValueChange={setSelectedService} disabled={filteredServices.length === 0 || !selectedCategory}>
                   <SelectTrigger id="dialogService"><SelectValue placeholder="Select a service" /></SelectTrigger>
                   <SelectContent>
-                    {filteredServices.map(srv => <SelectItem key={srv.id} value={srv.id}>{srv.titre} {srv.prix ? `($${srv.prix.toFixed(2)})` : ''}</SelectItem>)}
-                    {filteredServices.length === 0 && <SelectItem value="none" disabled>No services in category</SelectItem>}
+                    {filteredServices.map(srv => <SelectItem key={srv.id} value={srv.id}>{srv.titre} {srv.prix !== undefined ? `($${srv.prix.toFixed(2)})` : ''}</SelectItem>)}
+                    {filteredServices.length === 0 && <SelectItem value={NO_SERVICES_PLACEHOLDER_VALUE} disabled>No services in category</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
 
-              {selectedServiceDetails?.prix !== undefined && ( // Check for undefined specifically for price
+              {selectedServiceDetails?.prix !== undefined && ( 
                 <p className="text-lg font-semibold text-primary">Price: ${selectedServiceDetails.prix.toFixed(2)}</p>
               )}
 
@@ -372,7 +383,6 @@ export default function HostDashboardPage() {
             {!selectedServiceDetails?.formulaireId && (
               <DialogFooter className="mt-auto pt-4 border-t">
                 <Button variant="outline" onClick={() => handleAddOrderDialogChange(false)} disabled={isSubmittingOrder}>Cancel</Button>
-                {/* Submit button moved inside if form is not present or outside if form is present */}
               </DialogFooter>
             )}
           </DialogContent>
@@ -424,10 +434,10 @@ export default function HostDashboardPage() {
                     <div className="flex justify-between">
                       <span>Order #{order.id.slice(-5)} for Room/Table: {order.chambreTableId}</span>
                       <span className={`px-2 py-0.5 rounded-full text-xs ${
-                        order.status === 'pending' ? 'bg-yellow-400/20 text-yellow-600 dark:bg-yellow-600/20 dark:text-yellow-400' : 
-                        order.status === 'completed' ? 'bg-green-400/20 text-green-600 dark:bg-green-600/20 dark:text-green-400' :
-                        order.status === 'confirmed' ? 'bg-blue-400/20 text-blue-600 dark:bg-blue-600/20 dark:text-blue-400' :
-                        'bg-red-400/20 text-red-600 dark:bg-red-600/20 dark:text-red-400' // for cancelled or other
+                        order.status === 'pending' ? 'bg-yellow-400/20 text-yellow-600 dark:text-yellow-400' : 
+                        order.status === 'completed' ? 'bg-green-400/20 text-green-600 dark:text-green-400' :
+                        order.status === 'confirmed' ? 'bg-blue-400/20 text-blue-600 dark:text-blue-400' :
+                        'bg-red-400/20 text-red-600 dark:text-red-400' 
                       }`}>{order.status}</span>
                     </div>
                     <div className="text-xs text-muted-foreground">{new Date(order.dateHeure).toLocaleString()}</div>
