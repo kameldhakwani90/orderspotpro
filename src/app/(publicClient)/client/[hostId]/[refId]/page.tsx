@@ -1,106 +1,166 @@
 
 "use client";
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useEffect, useState, useCallback } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { getServices, getHostById, getRoomOrTableById, getServiceCategories } from '@/lib/data';
 import type { Service, Host, RoomOrTable, ServiceCategory } from '@/lib/types';
 import { ServiceCard } from '@/components/client/ServiceCard';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, Building, MapPin, Filter } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { AlertTriangle, Building, MapPin, Filter, ArrowLeft, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import Image from 'next/image';
+import NextImage from 'next/image'; // Renamed to avoid conflict with lucide-react Image icon
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Added Card components
+import { cn } from '@/lib/utils';
+
+interface CategoryCardProps {
+  category: ServiceCategory;
+  onClick: () => void;
+}
+
+const CategoryCard: React.FC<CategoryCardProps> = ({ category, onClick }) => {
+  const imageUrl = category.image || `https://placehold.co/300x200.png`;
+  const imageAiHint = category['data-ai-hint'] || category.nom.toLowerCase().split(' ').slice(0,2).join(' ') || 'category item';
+
+  return (
+    <Card
+      onClick={onClick}
+      className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer h-full bg-card hover:bg-accent/10"
+    >
+      <CardHeader className="p-0 relative">
+        <div className="relative w-full h-40">
+          {imageUrl.startsWith('https://placehold.co/') || imageUrl.startsWith('/placeholder-images/') ? (
+            <NextImage
+              src={imageUrl}
+              alt={category.nom}
+              layout="fill"
+              objectFit="cover"
+              data-ai-hint={imageAiHint}
+            />
+          ) : (
+            <div className="w-full h-full bg-muted flex items-center justify-center">
+              <ImageIcon className="h-12 w-12 text-muted-foreground" />
+            </div>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 flex-grow flex items-center justify-center">
+        <CardTitle className="text-lg text-center font-semibold">{category.nom}</CardTitle>
+      </CardContent>
+    </Card>
+  );
+};
+
 
 export default function PublicClientServicePage() {
   const params = useParams();
   const { user, isLoading: authIsLoading } = useAuth();
+  const router = useRouter();
 
   const hostId = params.hostId as string;
-  const refId = params.refId as string; // This is RoomOrTable ID
+  const refId = params.refId as string; 
 
   const [services, setServices] = useState<Service[]>([]);
   const [hostInfo, setHostInfo] = useState<Host | null>(null);
   const [locationInfo, setLocationInfo] = useState<RoomOrTable | null>(null);
-  const [categories, setCategories] = useState<ServiceCategory[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [allCategories, setAllCategories] = useState<ServiceCategory[]>([]);
+  
+  const [viewMode, setViewMode] = useState<'categories' | 'services'>('categories');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [currentCategoryName, setCurrentCategoryName] = useState<string | null>(null);
+
   const [isLoadingPage, setIsLoadingPage] = useState(true);
+  const [isLoadingServices, setIsLoadingServices] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchInitialData = useCallback(async () => {
+    if (authIsLoading || !hostId || !refId) {
+      console.log("PublicClientServicePage: Auth loading or missing IDs, deferring initial data fetch.", { hostId, refId, authIsLoading });
+      if (!authIsLoading && (!hostId || !refId)) {
+          setError("Required information (host or location ID) is missing.");
+          setIsLoadingPage(false);
+      }
+      return;
+    }
+    setIsLoadingPage(true);
+    setError(null);
+    console.log("PublicClientServicePage: Starting initial data fetch (host, location, categories)...");
+    try {
+      const [hostData, locationData, categoriesData] = await Promise.all([
+        getHostById(hostId),
+        getRoomOrTableById(refId),
+        getServiceCategories(hostId)
+      ]);
+
+      if (!hostData) {
+        setError(`Establishment with ID ${hostId} not found.`);
+        setHostInfo(null); setLocationInfo(null); setAllCategories([]); setIsLoadingPage(false); return;
+      }
+      setHostInfo(hostData);
+
+      if (!locationData || locationData.hostId !== hostId) {
+        setError(`Location with ID ${refId} not found or does not belong to ${hostData.nom}.`);
+        setLocationInfo(null); setAllCategories([]); setIsLoadingPage(false); return;
+      }
+      setLocationInfo(locationData);
+      setAllCategories(categoriesData);
+      console.log("PublicClientServicePage: Initial data fetched successfully.");
+    } catch (e: any) {
+      console.error("PublicClientServicePage: Failed to fetch initial data:", e);
+      setError(`Failed to load establishment information. (Details: ${e.message})`);
+    } finally {
+      setIsLoadingPage(false);
+    }
+  }, [hostId, refId, authIsLoading]);
+
   useEffect(() => {
-    console.log("PublicClientServicePage: Effect triggered.", { hostId, refId, selectedCategory, authIsLoading });
-    if (authIsLoading) {
-        console.log("PublicClientServicePage: Auth is still loading, deferring data fetch.");
-        // Optionally set isLoadingPage to true here if it wasn't already,
-        // or handle this by showing a generic loader until authIsLoading is false.
-        // For now, we let the existing isLoadingPage logic handle it.
-        return; 
+    fetchInitialData();
+  }, [fetchInitialData]);
+
+  const fetchServicesForCategory = useCallback(async (categoryId: string) => {
+    if (!hostId || !refId || categoryId === "all" || !categoryId) { // 'all' might be used internally, or null
+      setServices([]); // Clear services if no specific category or invalid
+      return;
     }
+    setIsLoadingServices(true);
+    setError(null); // Clear previous errors
+    console.log(`PublicClientServicePage: Fetching services for category ID: ${categoryId}`);
+    try {
+      // Ensure getServices can handle categoryId being passed
+      const servicesData = await getServices(hostId, refId, categoryId);
+      setServices(servicesData);
+      console.log("PublicClientServicePage: Services fetched for category.", { servicesData });
+    } catch (e: any) {
+      console.error(`PublicClientServicePage: Failed to fetch services for category ${categoryId}:`, e);
+      setError(`Failed to load services. (Details: ${e.message})`);
+      setServices([]); // Clear services on error
+    } finally {
+      setIsLoadingServices(false);
+    }
+  }, [hostId, refId]);
 
-    if (hostId && refId) {
-      const fetchData = async () => {
-        setIsLoadingPage(true);
-        setError(null);
-        console.log("PublicClientServicePage: Starting data fetch...");
-        try {
-          console.log(`PublicClientServicePage: Fetching host with ID: ${hostId}`);
-          const hostData = await getHostById(hostId);
-          console.log("PublicClientServicePage: Fetched host data.", { hostData });
-
-          if (!hostData) {
-            setError(`Establishment with ID ${hostId} not found. Please check the QR code or link.`);
-            setHostInfo(null); setLocationInfo(null); setCategories([]);
-            setIsLoadingPage(false); 
-            console.error("PublicClientServicePage: Host not found.");
-            return;
-          }
-          setHostInfo(hostData);
-
-          console.log(`PublicClientServicePage: Fetching location with ID: ${refId}`);
-          const locationData = await getRoomOrTableById(refId);
-          console.log("PublicClientServicePage: Fetched location data.", { locationData });
-
-          if (!locationData || locationData.hostId !== hostId) {
-            setError(`Location with ID ${refId} not found or does not belong to ${hostData.nom}. Please check the QR code or link.`);
-            setLocationInfo(null); setCategories([]);
-            setIsLoadingPage(false); 
-            console.error("PublicClientServicePage: Location not found or invalid.");
-            return;
-          }
-          setLocationInfo(locationData);
-
-          console.log(`PublicClientServicePage: Fetching categories for host ID: ${hostId}`);
-          const categoriesData = await getServiceCategories(hostId);
-          console.log("PublicClientServicePage: Fetched categories data.", { categoriesData });
-          setCategories([{id: 'all', nom: 'All Categories', hostId}, ...categoriesData]);
-          
-          console.log(`PublicClientServicePage: Fetching services for host ID: ${hostId}, location ID: ${refId}, category: ${selectedCategory}`);
-          const servicesData = await getServices(hostId, refId, selectedCategory === "all" ? undefined : selectedCategory);
-          console.log("PublicClientServicePage: Fetched services data.", { servicesData });
-          setServices(servicesData);
-          console.log("PublicClientServicePage: Data fetch complete.");
-
-        } catch (e: any) {
-          console.error("PublicClientServicePage: Failed to fetch client data:", e);
-          setError(`Failed to load service information. This could be due to a connection issue or incorrect configuration. Please try again later or contact support. (Details: ${e.message})`);
-        } finally {
-            setIsLoadingPage(false);
-            console.log("PublicClientServicePage: Data fetch process finished. isLoadingPage set to false.");
-        }
-      };
-      fetchData();
+  useEffect(() => {
+    if (viewMode === 'services' && selectedCategoryId && selectedCategoryId !== 'all') {
+      fetchServicesForCategory(selectedCategoryId);
     } else {
-        console.warn("PublicClientServicePage: hostId or refId is missing. Cannot fetch data.", { hostId, refId });
-        setError("Required information (host or location ID) is missing from the URL.");
-        setIsLoadingPage(false);
+      setServices([]); // Clear services when not in service view or no category selected
     }
-  }, [hostId, refId, selectedCategory, authIsLoading]); // Added authIsLoading
+  }, [viewMode, selectedCategoryId, fetchServicesForCategory]);
+
+
+  const handleCategoryClick = (category: ServiceCategory) => {
+    setSelectedCategoryId(category.id);
+    setCurrentCategoryName(category.nom);
+    setViewMode('services');
+  };
+
+  const handleBackToCategories = () => {
+    setViewMode('categories');
+    setSelectedCategoryId(null);
+    setCurrentCategoryName(null);
+    setServices([]);
+  };
 
   if (isLoadingPage || authIsLoading) {
     return (
@@ -109,14 +169,11 @@ export default function PublicClientServicePage() {
           <Skeleton className="h-10 w-3/4 mb-3" />
           <Skeleton className="h-6 w-1/2 mb-6" />
         </div>
-        <Skeleton className="h-12 w-full sm:w-[320px] mb-8" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+          {[...Array(5)].map((_, i) => (
             <div key={i} className="space-y-2 bg-card/50 p-4 rounded-lg">
-              <Skeleton className="h-48 w-full rounded-md" />
-              <Skeleton className="h-6 w-3/4 mt-3" />
-              <Skeleton className="h-4 w-1/2" />
-              <Skeleton className="h-10 w-full mt-2" />
+              <Skeleton className="h-32 w-full rounded-md" />
+              <Skeleton className="h-6 w-3/4 mt-3 mx-auto" />
             </div>
           ))}
         </div>
@@ -130,6 +187,7 @@ export default function PublicClientServicePage() {
         <AlertTriangle className="mx-auto h-16 w-16 text-destructive mb-4" />
         <h1 className="text-2xl font-semibold text-destructive mb-2">Access Error</h1>
         <p className="text-muted-foreground px-4">{error}</p>
+        <Button onClick={() => router.back()} className="mt-6">Go Back</Button>
       </div>
     );
   }
@@ -137,11 +195,10 @@ export default function PublicClientServicePage() {
   const hostBackgroundUrl = 'https://placehold.co/1920x400.png'; 
   const hostBackgroundAiHint = hostInfo?.nom.toLowerCase().split(" ").slice(0,2).join(" ") || "establishment background";
 
-
   return (
     <div className="space-y-8">
       <div className="relative p-6 md:p-12 rounded-xl shadow-2xl overflow-hidden text-center min-h-[250px] flex flex-col justify-center items-center text-card-foreground bg-card">
-         <Image 
+         <NextImage 
             src={hostBackgroundUrl} 
             alt={`${hostInfo?.nom || 'Establishment'} background`} 
             layout="fill" 
@@ -163,43 +220,69 @@ export default function PublicClientServicePage() {
         </div>
       </div>
 
-      <div className="mb-8 pt-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Filter className="h-5 w-5 text-primary"/>
-          <h2 className="text-xl font-semibold text-foreground">Browse Our Services</h2>
-        </div>
-        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-full sm:w-[320px] bg-card shadow-sm text-base py-3 h-auto">
-            <SelectValue placeholder="Filter by category" />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map(category => (
-              <SelectItem key={category.id} value={category.id} className="text-base py-2">
-                {category.nom}
-              </SelectItem>
+      {viewMode === 'categories' && (
+        <>
+          <div className="mb-8 pt-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Filter className="h-6 w-6 text-primary"/>
+              <h2 className="text-2xl font-semibold text-foreground">Browse Our Categories</h2>
+            </div>
+             {allCategories.length === 0 && !isLoadingPage && (
+                <p className="text-center text-muted-foreground text-lg py-10">
+                    No service categories found for this establishment.
+                </p>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
+            {allCategories.map(category => (
+              <CategoryCard key={category.id} category={category} onClick={() => handleCategoryClick(category)} />
             ))}
-          </SelectContent>
-        </Select>
-      </div>
+          </div>
+        </>
+      )}
 
-      {services.length === 0 && !isLoadingPage ? ( // Ensure not to show this if still loading
-        <p className="text-center text-muted-foreground text-lg py-10">
-          No services currently available for this category or location. Please check back soon!
-        </p>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-8">
-          {services.map(service => (
-            <ServiceCard 
-              key={service.id} 
-              service={service} 
-              hostId={hostId} 
-              refId={refId}
-              isUserLoggedIn={!!user}
-            />
-          ))}
-        </div>
+      {viewMode === 'services' && (
+        <>
+          <div className="flex items-center justify-between mb-6 pt-4">
+            <Button variant="outline" onClick={handleBackToCategories} className="text-base py-2 px-4">
+              <ArrowLeft className="mr-2 h-5 w-5" /> Back to Categories
+            </Button>
+            <h2 className="text-2xl font-semibold text-foreground text-right">
+              {currentCategoryName || 'Services'}
+            </h2>
+          </div>
+          {isLoadingServices ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="space-y-2 bg-card/50 p-4 rounded-lg">
+                  <Skeleton className="h-48 w-full rounded-md" />
+                  <Skeleton className="h-6 w-3/4 mt-3" />
+                  <Skeleton className="h-4 w-1/2" />
+                  <Skeleton className="h-10 w-full mt-2" />
+                </div>
+              ))}
+            </div>
+          ) : services.length === 0 ? (
+             <p className="text-center text-muted-foreground text-lg py-10">
+              No services currently available in the &quot;{currentCategoryName}&quot; category.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-8">
+              {services.map(service => (
+                <ServiceCard 
+                  key={service.id} 
+                  service={service} 
+                  hostId={hostId} 
+                  refId={refId}
+                  isUserLoggedIn={!!user}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
 
+    
