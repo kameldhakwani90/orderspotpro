@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react'; // Added React import
+import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { 
@@ -28,7 +28,6 @@ import {
   isEqual, 
   isBefore, 
   isValid,
-  startOfWeek,
   differenceInDays,
   max,
   min,
@@ -47,7 +46,7 @@ import {
 } from '@/lib/data';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; // Removed CardFooter
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -64,7 +63,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as ShadCalendar } from "@/components/ui/calendar";
+import { Calendar as ShadCalendar } from "@/components/ui/calendar"; // Renamed to ShadCalendar
 import {
   Select,
   SelectContent,
@@ -75,16 +74,16 @@ import {
 import { Badge } from '@/components/ui/badge';
 
 const NO_CLIENT_SELECTED = "___NO_CLIENT_SELECTED___";
-const DAYS_TO_DISPLAY = 7; // Display 7 days at a time (a week)
+const DAYS_TO_DISPLAY = 7; 
 
-const getStatusColor = (status?: ReservationStatus): string => {
+const getStatusColorClass = (status?: ReservationStatus): string => {
   switch (status) {
-    case 'pending': return 'bg-yellow-500/80 hover:bg-yellow-600/80 border-yellow-700';
-    case 'confirmed': return 'bg-blue-500/80 hover:bg-blue-600/80 border-blue-700';
-    case 'checked-in': return 'bg-green-500/80 hover:bg-green-600/80 border-green-700';
-    case 'checked-out': return 'bg-gray-500/80 hover:bg-gray-600/80 border-gray-700';
-    case 'cancelled': return 'bg-red-500/80 hover:bg-red-600/80 border-red-700';
-    default: return 'bg-gray-400/80 hover:bg-gray-500/80 border-gray-600';
+    case 'pending': return 'bg-yellow-500/90 hover:bg-yellow-600/90 border-yellow-700';
+    case 'confirmed': return 'bg-blue-500/90 hover:bg-blue-600/90 border-blue-700';
+    case 'checked-in': return 'bg-green-500/90 hover:bg-green-600/90 border-green-700';
+    case 'checked-out': return 'bg-gray-500/90 hover:bg-gray-600/90 border-gray-700';
+    case 'cancelled': return 'bg-red-500/90 hover:bg-red-600/90 border-red-700';
+    default: return 'bg-gray-400/90 hover:bg-gray-500/90 border-gray-600';
   }
 };
 
@@ -100,7 +99,7 @@ export default function HostReservationsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [allReservations, setAllReservations] = useState<Reservation[]>([]);
   
-  const [viewStartDate, setViewStartDate] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [viewStartDate, setViewStartDate] = useState<Date>(startOfDay(new Date()));
   const [timelineDays, setTimelineDays] = useState<Date[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -119,12 +118,18 @@ export default function HostReservationsPage() {
   const fetchInitialData = useCallback(async (hostId: string) => {
     setIsLoading(true);
     try {
-      const [roomsData, clientsData, reservationsData] = await Promise.all([
-        getRoomsOrTables(hostId).then(r => r.filter(loc => loc.type === 'Chambre')),
+      const [allLocationsData, clientsData, reservationsData] = await Promise.all([
+        getRoomsOrTables(hostId), // Fetch all locations
         getClients(hostId),
-        fetchReservations(hostId)
+        fetchReservations(hostId) // Fetch all reservations for the host
       ]);
-      setRooms(roomsData.sort((a, b) => a.nom.localeCompare(b.nom)));
+
+      // Explicitly filter for 'Chambre' type and sort
+      const filteredAndSortedRooms = allLocationsData
+        .filter(loc => loc.type === 'Chambre')
+        .sort((a, b) => a.nom.localeCompare(b.nom));
+
+      setRooms(filteredAndSortedRooms);
       setClients(clientsData);
       setAllReservations(reservationsData);
     } catch (error) {
@@ -150,6 +155,19 @@ export default function HostReservationsPage() {
     }
     setTimelineDays(days);
   }, [viewStartDate]);
+  
+  const handleDayCellClick = (roomId: string, date: Date) => {
+    const resOnThisDay = allReservations.find(r => 
+        r.locationId === roomId &&
+        isValid(parseISO(r.dateArrivee)) && isValid(parseISO(r.dateDepart)) &&
+        isWithinInterval(date, {start: startOfDay(parseISO(r.dateArrivee)), end: startOfDay(subDays(parseISO(r.dateDepart),1))})
+    );
+    if (resOnThisDay) {
+        openEditReservationDialog(resOnThisDay);
+    } else {
+        openAddReservationDialog(roomId, date);
+    }
+  };
   
   const openAddReservationDialog = (roomId: string, date: Date) => {
     setEditingReservation(null);
@@ -181,7 +199,7 @@ export default function HostReservationsPage() {
         toast({title: "Date Error", description: "Could not parse reservation dates.", variant:"destructive"});
     }
     setSelectedClientForDialog(reservation.clientId || NO_CLIENT_SELECTED);
-    setManualClientNameForDialog(reservation.clientId ? "" : reservation.clientName);
+    setManualClientNameForDialog(reservation.clientId ? "" : reservation.clientName || "");
     setIsAddOrEditDialogOpen(true);
   };
 
@@ -235,7 +253,7 @@ export default function HostReservationsPage() {
             return (newArrival < existingDeparture && newDeparture > existingArrival);
         } catch (e) {
             console.error("Error parsing dates during conflict check:", e, res);
-            return false; // If dates are invalid, assume no conflict to avoid blocking saves
+            return false; 
         }
     });
 
@@ -321,7 +339,7 @@ export default function HostReservationsPage() {
               )}
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Button variant="outline" onClick={() => setViewStartDate(startOfWeek(new Date(), { weekStartsOn: 1 }))} className="flex-1 sm:flex-none">Today</Button>
+              <Button variant="outline" onClick={() => setViewStartDate(startOfDay(new Date()))} className="flex-1 sm:flex-none">Today</Button>
               <Button variant="outline" size="icon" onClick={() => navigateTimeline('prev')}><ChevronLeft/></Button>
               <Button variant="outline" size="icon" onClick={() => navigateTimeline('next')}><ChevronRight/></Button>
               <Button onClick={() => openAddReservationDialog(rooms[0]?.id || '', new Date())} disabled={rooms.length === 0} className="flex-1 sm:flex-none">
@@ -332,11 +350,11 @@ export default function HostReservationsPage() {
         </CardHeader>
         <CardContent>
           {rooms.length === 0 ? (
-             <p className="text-muted-foreground text-center py-10">No rooms configured. Please add rooms in 'My Locations'.</p>
+             <p className="text-muted-foreground text-center py-10">No rooms configured. Please add rooms of type 'Chambre' in 'My Locations'.</p>
           ) : (
             <ScrollArea className="w-full whitespace-nowrap rounded-md border">
             <div className="grid min-w-[1200px]" 
-                 style={{ gridTemplateColumns: `150px repeat(${DAYS_TO_DISPLAY}, minmax(120px, 1fr))` }}>
+                 style={{ gridTemplateColumns: `minmax(150px, 1.5fr) repeat(${DAYS_TO_DISPLAY}, minmax(100px, 1fr))` }}>
                 {/* Header Row */}
                 <div className="p-2 border-r border-b border-border font-semibold bg-muted/50 sticky left-0 z-20 text-sm">Room</div>
                 {timelineDays.map(day => (
@@ -347,80 +365,84 @@ export default function HostReservationsPage() {
                 ))}
 
                 {/* Room Rows */}
-                {rooms.map((room, roomIndex) => {
-                  const reservationsForThisRoom = allReservations.filter(res => res.locationId === room.id);
+                {rooms.map((room) => {
                   return (
                     <React.Fragment key={room.id}>
                       <div className="p-2 border-r border-b border-border font-medium sticky left-0 bg-card z-10 flex items-center text-sm">
                         <BedDouble className="h-4 w-4 mr-2 text-primary shrink-0" />
                         <span className="truncate" title={room.nom}>{room.nom}</span>
                       </div>
-                      {timelineDays.map((day, dayIndex) => {
-                        const reservationsStartingOnThisDay = reservationsForThisRoom.filter(res => 
-                           isValid(parseISO(res.dateArrivee)) && isEqual(startOfDay(parseISO(res.dateArrivee)), startOfDay(day))
-                        );
+                      {timelineDays.map((day) => {
+                        const dayStart = startOfDay(day);
                         
-                        let isDayBookedByOngoing = false;
-                        if (reservationsStartingOnThisDay.length === 0) {
-                           isDayBookedByOngoing = reservationsForThisRoom.some(res => 
-                            isValid(parseISO(res.dateArrivee)) && isValid(parseISO(res.dateDepart)) &&
-                            isWithinInterval(day, { 
-                              start: startOfDay(parseISO(res.dateArrivee)), 
-                              end: startOfDay(subDays(parseISO(res.dateDepart),1))
-                            }) && !isEqual(startOfDay(parseISO(res.dateArrivee)), startOfDay(day))
-                          );
+                        // Find reservations that *start* on this day for this room
+                        const reservationsStartingThisDay = allReservations.filter(res => 
+                            res.locationId === room.id &&
+                            isValid(parseISO(res.dateArrivee)) &&
+                            isSameDay(parseISO(res.dateArrivee), dayStart)
+                        );
+
+                        // Check if the current day is part of an ongoing reservation that didn't start today
+                        let isDayOccupiedByOngoing = false;
+                        if (reservationsStartingThisDay.length === 0) {
+                             isDayOccupiedByOngoing = allReservations.some(res => 
+                                res.locationId === room.id &&
+                                isValid(parseISO(res.dateArrivee)) && isValid(parseISO(res.dateDepart)) &&
+                                isWithinInterval(dayStart, { 
+                                  start: startOfDay(parseISO(res.dateArrivee)), 
+                                  end: startOfDay(subDays(parseISO(res.dateDepart),1)) // Interval is inclusive of start, exclusive of end
+                                }) && !isSameDay(parseISO(res.dateArrivee), dayStart) // Exclude if it starts today
+                            );
                         }
+
 
                         return (
                           <div 
-                            key={day.toISOString()} 
-                            className="p-0.5 border-r border-b border-border min-h-[60px] relative cursor-pointer hover:bg-secondary/30 transition-colors flex flex-col"
-                            onClick={() => {
-                                const resOnThisDay = reservationsForThisRoom.find(r => 
-                                    isValid(parseISO(r.dateArrivee)) && isValid(parseISO(r.dateDepart)) &&
-                                    isWithinInterval(day, {start: startOfDay(parseISO(r.dateArrivee)), end: startOfDay(subDays(parseISO(r.dateDepart),1))})
-                                );
-                                if (resOnThisDay) openEditReservationDialog(resOnThisDay);
-                                else openAddReservationDialog(room.id, day);
-                            }}
+                            key={`${room.id}-${day.toISOString()}`} 
+                            className="p-0.5 border-r border-b border-border min-h-[60px] relative cursor-pointer hover:bg-secondary/30 transition-colors flex flex-col group"
+                            onClick={() => handleDayCellClick(room.id, dayStart)}
                           >
-                            {reservationsStartingOnThisDay.map(res => {
+                            {reservationsStartingThisDay.map(res => {
                                 let resArrival, resDeparture;
                                 try {
                                     resArrival = startOfDay(parseISO(res.dateArrivee));
                                     resDeparture = startOfDay(parseISO(res.dateDepart));
-                                } catch (e) {
-                                    console.error("Invalid date in reservation:", res, e);
-                                    return null; // Skip rendering this invalid reservation block
-                                }
+                                } catch (e) { return null; }
+                                
                                 let durationInDays = differenceInDays(resDeparture, resArrival);
-                                if (durationInDays < 1) durationInDays = 1;
+                                if (durationInDays < 1) durationInDays = 1; // Min 1 day block
 
-                                const viewEndDate = startOfDay(timelineDays[timelineDays.length - 1]);
-                                const daysLeftInView = differenceInDays(viewEndDate, resArrival) + 1;
-                                const displayDuration = Math.min(durationInDays, daysLeftInView, DAYS_TO_DISPLAY - dayIndex);
+                                // Calculate how many days of this reservation are visible in the current timeline window
+                                const currentViewEndDate = startOfDay(timelineDays[timelineDays.length - 1]);
+                                const reservationVisibleEndDate = min([resDeparture, addDays(currentViewEndDate, 1)]); // Cap at view end + 1 day for correct diff
+                                const displayDuration = differenceInDays(reservationVisibleEndDate, resArrival);
                                 
                                 if (displayDuration <= 0) return null;
 
                                 return (
                                     <div
-                                    key={res.id}
-                                    className={`m-0.5 p-1.5 rounded text-white text-xs shadow-md overflow-hidden cursor-grab border ${getStatusColor(res.status)}`}
-                                    style={{ 
-                                        width: `calc(${displayDuration * 100}% - 4px)`, // Span across cells, accounting for margin
-                                        zIndex: 10, // Ensure it's above empty cells
-                                    }}
-                                    onClick={(e) => { e.stopPropagation(); openEditReservationDialog(res); }}
-                                    title={`Reservation for ${res.clientName}\nStatus: ${res.status}\n${format(resArrival, 'PP')} - ${format(resDeparture, 'PP')}`}
+                                        key={res.id}
+                                        className={`m-0.5 p-1.5 rounded text-white text-xs shadow-md overflow-hidden cursor-grab border ${getStatusColorClass(res.status)}`}
+                                        style={{ 
+                                            width: `calc(${displayDuration * 100}% - ${displayDuration > 1 ? (displayDuration-1)*1 : 0}px)`, // Span across cells, account for potential grid gaps (1px here)
+                                            position: 'absolute', // Position relative to the cell if it's the start
+                                            top: '2px', left: '2px', right: '2px', bottom: '2px', // Use padding of parent as margin
+                                            zIndex: 10, 
+                                        }}
+                                        onClick={(e) => { e.stopPropagation(); openEditReservationDialog(res); }}
+                                        title={`${res.clientName}\nStatut: ${res.status}\n${format(resArrival, 'PP', {locale:fr})} - ${format(resDeparture, 'PP', {locale:fr})}`}
                                     >
-                                    <p className="font-semibold truncate text-[11px] leading-tight">{res.clientName}</p>
-                                    <p className="text-[9px] opacity-90 capitalize">{res.status}</p>
+                                        <p className="font-semibold truncate text-[10px] leading-tight">{res.clientName}</p>
+                                        <p className="text-[9px] opacity-90 capitalize">{res.status}</p>
                                     </div>
                                 );
                             })}
-                             {reservationsStartingOnThisDay.length === 0 && isDayBookedByOngoing && (
-                                <div className="h-full w-full bg-slate-200/50 dark:bg-slate-700/50 opacity-70"></div>
+                             {reservationsStartingThisDay.length === 0 && isDayOccupiedByOngoing && (
+                                <div className="h-full w-full bg-slate-200/50 dark:bg-slate-700/50 opacity-70 pointer-events-none"></div>
                              )}
+                              <Button variant="ghost" size="icon" className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 z-20" onClick={(e) => { e.stopPropagation(); openAddReservationDialog(room.id, dayStart); }}>
+                                <PlusCircle className="w-4 h-4 text-muted-foreground" />
+                              </Button>
                           </div>
                         );
                       })}
@@ -500,3 +522,4 @@ export default function HostReservationsPage() {
     </div>
   );
 }
+
