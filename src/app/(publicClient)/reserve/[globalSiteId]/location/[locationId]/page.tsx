@@ -3,16 +3,16 @@
 
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { getSiteById, getRoomOrTableById, getTags as fetchHostTags, addReservation as addReservationToData } from '@/lib/data';
+import { getSiteById, getRoomOrTableById, getTags as fetchHostTags, addReservationToData } from '@/lib/data';
 import type { Site as GlobalSiteType, RoomOrTable, Tag, Reservation } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { BedDouble, Utensils, Users, CalendarDays, Tag as TagIconLucide, ChevronLeft, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { BedDouble, Utensils, Users, CalendarDays, Tag as TagIconLucide, ChevronLeft, AlertTriangle, CheckCircle, Info, Image as ImageIcon } from 'lucide-react';
 import NextImage from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-import { format, parseISO, isValid } from 'date-fns';
+import { format, parseISO, isValid, differenceInDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 function LocationDetailPageContent() {
@@ -58,7 +58,7 @@ function LocationDetailPageContent() {
     setIsLoading(true);
     setError(null);
     try {
-      const [siteData, locationData] = await Promise.all([
+      const [siteData, locationDataResult] = await Promise.all([
         getSiteById(globalSiteId),
         getRoomOrTableById(locationId),
       ]);
@@ -69,11 +69,11 @@ function LocationDetailPageContent() {
       }
       setGlobalSiteInfo(siteData);
 
-      if (!locationData || locationData.globalSiteId !== globalSiteId) {
+      if (!locationDataResult || locationDataResult.globalSiteId !== globalSiteId) {
         setError(`Lieu avec ID ${locationId} non trouvé ou n'appartient pas à ${siteData.nom}.`);
         setLocationInfo(null); setIsLoading(false); return;
       }
-      setLocationInfo(locationData);
+      setLocationInfo(locationDataResult);
       
       const tags = await fetchHostTags(siteData.hostId);
       setHostTags(tags);
@@ -99,6 +99,10 @@ function LocationDetailPageContent() {
         toast({ title: "Date de départ manquante", description: "Veuillez spécifier une date de départ pour une chambre.", variant: "destructive"});
         return;
     }
+     if (locationInfo.type === 'Chambre' && departureDate && (isBefore(parseISO(departureDate), parseISO(arrivalDate)) || isEqual(parseISO(departureDate), parseISO(arrivalDate)))) {
+      toast({ title: "Date de départ invalide", description: "La date de départ doit être après la date d'arrivée.", variant: "destructive"});
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -106,13 +110,13 @@ function LocationDetailPageContent() {
         hostId: globalSiteInfo.hostId,
         locationId: locationInfo.id,
         type: locationInfo.type,
-        clientName: user?.nom || `Invité ${Date.now().toString().slice(-5)}`, // Placeholder if not logged in
+        clientName: user?.nom || `Invité ${Date.now().toString().slice(-5)}`,
         clientId: user?.id,
         dateArrivee: arrivalDate,
-        dateDepart: locationInfo.type === 'Chambre' ? departureDate! : arrivalDate, // For table, depart is same as arrival
+        dateDepart: locationInfo.type === 'Chambre' ? departureDate! : arrivalDate, 
         nombrePersonnes: numPersons,
-        animauxDomestiques: false, // Default, can be a form field later
-        status: 'pending', // Default status
+        animauxDomestiques: false, 
+        status: 'pending',
         notes: `Réservation via la page publique pour ${locationInfo.nom}.`,
       };
 
@@ -126,10 +130,23 @@ function LocationDetailPageContent() {
       setIsSubmitting(false);
     }
   };
+  
+  const calculateNights = () => {
+    if (locationInfo?.type === 'Chambre' && arrivalDate && departureDate && isValid(parseISO(arrivalDate)) && isValid(parseISO(departureDate))) {
+      const start = parseISO(arrivalDate);
+      const end = parseISO(departureDate);
+      if (isBefore(start, end)) {
+        const nights = differenceInDays(end, start);
+        return nights > 0 ? nights : 1; // Ensure at least 1 night if dates are different but on same day (edge case)
+      }
+    }
+    return 1; // Default for tables or invalid room dates
+  };
+
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="max-w-4xl mx-auto py-8 px-4 space-y-6">
         <Skeleton className="h-10 w-1/4" />
         <Skeleton className="h-72 w-full rounded-lg" />
         <div className="grid md:grid-cols-3 gap-6">
@@ -148,7 +165,7 @@ function LocationDetailPageContent() {
 
   if (error) {
     return (
-      <div className="text-center py-10">
+      <div className="text-center py-10 max-w-2xl mx-auto">
         <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
         <h2 className="text-2xl font-semibold text-destructive mb-2">Erreur</h2>
         <p className="text-muted-foreground">{error}</p>
@@ -159,7 +176,7 @@ function LocationDetailPageContent() {
 
   if (!globalSiteInfo || !locationInfo) {
     return (
-      <div className="text-center py-10">
+      <div className="text-center py-10 max-w-2xl mx-auto">
         <Info className="mx-auto h-12 w-12 text-primary mb-4" />
         <h2 className="text-2xl font-semibold mb-2">Détails non trouvés</h2>
         <p className="text-muted-foreground">Les informations pour ce lieu ou cet établissement n'ont pas pu être chargées.</p>
@@ -187,26 +204,26 @@ function LocationDetailPageContent() {
     .map(tagId => hostTags.find(t => t.id === tagId)?.name)
     .filter(Boolean) as string[];
 
+  const mainImage = locationInfo.imageUrls && locationInfo.imageUrls.length > 0 ? locationInfo.imageUrls[0] : "https://placehold.co/1200x600.png";
+  const mainImageAiHint = locationInfo.imageAiHint || locationInfo.nom.toLowerCase().split(' ').slice(0,2).join(' ') || 'location detail';
+
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto py-8 px-4">
       <Button variant="outline" onClick={() => router.back()} className="mb-6">
         <ChevronLeft className="mr-2 h-4 w-4" /> Retour à la recherche
       </Button>
 
       <Card className="overflow-hidden shadow-xl">
-        {locationInfo.imageUrls && locationInfo.imageUrls.length > 0 && (
-          <div className="relative h-64 md:h-96 w-full bg-muted">
-            {/* Basic image display, can be enhanced to a carousel later */}
-            <NextImage
-              src={locationInfo.imageUrls[0]}
-              alt={`Image principale de ${locationInfo.nom}`}
-              layout="fill"
-              objectFit="cover"
-              data-ai-hint={locationInfo.imageAiHint || locationInfo.nom.toLowerCase().split(' ').slice(0,2).join(' ')}
-              priority
-            />
-          </div>
-        )}
+        <div className="relative h-64 md:h-96 w-full bg-muted">
+          <NextImage
+            src={mainImage}
+            alt={`Image principale de ${locationInfo.nom}`}
+            layout="fill"
+            objectFit="cover"
+            data-ai-hint={mainImageAiHint}
+            priority
+          />
+        </div>
         <CardHeader className="p-6">
           <p className="text-sm text-muted-foreground">{globalSiteInfo.nom}</p>
           <CardTitle className="text-3xl md:text-4xl font-bold">{locationInfo.nom}</CardTitle>
@@ -231,14 +248,17 @@ function LocationDetailPageContent() {
             )}
           </div>
           <div className="md:col-span-1 space-y-4">
-            <Card className="p-4 bg-secondary/30">
+            <Card className="p-4 bg-secondary/50">
               <CardTitle className="text-lg mb-3">Détails de votre sélection</CardTitle>
               <div className="space-y-2 text-sm">
                 {arrivalDate && (
                   <p className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" /> Arrivée: <span className="font-semibold ml-1">{format(parseISO(arrivalDate), 'PPP', {locale: fr})}</span></p>
                 )}
                 {locationInfo.type === 'Chambre' && departureDate && (
-                  <p className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" /> Départ: <span className="font-semibold ml-1">{format(parseISO(departureDate), 'PPP', {locale: fr})}</span></p>
+                  <>
+                    <p className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" /> Départ: <span className="font-semibold ml-1">{format(parseISO(departureDate), 'PPP', {locale: fr})}</span></p>
+                    <p className="flex items-center"><Info className="mr-2 h-4 w-4 text-muted-foreground" /> Nuits: <span className="font-semibold ml-1">{calculateNights()}</span></p>
+                  </>
                 )}
                 <p className="flex items-center"><Users className="mr-2 h-4 w-4 text-muted-foreground" /> Personnes: <span className="font-semibold ml-1">{numPersons}</span></p>
                 {locationInfo.capacity && (
@@ -252,6 +272,9 @@ function LocationDetailPageContent() {
               >
                 {isSubmitting ? "Confirmation en cours..." : "Confirmer la réservation"}
               </Button>
+              {!user && (
+                <p className="text-xs text-muted-foreground mt-3 text-center">Vous pouvez vous <Button variant="link" className="p-0 h-auto text-xs" onClick={() => router.push(`/login?redirect_url=${encodeURIComponent(window.location.pathname + window.location.search)}`)}>connecter</Button> pour enregistrer cette réservation sur votre compte.</p>
+              )}
             </Card>
           </div>
         </CardContent>
@@ -260,10 +283,9 @@ function LocationDetailPageContent() {
   );
 }
 
-// It's good practice to wrap pages using searchParams with Suspense
 export default function LocationDetailPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center">Chargement des détails de la réservation...</div>}>
+    <Suspense fallback={<div className="flex justify-center items-center min-h-screen"><p className="text-lg">Chargement des détails de la réservation...</p></div>}>
       <LocationDetailPageContent />
     </Suspense>
   );
