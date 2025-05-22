@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'; // Added CardFooter
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as ShadCalendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon, AlertTriangle, Search, BedDouble, Utensils, Users, Tag as TagIconLucide, Building } from 'lucide-react';
@@ -19,6 +19,7 @@ import { fr } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import NextImage from 'next/image';
+import { Badge } from '@/components/ui/badge';
 
 export default function PublicReservationPage() {
   const params = useParams();
@@ -66,8 +67,8 @@ export default function PublicReservationPage() {
 
       const [tagsData, locationsData, reservationsData] = await Promise.all([
         getTags(siteInfo.hostId),
-        getRoomsOrTables(siteInfo.hostId, globalSiteId), // Get locations specific to this global site
-        fetchAllReservationsForHost(siteInfo.hostId) // Fetch all reservations for conflict checking
+        getRoomsOrTables(siteInfo.hostId, globalSiteId), 
+        fetchAllReservationsForHost(siteInfo.hostId) 
       ]);
 
       setAllHostTags(tagsData);
@@ -88,7 +89,6 @@ export default function PublicReservationPage() {
   }, [fetchPageData]);
 
   useEffect(() => {
-    // Auto-set departure date for tables when arrival date changes or type is table
     if (searchType === 'Table' && arrivalDate) {
       if (!departureDate || !isEqual(startOfDay(arrivalDate), startOfDay(departureDate))) {
         setDepartureDate(arrivalDate);
@@ -103,7 +103,7 @@ export default function PublicReservationPage() {
   };
 
   const handleSearchAvailability = async () => {
-    if (!arrivalDate || (!departureDate && searchType === 'Chambre')) {
+    if (!arrivalDate || (searchType === 'Chambre' && !departureDate)) {
       toast({ title: "Dates requises", description: "Veuillez sélectionner les dates d'arrivée et de départ.", variant: "destructive" });
       return;
     }
@@ -114,7 +114,7 @@ export default function PublicReservationPage() {
 
     setIsSearching(true);
     setSearchAttempted(true);
-    setAvailableLocations([]); // Clear previous results
+    setAvailableLocations([]); 
     setError(null);
 
     try {
@@ -127,18 +127,20 @@ export default function PublicReservationPage() {
         if (numPersons > 0 && loc.capacity && loc.capacity < numPersons) return false;
         if (selectedTags.length > 0 && !selectedTags.every(tagId => loc.tagIds?.includes(tagId))) return false;
 
-        // Check for booking conflicts
         const isBooked = allReservations.some(res => {
-          if (res.locationId !== loc.id) return false;
+          if (res.locationId !== loc.id || res.status === 'cancelled') return false; // Ignore cancelled reservations for availability
           try {
             const resArrival = startOfDay(parseISO(res.dateArrivee));
-            const resDeparture = res.dateDepart ? startOfDay(parseISO(res.dateDepart)) : endOfDay(parseISO(res.dateArrivee)); // Tables are effectively single day
+            // For tables, departure is same as arrival, effectively meaning the whole day is booked.
+            // For rooms, use the actual departure date.
+            const resDeparture = res.type === 'Table' || !res.dateDepart ? endOfDay(parseISO(res.dateArrivee)) : startOfDay(parseISO(res.dateDepart));
             
-            // Conflict if: new period overlaps with existing period
-            // (resArrival < checkOut) AND (resDeparture > checkIn)
-            return resArrival < checkOut && resDeparture > checkIn;
+            return checkIn < resDeparture && checkOut > resArrival;
 
-          } catch (e) { return false; }
+          } catch (e) { 
+            console.warn("Error parsing reservation dates for conflict check", res, e);
+            return true; // Assume conflict if dates are unparseable
+          }
         });
         return !isBooked;
       });
@@ -158,10 +160,10 @@ export default function PublicReservationPage() {
   };
 
   const handleSelectLocation = (location: RoomOrTable) => {
-    // For now, just log. Later, this would navigate to a booking confirmation page.
     console.log("Selected location:", location);
     toast({ title: "Lieu Sélectionné", description: `${location.nom} - Prochaine étape : détails du client et confirmation.`});
-    // Example: router.push(`/reserve/${globalSiteId}/confirm?locationId=${location.id}&arrival=${format(arrivalDate!, 'yyyy-MM-dd')}&departure=${format(departureDate!, 'yyyy-MM-dd')}&persons=${numPersons}`);
+    // Example for future navigation:
+    // router.push(`/reserve/${globalSiteId}/confirm?locationId=${location.id}&arrival=${format(arrivalDate!, 'yyyy-MM-dd')}&departure=${searchType === 'Table' ? format(arrivalDate!, 'yyyy-MM-dd') : format(departureDate!, 'yyyy-MM-dd')}&persons=${numPersons}`);
   };
 
   const LocationTypeIcon = ({ type }: { type: 'Chambre' | 'Table' }) => {
@@ -272,7 +274,7 @@ export default function PublicReservationPage() {
                       mode="single" 
                       selected={departureDate} 
                       onSelect={setDepartureDate} 
-                      disabled={(date) => arrivalDate ? isBefore(date, addDays(arrivalDate,1)) : false} // Departure must be after arrival
+                      disabled={(date) => arrivalDate ? isBefore(date, addDays(arrivalDate,1)) : false} 
                       initialFocus 
                     />
                   </PopoverContent>
@@ -368,4 +370,3 @@ export default function PublicReservationPage() {
   );
 }
 
-    
