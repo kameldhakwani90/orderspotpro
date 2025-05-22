@@ -6,7 +6,6 @@ import React, { useEffect, useState, useCallback, useMemo, Suspense } from 'reac
 import { getSiteById, getRoomsOrTables, getTags as fetchHostTags, getReservations as fetchAllReservationsForHost } from '@/lib/data';
 import type { Site as GlobalSiteType, RoomOrTable, Tag, Reservation } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input'; // Keep if needed for other inputs
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -22,7 +21,7 @@ import {
   Users, 
   Tag as TagIconLucide, 
   Info, 
-  Image as ImageIconLucide, 
+  ImageIcon as ImageIconLucide, 
   Filter as FilterIcon,
   Minus,
   Plus
@@ -81,10 +80,9 @@ function PublicReservationPageContent() {
   
   const [numAdults, setNumAdults] = useState<number>(1);
   const [numChildren, setNumChildren] = useState<number>(0);
-  const [numInfants, setNumInfants] = useState<number>(0);
+  const [numInfants, setNumInfants] = useState<number>(0); // Typically not counted for capacity but good to have
   const [numPets, setNumPets] = useState<number>(0);
-  const [numPersons, setNumPersons] = useState<number>(1);
-
+  
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showTagFilters, setShowTagFilters] = useState(false);
 
@@ -94,9 +92,93 @@ function PublicReservationPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [searchAttempted, setSearchAttempted] = useState(false);
 
+  const totalTravelers = useMemo(() => numAdults + numChildren, [numAdults, numChildren]);
+
+  // Effect to set searchType based on globalSiteInfo settings
   useEffect(() => {
-    setNumPersons(numAdults + numChildren);
-  }, [numAdults, numChildren]);
+    if (globalSiteInfo && globalSiteInfo.reservationPageSettings) {
+      const { enableRoomReservations, enableTableReservations } = globalSiteInfo.reservationPageSettings;
+      const canReserveRooms = enableRoomReservations ?? true;
+      const canReserveTables = enableTableReservations ?? true;
+
+      if (canReserveRooms && !canReserveTables) {
+        setSearchType('Chambre');
+      } else if (!canReserveRooms && canReserveTables) {
+        setSearchType('Table');
+      } else if (!canReserveRooms && !canReserveTables) {
+        setError("Les réservations pour cet établissement ne sont actuellement pas activées.");
+      }
+      // If both are enabled, keep current or default 'Chambre'
+    }
+  }, [globalSiteInfo]);
+
+  // Effect for initializing dates and person counts from URL or defaults
+  useEffect(() => {
+    const arrivalParam = searchParams.get('arrival');
+    const departureParam = searchParams.get('departure');
+    const typeParam = searchParams.get('type') as 'Chambre' | 'Table' | null;
+    const adultsParam = searchParams.get('adults');
+    const childrenParam = searchParams.get('children');
+    const infantsParam = searchParams.get('infants');
+    const petsParam = searchParams.get('pets');
+
+    let effectiveSearchType = searchType; // Default to current state
+
+    if (globalSiteInfo?.reservationPageSettings) {
+        const canReserveRooms = globalSiteInfo.reservationPageSettings.enableRoomReservations ?? true;
+        const canReserveTables = globalSiteInfo.reservationPageSettings.enableTableReservations ?? true;
+        if (typeParam && typeParam === 'Chambre' && canReserveRooms) {
+            effectiveSearchType = 'Chambre';
+        } else if (typeParam && typeParam === 'Table' && canReserveTables) {
+            effectiveSearchType = 'Table';
+        } else if (canReserveRooms && !canReserveTables) {
+            effectiveSearchType = 'Chambre';
+        } else if (!canReserveRooms && canReserveTables) {
+            effectiveSearchType = 'Table';
+        }
+    }
+    setSearchType(effectiveSearchType);
+
+
+    let newArrivalState: Date;
+    if (arrivalParam && isValid(parseISO(arrivalParam))) {
+      newArrivalState = startOfDay(parseISO(arrivalParam));
+    } else {
+      newArrivalState = startOfDay(new Date()); 
+    }
+    setArrivalDate(newArrivalState);
+
+    let newDepartureState: Date;
+    if (departureParam && isValid(parseISO(departureParam))) {
+      const parsedDeparture = startOfDay(parseISO(departureParam));
+      if (effectiveSearchType === 'Chambre') {
+        if (isBefore(parsedDeparture, addDays(newArrivalState, 1))) {
+          newDepartureState = addDays(newArrivalState, 1);
+        } else {
+          newDepartureState = parsedDeparture;
+        }
+      } else { 
+        newDepartureState = newArrivalState;
+      }
+    } else {
+      newDepartureState = effectiveSearchType === 'Chambre' ? addDays(newArrivalState, 1) : newArrivalState;
+    }
+    setDepartureDate(newDepartureState);
+    
+    if (adultsParam && !isNaN(parseInt(adultsParam))) {
+        setNumAdults(Math.max(1, parseInt(adultsParam)));
+    } else if (searchParams.get('persons') && !isNaN(parseInt(searchParams.get('persons')!))) {
+        // Fallback to 'persons' if 'adults' not present, assume all are adults
+        setNumAdults(Math.max(1, parseInt(searchParams.get('persons')!)));
+    }
+    if (childrenParam && !isNaN(parseInt(childrenParam))) {
+        setNumChildren(Math.max(0, parseInt(childrenParam)));
+    }
+    if (infantsParam && !isNaN(parseInt(infantsParam))) setNumInfants(Math.max(0, parseInt(infantsParam)));
+    if (petsParam && !isNaN(parseInt(petsParam))) setNumPets(Math.max(0, parseInt(petsParam)));
+
+  }, [searchParams, globalSiteInfo]); // Rerun if globalSiteInfo changes (for reservation settings)
+
 
   const fetchPageData = useCallback(async () => {
     if (!globalSiteId) {
@@ -121,21 +203,14 @@ function PublicReservationPageContent() {
       
       const [tagsData, locationsData, reservationsData] = await Promise.all([
         fetchHostTags(siteInfo.hostId),
-        getRoomsOrTables(siteInfo.hostId, globalSiteId), // Fetch all for host, then filter by globalSiteId
+        getRoomsOrTables(siteInfo.hostId, globalSiteId),
         fetchAllReservationsForHost(siteInfo.hostId)
       ]);
 
       setAllHostTags(tagsData);
       setAllReservableLocationsForSite(locationsData.filter(loc => (loc.type === 'Chambre' || loc.type === 'Table') && loc.globalSiteId === globalSiteId));
-      setAllReservations(reservationsData);
+      setAllReservations(reservationsData.filter(r => r.status !== 'cancelled'));
 
-      const roomEnabled = siteInfo.reservationPageSettings?.enableRoomReservations ?? true;
-      const tableEnabled = siteInfo.reservationPageSettings?.enableTableReservations ?? true;
-      if (roomEnabled && !tableEnabled) setSearchType('Chambre');
-      else if (!roomEnabled && tableEnabled) setSearchType('Table');
-      else if (!roomEnabled && !tableEnabled) {
-          setError("Les réservations pour cet établissement ne sont pas activées.");
-      }
     } catch (e: any) {
       setError("Failed to load establishment details. " + e.message);
       setGlobalSiteInfo(null);
@@ -147,53 +222,6 @@ function PublicReservationPageContent() {
   useEffect(() => {
     fetchPageData();
   }, [fetchPageData]);
-
-  useEffect(() => {
-    const arrivalParam = searchParams.get('arrival');
-    const departureParam = searchParams.get('departure');
-    const personsParam = searchParams.get('persons');
-    const adultsParam = searchParams.get('adults');
-    const childrenParam = searchParams.get('children');
-    const infantsParam = searchParams.get('infants');
-    const petsParam = searchParams.get('pets');
-
-    let newArrival: Date;
-    if (arrivalParam && isValid(parseISO(arrivalParam))) {
-      newArrival = parseISO(arrivalParam);
-    } else {
-      newArrival = new Date(); // Default to today if param missing or invalid
-    }
-    setArrivalDate(newArrival);
-
-    let newDeparture: Date;
-    if (departureParam && isValid(parseISO(departureParam))) {
-      const parsedDeparture = parseISO(departureParam);
-      if (isBefore(parsedDeparture, addDays(newArrival, 1))) {
-        newDeparture = addDays(newArrival, 1);
-      } else {
-        newDeparture = parsedDeparture;
-      }
-    } else {
-      newDeparture = addDays(newArrival, 1); // Default to arrival + 1 day
-    }
-    setDepartureDate(newDeparture);
-    
-    if (personsParam && !isNaN(parseInt(personsParam))) setNumPersons(Math.max(1, parseInt(personsParam)));
-    if (adultsParam && !isNaN(parseInt(adultsParam))) setNumAdults(Math.max(1, parseInt(adultsParam)));
-    if (childrenParam && !isNaN(parseInt(childrenParam))) setNumChildren(Math.max(0, parseInt(childrenParam)));
-    if (infantsParam && !isNaN(parseInt(infantsParam))) setNumInfants(Math.max(0, parseInt(infantsParam)));
-    if (petsParam && !isNaN(parseInt(petsParam))) setNumPets(Math.max(0, parseInt(petsParam)));
-
-  }, [searchParams]);
-
-
-  useEffect(() => {
-    if (searchType === 'Table' && arrivalDate) {
-      if (!departureDate || !isEqual(startOfDay(arrivalDate), startOfDay(departureDate))) {
-        setDepartureDate(arrivalDate);
-      }
-    }
-  }, [arrivalDate, searchType, departureDate]);
 
   const handleTagChange = (tagId: string, checked: boolean | string) => {
     setSelectedTags(prev =>
@@ -211,7 +239,7 @@ function PublicReservationPageContent() {
         return;
     }
     
-    const effectiveNumPersons = numAdults + numChildren;
+    const effectiveNumPersons = totalTravelers;
     if (effectiveNumPersons <= 0) {
         toast({ title: "Nombre de voyageurs invalide", description: "Veuillez indiquer au moins un voyageur (adulte ou enfant).", variant: "destructive"});
         return;
@@ -265,12 +293,12 @@ function PublicReservationPageContent() {
     const arrivalQueryParam = arrivalDate ? format(arrivalDate, 'yyyy-MM-dd') : '';
     const departureQueryParam = searchType === 'Table' ? arrivalQueryParam : (departureDate ? format(departureDate, 'yyyy-MM-dd') : '');
     
-    router.push(`/reserve/${globalSiteId}/location/${location.id}?arrival=${arrivalQueryParam}&departure=${departureQueryParam}&persons=${numAdults + numChildren}&adults=${numAdults}&children=${numChildren}&infants=${numInfants}&pets=${numPets}`);
+    router.push(`/reserve/${globalSiteId}/location/${location.id}?arrival=${arrivalQueryParam}&departure=${departureQueryParam}&persons=${totalTravelers}&adults=${numAdults}&children=${numChildren}&infants=${numInfants}&pets=${numPets}`);
   };
 
-  const LocationTypeIcon = ({ type }: { type: 'Chambre' | 'Table' }) => {
-    if (type === 'Chambre') return <BedDouble className="h-5 w-5 mr-1 text-muted-foreground" />;
-    if (type === 'Table') return <UtensilsIcon className="h-5 w-5 mr-1 text-muted-foreground" />;
+  const LocationTypeIcon = ({ type, className }: { type: 'Chambre' | 'Table', className?: string }) => {
+    if (type === 'Chambre') return <BedDouble className={cn("h-5 w-5 mr-1", className)} />;
+    if (type === 'Table') return <UtensilsIcon className={cn("h-5 w-5 mr-1", className)} />;
     return null;
   };
   
@@ -293,7 +321,7 @@ function PublicReservationPageContent() {
     );
   }
 
-  if (error) {
+  if (error && !globalSiteInfo) { // Only show full page error if globalSiteInfo failed to load
     return (
       <div className="container mx-auto py-10 px-4 text-center">
         <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
@@ -316,7 +344,6 @@ function PublicReservationPageContent() {
   
   const heroImageUrl = globalSiteInfo.reservationPageSettings?.heroImageUrl || `https://placehold.co/1200x350.png`;
   const heroImageAiHint = globalSiteInfo.reservationPageSettings?.heroImageAiHint || globalSiteInfo.nom.toLowerCase().split(' ').slice(0,2).join(' ') || "establishment banner";
-  const totalTravelers = numAdults + numChildren;
 
   return (
     <div className="container mx-auto py-8 px-4 space-y-8">
@@ -330,25 +357,25 @@ function PublicReservationPageContent() {
             data-ai-hint={heroImageAiHint}
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent flex flex-col justify-end p-6 md:p-8">
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-white shadow-md">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent flex flex-col justify-end p-6 md:p-8">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-white drop-shadow-lg">
               {globalSiteInfo.nom}
             </h1>
-            <p className="text-lg md:text-xl text-gray-200 mt-1">Trouvez votre hébergement ou table idéale.</p>
+            <p className="text-lg md:text-xl text-gray-200 mt-1 drop-shadow-sm">Trouvez votre hébergement ou table idéale.</p>
           </div>
         </div>
 
-      <Card className="shadow-xl sticky top-24 z-40 bg-card/95 backdrop-blur-md">
-        <CardContent className="p-4 md:p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 items-end">
+      <Card className="shadow-xl sticky top-24 z-40 bg-card/95 backdrop-blur-md border">
+        <CardContent className="p-3 md:p-4">
+          <div className="flex flex-wrap items-end gap-2">
             
             {showTypeSelector && (
-              <div className="space-y-1.5">
+              <div className="flex-grow min-w-[130px] space-y-1">
                 <Label htmlFor="searchType" className="text-xs font-medium text-muted-foreground">Je cherche</Label>
                 <Select value={searchType} onValueChange={(value: 'Chambre' | 'Table') => setSearchType(value)}>
-                  <SelectTrigger id="searchType" className="h-12 text-sm">
+                  <SelectTrigger id="searchType" className="h-11 text-sm bg-background">
                     <div className="flex items-center">
-                       <LocationTypeIcon type={searchType} />
+                       <LocationTypeIcon type={searchType} className="text-foreground" />
                        <SelectValue />
                     </div>
                   </SelectTrigger>
@@ -360,39 +387,39 @@ function PublicReservationPageContent() {
               </div>
             )}
             
-            <div className="space-y-1.5">
+            <div className="flex-grow min-w-[130px] space-y-1">
               <Label htmlFor="arrivalDate" className="text-xs font-medium text-muted-foreground">Arrivée</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button id="arrivalDate" variant="outline" className="w-full justify-start text-left font-normal h-12 text-sm">
+                  <Button id="arrivalDate" variant="outline" className="w-full justify-start text-left font-normal h-11 text-sm bg-background">
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {arrivalDate ? format(arrivalDate, 'dd/MM/yy', { locale: fr }) : <span>Quand ?</span>}
+                    {arrivalDate ? format(arrivalDate, 'dd/MM/yy', { locale: fr }) : <span>Choisir</span>}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0"><ShadCalendar mode="single" selected={arrivalDate} onSelect={setArrivalDate} initialFocus /></PopoverContent>
+                <PopoverContent className="w-auto p-0"><ShadCalendar mode="single" selected={arrivalDate} onSelect={(date) => date && setArrivalDate(startOfDay(date))} initialFocus /></PopoverContent>
               </Popover>
             </div>
             
             {searchType === 'Chambre' && (
-              <div className="space-y-1.5">
+              <div className="flex-grow min-w-[130px] space-y-1">
                 <Label htmlFor="departureDate" className="text-xs font-medium text-muted-foreground">Départ</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       id="departureDate"
                       variant="outline"
-                      className="w-full justify-start text-left font-normal h-12 text-sm"
-                      disabled={!arrivalDate || searchType === 'Table'}
+                      className="w-full justify-start text-left font-normal h-11 text-sm bg-background"
+                      disabled={!arrivalDate}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {departureDate ? format(departureDate, 'dd/MM/yy', { locale: fr }) : <span>Quand ?</span>}
+                      {departureDate ? format(departureDate, 'dd/MM/yy', { locale: fr }) : <span>Choisir</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
                     <ShadCalendar
                       mode="single"
                       selected={departureDate}
-                      onSelect={setDepartureDate}
+                      onSelect={(date) => date && setDepartureDate(startOfDay(date))}
                       disabled={(date) => arrivalDate ? isBefore(date, addDays(arrivalDate,1)) : false}
                       initialFocus
                     />
@@ -401,11 +428,11 @@ function PublicReservationPageContent() {
               </div>
             )}
 
-            <div className="space-y-1.5">
+            <div className="flex-grow min-w-[180px] space-y-1">
               <Label htmlFor="voyageursButton" className="text-xs font-medium text-muted-foreground">Voyageurs</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button id="voyageursButton" variant="outline" className="w-full justify-start text-left font-normal h-12 text-sm">
+                  <Button id="voyageursButton" variant="outline" className="w-full justify-start text-left font-normal h-11 text-sm bg-background">
                      <div className="flex items-center min-w-0 flex-1">
                         <Users className="mr-2 h-4 w-4 flex-shrink-0" />
                         <span className="truncate">
@@ -414,45 +441,55 @@ function PublicReservationPageContent() {
                             const displayTravelers = Math.max(1, totalTravelers); 
                             parts.push(`${displayTravelers} voyageur${displayTravelers > 1 ? 's' : ''}`);
                             if (numInfants > 0) parts.push(`${numInfants} bébé${numInfants > 1 ? 's' : ''}`);
-                            if (numPets > 0) parts.push(`${numPets} animal${numPets > 1 ? 'ux' : ''}`);
+                            if (searchType === 'Chambre' && numPets > 0) parts.push(`${numPets} animal${numPets > 1 ? 'ux' : ''}`);
                             return parts.join(', ');
                           })()}
                         </span>
                     </div>
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 p-0">
-                  <div className="p-4 space-y-2">
+                <PopoverContent className="w-80 p-0 shadow-xl border">
+                  <div className="p-4 space-y-1 divide-y divide-border">
                     <GuestCounter label="Adultes" description="13 ans et plus" count={numAdults} onIncrement={() => setNumAdults(c => c + 1)} onDecrement={() => setNumAdults(c => Math.max(1, c - 1))} minCount={1}/>
                     <GuestCounter label="Enfants" description="De 2 à 12 ans" count={numChildren} onIncrement={() => setNumChildren(c => c + 1)} onDecrement={() => setNumChildren(c => Math.max(0, c - 1))} />
-                    <GuestCounter label="Bébés" description="- de 2 ans" count={numInfants} onIncrement={() => setNumInfants(c => c + 1)} onDecrement={() => setNumInfants(c => Math.max(0, c - 1))} />
-                    <GuestCounter label="Animaux domestiques" count={numPets} onIncrement={() => setNumPets(c => c + 1)} onDecrement={() => setNumPets(c => Math.max(0, c - 1))} />
+                    <GuestCounter label="Bébés" description="Moins de 2 ans" count={numInfants} onIncrement={() => setNumInfants(c => c + 1)} onDecrement={() => setNumInfants(c => Math.max(0, c - 1))} />
+                    {searchType === 'Chambre' && <GuestCounter label="Animaux domestiques" count={numPets} onIncrement={() => setNumPets(c => c + 1)} onDecrement={() => setNumPets(c => Math.max(0, c - 1))} />}
                   </div>
                 </PopoverContent>
               </Popover>
             </div>
             
-            <div className="flex items-end gap-2 col-span-full sm:col-span-2 md:col-span-2 lg:col-span-1 xl:col-span-1">
+            <div className="flex items-end gap-2 flex-shrink-0">
               {allHostTags.length > 0 && (
-                <Button variant="outline" onClick={() => setShowTagFilters(!showTagFilters)} className="h-12 w-12 p-0 flex-shrink-0" title="Filtrer par tags">
+                <Button variant="outline" onClick={() => setShowTagFilters(!showTagFilters)} className="h-11 w-11 p-0" title="Filtrer par tags">
                   <FilterIcon className="h-5 w-5" />
                 </Button>
               )}
-              <Button onClick={handleSearchAvailability} disabled={isSearching || (!globalSiteInfo.reservationPageSettings?.enableRoomReservations && !globalSiteInfo.reservationPageSettings?.enableTableReservations) } className="h-12 flex-grow bg-primary hover:bg-primary/90">
-                <Search className="h-5 w-5 mr-2" /> Rechercher
+              <Button 
+                onClick={handleSearchAvailability} 
+                disabled={
+                    isSearching || 
+                    !arrivalDate || 
+                    (searchType === 'Chambre' && !departureDate) || 
+                    (globalSiteInfo && (!globalSiteInfo.reservationPageSettings?.enableRoomReservations && !globalSiteInfo.reservationPageSettings?.enableTableReservations)) 
+                } 
+                className="h-11 px-4 md:px-6 bg-primary hover:bg-primary/90"
+              >
+                <Search className="h-5 w-5 md:mr-2" />
+                <span className="hidden md:inline">Rechercher</span>
               </Button>
             </div>
           </div>
 
           {showTagFilters && allHostTags.length > 0 && (
-            <div className="mt-4 pt-4 border-t">
-              <Label className="text-md font-medium flex items-center mb-2"><TagIconLucide className="mr-2 h-5 w-5 text-primary"/>Filtrer par Tags</Label>
-              <Card className="p-3 bg-muted/20">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-2 max-h-32 overflow-y-auto">
+            <div className="mt-3 pt-3 border-t">
+              <Label className="text-sm font-medium flex items-center mb-1.5 text-muted-foreground"><TagIconLucide className="mr-2 h-4 w-4"/>Tags</Label>
+              <Card className="p-2.5 bg-background shadow-sm">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3 gap-y-1.5 max-h-28 overflow-y-auto">
                   {allHostTags.map(tag => (
                     <div key={tag.id} className="flex items-center space-x-2">
                       <Checkbox id={`tag-filter-${tag.id}`} checked={selectedTags.includes(tag.id)} onCheckedChange={(checked) => handleTagChange(tag.id, !!checked)} />
-                      <Label htmlFor={`tag-filter-${tag.id}`} className="font-normal text-sm cursor-pointer">{tag.name}</Label>
+                      <Label htmlFor={`tag-filter-${tag.id}`} className="font-normal text-xs cursor-pointer">{tag.name}</Label>
                     </div>
                   ))}
                 </div>
@@ -462,7 +499,14 @@ function PublicReservationPageContent() {
         </CardContent>
       </Card>
 
-      {searchAttempted && !isSearching && (
+      {error && searchAttempted && (
+         <div className="text-center py-6">
+            <AlertTriangle className="mx-auto h-10 w-10 text-destructive mb-3" />
+            <p className="text-destructive">{error}</p>
+        </div>
+      )}
+
+      {searchAttempted && !isSearching && !error && (
         <div className="pt-8">
           <CardHeader className="px-0 pb-4">
             <CardTitle className="text-2xl font-semibold">
@@ -477,7 +521,7 @@ function PublicReservationPageContent() {
           {availableLocations.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {availableLocations.map(loc => (
-                <Card key={loc.id} className="flex flex-col shadow-md hover:shadow-lg transition-shadow duration-300 rounded-lg overflow-hidden">
+                <Card key={loc.id} className="flex flex-col shadow-md hover:shadow-lg transition-shadow duration-300 rounded-lg overflow-hidden bg-card">
                   <div className="relative h-48 w-full">
                     <NextImage
                       src={(loc.imageUrls && loc.imageUrls[0]) || `https://placehold.co/400x300.png?text=${loc.nom.replace(/\s/g, "+")}`}
@@ -488,11 +532,11 @@ function PublicReservationPageContent() {
                     />
                   </div>
                   <CardHeader className="p-4">
-                    <CardTitle className="text-lg flex items-center"><LocationTypeIcon type={loc.type}/>{loc.nom}</CardTitle>
+                    <CardTitle className="text-lg flex items-center"><LocationTypeIcon type={loc.type} className="text-primary"/>{loc.nom}</CardTitle>
+                     {loc.capacity && <CardDescription className="text-xs text-muted-foreground">Capacité: {loc.capacity} personnes</CardDescription>}
                   </CardHeader>
                   <CardContent className="p-4 pt-0 flex-grow space-y-2 text-sm">
                     {loc.description && <p className="text-muted-foreground text-xs line-clamp-3">{loc.description}</p>}
-                    <p className="flex items-center"><Users className="mr-2 h-4 w-4 text-muted-foreground" /> Capacité: {loc.capacity || 'N/A'} personnes</p>
                     {loc.tagIds && loc.tagIds.length > 0 && (
                       <div className="flex items-start pt-1">
                         <TagIconLucide className="mr-2 h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
@@ -516,6 +560,12 @@ function PublicReservationPageContent() {
           )}
         </div>
       )}
+       {isSearching && (
+         <div className="pt-12 text-center">
+            <Search className="mx-auto h-12 w-12 text-primary animate-pulse mb-4" />
+            <p className="text-lg text-muted-foreground">Recherche des disponibilités...</p>
+        </div>
+       )}
     </div>
   );
 }
@@ -527,3 +577,4 @@ export default function PublicReservationPage() {
     </Suspense>
   );
 }
+
