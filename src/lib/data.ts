@@ -1,6 +1,6 @@
 
 // src/lib/data.ts
-import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus, Tag } from './types';
+import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus, Tag, ReservationPageSettings } from './types';
 
 // Firestore imports are commented out to use in-memory data
 // import { db } from './firebase'; 
@@ -24,32 +24,32 @@ let usersInMemory: User[] = [
 ];
 
 let hostsInMemory: Host[] = [
-  { hostId: 'host-01-inmem', nom: 'Paradise Beach Resort (In-Mem)', email: 'manager@paradise.com' },
-  { hostId: 'host-02-inmem', nom: 'Le Delice Downtown (In-Mem)', email: 'contact@delice.com' },
-  { hostId: 'host-1747669860022', nom: 'Dynamic Test Est. (In-Mem)', email: 'dynamic.host@example.com' },
+  { hostId: 'host-01-inmem', nom: 'Paradise Beach Resort (In-Mem)', email: 'manager@paradise.com', reservationPageSettings: { heroImageUrl: 'https://placehold.co/1200x400.png?text=Paradise+Resort+Banner', heroImageAiHint: 'resort beach banner', enableRoomReservations: true, enableTableReservations: true } },
+  { hostId: 'host-02-inmem', nom: 'Le Delice Downtown (In-Mem)', email: 'contact@delice.com', reservationPageSettings: { enableRoomReservations: false, enableTableReservations: true } },
+  { hostId: 'host-1747669860022', nom: 'Dynamic Test Est. (In-Mem)', email: 'dynamic.host@example.com', reservationPageSettings: { heroImageUrl: 'https://placehold.co/1200x400.png?text=Dynamic+Test+Banner', heroImageAiHint: 'dynamic test banner', enableRoomReservations: true, enableTableReservations: false } },
 ];
 
 let sitesInMemory: Site[] = [
-  { siteId: 'site-01', nom: 'Paradise Beach Resort (In-Mem)', hostId: 'host-01-inmem', logoUrl: 'https://placehold.co/300x100.png', logoAiHint: 'resort beach banner' },
-  { siteId: 'site-02', nom: 'Le Delice Downtown (In-Mem)', hostId: 'host-02-inmem', logoUrl: 'https://placehold.co/300x100.png', logoAiHint: 'restaurant city banner' },
-  { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment (In-Mem)', hostId: 'host-1747669860022', logoUrl: 'https://placehold.co/300x100.png', logoAiHint: 'test establishment banner' },
+  { siteId: 'site-01', nom: 'Paradise Beach Resort (In-Mem)', hostId: 'host-01-inmem', logoUrl: 'https://placehold.co/300x100.png?text=Paradise+Logo', logoAiHint: 'resort logo' },
+  { siteId: 'site-02', nom: 'Le Delice Downtown (In-Mem)', hostId: 'host-02-inmem', logoUrl: 'https://placehold.co/300x100.png?text=Delice+Logo', logoAiHint: 'restaurant logo' },
+  { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment (In-Mem)', hostId: 'host-1747669860022', logoUrl: 'https://placehold.co/300x100.png?text=Dynamic+Logo', logoAiHint: 'dynamic logo' },
 ];
 
 let roomsOrTablesInMemory: RoomOrTable[] = [
-  { id: 'rt-paradise-main', nom: 'Paradise Resort Main Area', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: undefined, urlPersonnalise: `/client/host-01-inmem/rt-paradise-main`, capacity: 200, tagIds: ['tag-luxury-inmem', 'tag-beachfront-inmem'], description: "Main area of the Paradise Resort, featuring stunning ocean views.", imageUrls: ["https://placehold.co/600x400.png"], imageAiHint: "resort main area"},
-  { id: 'rt-lobby-01', nom: 'Lobby Zone', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-paradise-main', urlPersonnalise: `/client/host-01-inmem/rt-lobby-01`, capacity: 50, tagIds: ['tag-reception-inmem'], description: "Comfortable lobby area with seating and reception.", imageUrls: ["https://placehold.co/600x400.png"], imageAiHint: "hotel lobby"},
-  { id: 'rt-reception-desk-01', nom: 'Reception Desk Area', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01-inmem/rt-reception-desk-01`, capacity: 10, description: "Front desk for check-in and inquiries."},
-  { id: 'room-101', nom: 'Chambre 101', type: 'Chambre', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01-inmem/room-101`, capacity: 2, tagIds: ['tag-standard-inmem', 'tag-quiet-inmem'], description: "Standard double room with garden view.", imageUrls: ["https://placehold.co/600x400.png", "https://placehold.co/600x400.png"], imageAiHint: "hotel room garden" },
-  { id: 'room-102', nom: 'Chambre 102 (Suite)', type: 'Chambre', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01-inmem/room-102`, capacity: 4, tagIds: ['tag-suite-inmem', 'tag-balcony-inmem'], description: "Spacious suite with a private balcony and ocean view.", imageUrls: ["https://placehold.co/600x400.png"], imageAiHint: "hotel suite ocean" },
-  { id: 'rt-pool-01', nom: 'Pool Area', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-paradise-main', urlPersonnalise: `/client/host-01-inmem/rt-pool-01`, capacity: 100, tagIds: ['tag-poolside-inmem'], description: "Large outdoor swimming pool with sun loungers.", imageUrls: ["https://placehold.co/600x400.png"], imageAiHint: "swimming pool resort"},
+  { id: 'rt-paradise-main', nom: 'Paradise Resort Main Area', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: undefined, urlPersonnalise: `/client/host-01-inmem/rt-paradise-main`, capacity: 200, tagIds: ['tag-luxury-inmem', 'tag-beachfront-inmem'], description: "Main area of the Paradise Resort, featuring stunning ocean views.", imageUrls: ["https://placehold.co/600x400.png?text=Resort+View+1", "https://placehold.co/600x400.png?text=Resort+View+2"], imageAiHint: "resort main area", amenityIds: ['wifi', 'parking-gratuit-sur-place', 'ascenseur', 'piscine'] },
+  { id: 'rt-lobby-01', nom: 'Lobby Zone', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-paradise-main', urlPersonnalise: `/client/host-01-inmem/rt-lobby-01`, capacity: 50, tagIds: ['tag-reception-inmem'], description: "Comfortable lobby area with seating and reception.", imageUrls: ["https://placehold.co/600x400.png?text=Lobby+1"], imageAiHint: "hotel lobby", amenityIds: ['wifi', 'climatisation', 'espace-travail-dedie'] },
+  { id: 'rt-reception-desk-01', nom: 'Reception Desk Area', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01-inmem/rt-reception-desk-01`, capacity: 10, description: "Front desk for check-in and inquiries.", amenityIds: ['cles-remises-hote'] },
+  { id: 'room-101', nom: 'Chambre 101', type: 'Chambre', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01-inmem/room-101`, capacity: 2, tagIds: ['tag-standard-inmem', 'tag-quiet-inmem'], description: "Standard double room with garden view.", imageUrls: ["https://placehold.co/600x400.png?text=Room+101+Pic1", "https://placehold.co/600x400.png?text=Room+101+Pic2"], imageAiHint: "hotel room garden", amenityIds: ['salle-de-bain', 'wifi', 'tv', 'chauffage-central', 'serrure-porte-chambre', 'detecteur-fumee'] },
+  { id: 'room-102', nom: 'Chambre 102 (Suite)', type: 'Chambre', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01-inmem/room-102`, capacity: 4, tagIds: ['tag-suite-inmem', 'tag-balcony-inmem'], description: "Spacious suite with a private balcony and ocean view.", imageUrls: ["https://placehold.co/600x400.png?text=Suite+Pic"], imageAiHint: "hotel suite ocean", amenityIds: ['salle-de-bain', 'seche-cheveux', 'wifi', 'tv', 'climatisation', 'terrasse-balcon', 'vue-mer'] },
+  { id: 'rt-pool-01', nom: 'Pool Area', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-paradise-main', urlPersonnalise: `/client/host-01-inmem/rt-pool-01`, capacity: 100, tagIds: ['tag-poolside-inmem'], description: "Large outdoor swimming pool with sun loungers.", imageUrls: ["https://placehold.co/600x400.png?text=Pool+Area"], imageAiHint: "swimming pool resort", amenityIds: ['piscine', 'jacuzzi'] },
   { id: 'table-pool-1', nom: 'Table Piscine 1', type: 'Table', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-pool-01', urlPersonnalise: `/client/host-01-inmem/table-pool-1`, capacity: 4, tagIds: ['tag-outdoor-inmem'], description: "Poolside table for snacks and drinks." },
-  { id: 'rt-delice-main', nom: 'Delice Main Dining', type: 'Site', hostId: 'host-02-inmem', globalSiteId: 'site-02', parentLocationId: undefined, urlPersonnalise: `/client/host-02-inmem/rt-delice-main`, capacity: 80, tagIds: ['tag-fine-dining-inmem'], description: "Main dining hall of Le Delice Downtown.", imageUrls: ["https://placehold.co/600x400.png"], imageAiHint: "restaurant dining"},
+  { id: 'rt-delice-main', nom: 'Delice Main Dining', type: 'Site', hostId: 'host-02-inmem', globalSiteId: 'site-02', parentLocationId: undefined, urlPersonnalise: `/client/host-02-inmem/rt-delice-main`, capacity: 80, tagIds: ['tag-fine-dining-inmem'], description: "Main dining hall of Le Delice Downtown.", imageUrls: ["https://placehold.co/600x400.png?text=Delice+Dining"], imageAiHint: "restaurant dining", amenityIds: ['wifi', 'climatisation'] },
   { id: 'table-5', nom: 'Table 5', type: 'Table', hostId: 'host-02-inmem', globalSiteId: 'site-02', parentLocationId: 'rt-delice-main', urlPersonnalise: `/client/host-02-inmem/table-5`, capacity: 2, description: "Cozy table for two near the window." },
   { id: 'table-vip', nom: 'VIP Table', type: 'Table', hostId: 'host-02-inmem', globalSiteId: 'site-02', parentLocationId: 'rt-delice-main', urlPersonnalise: `/client/host-02-inmem/table-vip`, capacity: 8, tagIds: ['tag-vip-inmem'], description: "Exclusive VIP table with premium service." },
-  { id: 'rt-dynamic-main', nom: 'Dynamic Main Area', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: undefined, urlPersonnalise: `/client/host-1747669860022/rt-dynamic-main`, capacity: 150, description: "Main area for Dynamic Test Establishment.", imageUrls: ["https://placehold.co/600x400.png"]},
-  { id: 'rt-dynamic-lobby', nom: 'Dynamic Lobby', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-main', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-lobby`, capacity: 30, description: "Lobby of Dynamic Test Establishment."},
-  { id: 'rt-dynamic-room1', nom: 'Dynamic Room 101', type: 'Chambre', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-room1`, capacity: 2, tagIds: ['tag-standard-inmem'], description: "Standard room in Dynamic Test Establishment.", imageUrls: ["https://placehold.co/600x400.png"]},
-  { id: 'rt-dynamic-table1', nom: 'Dynamic Table Alpha', type: 'Table', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-main', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-table1`, capacity: 6, description: "Table Alpha in Dynamic Test Establishment."},
+  { id: 'rt-dynamic-main', nom: 'Dynamic Main Area', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: undefined, urlPersonnalise: `/client/host-1747669860022/rt-dynamic-main`, capacity: 150, description: "Main area for Dynamic Test Establishment.", imageUrls: ["https://placehold.co/600x400.png?text=Dynamic+Area"], amenityIds: ['wifi'] },
+  { id: 'rt-dynamic-lobby', nom: 'Dynamic Lobby', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-main', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-lobby`, capacity: 30, description: "Lobby of Dynamic Test Establishment.", amenityIds: ['wifi', 'climatisation'] },
+  { id: 'rt-dynamic-room1', nom: 'Dynamic Room 101', type: 'Chambre', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-room1`, capacity: 2, tagIds: ['tag-standard-inmem'], description: "Standard room in Dynamic Test Establishment.", imageUrls: ["https://placehold.co/600x400.png?text=Dynamic+Room"], amenityIds: ['salle-de-bain', 'wifi', 'tv'] },
+  { id: 'rt-dynamic-table1', nom: 'Dynamic Table Alpha', type: 'Table', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-main', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-table1`, capacity: 6, description: "Table Alpha in Dynamic Test Establishment." },
 ];
 
 let tagsInMemory: Tag[] = [
@@ -67,13 +67,13 @@ let tagsInMemory: Tag[] = [
 ];
 
 let serviceCategoriesInMemory: ServiceCategory[] = [
-  { id: 'cat-roomservice-inmem', nom: 'Room Service (In-Mem)', hostId: 'host-01-inmem', image: 'https://placehold.co/300x200.png', "data-ai-hint": "room service" },
-  { id: 'cat-transport-inmem', nom: 'Transport & Tours (In-Mem)', hostId: 'host-01-inmem', image: 'https://placehold.co/300x200.png', "data-ai-hint": "transportation tour" },
-  { id: 'cat-food-inmem', nom: 'Food Menu (In-Mem)', hostId: 'host-02-inmem', image: 'https://placehold.co/300x200.png', "data-ai-hint": "food menu" },
-  { id: 'cat-drinks-inmem', nom: 'Beverages (In-Mem)', hostId: 'host-02-inmem', image: 'https://placehold.co/300x200.png', "data-ai-hint": "drinks beverages" },
-  { id: 'cat-activities-inmem', nom: 'Resort Activities (In-Mem)', hostId: 'host-01-inmem', image: 'https://placehold.co/300x200.png', "data-ai-hint": "activities leisure" },
-  { id: 'cat-poolside-inmem', nom: 'Poolside Snacks & Drinks (In-Mem)', hostId: 'host-01-inmem', image: 'https://placehold.co/300x200.png', "data-ai-hint": "poolside snacks" },
-  { id: 'cat-dynamic-main-inmem', nom: 'General Services (Dynamic Host)', hostId: 'host-1747669860022', image: 'https://placehold.co/300x200.png', "data-ai-hint": "general services" },
+  { id: 'cat-roomservice-inmem', nom: 'Room Service (In-Mem)', hostId: 'host-01-inmem', image: 'https://placehold.co/300x200.png?text=Room+Service', "data-ai-hint": "room service" },
+  { id: 'cat-transport-inmem', nom: 'Transport & Tours (In-Mem)', hostId: 'host-01-inmem', image: 'https://placehold.co/300x200.png?text=Transport', "data-ai-hint": "transportation tour" },
+  { id: 'cat-food-inmem', nom: 'Food Menu (In-Mem)', hostId: 'host-02-inmem', image: 'https://placehold.co/300x200.png?text=Food+Menu', "data-ai-hint": "food menu" },
+  { id: 'cat-drinks-inmem', nom: 'Beverages (In-Mem)', hostId: 'host-02-inmem', image: 'https://placehold.co/300x200.png?text=Beverages', "data-ai-hint": "drinks beverages" },
+  { id: 'cat-activities-inmem', nom: 'Resort Activities (In-Mem)', hostId: 'host-01-inmem', image: 'https://placehold.co/300x200.png?text=Activities', "data-ai-hint": "activities leisure" },
+  { id: 'cat-poolside-inmem', nom: 'Poolside Snacks & Drinks (In-Mem)', hostId: 'host-01-inmem', image: 'https://placehold.co/300x200.png?text=Poolside+Snacks', "data-ai-hint": "poolside snacks" },
+  { id: 'cat-dynamic-main-inmem', nom: 'General Services (Dynamic Host)', hostId: 'host-1747669860022', image: 'https://placehold.co/300x200.png?text=General+Services', "data-ai-hint": "general services" },
 ];
 
 let customFormsInMemory: CustomForm[] = [
@@ -100,16 +100,16 @@ let formFieldsInMemory: FormField[] = [
 ];
 
 let servicesInMemory: Service[] = [
-  { id: 'svc-taxi-inmem', titre: 'Airport Taxi (In-Mem)', description: 'Book a taxi to or from the airport.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "taxi airport", categorieId: 'cat-transport-inmem', hostId: 'host-01-inmem', formulaireId: 'form-booking-inmem', prix: 50, targetLocationIds: [], loginRequired: true },
-  { id: 'svc-breakfast-inmem', titre: 'In-Room Breakfast (In-Mem)', description: 'Order your breakfast selection.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "breakfast room", categorieId: 'cat-roomservice-inmem', hostId: 'host-01-inmem', formulaireId: 'form-foodorder-inmem', prix: 25, targetLocationIds: ['room-101', 'room-102'], loginRequired: false },
-  { id: 'svc-pool-cocktails-inmem', titre: 'Poolside Cocktails (In-Mem)', description: 'Enjoy refreshing cocktails by the pool.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "cocktail pool", categorieId: 'cat-poolside-inmem', hostId: 'host-01-inmem', prix: 12, targetLocationIds: ['rt-pool-01'], loginRequired: false },
-  { id: 'svc-pizza-inmem', titre: 'Artisan Pizza (In-Mem)', description: 'Delicious stone-baked pizza.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "pizza food", categorieId: 'cat-food-inmem', hostId: 'host-02-inmem', formulaireId: 'form-foodorder-inmem', prix: 18, targetLocationIds: [], loginRequired: false },
-  { id: 'svc-water-restaurant-inmem', titre: 'Bottled Water (Restaurant - In-Mem)', description: 'Chilled spring water.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "water bottle", categorieId: 'cat-drinks-inmem', hostId: 'host-02-inmem', prix: 3, targetLocationIds: [], loginRequired: false },
-  { id: 'svc-concierge-inmem', titre: 'Concierge Assistance (In-Mem)', description: 'Need help with bookings or local information?', image: 'https://placehold.co/600x400.png', "data-ai-hint": "concierge helpdesk", categorieId: 'cat-roomservice-inmem', hostId: 'host-01-inmem', formulaireId: 'form-generic-info-inmem', targetLocationIds: ['rt-lobby-01', 'rt-reception-desk-01'], loginRequired: true },
-  { id: 'svc-spa-inmem', titre: 'Full Day Spa Package (In-Mem)', description: 'Indulge in a full day of relaxation.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "spa massage", categorieId: 'cat-activities-inmem', hostId: 'host-01-inmem', formulaireId: 'form-booking-inmem', prix: 150, targetLocationIds: [], loginRequired: true },
-  { id: 'svc-citytour-inmem', titre: 'Guided City Tour (In-Mem)', description: 'Explore the city highlights.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "city tour", categorieId: 'cat-transport-inmem', hostId: 'host-01-inmem', formulaireId: 'form-activity-signup-inmem', prix: 75, targetLocationIds: ['rt-lobby-01', 'rt-reception-desk-01'], loginRequired: true },
-  { id: 'svc-dynamic-info-inmem', titre: 'Info Desk (Dynamic Host)', description: 'Ask us anything!', image: 'https://placehold.co/600x400.png', "data-ai-hint": "information desk", categorieId: 'cat-dynamic-main-inmem', hostId: 'host-1747669860022', formulaireId: 'form-dynamic-request-inmem', targetLocationIds: ['rt-dynamic-lobby'], loginRequired: false},
-  { id: 'svc-dynamic-roomclean-inmem', titre: 'Room Cleaning (Dynamic Host)', description: 'Schedule room cleaning.', image: 'https://placehold.co/600x400.png', "data-ai-hint": "room cleaning", categorieId: 'cat-dynamic-main-inmem', hostId: 'host-1747669860022', formulaireId: undefined, targetLocationIds: ['rt-dynamic-room1'], loginRequired: true},
+  { id: 'svc-taxi-inmem', titre: 'Airport Taxi (In-Mem)', description: 'Book a taxi to or from the airport.', image: 'https://placehold.co/600x400.png?text=Airport+Taxi', "data-ai-hint": "taxi airport", categorieId: 'cat-transport-inmem', hostId: 'host-01-inmem', formulaireId: 'form-booking-inmem', prix: 50, targetLocationIds: [], loginRequired: true },
+  { id: 'svc-breakfast-inmem', titre: 'In-Room Breakfast (In-Mem)', description: 'Order your breakfast selection.', image: 'https://placehold.co/600x400.png?text=In-Room+Breakfast', "data-ai-hint": "breakfast room", categorieId: 'cat-roomservice-inmem', hostId: 'host-01-inmem', formulaireId: 'form-foodorder-inmem', prix: 25, targetLocationIds: ['room-101', 'room-102'], loginRequired: false },
+  { id: 'svc-pool-cocktails-inmem', titre: 'Poolside Cocktails (In-Mem)', description: 'Enjoy refreshing cocktails by the pool.', image: 'https://placehold.co/600x400.png?text=Poolside+Cocktail', "data-ai-hint": "cocktail pool", categorieId: 'cat-poolside-inmem', hostId: 'host-01-inmem', prix: 12, targetLocationIds: ['rt-pool-01'], loginRequired: false },
+  { id: 'svc-pizza-inmem', titre: 'Artisan Pizza (In-Mem)', description: 'Delicious stone-baked pizza.', image: 'https://placehold.co/600x400.png?text=Artisan+Pizza', "data-ai-hint": "pizza food", categorieId: 'cat-food-inmem', hostId: 'host-02-inmem', formulaireId: 'form-foodorder-inmem', prix: 18, targetLocationIds: [], loginRequired: false },
+  { id: 'svc-water-restaurant-inmem', titre: 'Bottled Water (Restaurant - In-Mem)', description: 'Chilled spring water.', image: 'https://placehold.co/600x400.png?text=Bottled+Water', "data-ai-hint": "water bottle", categorieId: 'cat-drinks-inmem', hostId: 'host-02-inmem', prix: 3, targetLocationIds: [], loginRequired: false },
+  { id: 'svc-concierge-inmem', titre: 'Concierge Assistance (In-Mem)', description: 'Need help with bookings or local information?', image: 'https://placehold.co/600x400.png?text=Concierge', "data-ai-hint": "concierge helpdesk", categorieId: 'cat-roomservice-inmem', hostId: 'host-01-inmem', formulaireId: 'form-generic-info-inmem', targetLocationIds: ['rt-lobby-01', 'rt-reception-desk-01'], loginRequired: true },
+  { id: 'svc-spa-inmem', titre: 'Full Day Spa Package (In-Mem)', description: 'Indulge in a full day of relaxation.', image: 'https://placehold.co/600x400.png?text=Spa+Package', "data-ai-hint": "spa massage", categorieId: 'cat-activities-inmem', hostId: 'host-01-inmem', formulaireId: 'form-booking-inmem', prix: 150, targetLocationIds: [], loginRequired: true },
+  { id: 'svc-citytour-inmem', titre: 'Guided City Tour (In-Mem)', description: 'Explore the city highlights.', image: 'https://placehold.co/600x400.png?text=City+Tour', "data-ai-hint": "city tour", categorieId: 'cat-transport-inmem', hostId: 'host-01-inmem', formulaireId: 'form-activity-signup-inmem', prix: 75, targetLocationIds: ['rt-lobby-01', 'rt-reception-desk-01'], loginRequired: true },
+  { id: 'svc-dynamic-info-inmem', titre: 'Info Desk (Dynamic Host)', description: 'Ask us anything!', image: 'https://placehold.co/600x400.png?text=Info+Desk', "data-ai-hint": "information desk", categorieId: 'cat-dynamic-main-inmem', hostId: 'host-1747669860022', formulaireId: 'form-dynamic-request-inmem', targetLocationIds: ['rt-dynamic-lobby'], loginRequired: false},
+  { id: 'svc-dynamic-roomclean-inmem', titre: 'Room Cleaning (Dynamic Host)', description: 'Schedule room cleaning.', image: 'https://placehold.co/600x400.png?text=Room+Cleaning', "data-ai-hint": "room cleaning", categorieId: 'cat-dynamic-main-inmem', hostId: 'host-1747669860022', formulaireId: undefined, targetLocationIds: ['rt-dynamic-room1'], loginRequired: true},
 ];
 
 let ordersInMemory: Order[] = [
@@ -131,47 +131,55 @@ let clientsInMemory: Client[] = [
 ];
 
 let reservationsInMemory: Reservation[] = [
-    { id: 'res-001-inmem', hostId: 'host-01-inmem', locationId: 'room-101', type: 'Chambre', clientName: 'Alice Wonderland (In-Mem)', clientId: 'client-mock-1-inmem', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', nombrePersonnes: 2, status: 'confirmed', notes: 'Early check-in requested', animauxDomestiques: false },
-    { id: 'res-002-inmem', hostId: 'host-01-inmem', locationId: 'room-102', type: 'Chambre', clientName: 'Bob The Builder (In-Mem)', clientId: 'client-mock-2-inmem', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', nombrePersonnes: 1, animauxDomestiques: true, status: 'checked-in' },
+    { id: 'res-001-inmem', hostId: 'host-01-inmem', locationId: 'room-101', type: 'Chambre', clientName: 'Alice Wonderland (In-Mem)', clientId: 'client-mock-1-inmem', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', nombrePersonnes: 2, status: 'confirmed', notes: 'Early check-in requested', animauxDomestiques: false, channel: 'Booking.com' },
+    { id: 'res-002-inmem', hostId: 'host-01-inmem', locationId: 'room-102', type: 'Chambre', clientName: 'Bob The Builder (In-Mem)', clientId: 'client-mock-2-inmem', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', nombrePersonnes: 1, animauxDomestiques: true, status: 'checked-in', channel: 'Direct' },
     { id: 'res-003-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-room1', type: 'Chambre', clientName: 'Dynamic Test Client (In-Mem)', clientId: 'client-mock-dynamic-inmem', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', nombrePersonnes: 2, notes: "Needs a crib", status: 'pending', animauxDomestiques: false },
-    { id: 'res-004-inmem', hostId: 'host-02-inmem', locationId: 'table-5', type: 'Table', clientName: 'Charlie Passager (In-Mem)', clientId: 'client-mock-3-inmem', dateArrivee: '2024-07-20', nombrePersonnes: 4, status: 'confirmed', notes: 'Dinner reservation for 8 PM' }, // Removed dateDepart for table
-    { id: 'res-dynamic-table-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-table1', type: 'Table', clientName: 'Test Diner', dateArrivee: '2024-08-03', nombrePersonnes: 2, status: 'confirmed', notes: 'Table reservation for dynamic host.' }, // Removed dateDepart for table
+    { id: 'res-004-inmem', hostId: 'host-02-inmem', locationId: 'table-5', type: 'Table', clientName: 'Charlie Passager (In-Mem)', clientId: 'client-mock-3-inmem', dateArrivee: '2024-07-20', dateDepart: '2024-07-20', nombrePersonnes: 4, status: 'confirmed', notes: 'Dinner reservation for 8 PM', channel: 'Phone' },
+    { id: 'res-dynamic-table-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-table1', type: 'Table', clientName: 'Test Diner', dateArrivee: '2024-08-03', dateDepart: '2024-08-03', nombrePersonnes: 2, status: 'confirmed', notes: 'Table reservation for dynamic host.' },
 ];
 
 
 // --- User Management (In-memory) ---
 export const getUserByEmail = async (email: string): Promise<User | undefined> => {
   log(`getUserByEmail called for: ${email} (in-memory)`);
-  const user = usersInMemory.find(u => u.email.toLowerCase() === email.toLowerCase());
-  if (user) {
-    const userData = { ...user };
-    // Ensure motDePasse exists, fall back to password if needed (for older data)
-    if (!userData.motDePasse && (user as any).password) {
-      userData.motDePasse = (user as any).password;
+  try {
+    const user = usersInMemory.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (user) {
+      const userData = { ...user };
+      if (!userData.motDePasse && (user as any).password) {
+        userData.motDePasse = (user as any).password;
+      }
+      if (!userData.nom && userData.email) {
+          userData.nom = userData.email.split('@')[0];
+      }
+      return userData;
     }
-    // Provide a default name if nom is missing
-    if (!userData.nom && userData.email) {
-        userData.nom = userData.email.split('@')[0];
-    }
-    return userData;
+    return undefined;
+  } catch (e) {
+    console.error("Error in getUserByEmail (in-memory):", e);
+    return undefined;
   }
-  return undefined;
 };
 
 export const getUserById = async (id: string): Promise<User | undefined> => {
   log(`getUserById called for: ${id} (in-memory)`);
-  const user = usersInMemory.find(u => u.id === id);
-   if (user) {
-    const userData = { ...user };
-    if (!userData.motDePasse && (user as any).password) {
-      userData.motDePasse = (user as any).password;
+  try {
+    const user = usersInMemory.find(u => u.id === id);
+    if (user) {
+      const userData = { ...user };
+      if (!userData.motDePasse && (user as any).password) {
+        userData.motDePasse = (user as any).password;
+      }
+      if (!userData.nom && userData.email) {
+          userData.nom = userData.email.split('@')[0];
+      }
+      return userData;
     }
-    if (!userData.nom && userData.email) {
-        userData.nom = userData.email.split('@')[0];
-    }
-    return userData;
+    return undefined;
+  } catch (e) {
+    console.error("Error in getUserById (in-memory):", e);
+    return undefined;
   }
-  return undefined;
 };
 
 export const getUsers = async (): Promise<User[]> => {
@@ -197,7 +205,7 @@ export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
   }
   const newUser: User = {
     id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-    motDePasse: userData.motDePasse.trim(), // Ensure password is included
+    motDePasse: userData.motDePasse.trim(),
     ...userData,
   };
   usersInMemory.push(newUser);
@@ -213,8 +221,6 @@ export const updateUser = async (userId: string, userData: Partial<Omit<User, 'i
      if (userData.motDePasse && userData.motDePasse.trim() !== '') {
         updatedUser.motDePasse = userData.motDePasse.trim();
     } else if (userData.hasOwnProperty('motDePasse') && (userData.motDePasse === '' || userData.motDePasse === null || userData.motDePasse === undefined)) {
-        // Password not changed if empty or null/undefined is passed
-        // Keep existing password:
         updatedUser.motDePasse = usersInMemory[userIndex].motDePasse;
     }
     if (userData.hasOwnProperty('hostId')) {
@@ -278,9 +284,17 @@ export const addHost = async (hostData: Omit<Host, 'hostId'>): Promise<Host> => 
       return { ...existingHostByEmail };
   }
 
+  const defaultSettings: ReservationPageSettings = {
+    enableRoomReservations: true,
+    enableTableReservations: true,
+    heroImageUrl: `https://placehold.co/1200x400.png?text=${encodeURIComponent(hostData.nom)}+Banner`,
+    heroImageAiHint: hostData.nom.toLowerCase().split(' ').slice(0,2).join(' ') || 'establishment banner',
+  };
+
   const newHost: Host = {
     hostId: `host-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     ...hostData,
+    reservationPageSettings: hostData.reservationPageSettings || defaultSettings,
   };
   hostsInMemory.push(newHost);
   log(`Host ${newHost.email} added (in-memory) with ID ${newHost.hostId}.`);
@@ -299,12 +313,24 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
   const hostIndex = hostsInMemory.findIndex(h => h.hostId === hostId);
   if (hostIndex > -1) {
     const originalHostData = { ...hostsInMemory[hostIndex] };
-    hostsInMemory[hostIndex] = { ...hostsInMemory[hostIndex], ...hostData };
+    
+    // Deep merge reservationPageSettings
+    const updatedSettings = {
+      ...(originalHostData.reservationPageSettings || { enableRoomReservations: true, enableTableReservations: true }), // Provide defaults if undefined
+      ...(hostData.reservationPageSettings || {}),
+    };
+
+    hostsInMemory[hostIndex] = { 
+        ...originalHostData, 
+        ...hostData,
+        reservationPageSettings: updatedSettings,
+    };
+
     log(`Host ${hostId} updated (in-memory).`);
     const updatedHost = hostsInMemory[hostIndex];
     if ((hostData.email && hostData.email !== originalHostData.email) || (hostData.nom && hostData.nom !== originalHostData.nom)) {
         let userToUpdate = usersInMemory.find(u => u.hostId === hostId); 
-        if (!userToUpdate) userToUpdate = usersInMemory.find(u => u.email.toLowerCase() === originalHostData.email.toLowerCase() && u.role === 'host'); // Fallback
+        if (!userToUpdate) userToUpdate = usersInMemory.find(u => u.email.toLowerCase() === originalHostData.email.toLowerCase() && u.role === 'host');
         if (userToUpdate) {
             await updateUser(userToUpdate.id, {
                 email: updatedHost.email, 
@@ -398,8 +424,8 @@ export const updateSiteInData = async (siteId: string, siteData: Partial<Omit<Si
     sitesInMemory[siteIndex] = {
       ...sitesInMemory[siteIndex],
       ...siteData,
-      logoUrl: siteData.logoUrl !== undefined ? siteData.logoUrl : sitesInMemory[siteIndex].logoUrl,
-      logoAiHint: siteData.logoUrl && siteData.nom ? siteData.nom.toLowerCase().split(' ').slice(0,2).join(' ') : sitesInMemory[siteIndex].logoAiHint,
+      logoUrl: siteData.logoUrl !== undefined ? (siteData.logoUrl || undefined) : sitesInMemory[siteIndex].logoUrl,
+      logoAiHint: siteData.logoUrl && siteData.nom ? siteData.nom.toLowerCase().split(' ').slice(0,2).join(' ') : (siteData.nom ? siteData.nom.toLowerCase().split(' ').slice(0,2).join(' ') : sitesInMemory[siteIndex].logoAiHint),
     };
     return sitesInMemory[siteIndex];
   }
@@ -409,7 +435,6 @@ export const deleteSiteInData = async (siteId: string): Promise<boolean> => {
     log(`deleteSiteInData called for: ${siteId}. Using in-memory data.`);
     const initialLength = sitesInMemory.length;
     sitesInMemory = sitesInMemory.filter(s => s.siteId !== siteId);
-    // Cascade delete locations that belong to this global site
     roomsOrTablesInMemory = roomsOrTablesInMemory.filter(rt => rt.globalSiteId !== siteId);
     return sitesInMemory.length < initialLength;
 };
@@ -453,7 +478,8 @@ export const addRoomOrTable = async (data: Omit<RoomOrTable, 'id' | 'urlPersonna
     tagIds: data.tagIds || [],
     description: data.description || undefined,
     imageUrls: data.imageUrls || undefined,
-    imageAiHint: data.imageUrls && data.nom ? data.nom.toLowerCase().split(' ').slice(0,2).join(' ') : undefined,
+    imageAiHint: data.imageUrls && data.imageUrls.length > 0 && data.nom ? data.nom.toLowerCase().split(' ').slice(0,2).join(' ') : undefined,
+    amenityIds: data.amenityIds || [],
   };
   roomsOrTablesInMemory.push(newRoomOrTable);
   return newRoomOrTable;
@@ -474,7 +500,8 @@ export const updateRoomOrTable = async (id: string, data: Partial<Omit<RoomOrTab
         tagIds: data.tagIds !== undefined ? data.tagIds : currentItem.tagIds,
         description: data.description !== undefined ? data.description : currentItem.description,
         imageUrls: data.imageUrls !== undefined ? data.imageUrls : currentItem.imageUrls,
-        imageAiHint: data.imageUrls && data.nom ? data.nom.toLowerCase().split(' ').slice(0,2).join(' ') : currentItem.imageAiHint,
+        imageAiHint: data.imageUrls && data.imageUrls.length > 0 && data.nom ? data.nom.toLowerCase().split(' ').slice(0,2).join(' ') : (data.nom ? data.nom.toLowerCase().split(' ').slice(0,2).join(' ') : currentItem.imageAiHint),
+        amenityIds: data.amenityIds !== undefined ? data.amenityIds : currentItem.amenityIds,
     };
     return { ...roomsOrTablesInMemory[itemIndex] };
   }
@@ -590,8 +617,7 @@ export const deleteServiceCategory = async (id: string): Promise<boolean> => {
     log(`deleteServiceCategory called for: ${id}. Using in-memory data.`);
     const initialLength = serviceCategoriesInMemory.length;
     serviceCategoriesInMemory = serviceCategoriesInMemory.filter(sc => sc.id !== id);
-    // Unassign category from services
-    servicesInMemory = servicesInMemory.map(s => s.categorieId === id ? {...s, categorieId: ''} : s); // Set to empty or a default "uncategorized" ID
+    servicesInMemory = servicesInMemory.map(s => s.categorieId === id ? {...s, categorieId: ''} : s);
     return serviceCategoriesInMemory.length < initialLength;
 };
 export const getServiceCategoryById = async (id: string): Promise<ServiceCategory | undefined> => {
@@ -900,7 +926,6 @@ export const deleteClientData = async (clientId: string): Promise<boolean> => {
   log(`deleteClientData called for: ${clientId}. Using in-memory data.`);
   const initialLength = clientsInMemory.length;
   clientsInMemory = clientsInMemory.filter(c => c.id !== clientId);
-  // Also remove associated reservations if any (using client ID)
   if (clientsInMemory.length < initialLength) {
     reservationsInMemory = reservationsInMemory.filter(r => r.clientId !== clientId);
   }
@@ -983,3 +1008,4 @@ log("Initial in-memory data loaded/defined.");
 log(`Users: ${usersInMemory.length}, Hosts: ${hostsInMemory.length}, Global Sites: ${sitesInMemory.length}, Locations: ${roomsOrTablesInMemory.length}`);
 log(`Categories: ${serviceCategoriesInMemory.length}, Forms: ${customFormsInMemory.length}, Fields: ${formFieldsInMemory.length}, Services: ${servicesInMemory.length}`);
 log(`Orders: ${ordersInMemory.length}, Clients: ${clientsInMemory.length}, Reservations: ${reservationsInMemory.length}, Tags: ${tagsInMemory.length}`);
+

@@ -10,24 +10,43 @@ export interface User {
   motDePasse: string;
 }
 
-export interface Site { // Represents a Global Site
-  siteId: string;
-  nom: string;
-  hostId: string;
-  logoUrl?: string;
-  logoAiHint?: string;
+export interface ReservationPageSettings {
+  heroImageUrl?: string;
+  heroImageAiHint?: string;
+  enableRoomReservations: boolean;
+  enableTableReservations: boolean;
 }
 
 export interface Host {
   hostId: string;
   nom: string;
   email: string;
+  reservationPageSettings?: ReservationPageSettings;
+}
+
+export interface Site { // Represents a Global Site
+  siteId: string;
+  nom: string;
+  hostId: string; // FK to Host.hostId
+  logoUrl?: string;
+  logoAiHint?: string;
 }
 
 export interface Tag {
   id: string;
   name: string;
   hostId: string;
+}
+
+export interface AmenityOption {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+}
+
+export interface AmenityCategory {
+  categoryLabel: string;
+  options: AmenityOption[];
 }
 
 export interface RoomOrTable {
@@ -39,10 +58,11 @@ export interface RoomOrTable {
   parentLocationId?: string; // FK to another RoomOrTable.id (if this location is nested)
   urlPersonnalise: string;
   capacity?: number; // Max number of persons
-  tagIds?: string[]; // IDs of associated tags
   description?: string;
   imageUrls?: string[];
-  imageAiHint?: string; // General hint for images of this location
+  imageAiHint?: string;
+  tagIds?: string[];
+  amenityIds?: string[];
 }
 
 export interface ServiceCategory {
@@ -80,10 +100,10 @@ export interface Service {
   "data-ai-hint"?: string;
   categorieId: string;
   hostId: string;
-  formulaireId?: string; // Optional: A service might not need a form
+  formulaireId?: string;
   prix?: number;
   targetLocationIds?: string[];
-  loginRequired?: boolean; // True if login is needed to order
+  loginRequired?: boolean;
 }
 
 export type OrderStatus = "pending" | "confirmed" | "completed" | "cancelled";
@@ -92,8 +112,8 @@ export interface Order {
   id: string;
   serviceId: string;
   hostId: string;
-  chambreTableId: string; // This is the RoomOrTable ID where the order was placed
-  clientNom?: string; // Name of the client (could be from registered user or typed manually)
+  chambreTableId: string;
+  clientNom?: string;
   userId?: string; // Optional: ID of the registered user if they were logged in
   donneesFormulaire: string;
   dateHeure: string;
@@ -112,25 +132,24 @@ export interface NavItem {
   external?: boolean;
 }
 
-// For Client File Page (/host/clients/[clientName]/page.tsx)
 export interface ClientDetails {
   name: string;
   orders: (Order & { serviceName?: string; locationName?: string })[];
   locations: (RoomOrTable & { globalSiteName?: string })[];
 }
 
-export type ClientType = "heberge" | "passager"; // For Host's client management
+export type ClientType = "heberge" | "passager";
 
-export interface Client { // For Host's client management records
+export interface Client {
     id: string;
     hostId: string;
     nom: string;
     email?: string;
     telephone?: string;
     type: ClientType;
-    dateArrivee?: string; 
-    dateDepart?: string;  
-    locationId?: string; 
+    dateArrivee?: string;
+    dateDepart?: string;
+    locationId?: string;
     notes?: string;
     documents?: Array<{ name: string; url: string; uploadedAt: string }>;
     credit?: number;
@@ -141,15 +160,15 @@ export type ReservationStatus = "pending" | "confirmed" | "cancelled" | "checked
 export interface Reservation {
   id: string;
   hostId: string;
-  locationId: string; // FK to RoomOrTable.id (can be Chambre or Table)
-  type?: 'Chambre' | 'Table'; // Type of the location for this reservation
-  clientId?: string;   // Optional: FK to Client.id if client is registered
-  clientName: string; // Name of the person making the reservation
-  dateArrivee: string; // ISO date string e.g. "2024-12-25"
-  dateDepart?: string;  // ISO date string e.g. "2024-12-28" - Undefined for tables
+  locationId: string;
+  type?: 'Chambre' | 'Table';
+  clientId?: string;
+  clientName: string;
+  dateArrivee: string;
+  dateDepart?: string; // Optionnel, surtout pour les tables
   nombrePersonnes: number;
-  animauxDomestiques?: boolean; // Whether pets are included - typically for Chambre
+  animauxDomestiques?: boolean; // Optionnel, plus pertinent pour les chambres
   notes?: string;
   status?: ReservationStatus;
-  // channel?: string; // Future: For acquisition channel
+  channel?: string; // Pour le canal d'acquisition
 }

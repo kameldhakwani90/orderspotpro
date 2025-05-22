@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, QrCode, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon
+  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, QrCode, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon, Settings2
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -46,6 +46,7 @@ const hostNavItems: NavItem[] = [
       { label: 'Service Categories', href: '/host/service-categories', icon: ListChecks, allowedRoles: ['host'] },
       { label: 'Custom Forms', href: '/host/forms', icon: FileText, allowedRoles: ['host'] },
       { label: 'My Services', href: '/host/services', icon: ClipboardList, allowedRoles: ['host'] },
+      { label: 'Reservation Page Settings', href: '/host/reservation-settings', icon: Settings2, allowedRoles: ['host'] },
       { label: 'Account Settings', href: '/settings', icon: Settings, allowedRoles: ['host'] }
     ]
   }
