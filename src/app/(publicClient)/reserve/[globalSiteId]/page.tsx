@@ -10,10 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'; // Added CardFooter
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as ShadCalendar } from '@/components/ui/calendar';
-import { Calendar as CalendarIcon, AlertTriangle, Search, BedDouble, Utensils, Users, Tag as TagIconLucide, Building } from 'lucide-react';
+import { Calendar as CalendarIcon, AlertTriangle, Search, BedDouble, Utensils, Users, Tag as TagIconLucide, Building, Info } from 'lucide-react';
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, isValid, isBefore, isEqual, addDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -128,18 +128,16 @@ export default function PublicReservationPage() {
         if (selectedTags.length > 0 && !selectedTags.every(tagId => loc.tagIds?.includes(tagId))) return false;
 
         const isBooked = allReservations.some(res => {
-          if (res.locationId !== loc.id || res.status === 'cancelled') return false; // Ignore cancelled reservations for availability
+          if (res.locationId !== loc.id || res.status === 'cancelled') return false;
           try {
             const resArrival = startOfDay(parseISO(res.dateArrivee));
-            // For tables, departure is same as arrival, effectively meaning the whole day is booked.
-            // For rooms, use the actual departure date.
             const resDeparture = res.type === 'Table' || !res.dateDepart ? endOfDay(parseISO(res.dateArrivee)) : startOfDay(parseISO(res.dateDepart));
             
             return checkIn < resDeparture && checkOut > resArrival;
 
           } catch (e) { 
             console.warn("Error parsing reservation dates for conflict check", res, e);
-            return true; // Assume conflict if dates are unparseable
+            return true; 
           }
         });
         return !isBooked;
@@ -160,10 +158,8 @@ export default function PublicReservationPage() {
   };
 
   const handleSelectLocation = (location: RoomOrTable) => {
-    console.log("Selected location:", location);
-    toast({ title: "Lieu Sélectionné", description: `${location.nom} - Prochaine étape : détails du client et confirmation.`});
-    // Example for future navigation:
-    // router.push(`/reserve/${globalSiteId}/confirm?locationId=${location.id}&arrival=${format(arrivalDate!, 'yyyy-MM-dd')}&departure=${searchType === 'Table' ? format(arrivalDate!, 'yyyy-MM-dd') : format(departureDate!, 'yyyy-MM-dd')}&persons=${numPersons}`);
+    console.log("Selected location, navigating to detail page:", location);
+    router.push(`/reserve/${globalSiteId}/location/${location.id}?arrival=${format(arrivalDate!, 'yyyy-MM-dd')}&departure=${searchType === 'Table' ? format(arrivalDate!, 'yyyy-MM-dd') : format(departureDate!, 'yyyy-MM-dd')}&persons=${numPersons}`);
   };
 
   const LocationTypeIcon = ({ type }: { type: 'Chambre' | 'Table' }) => {
@@ -245,7 +241,6 @@ export default function PublicReservationPage() {
         </CardHeader>
         <CardContent className="space-y-6 p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-end">
-            {/* Date Pickers */}
             <div className="space-y-1.5">
               <Label htmlFor="arrivalDate">Date d'arrivée</Label>
               <Popover>
@@ -282,7 +277,6 @@ export default function PublicReservationPage() {
               </div>
             )}
 
-            {/* Type Search */}
             <div className="space-y-1.5">
               <Label htmlFor="searchType">Je cherche</Label>
               <Select value={searchType} onValueChange={(value: 'Chambre' | 'Table') => setSearchType(value)}>
@@ -294,14 +288,12 @@ export default function PublicReservationPage() {
               </Select>
             </div>
 
-            {/* Number of Persons */}
             <div className="space-y-1.5">
               <Label htmlFor="numPersons">Nombre de personnes</Label>
               <Input id="numPersons" type="number" value={numPersons} onChange={(e) => setNumPersons(Math.max(1, parseInt(e.target.value) || 1))} min="1" />
             </div>
           </div>
 
-          {/* Tags Filter */}
           {allHostTags.length > 0 && (
             <div className="space-y-2 pt-2">
               <Label className="text-md font-medium flex items-center"><TagIconLucide className="mr-2 h-5 w-5 text-primary"/>Filtrer par Tags (optionnel)</Label>
@@ -341,7 +333,19 @@ export default function PublicReservationPage() {
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center"><LocationTypeIcon type={loc.type}/>{loc.nom}</CardTitle>
                   </CardHeader>
-                  <CardContent className="flex-grow space-y-1 text-sm">
+                  <CardContent className="flex-grow space-y-2 text-sm">
+                    {loc.imageUrls && loc.imageUrls.length > 0 && (
+                      <div className="relative h-40 w-full rounded-md overflow-hidden mb-2">
+                        <NextImage 
+                          src={loc.imageUrls[0]} 
+                          alt={`Image de ${loc.nom}`}
+                          layout="fill"
+                          objectFit="cover"
+                          data-ai-hint={loc.imageAiHint || loc.nom.toLowerCase().split(' ').slice(0,2).join(' ')}
+                        />
+                      </div>
+                    )}
+                    {loc.description && <p className="text-muted-foreground text-xs line-clamp-2">{loc.description}</p>}
                     <p className="flex items-center"><Users className="mr-2 h-4 w-4 text-muted-foreground" /> Capacité: {loc.capacity || 'N/A'} personnes</p>
                     {loc.tagIds && loc.tagIds.length > 0 && (
                       <div className="flex items-start pt-1">

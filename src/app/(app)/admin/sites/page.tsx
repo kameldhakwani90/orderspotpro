@@ -6,7 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getSites, addSite as addSiteToData, getHosts, updateSiteInData, deleteSiteInData } from '@/lib/data';
+import { getSites, addSiteToData, getHosts, updateSiteInData, deleteSiteInData } from '@/lib/data';
 import type { Site, Host } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

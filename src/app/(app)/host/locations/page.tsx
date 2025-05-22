@@ -4,16 +4,17 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getRoomsOrTables, addRoomOrTable, updateRoomOrTable as updateLocationInData, deleteRoomOrTable as deleteLocationInData, getSites, getTags as fetchHostTags } from '@/lib/data'; // Added getTags
+import { getRoomsOrTables, addRoomOrTable, updateRoomOrTable as updateLocationInData, deleteRoomOrTable as deleteLocationInData, getSites, getTags as fetchHostTags } from '@/lib/data'; 
 import type { RoomOrTable, Site as GlobalSiteType, Tag } from '@/lib/types'; 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox'; // Added Checkbox
-import { ScrollArea } from '@/components/ui/scroll-area'; // Added ScrollArea
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Edit2, Trash2, QrCode, Copy, Landmark, Bed, UtensilsIcon as Utensils, Building, Users, Tag as TagIconLucide } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, QrCode, Copy, Landmark, Bed, UtensilsIcon as Utensils, Building, Users, Tag as TagIconLucide, FileImage, Info, CopyPlus } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import Image from 'next/image';
 
 type AssignableParentOption = {
   id: string; 
@@ -49,7 +51,7 @@ export default function HostLocationsPage() {
 
   const [locations, setLocations] = useState<RoomOrTable[]>([]);
   const [globalSites, setGlobalSites] = useState<GlobalSiteType[]>([]); 
-  const [hostTags, setHostTags] = useState<Tag[]>([]); // State for tags
+  const [hostTags, setHostTags] = useState<Tag[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,13 +62,17 @@ export default function HostLocationsPage() {
     type: "Chambre" | "Table" | "Site"; 
     selectedParentIdentifier: string; 
     capacity?: number;
-    tagIds?: string[]; // For selected tags
+    tagIds?: string[];
+    description?: string;
+    imageUrlsString?: string; // For comma-separated URLs
   }>({
     nom: '',
     type: 'Chambre',
     selectedParentIdentifier: '',
     capacity: undefined,
     tagIds: [],
+    description: '',
+    imageUrlsString: '',
   });
   const [assignableParentOptions, setAssignableParentOptions] = useState<AssignableParentOption[]>([]);
 
@@ -74,14 +80,14 @@ export default function HostLocationsPage() {
   const fetchData = useCallback(async (hostId: string) => {
     setIsLoading(true);
     try {
-      const [fetchedLocations, fetchedGlobalSites, fetchedTags] = await Promise.all([ // Fetch tags
+      const [fetchedLocations, fetchedGlobalSites, fetchedTags] = await Promise.all([
         getRoomsOrTables(hostId),
         getSites(hostId),
         fetchHostTags(hostId) 
       ]);
       setLocations(fetchedLocations);
       setGlobalSites(fetchedGlobalSites);
-      setHostTags(fetchedTags); // Set tags
+      setHostTags(fetchedTags);
 
       const parentOpts: AssignableParentOption[] = [];
       fetchedGlobalSites.forEach(gs => {
@@ -129,7 +135,7 @@ export default function HostLocationsPage() {
   }, [user, authLoading, router, fetchData]);
 
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement> | { name: string, value: string | number }) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { name: string, value: string | number }) => {
     let { name, value } = 'target' in e ? e.target : e;
     
     if (name === 'capacity' && typeof value === 'string') {
@@ -190,6 +196,8 @@ export default function HostLocationsPage() {
         return;
     }
     
+    const imageUrlsArray = dataForSubmit.imageUrlsString?.split(',').map(url => url.trim()).filter(url => url) || [];
+
     const payload: Omit<RoomOrTable, 'id' | 'urlPersonnalise'> = {
       nom: dataForSubmit.nom!,
       type: dataForSubmit.type!,
@@ -198,6 +206,9 @@ export default function HostLocationsPage() {
       parentLocationId: undefined, 
       capacity: (dataForSubmit.type === 'Chambre' || dataForSubmit.type === 'Table') ? dataForSubmit.capacity : undefined,
       tagIds: dataForSubmit.tagIds || [],
+      description: dataForSubmit.description || undefined,
+      imageUrls: imageUrlsArray,
+      imageAiHint: imageUrlsArray.length > 0 && dataForSubmit.nom ? dataForSubmit.nom.toLowerCase().split(' ').slice(0,2).join(' ') : undefined,
     };
 
      if (dataForSubmit.type === 'Site') { 
@@ -207,7 +218,7 @@ export default function HostLocationsPage() {
             payload.parentLocationId = selectedParentOption.actualParentLocationId; 
         }
     } else { 
-        payload.parentLocationId = selectedParentOption.actualParentLocationId; 
+        payload.parentLocationId = selectedParentOption.actualParentLocationId || selectedParentOption.id; 
     }
 
 
@@ -226,24 +237,45 @@ export default function HostLocationsPage() {
     }
     
     setIsDialogOpen(false);
-    setCurrentLocationData({ nom: '', type: 'Chambre', selectedParentIdentifier: assignableParentOptions.length > 0 ? assignableParentOptions[0].id : '', capacity: undefined, tagIds: [] });
+    setCurrentLocationData({ nom: '', type: 'Chambre', selectedParentIdentifier: assignableParentOptions.length > 0 ? assignableParentOptions[0].id : '', capacity: undefined, tagIds: [], description: '', imageUrlsString: '' });
     setEditingLocation(null);
     setIsSubmitting(false);
   };
   
-  const openAddDialog = () => {
+  const openAddDialog = (locationToDuplicate?: RoomOrTable) => {
     if (assignableParentOptions.length === 0 && globalSites.length === 0) {
         toast({ title: "Cannot Add Location", description: "You must have at least one Global Site assigned by an admin.", variant: "destructive"});
         return;
     }
     setEditingLocation(null);
-    setCurrentLocationData({ 
-        nom: '', 
-        type: 'Chambre', 
-        selectedParentIdentifier: assignableParentOptions.length > 0 ? assignableParentOptions[0].id : '',
-        capacity: undefined,
-        tagIds: [],
-    });
+    if (locationToDuplicate) {
+        let parentIdentifier = '';
+        if (locationToDuplicate.parentLocationId) {
+            const parentOpt = assignableParentOptions.find(opt => !opt.isGlobalSite && opt.actualParentLocationId === locationToDuplicate.parentLocationId);
+            parentIdentifier = parentOpt ? parentOpt.id : locationToDuplicate.globalSiteId;
+        } else {
+            parentIdentifier = locationToDuplicate.globalSiteId;
+        }
+        setCurrentLocationData({ 
+            nom: `${locationToDuplicate.nom} - Copy`, 
+            type: locationToDuplicate.type, 
+            selectedParentIdentifier: parentIdentifier,
+            capacity: locationToDuplicate.capacity,
+            tagIds: [...(locationToDuplicate.tagIds || [])],
+            description: locationToDuplicate.description || '',
+            imageUrlsString: locationToDuplicate.imageUrls?.join(', ') || '',
+        });
+    } else {
+        setCurrentLocationData({ 
+            nom: '', 
+            type: 'Chambre', 
+            selectedParentIdentifier: assignableParentOptions.length > 0 ? assignableParentOptions[0].id : '',
+            capacity: undefined,
+            tagIds: [],
+            description: '',
+            imageUrlsString: '',
+        });
+    }
     setIsDialogOpen(true);
   };
 
@@ -260,13 +292,14 @@ export default function HostLocationsPage() {
         ...locationToEdit,
         selectedParentIdentifier: parentIdentifier 
     });
-    // Use locationToEdit directly for current data to prefill dialog
     setCurrentLocationData({
         nom: locationToEdit.nom,
         type: locationToEdit.type,
         selectedParentIdentifier: parentIdentifier,
         capacity: locationToEdit.capacity,
         tagIds: locationToEdit.tagIds || [],
+        description: locationToEdit.description || '',
+        imageUrlsString: locationToEdit.imageUrls?.join(', ') || '',
     });
     setIsDialogOpen(true);
   };
@@ -350,7 +383,7 @@ export default function HostLocationsPage() {
           <h1 className="text-4xl font-bold tracking-tight text-foreground">Manage Locations</h1>
           <p className="text-lg text-muted-foreground">Your rooms, tables, site areas, and their QR codes.</p>
         </div>
-        <Button onClick={openAddDialog} disabled={isSubmitting || (assignableParentOptions.length === 0 && globalSites.length === 0)}>
+        <Button onClick={() => openAddDialog()} disabled={isSubmitting || (assignableParentOptions.length === 0 && globalSites.length === 0)}>
           <PlusCircle className="mr-2 h-5 w-5" /> Add New Location
         </Button>
       </div>
@@ -373,6 +406,7 @@ export default function HostLocationsPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[60px]">Image</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Capacity</TableHead>
@@ -385,6 +419,22 @@ export default function HostLocationsPage() {
             <TableBody>
               {locations.map((loc) => (
                 <TableRow key={loc.id}>
+                  <TableCell>
+                    {loc.imageUrls && loc.imageUrls.length > 0 && loc.imageUrls[0] ? (
+                      <Image
+                        src={loc.imageUrls[0]}
+                        alt={loc.nom}
+                        width={50}
+                        height={50}
+                        className="rounded-md object-cover aspect-square bg-muted"
+                        data-ai-hint={loc.imageAiHint || loc.nom.toLowerCase().split(' ').slice(0,2).join(' ')}
+                      />
+                    ) : (
+                      <div className="w-[50px] h-[50px] bg-muted rounded-md flex items-center justify-center">
+                        <FileImage className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">{loc.nom}</TableCell>
                   <TableCell> <div className="flex items-center gap-2"> {getLocationTypeIcon(loc.type)} <span>{loc.type}</span> </div> </TableCell>
                   <TableCell>{loc.capacity ?? 'N/A'}</TableCell>
@@ -402,6 +452,7 @@ export default function HostLocationsPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right space-x-1">
+                    <Button variant="ghost" size="icon" onClick={() => openAddDialog(loc)} title="Duplicate Location" disabled={isSubmitting}> <CopyPlus className="h-4 w-4" /> </Button>
                     <Button variant="outline" size="icon" onClick={() => openEditDialog(loc)} title="Edit Location" disabled={isSubmitting}> <Edit2 className="h-4 w-4" /> </Button>
                     <Button variant="destructive" size="icon" onClick={() => handleDeleteLocationWithConfirmation(loc)} title="Delete Location" disabled={isSubmitting}> <Trash2 className="h-4 w-4" /> </Button>
                     <Button variant="outline" size="icon" title="View QR Code" onClick={() => alert(`QR code for: ${window.location.origin}${loc.urlPersonnalise}`)} disabled={isSubmitting}> <QrCode className="h-4 w-4" /> </Button>
@@ -419,7 +470,7 @@ export default function HostLocationsPage() {
           <DialogHeader>
             <DialogTitle>{editingLocation ? 'Edit Location' : 'Add New Location'}</DialogTitle>
             <DialogDescription>
-              {editingLocation ? 'Modify details for this location.' : 'Enter details for the new location and assign it appropriately.'}
+              {editingLocation ? 'Modify details for this location.' : (dataForDialog.nom.endsWith(" - Copy") ? 'Confirm details for the duplicated location (please rename it).' : 'Enter details for the new location and assign it appropriately.')}
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[70vh] pr-2">
@@ -463,8 +514,18 @@ export default function HostLocationsPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="grid grid-cols-1 gap-2 pt-2">
+                <Label htmlFor="description" className="flex items-center"><Info className="mr-2 h-4 w-4"/>Description</Label>
+                <Textarea id="description" name="description" value={dataForDialog.description || ''} onChange={handleInputChange} className="col-span-full" placeholder="Detailed description of the location..." disabled={isSubmitting} />
+            </div>
+
+             <div className="grid grid-cols-1 gap-2 pt-2">
+                <Label htmlFor="imageUrlsString" className="flex items-center"><FileImage className="mr-2 h-4 w-4"/>Image URLs</Label>
+                <Textarea id="imageUrlsString" name="imageUrlsString" value={dataForDialog.imageUrlsString || ''} onChange={handleInputChange} className="col-span-full" placeholder="https://.../img1.png, https://.../img2.png" disabled={isSubmitting} />
+                <p className="text-xs text-muted-foreground col-span-full px-1">Enter multiple image URLs separated by commas. Use `https://placehold.co/` for placeholders.</p>
+            </div>
             
-            {/* Tags Section */}
             {hostTags.length > 0 && (
                 <div className="grid grid-cols-1 gap-2 pt-2">
                     <Label className="font-semibold flex items-center"><TagIconLucide className="mr-2 h-4 w-4"/>Assign Tags</Label>
@@ -493,7 +554,7 @@ export default function HostLocationsPage() {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
             <Button 
                 onClick={handleSubmitLocation} 
-                disabled={isSubmitting || (dialogParentOptions.length === 0 && !editingLocation) || !dataForDialog.selectedParentIdentifier || !dataForDialog.nom || ((dataForDialog.type === 'Chambre' || dataForDialog.type === 'Table') && (!dataForDialog.capacity || dataForDialog.capacity <=0))}
+                disabled={isSubmitting || (dialogParentOptions.length === 0 && !editingLocation) || !dataForDialog.selectedParentIdentifier || !dataForDialog.nom || (dataForDialog.nom.endsWith(" - Copy")) || ((dataForDialog.type === 'Chambre' || dataForDialog.type === 'Table') && (!dataForDialog.capacity || dataForDialog.capacity <=0))}
             >
                 {editingLocation ? (isSubmitting ? 'Saving...' : 'Save Changes') : (isSubmitting ? 'Creating...' : 'Create Location')}
             </Button>
@@ -503,3 +564,4 @@ export default function HostLocationsPage() {
     </div>
   );
 }
+

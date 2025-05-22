@@ -40,6 +40,9 @@ export interface RoomOrTable {
   urlPersonnalise: string;
   capacity?: number; // Max number of persons
   tagIds?: string[]; // IDs of associated tags
+  description?: string;
+  imageUrls?: string[];
+  imageAiHint?: string; // General hint for images of this location
 }
 
 export interface ServiceCategory {
@@ -139,12 +142,13 @@ export interface Reservation {
   id: string;
   hostId: string;
   locationId: string; // FK to RoomOrTable.id (can be Chambre or Table)
+  type?: 'Chambre' | 'Table'; // Type of the location for this reservation
   clientId?: string;   // Optional: FK to Client.id if client is registered
   clientName: string; // Name of the person making the reservation
   dateArrivee: string; // ISO date string e.g. "2024-12-25"
-  dateDepart?: string;  // ISO date string e.g. "2024-12-28" - Optional for tables, used for rooms
+  dateDepart?: string;  // ISO date string e.g. "2024-12-28" - Undefined for tables
   nombrePersonnes: number;
-  animauxDomestiques?: boolean; // Whether pets are included
+  animauxDomestiques?: boolean; // Whether pets are included - typically for Chambre
   notes?: string;
   status?: ReservationStatus;
   // channel?: string; // Future: For acquisition channel

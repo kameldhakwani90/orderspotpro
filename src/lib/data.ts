@@ -30,26 +30,26 @@ let hostsInMemory: Host[] = [
 ];
 
 let sitesInMemory: Site[] = [
-  { siteId: 'site-01', nom: 'Paradise Beach Resort (In-Mem)', hostId: 'host-01-inmem', logoUrl: 'https://placehold.co/100x100.png', logoAiHint: 'resort beach' },
-  { siteId: 'site-02', nom: 'Le Delice Downtown (In-Mem)', hostId: 'host-02-inmem', logoUrl: 'https://placehold.co/100x100.png', logoAiHint: 'restaurant city' },
-  { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment (In-Mem)', hostId: 'host-1747669860022', logoUrl: 'https://placehold.co/100x100.png', logoAiHint: 'test establishment' },
+  { siteId: 'site-01', nom: 'Paradise Beach Resort (In-Mem)', hostId: 'host-01-inmem', logoUrl: 'https://placehold.co/300x100.png', logoAiHint: 'resort beach banner' },
+  { siteId: 'site-02', nom: 'Le Delice Downtown (In-Mem)', hostId: 'host-02-inmem', logoUrl: 'https://placehold.co/300x100.png', logoAiHint: 'restaurant city banner' },
+  { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment (In-Mem)', hostId: 'host-1747669860022', logoUrl: 'https://placehold.co/300x100.png', logoAiHint: 'test establishment banner' },
 ];
 
 let roomsOrTablesInMemory: RoomOrTable[] = [
-  { id: 'rt-paradise-main', nom: 'Paradise Resort Main Area', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: undefined, urlPersonnalise: `/client/host-01-inmem/rt-paradise-main`, capacity: 200, tagIds: ['tag-luxury-inmem', 'tag-beachfront-inmem']},
-  { id: 'rt-lobby-01', nom: 'Lobby Zone', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-paradise-main', urlPersonnalise: `/client/host-01-inmem/rt-lobby-01`, capacity: 50, tagIds: ['tag-reception-inmem']},
-  { id: 'rt-reception-desk-01', nom: 'Reception Desk Area', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01-inmem/rt-reception-desk-01`, capacity: 10},
-  { id: 'room-101', nom: 'Chambre 101', type: 'Chambre', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01-inmem/room-101`, capacity: 2, tagIds: ['tag-standard-inmem', 'tag-quiet-inmem'] },
-  { id: 'room-102', nom: 'Chambre 102 (Suite)', type: 'Chambre', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01-inmem/room-102`, capacity: 4, tagIds: ['tag-suite-inmem', 'tag-balcony-inmem'] },
-  { id: 'rt-pool-01', nom: 'Pool Area', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-paradise-main', urlPersonnalise: `/client/host-01-inmem/rt-pool-01`, capacity: 100, tagIds: ['tag-poolside-inmem']},
-  { id: 'table-pool-1', nom: 'Table Piscine 1', type: 'Table', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-pool-01', urlPersonnalise: `/client/host-01-inmem/table-pool-1`, capacity: 4, tagIds: ['tag-outdoor-inmem'] },
-  { id: 'rt-delice-main', nom: 'Delice Main Dining', type: 'Site', hostId: 'host-02-inmem', globalSiteId: 'site-02', parentLocationId: undefined, urlPersonnalise: `/client/host-02-inmem/rt-delice-main`, capacity: 80, tagIds: ['tag-fine-dining-inmem']},
-  { id: 'table-5', nom: 'Table 5', type: 'Table', hostId: 'host-02-inmem', globalSiteId: 'site-02', parentLocationId: 'rt-delice-main', urlPersonnalise: `/client/host-02-inmem/table-5`, capacity: 2 },
-  { id: 'table-vip', nom: 'VIP Table', type: 'Table', hostId: 'host-02-inmem', globalSiteId: 'site-02', parentLocationId: 'rt-delice-main', urlPersonnalise: `/client/host-02-inmem/table-vip`, capacity: 8, tagIds: ['tag-vip-inmem'] },
-  { id: 'rt-dynamic-main', nom: 'Dynamic Main Area', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: undefined, urlPersonnalise: `/client/host-1747669860022/rt-dynamic-main`, capacity: 150},
-  { id: 'rt-dynamic-lobby', nom: 'Dynamic Lobby', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-main', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-lobby`, capacity: 30},
-  { id: 'rt-dynamic-room1', nom: 'Dynamic Room 101', type: 'Chambre', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-room1`, capacity: 2, tagIds: ['tag-standard-inmem']},
-  { id: 'rt-dynamic-table1', nom: 'Dynamic Table Alpha', type: 'Table', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-main', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-table1`, capacity: 6},
+  { id: 'rt-paradise-main', nom: 'Paradise Resort Main Area', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: undefined, urlPersonnalise: `/client/host-01-inmem/rt-paradise-main`, capacity: 200, tagIds: ['tag-luxury-inmem', 'tag-beachfront-inmem'], description: "Main area of the Paradise Resort, featuring stunning ocean views.", imageUrls: ["https://placehold.co/600x400.png"], imageAiHint: "resort main area"},
+  { id: 'rt-lobby-01', nom: 'Lobby Zone', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-paradise-main', urlPersonnalise: `/client/host-01-inmem/rt-lobby-01`, capacity: 50, tagIds: ['tag-reception-inmem'], description: "Comfortable lobby area with seating and reception.", imageUrls: ["https://placehold.co/600x400.png"], imageAiHint: "hotel lobby"},
+  { id: 'rt-reception-desk-01', nom: 'Reception Desk Area', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01-inmem/rt-reception-desk-01`, capacity: 10, description: "Front desk for check-in and inquiries."},
+  { id: 'room-101', nom: 'Chambre 101', type: 'Chambre', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01-inmem/room-101`, capacity: 2, tagIds: ['tag-standard-inmem', 'tag-quiet-inmem'], description: "Standard double room with garden view.", imageUrls: ["https://placehold.co/600x400.png", "https://placehold.co/600x400.png"], imageAiHint: "hotel room garden" },
+  { id: 'room-102', nom: 'Chambre 102 (Suite)', type: 'Chambre', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01-inmem/room-102`, capacity: 4, tagIds: ['tag-suite-inmem', 'tag-balcony-inmem'], description: "Spacious suite with a private balcony and ocean view.", imageUrls: ["https://placehold.co/600x400.png"], imageAiHint: "hotel suite ocean" },
+  { id: 'rt-pool-01', nom: 'Pool Area', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-paradise-main', urlPersonnalise: `/client/host-01-inmem/rt-pool-01`, capacity: 100, tagIds: ['tag-poolside-inmem'], description: "Large outdoor swimming pool with sun loungers.", imageUrls: ["https://placehold.co/600x400.png"], imageAiHint: "swimming pool resort"},
+  { id: 'table-pool-1', nom: 'Table Piscine 1', type: 'Table', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-pool-01', urlPersonnalise: `/client/host-01-inmem/table-pool-1`, capacity: 4, tagIds: ['tag-outdoor-inmem'], description: "Poolside table for snacks and drinks." },
+  { id: 'rt-delice-main', nom: 'Delice Main Dining', type: 'Site', hostId: 'host-02-inmem', globalSiteId: 'site-02', parentLocationId: undefined, urlPersonnalise: `/client/host-02-inmem/rt-delice-main`, capacity: 80, tagIds: ['tag-fine-dining-inmem'], description: "Main dining hall of Le Delice Downtown.", imageUrls: ["https://placehold.co/600x400.png"], imageAiHint: "restaurant dining"},
+  { id: 'table-5', nom: 'Table 5', type: 'Table', hostId: 'host-02-inmem', globalSiteId: 'site-02', parentLocationId: 'rt-delice-main', urlPersonnalise: `/client/host-02-inmem/table-5`, capacity: 2, description: "Cozy table for two near the window." },
+  { id: 'table-vip', nom: 'VIP Table', type: 'Table', hostId: 'host-02-inmem', globalSiteId: 'site-02', parentLocationId: 'rt-delice-main', urlPersonnalise: `/client/host-02-inmem/table-vip`, capacity: 8, tagIds: ['tag-vip-inmem'], description: "Exclusive VIP table with premium service." },
+  { id: 'rt-dynamic-main', nom: 'Dynamic Main Area', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: undefined, urlPersonnalise: `/client/host-1747669860022/rt-dynamic-main`, capacity: 150, description: "Main area for Dynamic Test Establishment.", imageUrls: ["https://placehold.co/600x400.png"]},
+  { id: 'rt-dynamic-lobby', nom: 'Dynamic Lobby', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-main', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-lobby`, capacity: 30, description: "Lobby of Dynamic Test Establishment."},
+  { id: 'rt-dynamic-room1', nom: 'Dynamic Room 101', type: 'Chambre', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-room1`, capacity: 2, tagIds: ['tag-standard-inmem'], description: "Standard room in Dynamic Test Establishment.", imageUrls: ["https://placehold.co/600x400.png"]},
+  { id: 'rt-dynamic-table1', nom: 'Dynamic Table Alpha', type: 'Table', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-main', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-table1`, capacity: 6, description: "Table Alpha in Dynamic Test Establishment."},
 ];
 
 let tagsInMemory: Tag[] = [
@@ -131,11 +131,11 @@ let clientsInMemory: Client[] = [
 ];
 
 let reservationsInMemory: Reservation[] = [
-    { id: 'res-001-inmem', hostId: 'host-01-inmem', locationId: 'room-101', clientName: 'Alice Wonderland (In-Mem)', clientId: 'client-mock-1-inmem', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', nombrePersonnes: 2, status: 'confirmed', notes: 'Early check-in requested', animauxDomestiques: false },
-    { id: 'res-002-inmem', hostId: 'host-01-inmem', locationId: 'room-102', clientName: 'Bob The Builder (In-Mem)', clientId: 'client-mock-2-inmem', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', nombrePersonnes: 1, animauxDomestiques: true, status: 'checked-in' },
-    { id: 'res-003-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-room1', clientName: 'Dynamic Test Client (In-Mem)', clientId: 'client-mock-dynamic-inmem', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', nombrePersonnes: 2, notes: "Needs a crib", status: 'pending', animauxDomestiques: false },
-    { id: 'res-004-inmem', hostId: 'host-02-inmem', locationId: 'table-5', clientName: 'Charlie Passager (In-Mem)', clientId: 'client-mock-3-inmem', dateArrivee: '2024-07-20', dateDepart: '2024-07-20', nombrePersonnes: 4, status: 'confirmed', notes: 'Dinner reservation for 8 PM' },
-    { id: 'res-dynamic-table-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-table1', clientName: 'Test Diner', dateArrivee: '2024-08-03', dateDepart: '2024-08-03', nombrePersonnes: 2, status: 'confirmed', notes: 'Table reservation for dynamic host.' },
+    { id: 'res-001-inmem', hostId: 'host-01-inmem', locationId: 'room-101', type: 'Chambre', clientName: 'Alice Wonderland (In-Mem)', clientId: 'client-mock-1-inmem', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', nombrePersonnes: 2, status: 'confirmed', notes: 'Early check-in requested', animauxDomestiques: false },
+    { id: 'res-002-inmem', hostId: 'host-01-inmem', locationId: 'room-102', type: 'Chambre', clientName: 'Bob The Builder (In-Mem)', clientId: 'client-mock-2-inmem', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', nombrePersonnes: 1, animauxDomestiques: true, status: 'checked-in' },
+    { id: 'res-003-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-room1', type: 'Chambre', clientName: 'Dynamic Test Client (In-Mem)', clientId: 'client-mock-dynamic-inmem', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', nombrePersonnes: 2, notes: "Needs a crib", status: 'pending', animauxDomestiques: false },
+    { id: 'res-004-inmem', hostId: 'host-02-inmem', locationId: 'table-5', type: 'Table', clientName: 'Charlie Passager (In-Mem)', clientId: 'client-mock-3-inmem', dateArrivee: '2024-07-20', nombrePersonnes: 4, status: 'confirmed', notes: 'Dinner reservation for 8 PM' }, // Removed dateDepart for table
+    { id: 'res-dynamic-table-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-table1', type: 'Table', clientName: 'Test Diner', dateArrivee: '2024-08-03', nombrePersonnes: 2, status: 'confirmed', notes: 'Table reservation for dynamic host.' }, // Removed dateDepart for table
 ];
 
 
@@ -145,11 +145,13 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
   const user = usersInMemory.find(u => u.email.toLowerCase() === email.toLowerCase());
   if (user) {
     const userData = { ...user };
-    if (!userData.motDePasse && (user as any).password) { // Check for old 'password' field
+    // Ensure motDePasse exists, fall back to password if needed (for older data)
+    if (!userData.motDePasse && (user as any).password) {
       userData.motDePasse = (user as any).password;
     }
+    // Provide a default name if nom is missing
     if (!userData.nom && userData.email) {
-      userData.nom = userData.email.split('@')[0];
+        userData.nom = userData.email.split('@')[0];
     }
     return userData;
   }
@@ -195,7 +197,7 @@ export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
   }
   const newUser: User = {
     id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-    motDePasse: userData.motDePasse.trim(),
+    motDePasse: userData.motDePasse.trim(), // Ensure password is included
     ...userData,
   };
   usersInMemory.push(newUser);
@@ -212,7 +214,8 @@ export const updateUser = async (userId: string, userData: Partial<Omit<User, 'i
         updatedUser.motDePasse = userData.motDePasse.trim();
     } else if (userData.hasOwnProperty('motDePasse') && (userData.motDePasse === '' || userData.motDePasse === null || userData.motDePasse === undefined)) {
         // Password not changed if empty or null/undefined is passed
-        delete updatedUser.motDePasse; // Or keep existing: updatedUser.motDePasse = usersInMemory[userIndex].motDePasse
+        // Keep existing password:
+        updatedUser.motDePasse = usersInMemory[userIndex].motDePasse;
     }
     if (userData.hasOwnProperty('hostId')) {
         updatedUser.hostId = userData.hostId || undefined;
@@ -250,7 +253,12 @@ export const getHosts = async (): Promise<Host[]> => {
 
 export const getHostById = async (hostId: string): Promise<Host | undefined> => {
   log(`getHostById called for: ${hostId} (in-memory)`);
-  return hostsInMemory.find(h => h.hostId === hostId);
+  try {
+    return hostsInMemory.find(h => h.hostId === hostId);
+  } catch (e) {
+    console.error("Error in getHostById (in-memory):", e);
+    return undefined;
+  }
 };
 
 export const addHost = async (hostData: Omit<Host, 'hostId'>): Promise<Host> => {
@@ -295,7 +303,8 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
     log(`Host ${hostId} updated (in-memory).`);
     const updatedHost = hostsInMemory[hostIndex];
     if ((hostData.email && hostData.email !== originalHostData.email) || (hostData.nom && hostData.nom !== originalHostData.nom)) {
-        let userToUpdate = usersInMemory.find(u => u.hostId === hostId); // Find by hostId for reliability
+        let userToUpdate = usersInMemory.find(u => u.hostId === hostId); 
+        if (!userToUpdate) userToUpdate = usersInMemory.find(u => u.email.toLowerCase() === originalHostData.email.toLowerCase() && u.role === 'host'); // Fallback
         if (userToUpdate) {
             await updateUser(userToUpdate.id, {
                 email: updatedHost.email, 
@@ -322,6 +331,8 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
   if (userToDelete) {
     await deleteUser(userToDelete.id);
     log(`Associated user ${userToDelete.email} deleted (in-memory).`);
+  } else {
+    log(`No user directly associated with hostId ${hostId} and matching email found for deletion.`);
   }
 
   const initialLength = hostsInMemory.length;
@@ -362,13 +373,19 @@ export const getSites = async (hostIdParam?: string): Promise<Site[]> => {
 };
 export const getSiteById = async (siteId: string): Promise<Site | undefined> => {
   log(`getSiteById called for: ${siteId}. Using in-memory data.`);
-  return sitesInMemory.find(s => s.siteId === siteId);
+  try {
+    return sitesInMemory.find(s => s.siteId === siteId);
+  } catch (e) {
+    console.error("Error in getSiteById (in-memory):", e);
+    return undefined;
+  }
 };
-export const addSite = async (siteData: Omit<Site, 'siteId' | 'logoAiHint'>): Promise<Site> => {
-  log(`addSite called. Data: ${JSON.stringify(siteData)}. Using in-memory data.`);
+export const addSiteToData = async (siteData: Omit<Site, 'siteId' | 'logoAiHint'>): Promise<Site> => {
+  log(`addSiteToData called. Data: ${JSON.stringify(siteData)}. Using in-memory data.`);
   const newSite: Site = {
     ...siteData,
     siteId: `globalsite-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+    logoUrl: siteData.logoUrl || undefined,
     logoAiHint: siteData.logoUrl && siteData.nom ? siteData.nom.toLowerCase().split(' ').slice(0,2).join(' ') : undefined,
   };
   sitesInMemory.push(newSite);
@@ -381,6 +398,7 @@ export const updateSiteInData = async (siteId: string, siteData: Partial<Omit<Si
     sitesInMemory[siteIndex] = {
       ...sitesInMemory[siteIndex],
       ...siteData,
+      logoUrl: siteData.logoUrl !== undefined ? siteData.logoUrl : sitesInMemory[siteIndex].logoUrl,
       logoAiHint: siteData.logoUrl && siteData.nom ? siteData.nom.toLowerCase().split(' ').slice(0,2).join(' ') : sitesInMemory[siteIndex].logoAiHint,
     };
     return sitesInMemory[siteIndex];
@@ -417,7 +435,12 @@ export const getRoomsOrTables = async (hostId: string, globalSiteIdParam?: strin
 };
 export const getRoomOrTableById = async (id: string): Promise<RoomOrTable | undefined> => {
   log(`getRoomOrTableById called for: ${id}. Using in-memory data.`);
-  return roomsOrTablesInMemory.find(rt => rt.id === id);
+  try {
+    return roomsOrTablesInMemory.find(rt => rt.id === id);
+  } catch (e) {
+    console.error("Error in getRoomOrTableById (in-memory):", e);
+    return undefined;
+  }
 };
 export const addRoomOrTable = async (data: Omit<RoomOrTable, 'id' | 'urlPersonnalise'>): Promise<RoomOrTable> => {
   log(`addRoomOrTable called. Data: ${JSON.stringify(data)}. Using in-memory data.`);
@@ -428,6 +451,9 @@ export const addRoomOrTable = async (data: Omit<RoomOrTable, 'id' | 'urlPersonna
     urlPersonnalise: `/client/${data.hostId}/${newId}`,
     capacity: data.capacity,
     tagIds: data.tagIds || [],
+    description: data.description || undefined,
+    imageUrls: data.imageUrls || undefined,
+    imageAiHint: data.imageUrls && data.nom ? data.nom.toLowerCase().split(' ').slice(0,2).join(' ') : undefined,
   };
   roomsOrTablesInMemory.push(newRoomOrTable);
   return newRoomOrTable;
@@ -446,6 +472,9 @@ export const updateRoomOrTable = async (id: string, data: Partial<Omit<RoomOrTab
         parentLocationId: data.hasOwnProperty('parentLocationId') ? data.parentLocationId : currentItem.parentLocationId,
         capacity: data.capacity !== undefined ? data.capacity : currentItem.capacity,
         tagIds: data.tagIds !== undefined ? data.tagIds : currentItem.tagIds,
+        description: data.description !== undefined ? data.description : currentItem.description,
+        imageUrls: data.imageUrls !== undefined ? data.imageUrls : currentItem.imageUrls,
+        imageAiHint: data.imageUrls && data.nom ? data.nom.toLowerCase().split(' ').slice(0,2).join(' ') : currentItem.imageAiHint,
     };
     return { ...roomsOrTablesInMemory[itemIndex] };
   }
@@ -457,7 +486,6 @@ export const deleteRoomOrTable = async (id: string): Promise<boolean> => {
     const locationToDelete = roomsOrTablesInMemory.find(rt => rt.id === id);
 
     if (locationToDelete) {
-        // Re-parent children locations
         const children = roomsOrTablesInMemory.filter(rt => rt.parentLocationId === id);
         children.forEach(child => {
             const childIndex = roomsOrTablesInMemory.findIndex(c => c.id === child.id);
@@ -465,19 +493,16 @@ export const deleteRoomOrTable = async (id: string): Promise<boolean> => {
                 roomsOrTablesInMemory[childIndex].parentLocationId = locationToDelete.parentLocationId || undefined;
             }
         });
-        // Remove from service targets
         servicesInMemory.forEach(service => {
             if (service.targetLocationIds?.includes(id)) {
                 service.targetLocationIds = service.targetLocationIds.filter(targetId => targetId !== id);
             }
         });
-        // Remove from client assigned locations
         clientsInMemory.forEach(client => {
             if (client.locationId === id) {
                 client.locationId = undefined;
             }
         });
-        // Handle reservations linked to this location
         const linkedReservations = reservationsInMemory.filter(r => r.locationId === id);
         if (linkedReservations.length > 0) {
             log(`Warning: Deleting location ${id} which has ${linkedReservations.length} associated reservations. These reservations will also be removed for in-memory data.`);
@@ -544,7 +569,7 @@ export const getServiceCategories = async (hostId: string): Promise<ServiceCateg
 };
 export const addServiceCategory = async (data: Omit<ServiceCategory, 'id' | 'data-ai-hint'>): Promise<ServiceCategory> => {
   log(`addServiceCategory called. Data: ${JSON.stringify(data)}. Using in-memory data.`);
-  const newCategory: ServiceCategory = { ...data, id: `cat-${Date.now()}`, "data-ai-hint": data.nom.toLowerCase().substring(0,15).replace(/\s+/g, ' ') };
+  const newCategory: ServiceCategory = { ...data, id: `cat-${Date.now()}`, "data-ai-hint": data.image && data.nom ? data.nom.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : undefined };
   serviceCategoriesInMemory.push(newCategory);
   return newCategory;
 };
@@ -552,7 +577,11 @@ export const updateServiceCategory = async (id: string, data: Partial<Omit<Servi
   log(`updateServiceCategory called for ID: ${id}. Data: ${JSON.stringify(data)}. Using in-memory data.`);
   const catIndex = serviceCategoriesInMemory.findIndex(sc => sc.id === id);
   if (catIndex > -1) {
-    serviceCategoriesInMemory[catIndex] = { ...serviceCategoriesInMemory[catIndex], ...data, "data-ai-hint": data.nom ? data.nom.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : serviceCategoriesInMemory[catIndex]["data-ai-hint"] };
+    serviceCategoriesInMemory[catIndex] = { 
+        ...serviceCategoriesInMemory[catIndex], 
+        ...data, 
+        "data-ai-hint": data.image && data.nom ? data.nom.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : serviceCategoriesInMemory[catIndex]["data-ai-hint"] 
+    };
     return { ...serviceCategoriesInMemory[catIndex] };
   }
   return undefined;
@@ -567,7 +596,12 @@ export const deleteServiceCategory = async (id: string): Promise<boolean> => {
 };
 export const getServiceCategoryById = async (id: string): Promise<ServiceCategory | undefined> => {
   log(`getServiceCategoryById called for: ${id}. Using in-memory data.`);
-  return serviceCategoriesInMemory.find(sc => sc.id === id);
+  try {
+    return serviceCategoriesInMemory.find(sc => sc.id === id);
+  } catch (e) {
+    console.error("Error in getServiceCategoryById (in-memory):", e);
+    return undefined;
+  }
 };
 
 
@@ -589,7 +623,12 @@ export const addCustomForm = async (data: Omit<CustomForm, 'id'>): Promise<Custo
 };
 export const getFormById = async (formId: string): Promise<CustomForm | undefined> => {
   log(`getFormById called for: ${formId}. Using in-memory data.`);
-  return customFormsInMemory.find(f => f.id === formId);
+  try {
+    return customFormsInMemory.find(f => f.id === formId);
+  } catch (e) {
+    console.error("Error in getFormById (in-memory):", e);
+    return undefined;
+  }
 };
 export const updateCustomForm = async (id: string, data: Partial<Omit<CustomForm, 'id' | 'hostId'>>): Promise<CustomForm | undefined> => {
   log(`updateCustomForm called for ID: ${id}. Data: ${JSON.stringify(data)}. Using in-memory data.`);
@@ -604,9 +643,7 @@ export const deleteCustomForm = async (id: string): Promise<boolean> => {
     log(`deleteCustomForm called for: ${id}. Using in-memory data.`);
     const initialLength = customFormsInMemory.length;
     customFormsInMemory = customFormsInMemory.filter(cf => cf.id !== id);
-    // Delete associated form fields
     formFieldsInMemory = formFieldsInMemory.filter(ff => ff.formulaireId !== id);
-    // Unassign form from services
     servicesInMemory = servicesInMemory.map(s => s.formulaireId === id ? {...s, formulaireId: undefined} : s);
     return customFormsInMemory.length < initialLength;
 };
@@ -693,14 +730,19 @@ export const getServices = async (
 };
 export const getServiceById = async (serviceId: string): Promise<Service | undefined> => {
   log(`getServiceById called for: ${serviceId}. Using in-memory data.`);
-  return servicesInMemory.find(s => s.id === serviceId);
+  try {
+    return servicesInMemory.find(s => s.id === serviceId);
+  } catch (e) {
+    console.error("Error in getServiceById (in-memory):", e);
+    return undefined;
+  }
 };
 export const addService = async (data: Omit<Service, 'id' | 'data-ai-hint'>): Promise<Service> => {
   log(`addService called. Data: ${JSON.stringify(data)}. Using in-memory data.`);
   const newService: Service = {
     ...data,
     id: `svc-${Date.now()}`,
-    "data-ai-hint": data.titre.toLowerCase().substring(0,15).replace(/\s+/g, ' '),
+    "data-ai-hint": data.image && data.titre ? data.titre.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : undefined,
     targetLocationIds: data.targetLocationIds || []
   };
   servicesInMemory.push(newService);
@@ -713,7 +755,7 @@ export const updateService = async (id: string, data: Partial<Omit<Service, 'id'
     servicesInMemory[serviceIndex] = {
       ...servicesInMemory[serviceIndex],
       ...data,
-      "data-ai-hint": data.titre ? data.titre.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : servicesInMemory[serviceIndex]["data-ai-hint"],
+      "data-ai-hint": data.image && data.titre ? data.titre.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : servicesInMemory[serviceIndex]["data-ai-hint"],
       targetLocationIds: data.targetLocationIds !== undefined ? data.targetLocationIds : servicesInMemory[serviceIndex].targetLocationIds,
     };
     return { ...servicesInMemory[serviceIndex] };
@@ -724,7 +766,6 @@ export const deleteService = async (id: string): Promise<boolean> => {
     log(`deleteService called for: ${id}. Using in-memory data.`);
     const initialLength = servicesInMemory.length;
     servicesInMemory = servicesInMemory.filter(s => s.id !== id);
-    // Remove orders associated with this service
     ordersInMemory = ordersInMemory.filter(o => o.serviceId !== id);
     return servicesInMemory.length < initialLength;
 };
@@ -823,7 +864,12 @@ export const getClients = async (hostId: string): Promise<Client[]> => {
 };
 export const getClientById = async (clientId: string): Promise<Client | undefined> => {
   log(`getClientById called for: ${clientId}. Using in-memory data.`);
-  return clientsInMemory.find(c => c.id === clientId);
+  try {
+    return clientsInMemory.find(c => c.id === clientId);
+  } catch (e) {
+    console.error("Error in getClientById (in-memory):", e);
+    return undefined;
+  }
 };
 export const getClientRecordsByEmail = async (email: string): Promise<Client[]> => {
   log(`getClientRecordsByEmail called for email: ${email}. Using in-memory data.`);
@@ -884,9 +930,9 @@ export const getReservations = async (
         try {
           const arrivalDate = new Date(r.dateArrivee + "T00:00:00"); 
           const departureDateForRoom = r.dateDepart ? new Date(r.dateDepart + "T00:00:00") : null;
-          const effectiveDeparture = r.type === 'Table' ? new Date(r.dateArrivee + "T23:59:59") : departureDateForRoom;
+          const effectiveDeparture = r.type === 'Table' || !departureDateForRoom ? new Date(r.dateArrivee + "T23:59:59") : departureDateForRoom;
 
-          if (!effectiveDeparture) return false; // Should not happen for rooms with valid data
+          if (!effectiveDeparture) return false;
 
           const monthStart = new Date(filters.year!, filters.month!, 1);
           const monthEnd = new Date(filters.year!, filters.month! + 1, 0, 23, 59, 59, 999);
@@ -903,14 +949,14 @@ export const getReservations = async (
     return [];
   }
 };
-export const addReservation = async (data: Omit<Reservation, 'id'>): Promise<Reservation> => {
+export const addReservationToData = async (data: Omit<Reservation, 'id'>): Promise<Reservation> => {
   log(`addReservation called. Data: ${JSON.stringify(data)}. Using in-memory data.`);
   const location = await getRoomOrTableById(data.locationId);
-  const newReservation: Reservation = { ...data, id: `res-${Date.now()}`, type: location?.type as ('Chambre' | 'Table') };
+  const newReservation: Reservation = { ...data, id: `res-${Date.now()}`, type: location?.type };
   reservationsInMemory.push(newReservation);
   return newReservation;
 };
-export const updateReservation = async (id: string, data: Partial<Omit<Reservation, 'id' | 'hostId'>>): Promise<Reservation | undefined> => {
+export const updateReservationInData = async (id: string, data: Partial<Omit<Reservation, 'id' | 'hostId'>>): Promise<Reservation | undefined> => {
   log(`updateReservation called for ID: ${id}. Data: ${JSON.stringify(data)}. Using in-memory data.`);
   const resIndex = reservationsInMemory.findIndex(r => r.id === id);
   if (resIndex > -1) {
@@ -918,13 +964,13 @@ export const updateReservation = async (id: string, data: Partial<Omit<Reservati
     reservationsInMemory[resIndex] = {
       ...reservationsInMemory[resIndex],
       ...data,
-      type: location?.type as ('Chambre' | 'Table') || reservationsInMemory[resIndex].type
+      type: location?.type || reservationsInMemory[resIndex].type
     };
     return { ...reservationsInMemory[resIndex] };
   }
   return undefined;
 };
-export const deleteReservation = async (id: string): Promise<boolean> => {
+export const deleteReservationInData = async (id: string): Promise<boolean> => {
   log(`deleteReservation called for: ${id}. Using in-memory data.`);
   const initialLength = reservationsInMemory.length;
   reservationsInMemory = reservationsInMemory.filter(r => r.id !== id);
