@@ -6,7 +6,7 @@ import React, { useEffect, useState, useCallback, useMemo, Suspense } from 'reac
 import { getSiteById, getRoomsOrTables, getTags as fetchHostTags, getReservations as fetchAllReservationsForHost } from '@/lib/data';
 import type { Site as GlobalSiteType, RoomOrTable, Tag, Reservation } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Input } from '@/components/ui/input'; // Keep if needed for other inputs
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,7 +18,7 @@ import {
   AlertTriangle, 
   Search, 
   BedDouble, 
-  Utensils, 
+  Utensils as UtensilsIcon, 
   Users, 
   Tag as TagIconLucide, 
   Info, 
@@ -66,6 +66,7 @@ const GuestCounter: React.FC<{
 function PublicReservationPageContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const globalSiteId = params.globalSiteId as string;
 
@@ -73,16 +74,16 @@ function PublicReservationPageContent() {
   const [allHostTags, setAllHostTags] = useState<Tag[]>([]);
   const [allReservableLocationsForSite, setAllReservableLocationsForSite] = useState<RoomOrTable[]>([]);
   const [allReservations, setAllReservations] = useState<Reservation[]>([]);
-
-  const [arrivalDate, setArrivalDate] = useState<Date | undefined>(new Date());
-  const [departureDate, setDepartureDate] = useState<Date | undefined>(addDays(new Date(), 1));
+  
+  const [arrivalDate, setArrivalDate] = useState<Date | undefined>(undefined);
+  const [departureDate, setDepartureDate] = useState<Date | undefined>(undefined);
   const [searchType, setSearchType] = useState<'Chambre' | 'Table'>('Chambre');
   
   const [numAdults, setNumAdults] = useState<number>(1);
   const [numChildren, setNumChildren] = useState<number>(0);
   const [numInfants, setNumInfants] = useState<number>(0);
   const [numPets, setNumPets] = useState<number>(0);
-  const [numPersons, setNumPersons] = useState<number>(1); // Derived: adults + children
+  const [numPersons, setNumPersons] = useState<number>(1);
 
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showTagFilters, setShowTagFilters] = useState(false);
@@ -120,15 +121,14 @@ function PublicReservationPageContent() {
       
       const [tagsData, locationsData, reservationsData] = await Promise.all([
         fetchHostTags(siteInfo.hostId),
-        getRoomsOrTables(siteInfo.hostId, globalSiteId),
+        getRoomsOrTables(siteInfo.hostId, globalSiteId), // Fetch all for host, then filter by globalSiteId
         fetchAllReservationsForHost(siteInfo.hostId)
       ]);
 
       setAllHostTags(tagsData);
-      setAllReservableLocationsForSite(locationsData.filter(loc => loc.type === 'Chambre' || loc.type === 'Table'));
+      setAllReservableLocationsForSite(locationsData.filter(loc => (loc.type === 'Chambre' || loc.type === 'Table') && loc.globalSiteId === globalSiteId));
       setAllReservations(reservationsData);
 
-      // Auto-set searchType based on settings
       const roomEnabled = siteInfo.reservationPageSettings?.enableRoomReservations ?? true;
       const tableEnabled = siteInfo.reservationPageSettings?.enableTableReservations ?? true;
       if (roomEnabled && !tableEnabled) setSearchType('Chambre');
@@ -136,11 +136,8 @@ function PublicReservationPageContent() {
       else if (!roomEnabled && !tableEnabled) {
           setError("Les réservations pour cet établissement ne sont pas activées.");
       }
-      // If both are enabled, default to 'Chambre' or current state
-
     } catch (e: any) {
-      console.error("[PublicReservationPage] Error fetching page data:", e);
-      setError("Failed to load establishment details or available options. " + e.message);
+      setError("Failed to load establishment details. " + e.message);
       setGlobalSiteInfo(null);
     } finally {
       setIsLoading(false);
@@ -150,6 +147,45 @@ function PublicReservationPageContent() {
   useEffect(() => {
     fetchPageData();
   }, [fetchPageData]);
+
+  useEffect(() => {
+    const arrivalParam = searchParams.get('arrival');
+    const departureParam = searchParams.get('departure');
+    const personsParam = searchParams.get('persons');
+    const adultsParam = searchParams.get('adults');
+    const childrenParam = searchParams.get('children');
+    const infantsParam = searchParams.get('infants');
+    const petsParam = searchParams.get('pets');
+
+    let newArrival: Date;
+    if (arrivalParam && isValid(parseISO(arrivalParam))) {
+      newArrival = parseISO(arrivalParam);
+    } else {
+      newArrival = new Date(); // Default to today if param missing or invalid
+    }
+    setArrivalDate(newArrival);
+
+    let newDeparture: Date;
+    if (departureParam && isValid(parseISO(departureParam))) {
+      const parsedDeparture = parseISO(departureParam);
+      if (isBefore(parsedDeparture, addDays(newArrival, 1))) {
+        newDeparture = addDays(newArrival, 1);
+      } else {
+        newDeparture = parsedDeparture;
+      }
+    } else {
+      newDeparture = addDays(newArrival, 1); // Default to arrival + 1 day
+    }
+    setDepartureDate(newDeparture);
+    
+    if (personsParam && !isNaN(parseInt(personsParam))) setNumPersons(Math.max(1, parseInt(personsParam)));
+    if (adultsParam && !isNaN(parseInt(adultsParam))) setNumAdults(Math.max(1, parseInt(adultsParam)));
+    if (childrenParam && !isNaN(parseInt(childrenParam))) setNumChildren(Math.max(0, parseInt(childrenParam)));
+    if (infantsParam && !isNaN(parseInt(infantsParam))) setNumInfants(Math.max(0, parseInt(infantsParam)));
+    if (petsParam && !isNaN(parseInt(petsParam))) setNumPets(Math.max(0, parseInt(petsParam)));
+
+  }, [searchParams]);
+
 
   useEffect(() => {
     if (searchType === 'Table' && arrivalDate) {
@@ -174,8 +210,10 @@ function PublicReservationPageContent() {
         toast({ title: "Date de départ invalide", description: "La date de départ doit être après la date d'arrivée pour les chambres.", variant: "destructive" });
         return;
     }
-    if (numPersons <= 0) {
-        toast({ title: "Nombre de voyageurs invalide", description: "Veuillez indiquer au moins un voyageur.", variant: "destructive"});
+    
+    const effectiveNumPersons = numAdults + numChildren;
+    if (effectiveNumPersons <= 0) {
+        toast({ title: "Nombre de voyageurs invalide", description: "Veuillez indiquer au moins un voyageur (adulte ou enfant).", variant: "destructive"});
         return;
     }
 
@@ -190,7 +228,7 @@ function PublicReservationPageContent() {
 
       const filtered = allReservableLocationsForSite.filter(loc => {
         if (loc.type !== searchType) return false;
-        if (numPersons > 0 && loc.capacity && loc.capacity < numPersons) return false;
+        if (effectiveNumPersons > 0 && loc.capacity && loc.capacity < effectiveNumPersons) return false;
         if (selectedTags.length > 0 && !selectedTags.every(tagId => loc.tagIds?.includes(tagId))) return false;
 
         const isBooked = allReservations.some(res => {
@@ -205,8 +243,7 @@ function PublicReservationPageContent() {
             }
             return checkIn < resDeparture && checkOut > resArrival;
           } catch (e) {
-            console.warn("Error parsing reservation dates for conflict check", res, e);
-            return true;
+            return true; 
           }
         });
         return !isBooked;
@@ -217,7 +254,6 @@ function PublicReservationPageContent() {
         toast({ title: "Aucune disponibilité", description: "Aucun lieu ne correspond à vos critères pour les dates sélectionnées.", variant: "default" });
       }
     } catch (e: any) {
-        console.error("[PublicReservationPage] Error during search:", e);
         setError("Une erreur s'est produite lors de la recherche. " + e.message);
         toast({ title: "Erreur de recherche", description: "Impossible d'effectuer la recherche.", variant: "destructive" });
     } finally {
@@ -229,19 +265,19 @@ function PublicReservationPageContent() {
     const arrivalQueryParam = arrivalDate ? format(arrivalDate, 'yyyy-MM-dd') : '';
     const departureQueryParam = searchType === 'Table' ? arrivalQueryParam : (departureDate ? format(departureDate, 'yyyy-MM-dd') : '');
     
-    router.push(`/reserve/${globalSiteId}/location/${location.id}?arrival=${arrivalQueryParam}&departure=${departureQueryParam}&persons=${numPersons}&adults=${numAdults}&children=${numChildren}&infants=${numInfants}&pets=${numPets}`);
+    router.push(`/reserve/${globalSiteId}/location/${location.id}?arrival=${arrivalQueryParam}&departure=${departureQueryParam}&persons=${numAdults + numChildren}&adults=${numAdults}&children=${numChildren}&infants=${numInfants}&pets=${numPets}`);
   };
 
   const LocationTypeIcon = ({ type }: { type: 'Chambre' | 'Table' }) => {
     if (type === 'Chambre') return <BedDouble className="h-5 w-5 mr-1 text-muted-foreground" />;
-    if (type === 'Table') return <Utensils className="h-5 w-5 mr-1 text-muted-foreground" />;
+    if (type === 'Table') return <UtensilsIcon className="h-5 w-5 mr-1 text-muted-foreground" />;
     return null;
   };
   
   const showTypeSelector = useMemo(() => {
-    if (!globalSiteInfo || !globalSiteInfo.reservationPageSettings) return true; // Show by default if settings not loaded
+    if (!globalSiteInfo || !globalSiteInfo.reservationPageSettings) return true; 
     const { enableRoomReservations, enableTableReservations } = globalSiteInfo.reservationPageSettings;
-    return enableRoomReservations && enableTableReservations; // Only show if both are enabled
+    return (enableRoomReservations ?? true) && (enableTableReservations ?? true);
   }, [globalSiteInfo]);
 
 
@@ -280,7 +316,6 @@ function PublicReservationPageContent() {
   
   const heroImageUrl = globalSiteInfo.reservationPageSettings?.heroImageUrl || `https://placehold.co/1200x350.png`;
   const heroImageAiHint = globalSiteInfo.reservationPageSettings?.heroImageAiHint || globalSiteInfo.nom.toLowerCase().split(' ').slice(0,2).join(' ') || "establishment banner";
-
   const totalTravelers = numAdults + numChildren;
 
   return (
@@ -305,7 +340,7 @@ function PublicReservationPageContent() {
 
       <Card className="shadow-xl sticky top-24 z-40 bg-card/95 backdrop-blur-md">
         <CardContent className="p-4 md:p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 items-end">
             
             {showTypeSelector && (
               <div className="space-y-1.5">
@@ -319,7 +354,7 @@ function PublicReservationPageContent() {
                   </SelectTrigger>
                   <SelectContent>
                     {(globalSiteInfo.reservationPageSettings?.enableRoomReservations ?? true) && <SelectItem value="Chambre"><BedDouble className="inline-block mr-2 h-4 w-4" />Chambre</SelectItem>}
-                    {(globalSiteInfo.reservationPageSettings?.enableTableReservations ?? true) && <SelectItem value="Table"><Utensils className="inline-block mr-2 h-4 w-4" />Table</SelectItem>}
+                    {(globalSiteInfo.reservationPageSettings?.enableTableReservations ?? true) && <SelectItem value="Table"><UtensilsIcon className="inline-block mr-2 h-4 w-4" />Table</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
@@ -343,7 +378,12 @@ function PublicReservationPageContent() {
                 <Label htmlFor="departureDate" className="text-xs font-medium text-muted-foreground">Départ</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button id="departureDate" variant="outline" className="w-full justify-start text-left font-normal h-12 text-sm" disabled={!arrivalDate}>
+                    <Button
+                      id="departureDate"
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal h-12 text-sm"
+                      disabled={!arrivalDate || searchType === 'Table'}
+                    >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {departureDate ? format(departureDate, 'dd/MM/yy', { locale: fr }) : <span>Quand ?</span>}
                     </Button>
@@ -366,10 +406,19 @@ function PublicReservationPageContent() {
               <Popover>
                 <PopoverTrigger asChild>
                   <Button id="voyageursButton" variant="outline" className="w-full justify-start text-left font-normal h-12 text-sm">
-                    <Users className="mr-2 h-4 w-4" />
-                    <span>{totalTravelers} voyageur{totalTravelers > 1 ? 's' : ''}</span>
-                    {numInfants > 0 && <span className="text-xs ml-1">, {numInfants} bébé{numInfants > 1 ? 's' : ''}</span>}
-                    {numPets > 0 && <span className="text-xs ml-1">, {numPets} animal{numPets > 1 ? 'ux' : ''}</span>}
+                     <div className="flex items-center min-w-0 flex-1">
+                        <Users className="mr-2 h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">
+                          {(() => {
+                            const parts = [];
+                            const displayTravelers = Math.max(1, totalTravelers); 
+                            parts.push(`${displayTravelers} voyageur${displayTravelers > 1 ? 's' : ''}`);
+                            if (numInfants > 0) parts.push(`${numInfants} bébé${numInfants > 1 ? 's' : ''}`);
+                            if (numPets > 0) parts.push(`${numPets} animal${numPets > 1 ? 'ux' : ''}`);
+                            return parts.join(', ');
+                          })()}
+                        </span>
+                    </div>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-80 p-0">
@@ -383,7 +432,7 @@ function PublicReservationPageContent() {
               </Popover>
             </div>
             
-            <div className="flex items-end gap-2 col-span-full sm:col-span-1">
+            <div className="flex items-end gap-2 col-span-full sm:col-span-2 md:col-span-2 lg:col-span-1 xl:col-span-1">
               {allHostTags.length > 0 && (
                 <Button variant="outline" onClick={() => setShowTagFilters(!showTagFilters)} className="h-12 w-12 p-0 flex-shrink-0" title="Filtrer par tags">
                   <FilterIcon className="h-5 w-5" />
@@ -456,8 +505,8 @@ function PublicReservationPageContent() {
                       </div>
                     )}
                   </CardContent>
-                  <CardFooter className="p-4 border-t bg-muted/30">
-                    <Button onClick={() => handleSelectLocation(loc)} className="w-full bg-primary hover:bg-primary/80 text-primary-foreground">
+                  <CardFooter className="p-4 border-t">
+                    <Button onClick={() => handleSelectLocation(loc)} className="w-full bg-primary hover:bg-primary/80">
                       Sélectionner
                     </Button>
                   </CardFooter>
@@ -478,4 +527,3 @@ export default function PublicReservationPage() {
     </Suspense>
   );
 }
-    
