@@ -30,7 +30,7 @@ export interface Site { // Represents a Global Site
   hostId: string; // FK to Host.hostId
   logoUrl?: string;
   logoAiHint?: string;
-  primaryColor?: string; // Now expects a HEX string, e.g., "#FF5733"
+  primaryColor?: string; // HEX string, e.g., "#FF5733"
 }
 
 export interface Tag {
@@ -64,6 +64,8 @@ export interface RoomOrTable {
   imageAiHint?: string;
   tagIds?: string[];
   amenityIds?: string[];
+  prixParNuit?: number; // For rooms
+  prixFixeReservation?: number; // For tables
 }
 
 export interface ServiceCategory {
@@ -115,7 +117,7 @@ export interface Order {
   hostId: string;
   chambreTableId: string;
   clientNom?: string;
-  userId?: string; 
+  userId?: string;
   donneesFormulaire: string;
   dateHeure: string;
   status: OrderStatus;
@@ -148,8 +150,8 @@ export interface Client {
     email?: string;
     telephone?: string;
     type: ClientType;
-    dateArrivee?: string;
-    dateDepart?: string;
+    dateArrivee?: string; // YYYY-MM-DD
+    dateDepart?: string;  // YYYY-MM-DD
     locationId?: string;
     notes?: string;
     documents?: Array<{ name: string; url: string; uploadedAt: string }>;
@@ -162,15 +164,14 @@ export interface Reservation {
   id: string;
   hostId: string;
   locationId: string;
-  type?: 'Chambre' | 'Table';
+  type?: 'Chambre' | 'Table'; // Added to know the type of the reserved location
   clientId?: string;
   clientName: string;
-  dateArrivee: string;
-  dateDepart?: string; 
+  dateArrivee: string; // YYYY-MM-DD
+  dateDepart?: string; // YYYY-MM-DD, optional for tables
   nombrePersonnes: number;
-  animauxDomestiques?: boolean; 
+  animauxDomestiques?: boolean;
   notes?: string;
   status?: ReservationStatus;
-  channel?: string; 
+  channel?: string;
 }
-
