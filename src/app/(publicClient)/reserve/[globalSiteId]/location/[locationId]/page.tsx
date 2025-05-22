@@ -4,7 +4,8 @@
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { getSiteById, getRoomOrTableById, getTags as fetchHostTags, addReservationToData } from '@/lib/data';
-import type { Site as GlobalSiteType, RoomOrTable, Tag, Reservation } from '@/lib/types';
+import type { Site as GlobalSiteType, RoomOrTable, Tag, Reservation, AmenityOption } from '@/lib/types';
+import { PREDEFINED_AMENITIES } from '@/lib/amenities';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { BedDouble, Utensils, Users, CalendarDays, Tag as TagIconLucide, ChevronLeft, AlertTriangle, CheckCircle, Info, Image as ImageIcon } from 'lucide-react';
@@ -14,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { format, parseISO, isValid, differenceInDays, isBefore, isEqual } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { Badge } from '@/components/ui/badge'; // Added import for Badge
 
 function LocationDetailPageContent() {
   const params = useParams();
@@ -75,8 +77,13 @@ function LocationDetailPageContent() {
       }
       setLocationInfo(locationDataResult);
       
-      const tags = await fetchHostTags(siteData.hostId);
-      setHostTags(tags);
+      if(siteData.hostId) { // Ensure hostId is present before fetching tags
+        const tags = await fetchHostTags(siteData.hostId);
+        setHostTags(tags);
+      } else {
+        setHostTags([]); // No hostId, so no tags can be fetched
+         console.warn("Host ID not found for Global Site, cannot fetch tags:", siteData);
+      }
 
     } catch (e: any) {
       console.error("Error fetching location/site details:", e);
@@ -125,7 +132,7 @@ function LocationDetailPageContent() {
       toast({ title: "Réservation Confirmée !", description: `Votre réservation pour ${locationInfo.nom} a été enregistrée.` });
     } catch (e: any) {
       console.error("Error confirming reservation:", e);
-      toast({ title: "Erreur de Réservation", description: "Impossible de confirmer la réservation. " + e.message, variant: "destructive" });
+      toast({ title: "Erreur de Réservation", description: "Impossible de confirmer la réservation. " + (e instanceof Error ? e.message : "Unknown error"), variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -137,11 +144,27 @@ function LocationDetailPageContent() {
       const end = parseISO(departureDate);
       if (isBefore(start, end)) {
         const nights = differenceInDays(end, start);
-        return nights > 0 ? nights : 1; // Ensure at least 1 night if dates are different but on same day (edge case)
+        return nights > 0 ? nights : 1; 
       }
     }
     return 1; // Default for tables or invalid room dates
   };
+
+  const getAmenityDetails = (amenityId: string): AmenityOption | undefined => {
+    return PREDEFINED_AMENITIES.flatMap(category => category.options).find(opt => opt.id === amenityId);
+  };
+
+  const groupedAmenities = useMemo(() => {
+    if (!locationInfo?.amenityIds) return {};
+    const groups: Record<string, AmenityOption[]> = {};
+    PREDEFINED_AMENITIES.forEach(category => {
+      const amenitiesInCategory = category.options.filter(opt => locationInfo.amenityIds?.includes(opt.id));
+      if (amenitiesInCategory.length > 0) {
+        groups[category.categoryLabel] = amenitiesInCategory;
+      }
+    });
+    return groups;
+  }, [locationInfo?.amenityIds]);
 
 
   if (isLoading) {
@@ -240,12 +263,33 @@ function LocationDetailPageContent() {
             </div>
             {locationTags.length > 0 && (
               <div>
-                <h3 className="text-xl font-semibold mb-2">Équipements & Tags</h3>
+                <h3 className="text-xl font-semibold mb-2">Tags</h3>
                 <div className="flex flex-wrap gap-2">
                   {locationTags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
                 </div>
               </div>
             )}
+
+            {Object.keys(groupedAmenities).length > 0 && (
+              <div className="pt-4">
+                <h3 className="text-2xl font-semibold mb-4 border-b pb-2">Ce que propose ce logement</h3>
+                {Object.entries(groupedAmenities).map(([categoryLabel, amenities]) => (
+                  <div key={categoryLabel} className="mb-4">
+                    <h4 className="text-lg font-medium mb-2">{categoryLabel}</h4>
+                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                      {amenities.map(amenity => (
+                        <li key={amenity.id} className="flex items-center">
+                          {React.createElement(amenity.icon, { className: "mr-2 h-4 w-4 text-primary" })}
+                          {amenity.label}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+
+
           </div>
           <div className="md:col-span-1 space-y-4">
             <Card className="p-4 bg-secondary/50">
