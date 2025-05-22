@@ -3,19 +3,21 @@
 
 import React, { useEffect, useState, useCallback, Suspense, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { getSiteById, getRoomOrTableById, getTags as fetchHostTags, addReservationToData } from '@/lib/data';
+import { getSiteById, getRoomOrTableById, getTags as fetchHostTags, addReservationToData, getReservations } from '@/lib/data';
 import type { Site as GlobalSiteType, RoomOrTable, Tag, Reservation, AmenityOption } from '@/lib/types';
 import { PREDEFINED_AMENITIES } from '@/lib/amenities';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { BedDouble, Utensils, Users, CalendarDays, Tag as TagIconLucide, ChevronLeft, AlertTriangle, CheckCircle, Info, Image as ImageIcon } from 'lucide-react';
+import { BedDouble, Utensils, Users, CalendarDays, Tag as TagIconLucide, ChevronLeft, AlertTriangle, CheckCircle, Info, Image as ImageIcon, DollarSign, Calendar as CalendarIcon } from 'lucide-react';
 import NextImage from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-import { format, parseISO, isValid, differenceInDays, isBefore, isEqual } from 'date-fns';
+import { format, parseISO, isValid, differenceInDays, isBefore, isEqual, eachDayOfInterval, addDays, startOfDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar'; // ShadCN Calendar
 
 function LocationDetailPageContent() {
   const params = useParams();
@@ -30,9 +32,11 @@ function LocationDetailPageContent() {
   const [globalSiteInfo, setGlobalSiteInfo] = useState<GlobalSiteType | null>(null);
   const [locationInfo, setLocationInfo] = useState<RoomOrTable | null>(null);
   const [hostTags, setHostTags] = useState<Tag[]>([]);
+  const [existingReservations, setExistingReservations] = useState<Reservation[]>([]);
   
-  const [arrivalDate, setArrivalDate] = useState<string | null>(null);
-  const [departureDate, setDepartureDate] = useState<string | null>(null);
+  // Dates from URL params are initial source, then can be modified by user
+  const [arrivalDate, setArrivalDate] = useState<Date | undefined>(undefined);
+  const [departureDate, setDepartureDate] = useState<Date | undefined>(undefined);
   const [numPersons, setNumPersons] = useState<number>(1);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -41,14 +45,13 @@ function LocationDetailPageContent() {
   const [bookingSuccess, setBookingSuccess] = useState(false);
 
   useEffect(() => {
-    const arrival = searchParams.get('arrival');
-    const departure = searchParams.get('departure');
-    const persons = searchParams.get('persons');
+    const arrivalParam = searchParams.get('arrival');
+    const departureParam = searchParams.get('departure');
+    const personsParam = searchParams.get('persons');
 
-    if (arrival && isValid(parseISO(arrival))) setArrivalDate(arrival);
-    if (departure && isValid(parseISO(departure))) setDepartureDate(departure);
-    if (persons && !isNaN(parseInt(persons))) setNumPersons(parseInt(persons));
-
+    if (arrivalParam && isValid(parseISO(arrivalParam))) setArrivalDate(parseISO(arrivalParam));
+    if (departureParam && isValid(parseISO(departureParam))) setDepartureDate(parseISO(departureParam));
+    if (personsParam && !isNaN(parseInt(personsParam))) setNumPersons(parseInt(personsParam));
   }, [searchParams]);
 
   const fetchPageData = useCallback(async () => {
@@ -78,11 +81,16 @@ function LocationDetailPageContent() {
       setLocationInfo(locationDataResult);
       
       if(siteData.hostId) {
-        const tags = await fetchHostTags(siteData.hostId);
+        const [tags, reservations] = await Promise.all([
+          fetchHostTags(siteData.hostId),
+          getReservations(siteData.hostId, { locationId: locationId })
+        ]);
         setHostTags(tags);
+        setExistingReservations(reservations.filter(r => r.status !== 'cancelled'));
       } else {
         setHostTags([]);
-        console.warn("Host ID not found for Global Site, cannot fetch tags:", siteData);
+        setExistingReservations([]);
+        console.warn("Host ID not found for Global Site, cannot fetch tags/reservations:", siteData);
       }
 
     } catch (e: any) {
@@ -96,21 +104,30 @@ function LocationDetailPageContent() {
   useEffect(() => {
     fetchPageData();
   }, [fetchPageData]);
+  
+  // Auto-adjust departure date for tables
+  useEffect(() => {
+    if (locationInfo?.type === 'Table' && arrivalDate) {
+      if (!departureDate || !isEqual(startOfDay(arrivalDate), startOfDay(departureDate))) {
+        setDepartureDate(arrivalDate);
+      }
+    }
+  }, [arrivalDate, locationInfo?.type, departureDate]);
+
 
   const handleConfirmReservation = async () => {
     if (!globalSiteInfo || !locationInfo || !arrivalDate) {
-      toast({ title: "Informations manquantes", description: "Les détails de la réservation sont incomplets.", variant: "destructive"});
+      toast({ title: "Informations manquantes", description: "La date d'arrivée est requise.", variant: "destructive"});
       return;
     }
     if (locationInfo.type === 'Chambre' && !departureDate) {
         toast({ title: "Date de départ manquante", description: "Veuillez spécifier une date de départ pour une chambre.", variant: "destructive"});
         return;
     }
-    if (locationInfo.type === 'Chambre' && departureDate && (isBefore(parseISO(departureDate), parseISO(arrivalDate)) || isEqual(parseISO(departureDate), parseISO(arrivalDate)))) {
-        toast({ title: "Date de départ invalide", description: "La date de départ doit être après la date d'arrivée.", variant: "destructive"});
+    if (locationInfo.type === 'Chambre' && departureDate && (isBefore(departureDate, arrivalDate) || isEqual(startOfDay(departureDate), startOfDay(arrivalDate)))) {
+        toast({ title: "Date de départ invalide", description: "La date de départ doit être après la date d'arrivée pour une chambre.", variant: "destructive"});
         return;
     }
-
 
     setIsSubmitting(true);
     try {
@@ -120,10 +137,10 @@ function LocationDetailPageContent() {
         type: locationInfo.type,
         clientName: user?.nom || `Invité ${Date.now().toString().slice(-5)}`,
         clientId: user?.id,
-        dateArrivee: arrivalDate,
-        dateDepart: locationInfo.type === 'Chambre' ? departureDate! : undefined, // Only set for 'Chambre'
+        dateArrivee: format(arrivalDate, 'yyyy-MM-dd'),
+        dateDepart: locationInfo.type === 'Chambre' && departureDate ? format(departureDate, 'yyyy-MM-dd') : undefined,
         nombrePersonnes: numPersons,
-        animauxDomestiques: locationInfo.type === 'Chambre' ? false : undefined, // Example, can be dynamic
+        animauxDomestiques: locationInfo.type === 'Chambre' ? false : undefined, 
         status: 'pending',
         notes: `Réservation via la page publique pour ${locationInfo.nom}.`,
       };
@@ -139,17 +156,37 @@ function LocationDetailPageContent() {
     }
   };
   
-  const calculateNights = () => {
-    if (locationInfo?.type === 'Chambre' && arrivalDate && departureDate && isValid(parseISO(arrivalDate)) && isValid(parseISO(departureDate))) {
-      const start = parseISO(arrivalDate);
-      const end = parseISO(departureDate);
+  const calculateNights = useCallback(() => {
+    if (locationInfo?.type === 'Chambre' && arrivalDate && departureDate && isValid(arrivalDate) && isValid(departureDate)) {
+      const start = startOfDay(arrivalDate);
+      const end = startOfDay(departureDate);
       if (isBefore(start, end)) {
         const nights = differenceInDays(end, start);
         return nights > 0 ? nights : 1; 
       }
     }
-    return 1;
-  };
+    return 1; // For tables or invalid room dates, assume 1 "period"
+  }, [arrivalDate, departureDate, locationInfo?.type]);
+
+  const disabledDates = useMemo(() => {
+    if (!locationInfo) return [];
+    let datesToDisable: Array<Date | { from: Date; to: Date }> = [];
+    existingReservations.forEach(res => {
+      try {
+        const resStart = parseISO(res.dateArrivee);
+        if (locationInfo.type === 'Chambre' && res.dateDepart) {
+          const resEnd = parseISO(res.dateDepart);
+          // For rooms, disable from resStart (inclusive) up to, but not including, resEnd
+          datesToDisable.push({ from: resStart, to: addDays(resEnd, -1) });
+        } else if (locationInfo.type === 'Table') {
+          datesToDisable.push(resStart); // Disable the single day for table bookings
+        }
+      } catch (e) {
+        console.error("Error parsing reservation dates for disabledDates", e, res);
+      }
+    });
+    return datesToDisable;
+  }, [existingReservations, locationInfo]);
 
   const getAmenityDetails = (amenityId: string): AmenityOption | undefined => {
     return PREDEFINED_AMENITIES.flatMap(category => category.options).find(opt => opt.id === amenityId);
@@ -166,6 +203,14 @@ function LocationDetailPageContent() {
     });
     return groups;
   }, [locationInfo?.amenityIds]);
+
+  const nights = calculateNights();
+  let totalPrice: number | undefined = undefined;
+  if (locationInfo?.type === 'Chambre' && locationInfo.prixParNuit && arrivalDate && departureDate && nights > 0) {
+    totalPrice = nights * locationInfo.prixParNuit;
+  } else if (locationInfo?.type === 'Table' && locationInfo.prixFixeReservation) {
+    totalPrice = locationInfo.prixFixeReservation;
+  }
 
 
   if (isLoading) {
@@ -215,7 +260,7 @@ function LocationDetailPageContent() {
         <CheckCircle className="mx-auto h-20 w-20 text-green-500 mb-6" />
         <h1 className="text-3xl font-bold text-foreground mb-3">Réservation Effectuée !</h1>
         <p className="text-lg text-muted-foreground mb-6">
-          Votre demande de réservation pour <span className="font-semibold text-primary">{locationInfo.nom}</span> à <span className="font-semibold text-primary">{globalSiteInfo.nom}</span> du <span className="font-semibold">{arrivalDate ? format(parseISO(arrivalDate), 'PPP', {locale:fr}) : ''}</span> {locationInfo.type === 'Chambre' && departureDate ? `au ${format(parseISO(departureDate), 'PPP', {locale:fr})}` : ''} a été enregistrée.
+          Votre demande de réservation pour <span className="font-semibold text-primary">{locationInfo.nom}</span> à <span className="font-semibold text-primary">{globalSiteInfo.nom}</span> du <span className="font-semibold">{arrivalDate ? format(arrivalDate, 'PPP', {locale:fr}) : ''}</span> {locationInfo.type === 'Chambre' && departureDate ? `au ${format(departureDate, 'PPP', {locale:fr})}` : ''} a été enregistrée.
         </p>
         <Button onClick={() => router.push(`/reserve/${globalSiteId}`)} size="lg">
           Effectuer une autre recherche
@@ -247,41 +292,46 @@ function LocationDetailPageContent() {
             data-ai-hint={mainImageAiHint}
             priority
           />
+           {locationInfo.imageUrls && locationInfo.imageUrls.length > 1 && (
+            <div className="absolute bottom-4 right-4">
+              <Button variant="secondary" size="sm">Voir les {locationInfo.imageUrls.length} photos</Button> {/* TODO: Implement gallery */}
+            </div>
+          )}
         </div>
-        <CardHeader className="p-6">
-          <p className="text-sm text-muted-foreground">{globalSiteInfo.nom}</p>
-          <CardTitle className="text-3xl md:text-4xl font-bold">{locationInfo.nom}</CardTitle>
-          <CardDescription className="text-lg flex items-center text-primary">
-            {locationInfo.type === 'Chambre' ? <BedDouble className="mr-2 h-5 w-5" /> : <Utensils className="mr-2 h-5 w-5" />}
-            {locationInfo.type}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-6 grid md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-4">
+        <div className="p-6 grid md:grid-cols-3 gap-x-8 gap-y-6">
+          <div className="md:col-span-2 space-y-6">
             <div>
-              <h3 className="text-xl font-semibold mb-2">Description</h3>
+                <p className="text-sm text-muted-foreground">{globalSiteInfo.nom}</p>
+                <CardTitle className="text-3xl md:text-4xl font-bold">{locationInfo.nom}</CardTitle>
+                <CardDescription className="text-lg flex items-center text-primary mt-1">
+                    {locationInfo.type === 'Chambre' ? <BedDouble className="mr-2 h-5 w-5" /> : <Utensils className="mr-2 h-5 w-5" />}
+                    {locationInfo.type}
+                    {locationInfo.capacity && <span className="text-muted-foreground text-base ml-2 flex items-center"><Users className="mr-1 h-4 w-4"/>jusqu'à {locationInfo.capacity} pers.</span>}
+                </CardDescription>
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold mb-2 border-b pb-2">Description</h3>
               <p className="text-muted-foreground whitespace-pre-wrap">{locationInfo.description || "Aucune description disponible."}</p>
             </div>
             
-            {(locationTags.length > 0 || (locationInfo.amenityIds && locationInfo.amenityIds.length > 0)) && (
-               <div>
-                <h3 className="text-xl font-semibold mb-2">Équipements & Tags</h3>
+            {(locationTags.length > 0) && (
+               <div className="border-t pt-4">
+                <h3 className="text-xl font-semibold mb-2">Tags</h3>
                 <div className="flex flex-wrap gap-2">
                   {locationTags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
                 </div>
               </div>
             )}
 
-
             {Object.keys(groupedAmenities).length > 0 && (
-              <div className="pt-4">
-                <h3 className="text-2xl font-semibold mb-4 border-b pb-2">Ce que propose ce logement</h3>
+              <div className="border-t pt-6">
+                <h3 className="text-2xl font-semibold mb-4">Ce que propose ce logement</h3>
                 {Object.entries(groupedAmenities).map(([categoryLabel, amenities]) => (
                   <div key={categoryLabel} className="mb-4">
                     <h4 className="text-lg font-medium mb-2">{categoryLabel}</h4>
                     <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
                       {amenities.map(amenity => (
-                        <li key={amenity.id} className="flex items-center">
+                        <li key={amenity.id} className="flex items-center py-1">
                           {React.createElement(amenity.icon, { className: "mr-2 h-4 w-4 text-primary" })}
                           {amenity.label}
                         </li>
@@ -291,40 +341,89 @@ function LocationDetailPageContent() {
                 ))}
               </div>
             )}
-
-
           </div>
-          <div className="md:col-span-1 space-y-4">
-            <Card className="p-4 bg-secondary/50">
-              <CardTitle className="text-lg mb-3">Détails de votre sélection</CardTitle>
-              <div className="space-y-2 text-sm">
-                {arrivalDate && (
-                  <p className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" /> Arrivée: <span className="font-semibold ml-1">{format(parseISO(arrivalDate), 'PPP', {locale: fr})}</span></p>
+
+          <div className="md:col-span-1 space-y-4 md:sticky md:top-24">
+            <Card className="p-4 shadow-lg border">
+              <CardHeader className="px-0 pt-0 pb-3">
+                <CardTitle className="text-xl mb-1">
+                    {locationInfo.type === 'Chambre' && locationInfo.prixParNuit ? (
+                        <><span className="font-bold text-2xl">${locationInfo.prixParNuit.toFixed(2)}</span> <span className="text-base font-normal text-muted-foreground">/ nuit</span></>
+                    ) : locationInfo.type === 'Table' && locationInfo.prixFixeReservation !== undefined ? (
+                        <><span className="font-bold text-2xl">${locationInfo.prixFixeReservation.toFixed(2)}</span> <span className="text-base font-normal text-muted-foreground">/ réservation</span></>
+                    ) : (
+                        <span className="text-lg text-muted-foreground">Prix non spécifié</span>
+                    )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-0 space-y-3">
+                <div className="grid grid-cols-1 gap-3">
+                    <div>
+                        <Label htmlFor="arrivalDateDetail" className="text-xs font-medium">Arrivée</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button id="arrivalDateDetail" variant="outline" className="w-full justify-start text-left font-normal h-11">
+                                    <CalendarIcon className="mr-2 h-4 w-4"/>
+                                    {arrivalDate ? format(arrivalDate, "PPP", {locale: fr}) : <span>Choisir une date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar mode="single" selected={arrivalDate} onSelect={setArrivalDate} initialFocus disabled={disabledDates}/>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                    {locationInfo.type === 'Chambre' && (
+                        <div>
+                            <Label htmlFor="departureDateDetail" className="text-xs font-medium">Départ</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button id="departureDateDetail" variant="outline" className="w-full justify-start text-left font-normal h-11" disabled={!arrivalDate}>
+                                        <CalendarIcon className="mr-2 h-4 w-4"/>
+                                        {departureDate ? format(departureDate, "PPP", {locale: fr}) : <span>Choisir une date</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar mode="single" selected={departureDate} onSelect={setDepartureDate} disabled={date => isBefore(date, addDays(arrivalDate || new Date(), 1)) || disabledDates.some(d => typeof d === 'object' && 'from' in d ? (isEqual(date, d.from) || isEqual(date, d.to) || (isBefore(d.from, date) && isBefore(date, d.to))) : isEqual(date, d)) } initialFocus/>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                    )}
+                </div>
+                 <div>
+                    <Label htmlFor="numPersonsDetail" className="text-xs font-medium">Voyageurs</Label>
+                    <Input id="numPersonsDetail" type="number" value={numPersons} onChange={(e) => setNumPersons(Math.max(1, parseInt(e.target.value) || 1))} min="1" max={locationInfo.capacity || undefined} className="h-11"/>
+                </div>
+
+                {totalPrice !== undefined && (
+                    <div className="pt-3 border-t">
+                        {locationInfo.type === 'Chambre' && locationInfo.prixParNuit && (
+                            <div className="flex justify-between text-sm text-muted-foreground">
+                                <span>${locationInfo.prixParNuit.toFixed(2)} x {nights} nuit{nights > 1 ? 's' : ''}</span>
+                                <span>${(locationInfo.prixParNuit * nights).toFixed(2)}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between text-lg font-semibold mt-1">
+                            <span>Total estimé</span>
+                            <span>${totalPrice.toFixed(2)}</span>
+                        </div>
+                    </div>
                 )}
-                {locationInfo.type === 'Chambre' && departureDate && (
-                  <>
-                    <p className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" /> Départ: <span className="font-semibold ml-1">{format(parseISO(departureDate), 'PPP', {locale: fr})}</span></p>
-                    <p className="flex items-center"><Info className="mr-2 h-4 w-4 text-muted-foreground" /> Nuits: <span className="font-semibold ml-1">{calculateNights()}</span></p>
-                  </>
-                )}
-                <p className="flex items-center"><Users className="mr-2 h-4 w-4 text-muted-foreground" /> Personnes: <span className="font-semibold ml-1">{numPersons}</span></p>
-                {locationInfo.capacity && (
-                   <p className="flex items-center"><Info className="mr-2 h-4 w-4 text-muted-foreground" /> Capacité max: <span className="font-semibold ml-1">{locationInfo.capacity}</span></p>
-                )}
-              </div>
-              <Button 
-                onClick={handleConfirmReservation} 
-                disabled={isSubmitting || !arrivalDate || (locationInfo.type === 'Chambre' && !departureDate)} 
-                className="w-full mt-6 text-base py-3"
-              >
-                {isSubmitting ? "Confirmation en cours..." : "Confirmer la réservation"}
-              </Button>
-              {!user && (
+              </CardContent>
+              <CardFooter className="px-0 pb-0 pt-4">
+                <Button 
+                  onClick={handleConfirmReservation} 
+                  disabled={isSubmitting || !arrivalDate || (locationInfo.type === 'Chambre' && !departureDate) || (numPersons > (locationInfo.capacity || Infinity))} 
+                  className="w-full text-base py-3 h-auto"
+                >
+                  {isSubmitting ? "Confirmation en cours..." : "Réserver"}
+                </Button>
+              </CardFooter>
+               {!user && (
                 <p className="text-xs text-muted-foreground mt-3 text-center">Vous pouvez vous <Button variant="link" className="p-0 h-auto text-xs" onClick={() => router.push(`/login?redirect_url=${encodeURIComponent(window.location.pathname + window.location.search)}`)}>connecter</Button> pour enregistrer cette réservation sur votre compte.</p>
               )}
             </Card>
           </div>
-        </CardContent>
+        </div>
       </Card>
     </div>
   );
