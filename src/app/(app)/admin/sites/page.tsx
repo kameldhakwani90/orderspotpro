@@ -343,26 +343,26 @@ export default function AdminSitesPage() {
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={(open) => {if (!isSubmitting) setIsDialogOpen(open)}}>
-        <DialogContent className="sm:max-w-md"> {/* Adjusted width */}
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editingSite ? 'Edit Global Site' : 'Add New Global Site'}</DialogTitle>
             <DialogDescription>
               {editingSite ? 'Modify details for this global site and its assigned Host.' : 'Enter details for the new global site and assign a Host to manage it.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="nom" className="text-right">Site Name*</Label>
-              <Input id="nom" name="nom" value={currentSiteData.nom || ''} onChange={handleInputChange} className="col-span-3" placeholder="e.g., Grand Hotel Downtown" disabled={isSubmitting}/>
+          <div className="grid gap-6 py-4"> {/* Increased gap */}
+            <div className="space-y-2">
+              <Label htmlFor="nom">Site Name*</Label>
+              <Input id="nom" name="nom" value={currentSiteData.nom || ''} onChange={handleInputChange} placeholder="e.g., Grand Hotel Downtown" disabled={isSubmitting}/>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="hostId" className="text-right">Managed by*</Label>
+            <div className="space-y-2">
+              <Label htmlFor="hostId">Managed by*</Label>
               <Select 
                 value={currentSiteData.hostId || ''} 
                 onValueChange={handleHostSelectChange} 
                 disabled={isSubmitting || hosts.length === 0}
               >
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger>
                   <SelectValue placeholder={hosts.length > 0 ? "Select a Host" : "No Hosts available"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -373,16 +373,18 @@ export default function AdminSitesPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="logoUrl" className="text-right">Logo URL</Label>
-              <Input id="logoUrl" name="logoUrl" value={currentSiteData.logoUrl || ''} onChange={handleInputChange} className="col-span-3" placeholder="https://placehold.co/100x100.png" disabled={isSubmitting}/>
+            <div className="space-y-2">
+              <Label htmlFor="logoUrl">Logo URL</Label>
+              <Input id="logoUrl" name="logoUrl" value={currentSiteData.logoUrl || ''} onChange={handleInputChange} placeholder="https://placehold.co/100x100.png" disabled={isSubmitting}/>
             </div>
-             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="primaryColor" className="text-right">Primary Color</Label>
-              <Input id="primaryColor" name="primaryColor" value={currentSiteData.primaryColor || ''} onChange={handleInputChange} className="col-span-3" placeholder="e.g., 347 75% 56%" disabled={isSubmitting}/>
+            <div className="space-y-2">
+              <Label htmlFor="primaryColor">Primary Color (HSL)</Label>
+              <Input id="primaryColor" name="primaryColor" value={currentSiteData.primaryColor || ''} onChange={handleInputChange} placeholder="e.g., 0 100% 50%" disabled={isSubmitting}/>
             </div>
-            <p className="text-xs text-muted-foreground col-span-4 text-center px-4">
-                Tip for Logo URL: Use image URLs starting with `https://placehold.co/` or ensure your desired image hosts are configured in `next.config.ts`. For Primary Color, use HSL format like "H S% L%" (e.g., "0 100% 50%" for red).
+            <p className="text-xs text-muted-foreground col-span-full px-1">
+                **Tip for Logo URL:** Use image URLs starting with `https://placehold.co/` or ensure your desired image hosts are configured in `next.config.ts`.
+                <br />
+                **Tip for Primary Color:** Use HSL format like "H S% L%" (e.g., "0 100% 50%" for red). You can use an online HSL color picker to find values.
             </p>
           </div>
           <DialogFooter>
@@ -396,3 +398,5 @@ export default function AdminSitesPage() {
     </div>
   );
 }
+
+    
