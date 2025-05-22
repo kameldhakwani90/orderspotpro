@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback, Suspense } from 'react';
+import React, { useEffect, useState, useCallback, Suspense, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { getSiteById, getRoomOrTableById, getTags as fetchHostTags, addReservationToData } from '@/lib/data';
 import type { Site as GlobalSiteType, RoomOrTable, Tag, Reservation, AmenityOption } from '@/lib/types';
@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { format, parseISO, isValid, differenceInDays, isBefore, isEqual } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Badge } from '@/components/ui/badge'; // Added import for Badge
+import { Badge } from '@/components/ui/badge';
 
 function LocationDetailPageContent() {
   const params = useParams();
@@ -77,12 +77,12 @@ function LocationDetailPageContent() {
       }
       setLocationInfo(locationDataResult);
       
-      if(siteData.hostId) { // Ensure hostId is present before fetching tags
+      if(siteData.hostId) {
         const tags = await fetchHostTags(siteData.hostId);
         setHostTags(tags);
       } else {
-        setHostTags([]); // No hostId, so no tags can be fetched
-         console.warn("Host ID not found for Global Site, cannot fetch tags:", siteData);
+        setHostTags([]);
+        console.warn("Host ID not found for Global Site, cannot fetch tags:", siteData);
       }
 
     } catch (e: any) {
@@ -106,10 +106,11 @@ function LocationDetailPageContent() {
         toast({ title: "Date de départ manquante", description: "Veuillez spécifier une date de départ pour une chambre.", variant: "destructive"});
         return;
     }
-     if (locationInfo.type === 'Chambre' && departureDate && (isBefore(parseISO(departureDate), parseISO(arrivalDate)) || isEqual(parseISO(departureDate), parseISO(arrivalDate)))) {
-      toast({ title: "Date de départ invalide", description: "La date de départ doit être après la date d'arrivée.", variant: "destructive"});
-      return;
+    if (locationInfo.type === 'Chambre' && departureDate && (isBefore(parseISO(departureDate), parseISO(arrivalDate)) || isEqual(parseISO(departureDate), parseISO(arrivalDate)))) {
+        toast({ title: "Date de départ invalide", description: "La date de départ doit être après la date d'arrivée.", variant: "destructive"});
+        return;
     }
+
 
     setIsSubmitting(true);
     try {
@@ -120,9 +121,9 @@ function LocationDetailPageContent() {
         clientName: user?.nom || `Invité ${Date.now().toString().slice(-5)}`,
         clientId: user?.id,
         dateArrivee: arrivalDate,
-        dateDepart: locationInfo.type === 'Chambre' ? departureDate! : arrivalDate, 
+        dateDepart: locationInfo.type === 'Chambre' ? departureDate! : undefined, // Only set for 'Chambre'
         nombrePersonnes: numPersons,
-        animauxDomestiques: false, 
+        animauxDomestiques: locationInfo.type === 'Chambre' ? false : undefined, // Example, can be dynamic
         status: 'pending',
         notes: `Réservation via la page publique pour ${locationInfo.nom}.`,
       };
@@ -147,7 +148,7 @@ function LocationDetailPageContent() {
         return nights > 0 ? nights : 1; 
       }
     }
-    return 1; // Default for tables or invalid room dates
+    return 1;
   };
 
   const getAmenityDetails = (amenityId: string): AmenityOption | undefined => {
@@ -261,14 +262,16 @@ function LocationDetailPageContent() {
               <h3 className="text-xl font-semibold mb-2">Description</h3>
               <p className="text-muted-foreground whitespace-pre-wrap">{locationInfo.description || "Aucune description disponible."}</p>
             </div>
-            {locationTags.length > 0 && (
-              <div>
-                <h3 className="text-xl font-semibold mb-2">Tags</h3>
+            
+            {(locationTags.length > 0 || (locationInfo.amenityIds && locationInfo.amenityIds.length > 0)) && (
+               <div>
+                <h3 className="text-xl font-semibold mb-2">Équipements & Tags</h3>
                 <div className="flex flex-wrap gap-2">
                   {locationTags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
                 </div>
               </div>
             )}
+
 
             {Object.keys(groupedAmenities).length > 0 && (
               <div className="pt-4">
