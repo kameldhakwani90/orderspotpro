@@ -12,7 +12,7 @@ import NextImage from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-import { format, parseISO, isValid, differenceInDays } from 'date-fns';
+import { format, parseISO, isValid, differenceInDays, isBefore, isEqual } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 function LocationDetailPageContent() {
