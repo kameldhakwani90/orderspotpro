@@ -7,7 +7,7 @@ import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormFi
 // import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp } from 'firebase/firestore';
 
 const log = (message: string, data?: any) => {
-  console.log(`[Data Layer] ${new Date().toISOString()}: ${message}`, data !== undefined ? data : '');
+  console.log(`[Data Layer Memory] ${new Date().toISOString()}: ${message}`, data !== undefined ? data : '');
 }
 log("Data layer initialized. USING IN-MEMORY DATA for all entities.");
 
@@ -30,25 +30,25 @@ let hostsInMemory: Host[] = [
 ];
 
 let sitesInMemory: Site[] = [
-  { siteId: 'site-01', nom: 'Paradise Beach Resort (In-Mem)', hostId: 'host-01-inmem', logoUrl: 'https://placehold.co/100x100.png?text=Paradise+Logo', logoAiHint: 'resort logo', primaryColor: '200 80% 55%' },
-  { siteId: 'site-02', nom: 'Le Delice Downtown (In-Mem)', hostId: 'host-02-inmem', logoUrl: 'https://placehold.co/100x100.png?text=Delice+Logo', logoAiHint: 'restaurant logo', primaryColor: '30 90% 50%' },
-  { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment (In-Mem)', hostId: 'host-1747669860022', logoUrl: 'https://placehold.co/100x100.png?text=Dynamic+Logo', logoAiHint: 'dynamic logo', primaryColor: '120 60% 45%' },
+  { siteId: 'site-01', nom: 'Paradise Beach Resort (In-Mem)', hostId: 'host-01-inmem', logoUrl: 'https://placehold.co/100x100.png?text=Paradise+Logo', logoAiHint: 'resort logo', primaryColor: '#64B5F6' }, // Calming Blue
+  { siteId: 'site-02', nom: 'Le Delice Downtown (In-Mem)', hostId: 'host-02-inmem', logoUrl: 'https://placehold.co/100x100.png?text=Delice+Logo', logoAiHint: 'restaurant logo', primaryColor: '#9575CD' }, // Soft Purple
+  { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment (In-Mem)', hostId: 'host-1747669860022', logoUrl: 'https://placehold.co/100x100.png?text=Dynamic+Logo', logoAiHint: 'dynamic logo', primaryColor: '#FF5733' }, // Example Orange
 ];
 
 let roomsOrTablesInMemory: RoomOrTable[] = [
-  { id: 'rt-paradise-main', nom: 'Paradise Resort Main Area', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: undefined, urlPersonnalise: `/client/host-01-inmem/rt-paradise-main`, capacity: 200, tagIds: ['tag-luxury-inmem', 'tag-beachfront-inmem'], description: "Main area of the Paradise Resort, featuring stunning ocean views.", imageUrls: ["https://placehold.co/600x400.png?text=Resort+View+1", "https://placehold.co/600x400.png?text=Resort+View+2"], imageAiHint: "resort main area", amenityIds: ['wifi', 'parking-gratuit-sur-place', 'ascenseur', 'piscine'] },
-  { id: 'rt-lobby-01', nom: 'Lobby Zone', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-paradise-main', urlPersonnalise: `/client/host-01-inmem/rt-lobby-01`, capacity: 50, tagIds: ['tag-reception-inmem'], description: "Comfortable lobby area with seating and reception.", imageUrls: ["https://placehold.co/600x400.png?text=Lobby+1"], imageAiHint: "hotel lobby", amenityIds: ['wifi', 'climatisation', 'espace-travail-dedie'] },
-  { id: 'rt-reception-desk-01', nom: 'Reception Desk Area', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01-inmem/rt-reception-desk-01`, capacity: 10, description: "Front desk for check-in and inquiries.", amenityIds: ['cles-remises-hote'] },
-  { id: 'room-101', nom: 'Chambre 101', type: 'Chambre', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01-inmem/room-101`, capacity: 2, tagIds: ['tag-standard-inmem', 'tag-quiet-inmem'], description: "Standard double room with garden view.", imageUrls: ["https://placehold.co/600x400.png?text=Room+101+Pic1", "https://placehold.co/600x400.png?text=Room+101+Pic2"], imageAiHint: "hotel room garden", amenityIds: ['salle-de-bain', 'wifi', 'tv', 'chauffage-central', 'serrure-porte-chambre', 'detecteur-fumee'] },
-  { id: 'room-102', nom: 'Chambre 102 (Suite)', type: 'Chambre', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01-inmem/room-102`, capacity: 4, tagIds: ['tag-suite-inmem', 'tag-balcony-inmem'], description: "Spacious suite with a private balcony and ocean view.", imageUrls: ["https://placehold.co/600x400.png?text=Suite+Pic"], imageAiHint: "hotel suite ocean", amenityIds: ['salle-de-bain', 'seche-cheveux', 'wifi', 'tv', 'climatisation', 'terrasse-balcon', 'vue-mer'] },
-  { id: 'rt-pool-01', nom: 'Pool Area', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-paradise-main', urlPersonnalise: `/client/host-01-inmem/rt-pool-01`, capacity: 100, tagIds: ['tag-poolside-inmem'], description: "Large outdoor swimming pool with sun loungers.", imageUrls: ["https://placehold.co/600x400.png?text=Pool+Area"], imageAiHint: "swimming pool resort", amenityIds: ['piscine', 'jacuzzi'] },
-  { id: 'table-pool-1', nom: 'Table Piscine 1', type: 'Table', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-pool-01', urlPersonnalise: `/client/host-01-inmem/table-pool-1`, capacity: 4, tagIds: ['tag-outdoor-inmem'], description: "Poolside table for snacks and drinks." },
-  { id: 'rt-delice-main', nom: 'Delice Main Dining', type: 'Site', hostId: 'host-02-inmem', globalSiteId: 'site-02', parentLocationId: undefined, urlPersonnalise: `/client/host-02-inmem/rt-delice-main`, capacity: 80, tagIds: ['tag-fine-dining-inmem'], description: "Main dining hall of Le Delice Downtown.", imageUrls: ["https://placehold.co/600x400.png?text=Delice+Dining"], imageAiHint: "restaurant dining", amenityIds: ['wifi', 'climatisation'] },
-  { id: 'table-5', nom: 'Table 5', type: 'Table', hostId: 'host-02-inmem', globalSiteId: 'site-02', parentLocationId: 'rt-delice-main', urlPersonnalise: `/client/host-02-inmem/table-5`, capacity: 2, description: "Cozy table for two near the window." },
-  { id: 'table-vip', nom: 'VIP Table', type: 'Table', hostId: 'host-02-inmem', globalSiteId: 'site-02', parentLocationId: 'rt-delice-main', urlPersonnalise: `/client/host-02-inmem/table-vip`, capacity: 8, tagIds: ['tag-vip-inmem'], description: "Exclusive VIP table with premium service." },
+  { id: 'rt-paradise-main', nom: 'Paradise Resort Main Area', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: undefined, urlPersonnalise: `/client/host-01-inmem/rt-paradise-main`, capacity: 200, description: "Main area of the Paradise Resort, featuring stunning ocean views and multiple zones.", imageUrls: ["https://placehold.co/600x400.png?text=Resort+View+1", "https://placehold.co/600x400.png?text=Resort+View+2"], imageAiHint: "resort main area", tagIds: ['tag-luxury-inmem', 'tag-beachfront-inmem'], amenityIds: ['wifi', 'parking-gratuit-sur-place', 'ascenseur', 'piscine'] },
+  { id: 'rt-lobby-01', nom: 'Lobby Zone', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-paradise-main', urlPersonnalise: `/client/host-01-inmem/rt-lobby-01`, capacity: 50, description: "Comfortable lobby area with seating, reception, and concierge services.", imageUrls: ["https://placehold.co/600x400.png?text=Lobby+1"], imageAiHint: "hotel lobby", tagIds: ['tag-reception-inmem'], amenityIds: ['wifi', 'climatisation', 'espace-travail-dedie', 'cles-remises-hote'] },
+  { id: 'rt-reception-desk-01', nom: 'Reception Desk Area', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01-inmem/rt-reception-desk-01`, capacity: 10, description: "Main reception and check-in desk.", amenityIds: ['cles-remises-hote'] },
+  { id: 'room-101', nom: 'Chambre 101', type: 'Chambre', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01-inmem/room-101`, capacity: 2, description: "Standard double room with garden view. Cozy and quiet.", imageUrls: ["https://placehold.co/600x400.png?text=Room+101+Pic1", "https://placehold.co/600x400.png?text=Room+101+Pic2"], imageAiHint: "hotel room garden", tagIds: ['tag-standard-inmem', 'tag-quiet-inmem'], amenityIds: ['salle-de-bain', 'wifi', 'tv', 'chauffage-central', 'serrure-porte-chambre', 'detecteur-fumee', 'vue-parc', 'draps', 'cintres'] },
+  { id: 'room-102', nom: 'Chambre 102 (Suite)', type: 'Chambre', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-lobby-01', urlPersonnalise: `/client/host-01-inmem/room-102`, capacity: 4, description: "Spacious suite with a private balcony and ocean view. Includes a small kitchenette.", imageUrls: ["https://placehold.co/600x400.png?text=Suite+Pic"], imageAiHint: "hotel suite ocean", tagIds: ['tag-suite-inmem', 'tag-balcony-inmem'], amenityIds: ['salle-de-bain', 'seche-cheveux', 'wifi', 'tv', 'climatisation', 'terrasse-balcon', 'vue-mer', 'cuisine', 'micro-ondes'] },
+  { id: 'rt-pool-01', nom: 'Pool Area', type: 'Site', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-paradise-main', urlPersonnalise: `/client/host-01-inmem/rt-pool-01`, capacity: 100, description: "Large outdoor swimming pool with sun loungers, cabanas, and a poolside bar.", imageUrls: ["https://placehold.co/600x400.png?text=Pool+Area"], imageAiHint: "swimming pool resort", tagIds: ['tag-poolside-inmem'], amenityIds: ['piscine', 'jacuzzi'] },
+  { id: 'table-pool-1', nom: 'Table Piscine 1', type: 'Table', hostId: 'host-01-inmem', globalSiteId: 'site-01', parentLocationId: 'rt-pool-01', urlPersonnalise: `/client/host-01-inmem/table-pool-1`, capacity: 4, description: "Poolside table for snacks and drinks, shaded by an umbrella.", tagIds: ['tag-outdoor-inmem'] },
+  { id: 'rt-delice-main', nom: 'Delice Main Dining', type: 'Site', hostId: 'host-02-inmem', globalSiteId: 'site-02', parentLocationId: undefined, urlPersonnalise: `/client/host-02-inmem/rt-delice-main`, capacity: 80, description: "Main dining hall of Le Delice Downtown, offering exquisite French cuisine.", imageUrls: ["https://placehold.co/600x400.png?text=Delice+Dining"], imageAiHint: "restaurant dining", tagIds: ['tag-fine-dining-inmem'], amenityIds: ['wifi', 'climatisation', 'table-manger'] },
+  { id: 'table-5', nom: 'Table 5', type: 'Table', hostId: 'host-02-inmem', globalSiteId: 'site-02', parentLocationId: 'rt-delice-main', urlPersonnalise: `/client/host-02-inmem/table-5`, capacity: 2, description: "Cozy table for two near the window, perfect for a romantic dinner." },
+  { id: 'table-vip', nom: 'VIP Table', type: 'Table', hostId: 'host-02-inmem', globalSiteId: 'site-02', parentLocationId: 'rt-delice-main', urlPersonnalise: `/client/host-02-inmem/table-vip`, capacity: 8, description: "Exclusive VIP table with premium service and a curated menu.", tagIds: ['tag-vip-inmem'] },
   { id: 'rt-dynamic-main', nom: 'Dynamic Main Area', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: undefined, urlPersonnalise: `/client/host-1747669860022/rt-dynamic-main`, capacity: 150, description: "Main area for Dynamic Test Establishment.", imageUrls: ["https://placehold.co/600x400.png?text=Dynamic+Area"], amenityIds: ['wifi'] },
   { id: 'rt-dynamic-lobby', nom: 'Dynamic Lobby', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-main', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-lobby`, capacity: 30, description: "Lobby of Dynamic Test Establishment.", amenityIds: ['wifi', 'climatisation'] },
-  { id: 'rt-dynamic-room1', nom: 'Dynamic Room 101', type: 'Chambre', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-room1`, capacity: 2, tagIds: ['tag-standard-inmem'], description: "Standard room in Dynamic Test Establishment.", imageUrls: ["https://placehold.co/600x400.png?text=Dynamic+Room"], amenityIds: ['salle-de-bain', 'wifi', 'tv'] },
+  { id: 'rt-dynamic-room1', nom: 'Dynamic Room 101', type: 'Chambre', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-room1`, capacity: 2, description: "Standard room in Dynamic Test Establishment.", imageUrls: ["https://placehold.co/600x400.png?text=Dynamic+Room"], tagIds: ['tag-standard-inmem'], amenityIds: ['salle-de-bain', 'wifi', 'tv'] },
   { id: 'rt-dynamic-table1', nom: 'Dynamic Table Alpha', type: 'Table', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-main', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-table1`, capacity: 6, description: "Table Alpha in Dynamic Test Establishment." },
 ];
 
@@ -147,10 +147,11 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
     if (user) {
       const userData = { ...user };
       if (!userData.motDePasse && (user as any).password) {
+        log(`User ${email} found with 'password' field, mapping to 'motDePasse'.`);
         userData.motDePasse = (user as any).password;
-      } else if(!userData.motDePasse && !user.motDePasse) {
+      } else if (!userData.motDePasse) {
         log(`Warning: User ${email} found but has no password field (motDePasse or password). Login will likely fail.`);
-        userData.motDePasse = ""; // Ensure it's a string to avoid undefined errors
+        userData.motDePasse = ""; 
       }
       if (!userData.nom && userData.email) {
           userData.nom = userData.email.split('@')[0];
@@ -170,9 +171,9 @@ export const getUserById = async (id: string): Promise<User | undefined> => {
     const user = usersInMemory.find(u => u.id === id);
     if (user) {
       const userData = { ...user };
-      if (!userData.motDePasse && (user as any).password) {
+       if (!userData.motDePasse && (user as any).password) {
         userData.motDePasse = (user as any).password;
-      } else if(!userData.motDePasse && !user.motDePasse) {
+      } else if(!userData.motDePasse) {
         userData.motDePasse = "";
       }
       if (!userData.nom && userData.email) {
@@ -229,7 +230,10 @@ export const updateUser = async (userId: string, userData: Partial<Omit<User, 'i
      if (userData.motDePasse && userData.motDePasse.trim() !== '') {
         updatedUser.motDePasse = userData.motDePasse.trim();
     } else if (userData.hasOwnProperty('motDePasse') && (userData.motDePasse === '' || userData.motDePasse === null || userData.motDePasse === undefined)) {
-        updatedUser.motDePasse = usersInMemory[userIndex].motDePasse;
+        // If password is intentionally being cleared or set to empty (not recommended for actual password changes)
+        // For in-memory, let's assume if password is provided as empty/null, it's not meant to change existing.
+        // Or, for a password change feature, this would require more specific logic (e.g., oldPassword, newPassword fields).
+        updatedUser.motDePasse = usersInMemory[userIndex].motDePasse; // Keep old if new is empty/null
     }
     if (userData.hasOwnProperty('hostId')) {
         updatedUser.hostId = userData.hostId || undefined;
@@ -486,7 +490,7 @@ export const addRoomOrTable = async (data: Omit<RoomOrTable, 'id' | 'urlPersonna
     capacity: data.capacity,
     tagIds: data.tagIds || [],
     description: data.description || undefined,
-    imageUrls: data.imageUrls || undefined,
+    imageUrls: data.imageUrls || [], // Ensure it's an array
     imageAiHint: data.imageUrls && data.imageUrls.length > 0 && data.nom ? data.nom.toLowerCase().split(' ').slice(0,2).join(' ') : undefined,
     amenityIds: data.amenityIds || [],
   };
@@ -1018,12 +1022,3 @@ log(`Users: ${usersInMemory.length}, Hosts: ${hostsInMemory.length}, Global Site
 log(`Categories: ${serviceCategoriesInMemory.length}, Forms: ${customFormsInMemory.length}, Fields: ${formFieldsInMemory.length}, Services: ${servicesInMemory.length}`);
 log(`Orders: ${ordersInMemory.length}, Clients: ${clientsInMemory.length}, Reservations: ${reservationsInMemory.length}, Tags: ${tagsInMemory.length}`);
 
-// Ensure default hostId for AdminSitesPage's newSite state is valid (if any hosts exist)
-// This type of logic should ideally be in the component using the state, not globally in data.ts
-// Commented out to prevent 'hosts' or 'newSite' not defined errors at module scope
-/*
-if (hosts.length > 0 && newSite && !hosts.find(h => h.hostId === newSite.hostId)) {
-    // This part would need to be in the component's state logic, not directly here.
-    // setNewSite(prev => ({ ...prev, hostId: hostsData[0].hostId }));
-}
-*/

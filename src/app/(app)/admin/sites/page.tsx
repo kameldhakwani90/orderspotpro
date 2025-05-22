@@ -120,6 +120,13 @@ export default function AdminSitesPage() {
       return;
     }
 
+    // Basic HEX color validation (optional, but good practice)
+    if (dataToSubmit.primaryColor && !/^#([0-9A-F]{3}){1,2}$/i.test(dataToSubmit.primaryColor)) {
+        toast({ title: "Invalid Color Format", description: "Primary color must be a valid HEX code (e.g., #FF5733).", variant: "destructive" });
+        setIsSubmitting(false);
+        return;
+    }
+
     const payload: Partial<Omit<Site, 'siteId' | 'logoAiHint'>> = {
         nom: dataToSubmit.nom.trim(),
         hostId: dataToSubmit.hostId,
@@ -300,7 +307,7 @@ export default function AdminSitesPage() {
                     <TableCell>
                       {site.primaryColor ? (
                         <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded-full border" style={{ backgroundColor: `hsl(${site.primaryColor})` }}></div>
+                          <div className="w-4 h-4 rounded-full border" style={{ backgroundColor: site.primaryColor }}></div>
                           <span className="text-xs">{site.primaryColor}</span>
                         </div>
                       ) : (
@@ -350,7 +357,7 @@ export default function AdminSitesPage() {
               {editingSite ? 'Modify details for this global site and its assigned Host.' : 'Enter details for the new global site and assign a Host to manage it.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-6 py-4"> {/* Increased gap */}
+          <div className="grid gap-6 py-4">
             <div className="space-y-2">
               <Label htmlFor="nom">Site Name*</Label>
               <Input id="nom" name="nom" value={currentSiteData.nom || ''} onChange={handleInputChange} placeholder="e.g., Grand Hotel Downtown" disabled={isSubmitting}/>
@@ -378,13 +385,13 @@ export default function AdminSitesPage() {
               <Input id="logoUrl" name="logoUrl" value={currentSiteData.logoUrl || ''} onChange={handleInputChange} placeholder="https://placehold.co/100x100.png" disabled={isSubmitting}/>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="primaryColor">Primary Color (HSL)</Label>
-              <Input id="primaryColor" name="primaryColor" value={currentSiteData.primaryColor || ''} onChange={handleInputChange} placeholder="e.g., 0 100% 50%" disabled={isSubmitting}/>
+              <Label htmlFor="primaryColor">Primary Color (HEX)</Label>
+              <Input id="primaryColor" name="primaryColor" value={currentSiteData.primaryColor || ''} onChange={handleInputChange} placeholder="e.g., #FF5733" disabled={isSubmitting}/>
             </div>
             <p className="text-xs text-muted-foreground col-span-full px-1">
                 **Tip for Logo URL:** Use image URLs starting with `https://placehold.co/` or ensure your desired image hosts are configured in `next.config.ts`.
                 <br />
-                **Tip for Primary Color:** Use HSL format like "H S% L%" (e.g., "0 100% 50%" for red). You can use an online HSL color picker to find values.
+                **Tip for Primary Color:** Use HEX format like `#RRGGBB` (e.g., `#FF5733` for a vibrant orange). You can use an online color picker.
             </p>
           </div>
           <DialogFooter>

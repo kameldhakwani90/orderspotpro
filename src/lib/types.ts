@@ -30,7 +30,7 @@ export interface Site { // Represents a Global Site
   hostId: string; // FK to Host.hostId
   logoUrl?: string;
   logoAiHint?: string;
-  primaryColor?: string; // HSL string, e.g., "347 75% 56%"
+  primaryColor?: string; // Now expects a HEX string, e.g., "#FF5733"
 }
 
 export interface Tag {
@@ -173,3 +173,4 @@ export interface Reservation {
   status?: ReservationStatus;
   channel?: string; 
 }
+
