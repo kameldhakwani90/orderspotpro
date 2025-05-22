@@ -2,14 +2,14 @@
 // src/lib/data.ts
 import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus, Tag, ReservationPageSettings } from './types';
 
-// Firestore imports are commented out to use in-memory data
+// Firestore imports are commented out as we are reverting to in-memory
 // import { db } from './firebase'; 
 // import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp } from 'firebase/firestore';
 
 const log = (message: string, data?: any) => {
   console.log(`[Data Layer] ${new Date().toISOString()}: ${message}`, data !== undefined ? data : '');
 }
-log("Data layer initialized. Using IN-MEMORY data for ALL entities.");
+log("Data layer initialized. USING IN-MEMORY DATA for all entities.");
 
 
 // --- In-memory data store ---
@@ -30,9 +30,9 @@ let hostsInMemory: Host[] = [
 ];
 
 let sitesInMemory: Site[] = [
-  { siteId: 'site-01', nom: 'Paradise Beach Resort (In-Mem)', hostId: 'host-01-inmem', logoUrl: 'https://placehold.co/300x100.png?text=Paradise+Logo', logoAiHint: 'resort logo' },
-  { siteId: 'site-02', nom: 'Le Delice Downtown (In-Mem)', hostId: 'host-02-inmem', logoUrl: 'https://placehold.co/300x100.png?text=Delice+Logo', logoAiHint: 'restaurant logo' },
-  { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment (In-Mem)', hostId: 'host-1747669860022', logoUrl: 'https://placehold.co/300x100.png?text=Dynamic+Logo', logoAiHint: 'dynamic logo' },
+  { siteId: 'site-01', nom: 'Paradise Beach Resort (In-Mem)', hostId: 'host-01-inmem', logoUrl: 'https://placehold.co/100x100.png?text=Paradise+Logo', logoAiHint: 'resort logo', primaryColor: '200 80% 55%' },
+  { siteId: 'site-02', nom: 'Le Delice Downtown (In-Mem)', hostId: 'host-02-inmem', logoUrl: 'https://placehold.co/100x100.png?text=Delice+Logo', logoAiHint: 'restaurant logo', primaryColor: '30 90% 50%' },
+  { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment (In-Mem)', hostId: 'host-1747669860022', logoUrl: 'https://placehold.co/100x100.png?text=Dynamic+Logo', logoAiHint: 'dynamic logo', primaryColor: '120 60% 45%' },
 ];
 
 let roomsOrTablesInMemory: RoomOrTable[] = [
@@ -148,6 +148,9 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
       const userData = { ...user };
       if (!userData.motDePasse && (user as any).password) {
         userData.motDePasse = (user as any).password;
+      } else if(!userData.motDePasse && !user.motDePasse) {
+        log(`Warning: User ${email} found but has no password field (motDePasse or password). Login will likely fail.`);
+        userData.motDePasse = ""; // Ensure it's a string to avoid undefined errors
       }
       if (!userData.nom && userData.email) {
           userData.nom = userData.email.split('@')[0];
@@ -169,6 +172,8 @@ export const getUserById = async (id: string): Promise<User | undefined> => {
       const userData = { ...user };
       if (!userData.motDePasse && (user as any).password) {
         userData.motDePasse = (user as any).password;
+      } else if(!userData.motDePasse && !user.motDePasse) {
+        userData.motDePasse = "";
       }
       if (!userData.nom && userData.email) {
           userData.nom = userData.email.split('@')[0];
@@ -202,6 +207,9 @@ export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
     existingUser.hostId = userData.hostId || undefined;
     if (userData.motDePasse && userData.motDePasse.trim() !== '') existingUser.motDePasse = userData.motDePasse.trim();
     return { ...existingUser };
+  }
+  if (!userData.motDePasse || userData.motDePasse.trim() === '') {
+      throw new Error("Password cannot be empty for a new user.");
   }
   const newUser: User = {
     id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -314,9 +322,8 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
   if (hostIndex > -1) {
     const originalHostData = { ...hostsInMemory[hostIndex] };
     
-    // Deep merge reservationPageSettings
     const updatedSettings = {
-      ...(originalHostData.reservationPageSettings || { enableRoomReservations: true, enableTableReservations: true }), // Provide defaults if undefined
+      ...(originalHostData.reservationPageSettings || { enableRoomReservations: true, enableTableReservations: true }), 
       ...(hostData.reservationPageSettings || {}),
     };
 
@@ -406,13 +413,14 @@ export const getSiteById = async (siteId: string): Promise<Site | undefined> => 
     return undefined;
   }
 };
-export const addSiteToData = async (siteData: Omit<Site, 'siteId' | 'logoAiHint'>): Promise<Site> => {
+export const addSiteToData = async (siteData: Omit<Site, 'siteId' | 'logoAiHint' | 'primaryColor'> & {primaryColor?: string}): Promise<Site> => {
   log(`addSiteToData called. Data: ${JSON.stringify(siteData)}. Using in-memory data.`);
   const newSite: Site = {
     ...siteData,
     siteId: `globalsite-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
     logoUrl: siteData.logoUrl || undefined,
     logoAiHint: siteData.logoUrl && siteData.nom ? siteData.nom.toLowerCase().split(' ').slice(0,2).join(' ') : undefined,
+    primaryColor: siteData.primaryColor || undefined,
   };
   sitesInMemory.push(newSite);
   return newSite;
@@ -426,6 +434,7 @@ export const updateSiteInData = async (siteId: string, siteData: Partial<Omit<Si
       ...siteData,
       logoUrl: siteData.logoUrl !== undefined ? (siteData.logoUrl || undefined) : sitesInMemory[siteIndex].logoUrl,
       logoAiHint: siteData.logoUrl && siteData.nom ? siteData.nom.toLowerCase().split(' ').slice(0,2).join(' ') : (siteData.nom ? siteData.nom.toLowerCase().split(' ').slice(0,2).join(' ') : sitesInMemory[siteIndex].logoAiHint),
+      primaryColor: siteData.primaryColor !== undefined ? siteData.primaryColor : sitesInMemory[siteIndex].primaryColor,
     };
     return sitesInMemory[siteIndex];
   }
@@ -1009,3 +1018,12 @@ log(`Users: ${usersInMemory.length}, Hosts: ${hostsInMemory.length}, Global Site
 log(`Categories: ${serviceCategoriesInMemory.length}, Forms: ${customFormsInMemory.length}, Fields: ${formFieldsInMemory.length}, Services: ${servicesInMemory.length}`);
 log(`Orders: ${ordersInMemory.length}, Clients: ${clientsInMemory.length}, Reservations: ${reservationsInMemory.length}, Tags: ${tagsInMemory.length}`);
 
+// Ensure default hostId for AdminSitesPage's newSite state is valid (if any hosts exist)
+// This type of logic should ideally be in the component using the state, not globally in data.ts
+// Commented out to prevent 'hosts' or 'newSite' not defined errors at module scope
+/*
+if (hosts.length > 0 && newSite && !hosts.find(h => h.hostId === newSite.hostId)) {
+    // This part would need to be in the component's state logic, not directly here.
+    // setNewSite(prev => ({ ...prev, hostId: hostsData[0].hostId }));
+}
+*/

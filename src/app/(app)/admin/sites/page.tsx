@@ -45,10 +45,11 @@ export default function AdminSitesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingSite, setEditingSite] = useState<Partial<Site> | null>(null);
   
-  const [currentSiteData, setCurrentSiteData] = useState<{ nom: string; hostId: string; logoUrl?: string }>({
+  const [currentSiteData, setCurrentSiteData] = useState<{ nom: string; hostId: string; logoUrl?: string; primaryColor?: string; }>({
     nom: '',
     hostId: '',
     logoUrl: '',
+    primaryColor: '',
   });
 
   const fetchData = useCallback(async () => {
@@ -100,8 +101,8 @@ export default function AdminSitesPage() {
 
     if (isEditing && editingSite?.siteId) {
         dataToSubmit = {
-            ...sites.find(s => s.siteId === editingSite!.siteId), // Get full existing site data
-            ...currentSiteData // Override with current form data
+            ...sites.find(s => s.siteId === editingSite!.siteId), 
+            ...currentSiteData 
         };
     } else {
         dataToSubmit = { ...currentSiteData };
@@ -123,6 +124,7 @@ export default function AdminSitesPage() {
         nom: dataToSubmit.nom.trim(),
         hostId: dataToSubmit.hostId,
         logoUrl: dataToSubmit.logoUrl?.trim() || undefined,
+        primaryColor: dataToSubmit.primaryColor?.trim() || undefined,
     };
 
 
@@ -131,7 +133,7 @@ export default function AdminSitesPage() {
         await updateSiteInData(editingSite.siteId, payload);
         toast({ title: "Global Site Updated", description: `${payload.nom} has been updated.` });
       } else { 
-        await addSiteToData(payload as Omit<Site, 'siteId' | 'logoAiHint'>);
+        await addSiteToData(payload as Omit<Site, 'siteId' | 'logoAiHint' | 'primaryColor'> & { primaryColor?: string });
         toast({ title: "Global Site Created", description: `${payload.nom} has been added and assigned to a host.` });
       }
       fetchData(); 
@@ -141,7 +143,7 @@ export default function AdminSitesPage() {
     }
     
     setIsDialogOpen(false);
-    setCurrentSiteData({ nom: '', hostId: hosts.length > 0 ? hosts[0].hostId : '', logoUrl: '' });
+    setCurrentSiteData({ nom: '', hostId: hosts.length > 0 ? hosts[0].hostId : '', logoUrl: '', primaryColor: '' });
     setEditingSite(null);
     setIsSubmitting(false);
   };
@@ -152,7 +154,7 @@ export default function AdminSitesPage() {
       return;
     }
     setEditingSite(null);
-    setCurrentSiteData({ nom: '', hostId: hosts.length > 0 ? hosts[0].hostId : '', logoUrl: '' });
+    setCurrentSiteData({ nom: '', hostId: hosts.length > 0 ? hosts[0].hostId : '', logoUrl: '', primaryColor: '' });
     setIsDialogOpen(true);
   };
 
@@ -161,7 +163,8 @@ export default function AdminSitesPage() {
     setCurrentSiteData({
         nom: siteToEdit.nom,
         hostId: siteToEdit.hostId,
-        logoUrl: siteToEdit.logoUrl || ''
+        logoUrl: siteToEdit.logoUrl || '',
+        primaryColor: siteToEdit.primaryColor || '',
     });
     setIsDialogOpen(true);
   };
@@ -206,10 +209,11 @@ export default function AdminSitesPage() {
                 <CardContent>
                     <div className="space-y-4">
                         {[...Array(3)].map((_, i) => (
-                            <div key={i} className="grid grid-cols-5 gap-4 items-center"> {/* Increased to 5 for new columns */}
+                            <div key={i} className="grid grid-cols-6 gap-4 items-center"> {/* Increased for new columns */}
                                 <Skeleton className="h-10 w-10" /> {/* Logo */}
                                 <Skeleton className="h-6 w-full" /> {/* Name */}
                                 <Skeleton className="h-6 w-full" /> {/* Host */}
+                                <Skeleton className="h-6 w-full" /> {/* Primary Color */}
                                 <Skeleton className="h-6 w-full" /> {/* URL */}
                                 <Skeleton className="h-8 w-full" /> {/* Actions */}
                             </div>
@@ -259,6 +263,7 @@ export default function AdminSitesPage() {
                 <TableHead className="w-[70px]">Logo</TableHead>
                 <TableHead>Global Site Name</TableHead>
                 <TableHead>Managed by Host</TableHead>
+                <TableHead>Primary Color</TableHead>
                 <TableHead>Reservation URL</TableHead>
                 <TableHead>Site ID</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -292,6 +297,16 @@ export default function AdminSitesPage() {
                         {site.nom}
                     </TableCell>
                     <TableCell>{hostName}</TableCell>
+                    <TableCell>
+                      {site.primaryColor ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded-full border" style={{ backgroundColor: `hsl(${site.primaryColor})` }}></div>
+                          <span className="text-xs">{site.primaryColor}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Default</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                         <div className="flex items-center gap-1">
                             <Link href={reservationUrl} className="text-primary hover:underline text-xs" target="_blank">
@@ -328,7 +343,7 @@ export default function AdminSitesPage() {
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={(open) => {if (!isSubmitting) setIsDialogOpen(open)}}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-md"> {/* Adjusted width */}
           <DialogHeader>
             <DialogTitle>{editingSite ? 'Edit Global Site' : 'Add New Global Site'}</DialogTitle>
             <DialogDescription>
@@ -362,8 +377,12 @@ export default function AdminSitesPage() {
               <Label htmlFor="logoUrl" className="text-right">Logo URL</Label>
               <Input id="logoUrl" name="logoUrl" value={currentSiteData.logoUrl || ''} onChange={handleInputChange} className="col-span-3" placeholder="https://placehold.co/100x100.png" disabled={isSubmitting}/>
             </div>
+             <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="primaryColor" className="text-right">Primary Color</Label>
+              <Input id="primaryColor" name="primaryColor" value={currentSiteData.primaryColor || ''} onChange={handleInputChange} className="col-span-3" placeholder="e.g., 347 75% 56%" disabled={isSubmitting}/>
+            </div>
             <p className="text-xs text-muted-foreground col-span-4 text-center px-4">
-                Tip for Logo URL: Use image URLs starting with `https://placehold.co/` or ensure your desired image hosts are configured in `next.config.ts`.
+                Tip for Logo URL: Use image URLs starting with `https://placehold.co/` or ensure your desired image hosts are configured in `next.config.ts`. For Primary Color, use HSL format like "H S% L%" (e.g., "0 100% 50%" for red).
             </p>
           </div>
           <DialogFooter>

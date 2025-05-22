@@ -30,6 +30,7 @@ export interface Site { // Represents a Global Site
   hostId: string; // FK to Host.hostId
   logoUrl?: string;
   logoAiHint?: string;
+  primaryColor?: string; // HSL string, e.g., "347 75% 56%"
 }
 
 export interface Tag {
@@ -114,7 +115,7 @@ export interface Order {
   hostId: string;
   chambreTableId: string;
   clientNom?: string;
-  userId?: string; // Optional: ID of the registered user if they were logged in
+  userId?: string; 
   donneesFormulaire: string;
   dateHeure: string;
   status: OrderStatus;
@@ -165,10 +166,10 @@ export interface Reservation {
   clientId?: string;
   clientName: string;
   dateArrivee: string;
-  dateDepart?: string; // Optionnel, surtout pour les tables
+  dateDepart?: string; 
   nombrePersonnes: number;
-  animauxDomestiques?: boolean; // Optionnel, plus pertinent pour les chambres
+  animauxDomestiques?: boolean; 
   notes?: string;
   status?: ReservationStatus;
-  channel?: string; // Pour le canal d'acquisition
+  channel?: string; 
 }
