@@ -1,6 +1,6 @@
 // src/lib/data.ts
 import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus, Tag, LoyaltySettings, ReservationPageSettings, OnlineCheckinData, OnlineCheckinStatus, Paiement, MenuCard, MenuCategory, MenuItem, MenuItemOption, MenuItemOptionGroup } from './types';
-// import { db } from './firebase'; // Firebase is neutralized for now
+// import { db } from './firebase'; // Assuming firebase is correctly configured
 // import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp } from 'firebase/firestore';
 
 const log = (message: string, data?: any) => {
@@ -44,11 +44,11 @@ let hostsInMemory: Host[] = [
 ];
 
 let sitesInMemory: Site[] = [
-  { siteId: 'site-paradise-resort', nom: 'Paradise Beach Resort (Global)', hostId: 'host-paradise-resort', logoUrl: 'https://placehold.co/100x100.png?text=PBR', logoAiHint: 'resort logo', primaryColor: '#0D9488' /* Teal */ },
-  { siteId: 'site-le-delice', nom: 'Le Delice Downtown (Global)', hostId: 'host-le-delice', logoUrl: 'https://placehold.co/100x100.png?text=LDD', logoAiHint: 'restaurant logo', primaryColor: '#7C3AED' /* Purple */ },
-  { siteId: 'site-salty-pelican', nom: 'The Salty Pelican (Global)', hostId: 'host-salty-pelican', logoUrl: 'https://placehold.co/100x100.png?text=TSP', logoAiHint: 'beach lodge logo', primaryColor: '#F97316' /* Orange */ },
-  { siteId: 'site-le-phare', nom: 'Le Phare Bistro (Global)', hostId: 'host-le-phare', logoUrl: 'https://placehold.co/100x100.png?text=LPB', logoAiHint: 'bistro logo', primaryColor: '#2563EB' /* Blue */ },
-  { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment (Global)', hostId: 'host-1747669860022', logoUrl: 'https://placehold.co/100x100.png?text=DYN', logoAiHint: 'dynamic logo', primaryColor: '#DC2626' /* Red */ },
+  { siteId: 'site-paradise-resort', nom: 'Paradise Beach Resort (Global)', hostId: 'host-paradise-resort', logoUrl: 'https://placehold.co/100x100.png?text=PBR', logoAiHint: 'resort logo', primaryColor: '#0D9488' },
+  { siteId: 'site-le-delice', nom: 'Le Delice Downtown (Global)', hostId: 'host-le-delice', logoUrl: 'https://placehold.co/100x100.png?text=LDD', logoAiHint: 'restaurant logo', primaryColor: '#7C3AED' },
+  { siteId: 'site-salty-pelican', nom: 'The Salty Pelican (Global)', hostId: 'host-salty-pelican', logoUrl: 'https://placehold.co/100x100.png?text=TSP', logoAiHint: 'beach lodge logo', primaryColor: '#F97316' },
+  { siteId: 'site-le-phare', nom: 'Le Phare Bistro (Global)', hostId: 'host-le-phare', logoUrl: 'https://placehold.co/100x100.png?text=LPB', logoAiHint: 'bistro logo', primaryColor: '#2563EB' },
+  { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment (Global)', hostId: 'host-1747669860022', logoUrl: 'https://placehold.co/100x100.png?text=DYN', logoAiHint: 'dynamic logo', primaryColor: '#DC2626' },
 ];
 
 let tagsInMemory: Tag[] = [
@@ -185,21 +185,22 @@ let menuCategoriesInMemory: MenuCategory[] = [
 ];
 
 let menuItemsInMemory: MenuItem[] = [
-  { id: 'mi-salty-coca', name: 'Coca-Cola', description: '33cl, bien frais.', price: 3, menuCategoryId: 'mcat-salty-boissons', hostId: 'host-salty-pelican', imageUrl: 'https://placehold.co/300x200.png?text=Coca-Cola', imageAiHint: 'soda can', isAvailable: true },
-  { id: 'mi-salty-frites', name: 'Cornet de Frites Maison', description: 'Avec sauce au choix.', price: 5, menuCategoryId: 'mcat-salty-snacks', hostId: 'host-salty-pelican', imageUrl: 'https://placehold.co/300x200.png?text=Frites', imageAiHint: 'fries food', isAvailable: true },
+  { id: 'mi-salty-coca', name: 'Coca-Cola', description: '33cl, bien frais.', price: 3, menuCategoryId: 'mcat-salty-boissons', hostId: 'host-salty-pelican', imageUrl: 'https://placehold.co/300x200.png?text=Coca-Cola', imageAiHint: 'soda can', isAvailable: true, stock: 50 },
+  { id: 'mi-salty-frites', name: 'Cornet de Frites Maison', description: 'Avec sauce au choix.', price: 5, menuCategoryId: 'mcat-salty-snacks', hostId: 'host-salty-pelican', imageUrl: 'https://placehold.co/300x200.png?text=Frites', imageAiHint: 'fries food', isAvailable: true, stock: 0 }, // Rupture de stock
   { id: 'mi-lephare-salade', name: 'Salade César', description: 'Poulet grillé, Grana Padano, croûtons à l\'ail.', price: 14, menuCategoryId: 'mcat-lephare-entrees', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Salade+Cesar', imageAiHint: 'caesar salad', isAvailable: true },
-  { id: 'mi-lephare-poisson', name: 'Poisson du Jour Grillé', description: 'Selon arrivage, légumes de saison.', price: 22, menuCategoryId: 'mcat-lephare-plats', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Poisson+Grille', imageAiHint: 'grilled fish', isAvailable: true },
+  { id: 'mi-lephare-poisson', name: 'Poisson du Jour Grillé', description: 'Selon arrivage, légumes de saison.', price: 22, menuCategoryId: 'mcat-lephare-plats', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Poisson+Grille', imageAiHint: 'grilled fish', isAvailable: false }, // Non disponible
   {
     id: 'mi-lephare-burger-config',
     name: 'Menu Burger Personnalisable',
     description: 'Composez votre burger idéal !',
-    price: 12, // Prix de base
+    price: 12, 
     menuCategoryId: 'mcat-lephare-plats',
     hostId: 'host-le-phare',
     isConfigurable: true,
     isAvailable: true,
     imageUrl: 'https://placehold.co/300x200.png?text=Custom+Burger',
     imageAiHint: 'custom burger',
+    stock: 10,
     optionGroups: [
       {
         id: 'og-burger-boisson',
@@ -240,7 +241,7 @@ let menuItemsInMemory: MenuItem[] = [
       }
     ]
   },
-  { id: 'mi-paradise-mojito', name: 'Mojito Classique', description: 'Rhum, menthe fraîche, citron vert, sucre de canne, eau gazeuse.', price: 12, menuCategoryId: 'mcat-paradise-cocktails', hostId: 'host-paradise-resort', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Mojito', imageAiHint: 'mojito cocktail' },
+  { id: 'mi-paradise-mojito', name: 'Mojito Classique', description: 'Rhum, menthe fraîche, citron vert, sucre de canne, eau gazeuse.', price: 12, menuCategoryId: 'mcat-paradise-cocktails', hostId: 'host-paradise-resort', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Mojito', imageAiHint: 'mojito cocktail', stock: 3 }, // Stock limité
 ];
 
 
@@ -251,9 +252,9 @@ const normalizeUserPassword = (user: any): User => {
     if (userData.motDePasse === undefined && userData.password !== undefined) {
       userData.motDePasse = String(userData.password);
     } else if (userData.motDePasse === undefined) {
-      userData.motDePasse = ""; // Ensure it's at least an empty string
+      userData.motDePasse = ""; 
     } else {
-      userData.motDePasse = String(userData.motDePasse); // Ensure it's a string
+      userData.motDePasse = String(userData.motDePasse); 
     }
     delete userData.password;
 
@@ -280,7 +281,7 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
         normalizedUser.motDePasse = String((user as any).password);
       } else if (normalizedUser.motDePasse === undefined) {
         normalizedUser.motDePasse = "";
-      } else if (normalizedUser.motDePasse === null) { // Handle explicitly null if data was bad
+      } else if (normalizedUser.motDePasse === null) {
          normalizedUser.motDePasse = "";
       } else {
         normalizedUser.motDePasse = String(normalizedUser.motDePasse);
@@ -386,7 +387,7 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
       log(`User ${userId} deleted (in-memory). Cascading updates to related client records.`);
       clientsInMemory = clientsInMemory.map(c => c.userId === userId ? {...c, userId: undefined} : c);
       ordersInMemory = ordersInMemory.map(o => o.userId === userId ? {...o, userId: undefined} : o);
-      reservationsInMemory = reservationsInMemory.map(r => r.clientId === userId ? {...r, clientId: undefined} : r); // Assuming clientId can be User.id
+      reservationsInMemory = reservationsInMemory.map(r => r.clientId === userId ? {...r, clientId: undefined} : r); 
       return true;
     }
     log(`User ${userId} not found for deletion (in-memory).`);
@@ -1034,9 +1035,8 @@ export const getServices = async (
       
       hostServices = hostServices.filter(service => {
         if (!service.targetLocationIds || service.targetLocationIds.length === 0) {
-          return true; // Service is host-wide if no specific targets
+          return true; 
         }
-        // Check if any of the service's target IDs are in the client's location hierarchy
         return service.targetLocationIds.some(targetId => relevantLocationIds.includes(targetId));
       });
     }
@@ -1104,7 +1104,7 @@ export const deleteService = async (id: string): Promise<boolean> => {
     try {
       const initialLength = servicesInMemory.length;
       servicesInMemory = servicesInMemory.filter(s => s.id !== id);
-      ordersInMemory = ordersInMemory.filter(o => o.serviceId !== id); // Also remove orders for this service
+      ordersInMemory = ordersInMemory.filter(o => o.serviceId !== id); 
       return servicesInMemory.length < initialLength;
     } catch (e) {
       console.error("Error in deleteService (in-memory):", e);
@@ -1163,7 +1163,7 @@ export const getOrdersByClientName = async (hostId: string, clientName: string):
     const clientOrders = [...ordersInMemory].filter(o =>
       o.hostId === hostId &&
       o.clientNom &&
-      o.clientNom.toLowerCase() === clientName.toLowerCase() // Exact match for the client file page
+      o.clientNom.toLowerCase() === clientName.toLowerCase() 
     );
     return clientOrders.sort((a, b) => new Date(b.dateHeure).getTime() - new Date(a.dateHeure).getTime());
   } catch (e) {
@@ -1186,16 +1186,16 @@ export const getOrdersByUserId = async (userId: string): Promise<Order[]> => {
 export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status' | 'montantPaye' | 'soldeDu' | 'paiements' | 'pointsGagnes' | 'currency'>): Promise<Order> => {
   log(`addOrder called. Data: ${JSON.stringify(data)}. Using in-memory data.`);
   try {
-    const serviceDetails = await getServiceById(data.serviceId);
+    const serviceDetails = await getServiceById(data.serviceId) || await getMenuItemById(data.serviceId);
     const hostDetails = await getHostById(data.hostId);
     const newOrder: Order = {
       ...data,
       id: `order-${Date.now()}-${Math.random().toString(36).substring(2,5)}`,
       dateHeure: new Date().toISOString(),
       status: 'pending',
-      prixTotal: serviceDetails?.prix,
+      prixTotal: data.prixTotal !== undefined ? data.prixTotal : serviceDetails?.price,
       montantPaye: 0,
-      soldeDu: serviceDetails?.prix || 0,
+      soldeDu: (data.prixTotal !== undefined ? data.prixTotal : serviceDetails?.price) || 0,
       paiements: [],
       userId: data.userId,
       pointsGagnes: 0,
@@ -1584,12 +1584,8 @@ export const deleteReservationInData = async (id: string): Promise<boolean> => {
 export const getReservationsByUserId = async (userId: string): Promise<Reservation[]> => {
   log(`getReservationsByUserId called for userId: ${userId}. Using in-memory data.`);
   try {
-    const clientRecordsForUser = clientsInMemory.filter(c => c.userId === userId);
-    const clientRecordIds = clientRecordsForUser.map(cr => cr.id);
-
-    return [...reservationsInMemory].filter(r => {
-      return r.clientId === userId || (r.clientId && clientRecordIds.includes(r.clientId));
-    }).sort((a, b) => new Date(b.dateArrivee).getTime() - new Date(a.dateArrivee).getTime());
+    return [...reservationsInMemory].filter(r => r.clientId === userId)
+      .sort((a, b) => new Date(b.dateArrivee).getTime() - new Date(a.dateArrivee).getTime());
   } catch (e) {
     console.error("Error in getReservationsByUserId (in-memory):", e);
     return [];
@@ -1702,7 +1698,7 @@ export const duplicateMenuCard = async (menuCardId: string): Promise<MenuCard | 
       const newMenuCategory: MenuCategory = {
         ...originalCategory,
         id: newMenuCategoryId,
-        menuCardId: newMenuCardId, // Link to the new card
+        menuCardId: newMenuCardId, 
       };
       menuCategoriesInMemory.push(newMenuCategory);
       log(`Duplicated MenuCategory: ${newMenuCategory.name} (ID: ${newMenuCategoryId}) for card ${newMenuCardId}`);
@@ -1721,7 +1717,7 @@ export const duplicateMenuCard = async (menuCardId: string): Promise<MenuCard | 
             return {
               ...og,
               id: newOptionGroupId,
-              menuItemId: newMenuItemId, // This will be the ID of the new menu item
+              menuItemId: newMenuItemId, 
               options: newOptions,
             };
           });
@@ -1729,7 +1725,7 @@ export const duplicateMenuCard = async (menuCardId: string): Promise<MenuCard | 
         const newMenuItem: MenuItem = {
           ...originalItem,
           id: newMenuItemId,
-          menuCategoryId: newMenuCategoryId, // Link to the new category
+          menuCategoryId: newMenuCategoryId, 
           optionGroups: newOptionGroups,
         };
         menuItemsInMemory.push(newMenuItem);
@@ -1796,6 +1792,14 @@ export const getMenuItems = async (menuCategoryId: string, hostId: string): Prom
   }
 };
 
+export const getMenuItemById = async (itemId: string): Promise<MenuItem | undefined> => {
+  try {
+    return menuItemsInMemory.find(item => item.id === itemId);
+  } catch (e) {
+    log("Error in getMenuItemById (in-memory)", e); return undefined;
+  }
+};
+
 export const addMenuItem = async (data: Omit<MenuItem, 'id' | 'imageAiHint'>): Promise<MenuItem> => {
   try {
     const newItem: MenuItem = { 
@@ -1803,7 +1807,8 @@ export const addMenuItem = async (data: Omit<MenuItem, 'id' | 'imageAiHint'>): P
       id: `menuitem-${Date.now()}`, 
       imageAiHint: data.imageUrl && data.name ? data.name.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : undefined,
       isAvailable: data.isAvailable !== undefined ? data.isAvailable : true,
-      optionGroups: data.optionGroups || [] // Ensure it's an array
+      optionGroups: data.optionGroups || [],
+      stock: data.stock
     };
     menuItemsInMemory.push(newItem);
     return newItem;
@@ -1821,7 +1826,8 @@ export const updateMenuItem = async (id: string, data: Partial<Omit<MenuItem, 'i
         ...data,
         imageAiHint: data.imageUrl && data.name ? data.name.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : menuItemsInMemory[index].imageAiHint,
         isAvailable: data.isAvailable !== undefined ? data.isAvailable : menuItemsInMemory[index].isAvailable,
-        optionGroups: data.optionGroups || menuItemsInMemory[index].optionGroups || [] // Ensure it's an array
+        optionGroups: data.optionGroups || menuItemsInMemory[index].optionGroups || [],
+        stock: data.stock !== undefined ? data.stock : menuItemsInMemory[index].stock,
       };
       return menuItemsInMemory[index];
     }
@@ -1847,3 +1853,5 @@ log(`Users: ${usersInMemory.length}, Hosts: ${hostsInMemory.length}, Global Site
 log(`Categories: ${serviceCategoriesInMemory.length}, Forms: ${customFormsInMemory.length}, Fields: ${formFieldsInMemory.length}, Services: ${servicesInMemory.length}`);
 log(`Orders: ${ordersInMemory.length}, Clients: ${clientsInMemory.length}, Reservations: ${reservationsInMemory.length}, Tags: ${tagsInMemory.length}`);
 log(`MenuCards: ${menuCardsInMemory.length}, MenuCategories: ${menuCategoriesInMemory.length}, MenuItems: ${menuItemsInMemory.length}`);
+
+    

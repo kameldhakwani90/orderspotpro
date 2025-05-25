@@ -190,9 +190,9 @@ export interface Reservation {
   locationId: string;
   type?: 'Chambre' | 'Table';
   clientId?: string;
-  clientName?: string; // Keep clientName, especially if clientId is not always set (guests)
+  clientName?: string;
   dateArrivee: string; // YYYY-MM-DD
-  dateDepart?: string | undefined; // YYYY-MM-DD, optional for tables
+  dateDepart?: string | undefined;
   nombrePersonnes: number;
   animauxDomestiques?: boolean;
   notes?: string;
@@ -240,7 +240,6 @@ export interface ChatConversation {
   participantIds: string[]; // [userId1, userId2]
   lastMessage?: Pick<ChatMessage, 'text' | 'timestamp' | 'senderId'>;
   unreadCounts?: { [userId: string]: number }; // e.g., { userId1: 2, userId2: 0 }
-  // Denormalized data for easier display
   clientName?: string;
   hostName?: string;
   clientAvatar?: string; // URL
@@ -270,13 +269,13 @@ export interface MenuCategory { // Category within a MenuCard
 export interface MenuItemOption {
   id: string;
   name: string;
-  priceAdjustment?: number; // Can be positive or negative
+  priceAdjustment?: number;
 }
 
 export interface MenuItemOptionGroup {
   id: string;
   name: string;
-  menuItemId: string; // Link back to MenuItem
+  menuItemId: string;
   selectionType: 'single' | 'multiple';
   isRequired: boolean;
   options: MenuItemOption[];
@@ -287,24 +286,24 @@ export interface MenuItem {
   id: string;
   name: string;
   description?: string;
-  price: number; // Base price
+  price: number;
   imageUrl?: string;
   imageAiHint?: string;
   menuCategoryId: string;
   hostId: string;
   isConfigurable?: boolean;
-  optionGroups?: MenuItemOptionGroup[]; // Embedded for in-memory simplicity
+  optionGroups?: MenuItemOptionGroup[];
   isAvailable?: boolean;
-  loginRequired?: boolean; // Re-using from Service for consistency
-  pointsRequis?: number;   // Re-using from Service
+  loginRequired?: boolean;
+  pointsRequis?: number;
+  stock?: number; // Added for stock management
 }
 
-// Cart Types - Basic for now
 export type CartItem = (MenuItem | Service) & {
   quantity: number;
-  uniqueIdInCart: string; // To differentiate identical items added multiple times if needed
-  selectedOptions?: Record<string, string | string[]>; // For configurable items
-  finalPrice?: number; // Price including options
+  uniqueIdInCart: string;
+  selectedOptions?: Record<string, string | string[]>;
+  finalPrice?: number;
 };
 
 export interface CartContextType {
@@ -317,8 +316,6 @@ export interface CartContextType {
   getTotalItems: () => number;
 }
 
-
-// For Language Context
 export type LanguageCode = 'fr' | 'en' | 'ar';
 export type TranslationKeys =
   | 'welcomeTo' | 'servicesFor' | 'room' | 'table' | 'backToCategories' | 'noServicesInCategory'
@@ -346,9 +343,9 @@ export type TranslationKeys =
   | 'processingInProgress' | 'checkoutConfirmedTitle' | 'checkoutConfirmedDescription' | 'hopeToSeeYouSoon'
   | 'errorCheckout' | 'errorConfirmingCheckout' | 'reservationAlreadyFinalized'
   | 'reservationCancelledMessage' | 'checkoutProcessedOrCancelled'
-  // New keys for menu card display
   | 'ourMenuCategories' | 'noMenuAvailable' | 'itemsInCategory' | 'noItemsInCategory'
-  | 'backToMenuCategories' | 'browseServices'
+  | 'backToMenuCategories' | 'browseServices' | 'browseOtherServices' | 'backToMainMenu'
+  | 'stockStatusOutOfStock' | 'stockStatusLimited' | 'configure' | 'addToCart'
   ;
 
 export type Translations = {

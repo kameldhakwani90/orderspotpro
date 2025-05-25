@@ -1,4 +1,4 @@
-
+// src/components/client/MenuItemCard.tsx
 "use client";
 
 import type { MenuItem } from "@/lib/types";
@@ -6,16 +6,17 @@ import NextImage from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tag, Lock, ShoppingCart } from "lucide-react";
+import { Tag, Lock, ShoppingCart, Box } from "lucide-react"; // Added Box for stock
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/context/LanguageContext";
-import { useCart } from "@/context/CartContext"; // Import useCart
-import { useToast } from "@/hooks/use-toast"; // Import useToast for notifications
+import { useCart } from "@/context/CartContext";
+import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge"; // Added Badge import
 
 interface MenuItemCardProps {
   item: MenuItem;
   hostId: string;
-  refId: string; // RoomOrTable ID
+  refId: string; 
   isUserLoggedIn: boolean;
 }
 
@@ -28,36 +29,38 @@ export function MenuItemCard({ item, hostId, refId, isUserLoggedIn }: MenuItemCa
   const imageAiHint = item.imageAiHint || item.name.toLowerCase().split(' ').slice(0,2).join(' ') || 'menu item';
   
   const requiresLoginAndNotLoggedIn = item.loginRequired && !isUserLoggedIn;
+  const isOutOfStock = item.stock === 0;
+  const isLimitedStock = item.stock !== undefined && item.stock > 0 && item.stock < 5;
 
   const handleAddToCart = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault(); // Prevent link navigation if card is wrapped in Link
+    e.preventDefault(); 
     e.stopPropagation();
     
     if (requiresLoginAndNotLoggedIn) {
       toast({ title: t('loginRequired'), description: t('loginToOrder'), variant: "destructive" });
-      // Optionally, redirect to login: router.push(`/login?redirect_url=${pathname}`);
+      return;
+    }
+    if (isOutOfStock) {
+      toast({ title: t('stockStatusOutOfStock'), description: "Cet article n'est plus disponible.", variant: "destructive" });
       return;
     }
     if (item.isConfigurable) {
-        // For configurable items, we still navigate to the detail page for configuration
-        // The actual "add to cart" for configurable items happens on that detail page after configuration
-        // So, this button for configurable items should primarily act as a link.
-        // We'll rely on the Link component wrapping the card or a separate "Configure" button.
-        // This specific button could be "Configure & Add"
-         toast({ title: "Configuration requise", description: "Veuillez configurer cet article sur sa page de détail." });
+      // For configurable items, navigation to detail page is handled by Link
+      // This button is primarily for simple items or could be "Configure"
+      toast({ title: "Configuration requise", description: "Veuillez configurer cet article sur sa page de détail." });
     } else {
-        addToCart(item); // Assuming item is a simple MenuItem for direct add
-        toast({ title: `${item.name} ajouté au panier !`, description: "Continuez vos achats ou validez votre panier."});
+        addToCart(item); 
+        toast({ title: `${item.name} ${t('addToCart')} !`, description: "Continuez vos achats ou validez votre panier."});
     }
   };
 
-  const cardActionLink = `/client/${hostId}/${refId}/service/${item.id}`; // Note: using 'service' route for items too
+  const cardActionLink = `/client/${hostId}/${refId}/service/${item.id}`; 
 
   return (
     <Card className={cn(
       "flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 h-full group",
-      requiresLoginAndNotLoggedIn && "opacity-80 bg-muted/20",
-      !item.isAvailable && "opacity-60 bg-secondary/30 pointer-events-none"
+      (requiresLoginAndNotLoggedIn || isOutOfStock || !item.isAvailable) && "opacity-70 bg-muted/20",
+      !item.isAvailable && "pointer-events-none" // Make fully non-interactive if not available at all
     )}>
       <Link href={cardActionLink} legacyBehavior passHref>
         <a className="flex flex-col h-full">
@@ -76,7 +79,17 @@ export function MenuItemCard({ item, hostId, refId, isUserLoggedIn }: MenuItemCa
                 <Lock className="h-4 w-4" title={t('loginRequired')}/>
               </div>
             )}
-            {!item.isAvailable && (
+            {isOutOfStock && (
+               <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                <Badge variant="destructive" className="text-lg">{t('stockStatusOutOfStock')}</Badge>
+              </div>
+            )}
+             {!isOutOfStock && isLimitedStock && (
+              <Badge variant="outline" className="absolute top-2 left-2 bg-amber-500/20 text-amber-700 border-amber-400 text-xs">
+                <Box className="h-3 w-3 mr-1"/> {t('stockStatusLimited')}
+              </Badge>
+            )}
+            {!item.isAvailable && !isOutOfStock && (
                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                 <span className="text-white font-semibold text-lg">Indisponible</span>
               </div>
@@ -98,16 +111,16 @@ export function MenuItemCard({ item, hostId, refId, isUserLoggedIn }: MenuItemCa
           </CardContent>
           <CardFooter className="p-3 border-t mt-auto">
             {item.isConfigurable ? (
-                <Button className="w-full" variant="outline">
-                  Configurer
+                <Button className="w-full" variant="outline" disabled={isOutOfStock || !item.isAvailable}>
+                  {t('configure')}
                 </Button>
             ) : (
               <Button 
                 className="w-full" 
                 onClick={handleAddToCart}
-                disabled={requiresLoginAndNotLoggedIn || !item.isAvailable}
+                disabled={requiresLoginAndNotLoggedIn || isOutOfStock || !item.isAvailable}
               >
-                <ShoppingCart className="mr-2 h-4 w-4"/> {requiresLoginAndNotLoggedIn ? t('loginToOrder') : "Ajouter au Panier"}
+                <ShoppingCart className="mr-2 h-4 w-4"/> {requiresLoginAndNotLoggedIn ? t('loginToOrder') : t('addToCart')}
               </Button>
             )}
           </CardFooter>
@@ -116,6 +129,5 @@ export function MenuItemCard({ item, hostId, refId, isUserLoggedIn }: MenuItemCa
     </Card>
   );
 }
-
 
     

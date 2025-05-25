@@ -8,7 +8,7 @@ import {
   getMenuCards, addMenuCard, updateMenuCard, deleteMenuCard,
   getMenuCategories, addMenuCategory, updateMenuCategory, deleteMenuCategory,
   getMenuItems, addMenuItem, updateMenuItem, deleteMenuItem, getSites,
-  duplicateMenuCard as duplicateMenuCardData // Import the duplication function
+  duplicateMenuCard as duplicateMenuCardData 
 } from '@/lib/data';
 import type { MenuCard, MenuCategory, MenuItem, Site as GlobalSiteType, MenuItemOptionGroup, MenuItemOption } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
-import { PlusCircle, Edit2, Trash2, Utensils, ListPlus, Settings, ChevronRight, FolderOpen, ShoppingBasket, Package, CopyPlus, Clock } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, Utensils, ListPlus, Settings, ChevronRight, FolderOpen, ShoppingBasket, Package, CopyPlus, Clock, Box } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import NextImage from 'next/image';
@@ -57,7 +57,7 @@ export default function HostMenuCardsPage() {
   const [currentCategoryData, setCurrentCategoryData] = useState<Partial<MenuCategory>>({ name: '', description: '', displayOrder: 1 });
 
   const [isMenuItemDialogOpen, setIsMenuItemDialogOpen] = useState(false);
-  const [currentMenuItemData, setCurrentMenuItemData] = useState<Partial<MenuItem>>({ name: '', description: '', price: 0, imageUrl: '', isAvailable: true, isConfigurable: false });
+  const [currentMenuItemData, setCurrentMenuItemData] = useState<Partial<MenuItem>>({ name: '', description: '', price: 0, imageUrl: '', isAvailable: true, isConfigurable: false, stock: undefined });
 
   const fetchMenuCardsData = useCallback(async (hostId: string, globalSiteIdToFilter?: string) => {
     setIsLoadingData(true);
@@ -77,7 +77,6 @@ export default function HostMenuCardsPage() {
 
 
       if (activeMenuCard && globalSiteIdToFilter && activeMenuCard.globalSiteId !== globalSiteIdToFilter) {
-        // If selected global site changed and active card doesn't belong to it, reset.
         setActiveMenuCard(cards.length > 0 ? cards[0] : null);
       } else if (activeMenuCard) {
         const updatedActiveCard = cards.find(c => c.id === activeMenuCard.id);
@@ -144,7 +143,6 @@ export default function HostMenuCardsPage() {
   const openAddMenuCardDialog = () => {
     const defaultGlobalSite = selectedGlobalSite?.siteId || hostGlobalSites[0]?.siteId || '';
     if (!defaultGlobalSite && hostGlobalSites.length > 0) {
-        // This case should ideally not happen if hostGlobalSites is populated
         toast({title: "Error", description: "Cannot determine a default global site.", variant:"destructive"});
         return;
     }
@@ -164,7 +162,6 @@ export default function HostMenuCardsPage() {
       toast({ title: "Name and Global Site are required for a menu card.", variant: "destructive" });
       return;
     }
-    // Basic time format validation (HH:MM)
     const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
     if ((currentMenuCardData.visibleFromTime && !timeRegex.test(currentMenuCardData.visibleFromTime)) || 
         (currentMenuCardData.visibleToTime && !timeRegex.test(currentMenuCardData.visibleToTime))) {
@@ -183,10 +180,10 @@ export default function HostMenuCardsPage() {
         visibleFromTime: currentMenuCardData.visibleFromTime || undefined,
         visibleToTime: currentMenuCardData.visibleToTime || undefined,
       };
-      if (currentMenuCardData.id) { // Editing
+      if (currentMenuCardData.id) { 
         await updateMenuCard(currentMenuCardData.id, payload);
         toast({ title: "Menu Card Updated" });
-      } else { // Adding
+      } else { 
         await addMenuCard(payload as Omit<MenuCard, 'id'>);
         toast({ title: "Menu Card Created" });
       }
@@ -255,10 +252,10 @@ export default function HostMenuCardsPage() {
         menuCardId: activeMenuCard.id,
         hostId: user.hostId,
       };
-      if (currentCategoryData.id) { // Editing
+      if (currentCategoryData.id) { 
         await updateMenuCategory(currentCategoryData.id, payload);
         toast({ title: "Category Updated" });
-      } else { // Adding
+      } else { 
         await addMenuCategory(payload as Omit<MenuCategory, 'id'>);
         toast({ title: "Category Created" });
       }
@@ -288,11 +285,11 @@ export default function HostMenuCardsPage() {
   // --- Menu Item CRUD ---
   const openAddMenuItemDialog = () => {
     if (!activeCategory) return;
-    setCurrentMenuItemData({ name: '', description: '', price: 0, imageUrl: '', isAvailable: true, isConfigurable: false, optionGroups: [] });
+    setCurrentMenuItemData({ name: '', description: '', price: 0, imageUrl: '', isAvailable: true, isConfigurable: false, optionGroups: [], stock: undefined });
     setIsMenuItemDialogOpen(true);
   };
   const openEditMenuItemDialog = (item: MenuItem) => {
-    setCurrentMenuItemData({ ...item, optionGroups: item.optionGroups || [] });
+    setCurrentMenuItemData({ ...item, optionGroups: item.optionGroups || [], stock: item.stock });
     setIsMenuItemDialogOpen(true);
   };
   const handleMenuItemSubmit = async () => {
@@ -302,7 +299,7 @@ export default function HostMenuCardsPage() {
     }
     setIsSubmitting(true);
     try {
-      const payload: Partial<Omit<MenuItem, 'id' | 'imageAiHint'>> = { // Use Partial for update
+      const payload: Partial<Omit<MenuItem, 'id' | 'imageAiHint'>> = { 
         name: currentMenuItemData.name!,
         description: currentMenuItemData.description || undefined,
         price: currentMenuItemData.price!,
@@ -311,12 +308,13 @@ export default function HostMenuCardsPage() {
         hostId: user.hostId,
         isAvailable: currentMenuItemData.isAvailable !== undefined ? currentMenuItemData.isAvailable : true,
         isConfigurable: currentMenuItemData.isConfigurable !== undefined ? currentMenuItemData.isConfigurable : false,
-        optionGroups: currentMenuItemData.isConfigurable ? (currentMenuItemData.optionGroups || []) : [], // Only save groups if configurable
+        optionGroups: currentMenuItemData.isConfigurable ? (currentMenuItemData.optionGroups || []) : [],
+        stock: currentMenuItemData.stock !== undefined ? (currentMenuItemData.stock >= 0 ? currentMenuItemData.stock : undefined) : undefined,
       };
-      if (currentMenuItemData.id) { // Editing
+      if (currentMenuItemData.id) { 
         await updateMenuItem(currentMenuItemData.id, payload);
         toast({ title: "Menu Item Updated" });
-      } else { // Adding
+      } else { 
         await addMenuItem(payload as Omit<MenuItem, 'id' | 'imageAiHint'>);
         toast({ title: "Menu Item Created" });
       }
@@ -466,7 +464,7 @@ export default function HostMenuCardsPage() {
                   <CardContent>
                     {itemsForCategory.length === 0 && <p className="text-muted-foreground text-center py-4">No items yet in this category.</p>}
                     <Table>
-                      <TableHeader><TableRow><TableHead className="w-16">Img</TableHead><TableHead>Name</TableHead><TableHead>Price</TableHead><TableHead>Available</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                      <TableHeader><TableRow><TableHead className="w-16">Img</TableHead><TableHead>Name</TableHead><TableHead>Price</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
                       <TableBody>
                         {itemsForCategory.map(item => (
                           <TableRow key={item.id}>
@@ -475,7 +473,13 @@ export default function HostMenuCardsPage() {
                             </TableCell>
                             <TableCell className="font-medium">{item.name} {item.isConfigurable && <Badge variant="outline" className="ml-1 text-xs">Configurable</Badge>}</TableCell>
                             <TableCell>${item.price.toFixed(2)}</TableCell>
-                            <TableCell><Badge variant={item.isAvailable ? "default" : "secondary"} className="text-xs">{item.isAvailable ? "Yes" : "No"}</Badge></TableCell>
+                            <TableCell>
+                              {item.stock === 0 ? <Badge variant="destructive" className="text-xs">Rupture</Badge> : 
+                               !item.isAvailable ? <Badge variant="secondary" className="text-xs">Caché</Badge> :
+                               item.stock !== undefined && item.stock < 5 ? <Badge variant="outline" className="text-xs text-orange-600 border-orange-400">Stock Faible ({item.stock})</Badge> :
+                               <Badge variant="default" className="text-xs bg-green-500 hover:bg-green-600">Actif</Badge>
+                              }
+                            </TableCell>
                             <TableCell className="text-right space-x-1">
                               <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditMenuItemDialog(item)} title="Edit Item"><Edit2 className="h-4 w-4" /></Button>
                               <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => handleMenuItemDelete(item.id)} title="Delete Item"><Trash2 className="h-4 w-4" /></Button>
@@ -567,6 +571,7 @@ export default function HostMenuCardsPage() {
             <div className="space-y-1.5"><Label htmlFor="itemDesc">Description</Label><Textarea id="itemDesc" value={currentMenuItemData.description || ''} onChange={(e) => setCurrentMenuItemData(p => ({...p, description: e.target.value}))} disabled={isSubmitting}/></div>
             <div className="space-y-1.5"><Label htmlFor="itemPrice">{currentMenuItemData.isConfigurable ? 'Base Price*' : 'Price*'}</Label><Input id="itemPrice" type="number" value={currentMenuItemData.price === undefined ? '' : currentMenuItemData.price} onChange={(e) => setCurrentMenuItemData(p => ({...p, price: parseFloat(e.target.value) || 0}))} step="0.01" min="0" disabled={isSubmitting}/></div>
             <div className="space-y-1.5"><Label htmlFor="itemImg">Image URL</Label><Input id="itemImg" value={currentMenuItemData.imageUrl || ''} onChange={(e) => setCurrentMenuItemData(p => ({...p, imageUrl: e.target.value}))} placeholder="https://placehold.co/300x200.png" disabled={isSubmitting}/></div>
+            <div className="space-y-1.5"><Label htmlFor="itemStock"><Box className="inline mr-1 h-4 w-4"/>Stock (Leave empty for unlimited)</Label><Input id="itemStock" type="number" value={currentMenuItemData.stock === undefined ? '' : currentMenuItemData.stock} onChange={(e) => setCurrentMenuItemData(p => ({...p, stock: e.target.value === '' ? undefined : parseInt(e.target.value, 10)}))} placeholder="e.g., 50" min="0" disabled={isSubmitting}/></div>
             <div className="flex items-center space-x-2">
                 <Checkbox id="itemIsAvailable" checked={currentMenuItemData.isAvailable} onCheckedChange={(checked) => setCurrentMenuItemData(p => ({...p, isAvailable: !!checked}))} disabled={isSubmitting}/>
                 <Label htmlFor="itemIsAvailable">Available for Sale</Label>
@@ -592,3 +597,5 @@ export default function HostMenuCardsPage() {
     </div>
   );
 }
+
+    

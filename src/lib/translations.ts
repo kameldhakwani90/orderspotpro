@@ -129,6 +129,12 @@ export const translations: Translations = {
     noItemsInCategory: "Aucun article dans cette catégorie pour le moment.",
     backToMenuCategories: "Retour aux catégories du menu",
     browseServices: "Parcourir les services généraux",
+    browseOtherServices: "Autres Services de l'Établissement",
+    backToMainMenu: "Retour au Menu Principal",
+    stockStatusOutOfStock: "En Rupture de Stock",
+    stockStatusLimited: "Stock Limité",
+    configure: "Configurer",
+    addToCart: "Ajouter au Panier",
   },
   en: {
     welcomeTo: "Welcome to",
@@ -257,6 +263,12 @@ export const translations: Translations = {
     noItemsInCategory: "No items in this category at the moment.",
     backToMenuCategories: "Back to Menu Categories",
     browseServices: "Browse General Services",
+    browseOtherServices: "Other Establishment Services",
+    backToMainMenu: "Back to Main Menu",
+    stockStatusOutOfStock: "Out of Stock",
+    stockStatusLimited: "Limited Stock",
+    configure: "Configure",
+    addToCart: "Add to Cart",
   },
   ar: {
     welcomeTo: "مرحباً بك في",
@@ -385,6 +397,12 @@ export const translations: Translations = {
     noItemsInCategory: "لا توجد عناصر في هذه الفئة في الوقت الحالي.",
     backToMenuCategories: "العودة إلى فئات القائمة",
     browseServices: "تصفح الخدمات العامة",
+    browseOtherServices: "خدمات أخرى للمنشأة",
+    backToMainMenu: "العودة إلى القائمة الرئيسية",
+    stockStatusOutOfStock: "نفذ المخزون",
+    stockStatusLimited: "مخزون محدود",
+    configure: "تخصيص",
+    addToCart: "أضف إلى السلة",
   },
 };
 
