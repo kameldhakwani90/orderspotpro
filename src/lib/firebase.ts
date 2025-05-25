@@ -65,3 +65,4 @@ export const db = null;
 if (typeof window !== 'undefined') {
   console.warn("[Firebase Setup] firebase.ts is currently configured for IN-MEMORY DATA. Firebase and Firestore are NOT initialized.");
 }
+
