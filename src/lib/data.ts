@@ -1,6 +1,6 @@
 
 // src/lib/data.ts
-import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus, Tag, LoyaltySettings, ReservationPageSettings, OnlineCheckinData, OnlineCheckinStatus } from './types';
+import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus, Tag, LoyaltySettings, ReservationPageSettings, OnlineCheckinData, OnlineCheckinStatus, Paiement } from './types';
 // Firebase imports are commented out to use in-memory data
 // import { db } from './firebase';
 // import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp, collectionGroup, Timestamp, runTransaction } from 'firebase/firestore';
@@ -38,9 +38,9 @@ const defaultReservationPageSettings: ReservationPageSettings = {
 };
 
 let hostsInMemory: Host[] = [
-  { hostId: 'host-01-inmem', nom: 'Paradise Beach Resort (In-Mem)', email: 'manager@paradise.com', reservationPageSettings: { heroImageUrl: 'https://placehold.co/1200x400.png?text=Paradise+Resort+Banner', heroImageAiHint: 'resort beach banner', enableRoomReservations: true, enableTableReservations: true }, loyaltySettings: { ...defaultLoyaltySettings, enabled: true, pointsPerEuroSpent: 1, pointsPerNightRoom: 10, pointsPerTableBooking: 5, pointsForNewClientSignup: 50 } },
-  { hostId: 'host-02-inmem', nom: 'Le Delice Downtown (In-Mem)', email: 'contact@delice.com', reservationPageSettings: { enableRoomReservations: false, enableTableReservations: true }, loyaltySettings: { ...defaultLoyaltySettings } },
-  { hostId: 'host-1747669860022', nom: 'Dynamic Test Est. (In-Mem)', email: 'dynamic.host@example.com', reservationPageSettings: { heroImageUrl: 'https://placehold.co/1200x400.png?text=Dynamic+Test+Banner', heroImageAiHint: 'dynamic test banner', enableRoomReservations: true, enableTableReservations: false }, loyaltySettings: { ...defaultLoyaltySettings, enabled: true, pointsPerEuroSpent: 2, pointsPerNightRoom: 15, pointsPerTableBooking: 3, pointsForNewClientSignup: 25 } },
+  { hostId: 'host-01-inmem', nom: 'Paradise Beach Resort', email: 'manager@paradise.com', reservationPageSettings: { heroImageUrl: 'https://placehold.co/1200x400.png?text=Paradise+Resort+Banner', heroImageAiHint: 'resort beach banner', enableRoomReservations: true, enableTableReservations: true }, loyaltySettings: { ...defaultLoyaltySettings, enabled: true, pointsPerEuroSpent: 1, pointsPerNightRoom: 10, pointsPerTableBooking: 5, pointsForNewClientSignup: 50 } },
+  { hostId: 'host-02-inmem', nom: 'Le Delice Downtown', email: 'contact@delice.com', reservationPageSettings: { enableRoomReservations: false, enableTableReservations: true }, loyaltySettings: { ...defaultLoyaltySettings } },
+  { hostId: 'host-1747669860022', nom: 'Dynamic Test Est.', email: 'dynamic.host@example.com', reservationPageSettings: { heroImageUrl: 'https://placehold.co/1200x400.png?text=Dynamic+Test+Banner', heroImageAiHint: 'dynamic test banner', enableRoomReservations: true, enableTableReservations: false }, loyaltySettings: { ...defaultLoyaltySettings, enabled: true, pointsPerEuroSpent: 2, pointsPerNightRoom: 15, pointsPerTableBooking: 3, pointsForNewClientSignup: 25 } },
 ];
 
 let sitesInMemory: Site[] = [
@@ -114,13 +114,13 @@ let formFieldsInMemory: FormField[] = [
 ];
 
 let servicesInMemory: Service[] = [
-  { id: 'svc-taxi-inmem', titre: 'Airport Taxi (In-Mem)', description: 'Book a taxi to or from the airport.', image: 'https://placehold.co/600x400.png?text=Airport+Taxi', "data-ai-hint": "taxi airport", categorieId: 'cat-transport-inmem', hostId: 'host-01-inmem', formulaireId: 'form-booking-inmem', prix: 50, targetLocationIds: [], loginRequired: true },
+  { id: 'svc-taxi-inmem', titre: 'Airport Taxi (In-Mem)', description: 'Book a taxi to or from the airport.', image: 'https://placehold.co/600x400.png?text=Airport+Taxi', "data-ai-hint": "taxi airport", categorieId: 'cat-transport-inmem', hostId: 'host-01-inmem', formulaireId: 'form-booking-inmem', prix: 50, targetLocationIds: [], loginRequired: true, pointsRequis: 500 },
   { id: 'svc-breakfast-inmem', titre: 'In-Room Breakfast (In-Mem)', description: 'Order your breakfast selection.', image: 'https://placehold.co/600x400.png?text=In-Room+Breakfast', "data-ai-hint": "breakfast room", categorieId: 'cat-roomservice-inmem', hostId: 'host-01-inmem', formulaireId: 'form-foodorder-inmem', prix: 25, targetLocationIds: ['room-101', 'room-102'], loginRequired: false },
   { id: 'svc-pool-cocktails-inmem', titre: 'Poolside Cocktails (In-Mem)', description: 'Enjoy refreshing cocktails by the pool.', image: 'https://placehold.co/600x400.png?text=Poolside+Cocktail', "data-ai-hint": "cocktail pool", categorieId: 'cat-poolside-inmem', hostId: 'host-01-inmem', prix: 12, targetLocationIds: ['rt-pool-01'], loginRequired: false },
   { id: 'svc-pizza-inmem', titre: 'Artisan Pizza (In-Mem)', description: 'Delicious stone-baked pizza.', image: 'https://placehold.co/600x400.png?text=Artisan+Pizza', "data-ai-hint": "pizza food", categorieId: 'cat-food-inmem', hostId: 'host-02-inmem', formulaireId: 'form-foodorder-inmem', prix: 18, targetLocationIds: [], loginRequired: false },
   { id: 'svc-water-restaurant-inmem', titre: 'Bottled Water (Restaurant - In-Mem)', description: 'Chilled spring water.', image: 'https://placehold.co/600x400.png?text=Bottled+Water', "data-ai-hint": "water bottle", categorieId: 'cat-drinks-inmem', hostId: 'host-02-inmem', prix: 3, targetLocationIds: [], loginRequired: false },
   { id: 'svc-concierge-inmem', titre: 'Concierge Assistance (In-Mem)', description: 'Need help with bookings or local information?', image: 'https://placehold.co/600x400.png?text=Concierge', "data-ai-hint": "concierge helpdesk", categorieId: 'cat-roomservice-inmem', hostId: 'host-01-inmem', formulaireId: 'form-generic-info-inmem', targetLocationIds: ['rt-lobby-01', 'rt-reception-desk-01'], loginRequired: true },
-  { id: 'svc-spa-inmem', titre: 'Full Day Spa Package (In-Mem)', description: 'Indulge in a full day of relaxation.', image: 'https://placehold.co/600x400.png?text=Spa+Package', "data-ai-hint": "spa massage", categorieId: 'cat-activities-inmem', hostId: 'host-01-inmem', formulaireId: 'form-booking-inmem', prix: 150, targetLocationIds: [], loginRequired: true },
+  { id: 'svc-spa-inmem', titre: 'Full Day Spa Package (In-Mem)', description: 'Indulge in a full day of relaxation.', image: 'https://placehold.co/600x400.png?text=Spa+Package', "data-ai-hint": "spa massage", categorieId: 'cat-activities-inmem', hostId: 'host-01-inmem', formulaireId: 'form-booking-inmem', prix: 150, targetLocationIds: [], loginRequired: true, pointsRequis: 1000 },
   { id: 'svc-citytour-inmem', titre: 'Guided City Tour (In-Mem)', description: 'Explore the city highlights.', image: 'https://placehold.co/600x400.png?text=City+Tour', "data-ai-hint": "city tour", categorieId: 'cat-transport-inmem', hostId: 'host-01-inmem', formulaireId: 'form-activity-signup-inmem', prix: 75, targetLocationIds: ['rt-lobby-01', 'rt-reception-desk-01'], loginRequired: true },
   { id: 'svc-dynamic-info-inmem', titre: 'Info Desk (Dynamic Host)', description: 'Ask us anything!', image: 'https://placehold.co/600x400.png?text=Info+Desk', "data-ai-hint": "information desk", categorieId: 'cat-dynamic-main-inmem', hostId: 'host-1747669860022', formulaireId: 'form-dynamic-request-inmem', targetLocationIds: ['rt-dynamic-lobby'], loginRequired: false},
   { id: 'svc-dynamic-roomclean-inmem', titre: 'Room Cleaning (Dynamic Host)', description: 'Schedule room cleaning.', image: 'https://placehold.co/600x400.png?text=Room+Cleaning', "data-ai-hint": "room cleaning", categorieId: 'cat-dynamic-main-inmem', hostId: 'host-1747669860022', formulaireId: undefined, targetLocationIds: ['rt-dynamic-room1'], loginRequired: true},
@@ -137,18 +137,18 @@ let ordersInMemory: Order[] = [
 ];
 
 let clientsInMemory: Client[] = [
-    { id: 'client-mock-1-inmem', hostId: 'host-01-inmem', nom: 'Alice Wonderland (In-Mem)', email: 'client1@example.com', type: 'heberge', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', locationId: 'room-101', notes: 'Prefers quiet room. Likes extra pillows.', credit: 50, pointsFidelite: 120 },
-    { id: 'client-mock-2-inmem', hostId: 'host-01-inmem', nom: 'Bob The Builder (In-Mem)', email: 'client2@example.com', type: 'heberge', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', locationId: 'room-102', credit: 0, pointsFidelite: 75 },
-    { id: 'client-mock-3-inmem', hostId: 'host-02-inmem', nom: 'Charlie Passager (In-Mem)', telephone: '+1123456789', type: 'passager', notes: 'Regular for lunch on Fridays.', credit: 10, pointsFidelite: 30 },
-    { id: 'client-mock-4-inmem', hostId: 'host-01-inmem', nom: 'Diana Visitor (In-Mem)', email: 'diana@example.com', type: 'passager', notes: 'Interested in spa services.', credit: 0, pointsFidelite: 0},
-    { id: 'client-mock-dynamic-inmem', hostId: 'host-1747669860022', nom: 'Dynamic Test Client User (In-Mem)', email: 'dynamic_client@example.com', type: 'heberge', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', locationId: 'rt-dynamic-room1', notes: 'Testing client for dynamic host.', credit: 100, pointsFidelite: 50 },
+    { id: 'client-mock-1-inmem', hostId: 'host-01-inmem', nom: 'Alice Wonderland', email: 'client1@example.com', type: 'heberge', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', locationId: 'room-101', notes: 'Prefers quiet room. Likes extra pillows.', credit: 50, pointsFidelite: 120 },
+    { id: 'client-mock-2-inmem', hostId: 'host-01-inmem', nom: 'Bob The Builder', email: 'client2@example.com', type: 'heberge', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', locationId: 'room-102', credit: 0, pointsFidelite: 75 },
+    { id: 'client-mock-3-inmem', hostId: 'host-02-inmem', nom: 'Charlie Passager', telephone: '+1123456789', type: 'passager', notes: 'Regular for lunch on Fridays.', credit: 10, pointsFidelite: 30 + (defaultLoyaltySettings.pointsForNewClientSignup || 0) },
+    { id: 'client-mock-4-inmem', hostId: 'host-01-inmem', nom: 'Diana Visitor', email: 'diana@example.com', type: 'passager', notes: 'Interested in spa services.', credit: 0, pointsFidelite: 0 + (defaultLoyaltySettings.pointsForNewClientSignup || 0)},
+    { id: 'client-mock-dynamic-inmem', hostId: 'host-1747669860022', nom: 'Dynamic Test Client User', email: 'dynamic_client@example.com', type: 'heberge', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', locationId: 'rt-dynamic-room1', notes: 'Testing client for dynamic host.', credit: 100, pointsFidelite: 50 + (hostsInMemory.find(h => h.hostId === 'host-1747669860022')?.loyaltySettings?.pointsForNewClientSignup || 0) },
 ];
 
 let reservationsInMemory: Reservation[] = [
-    { id: 'res-001-inmem', hostId: 'host-01-inmem', locationId: 'room-101', type: 'Chambre', clientName: 'Alice Wonderland (In-Mem)', clientId: 'client-mock-1-inmem', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', nombrePersonnes: 2, status: 'confirmed', notes: 'Early check-in requested', animauxDomestiques: false, channel: 'Booking.com', prixTotal: 600, montantPaye: 600, soldeDu: 0, paiements: [{type: 'card', montant: 600, date: '2024-07-09'}], onlineCheckinStatus: 'not-started', pointsGagnes: 50 },
-    { id: 'res-002-inmem', hostId: 'host-01-inmem', locationId: 'room-102', type: 'Chambre', clientName: 'Bob The Builder (In-Mem)', clientId: 'client-mock-2-inmem', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', nombrePersonnes: 1, animauxDomestiques: true, status: 'checked-in', channel: 'Direct', prixTotal: 500, montantPaye: 200, soldeDu: 300, onlineCheckinStatus: 'not-started', pointsGagnes: 0 },
-    { id: 'res-003-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-room1', type: 'Chambre', clientName: 'Dynamic Test Client User (In-Mem)', clientId: 'client-mock-dynamic-inmem', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', nombrePersonnes: 2, notes: "Needs a crib", status: 'pending', animauxDomestiques: false, prixTotal: 396, onlineCheckinStatus: 'not-started', pointsGagnes: 0 },
-    { id: 'res-004-inmem', hostId: 'host-02-inmem', locationId: 'table-5', type: 'Table', clientName: 'Charlie Passager (In-Mem)', clientId: 'client-mock-3-inmem', dateArrivee: '2024-07-20', nombrePersonnes: 4, status: 'confirmed', notes: 'Dinner reservation for 8 PM', channel: 'Phone', prixTotal: 10, montantPaye: 10, soldeDu: 0, onlineCheckinStatus: 'not-started', pointsGagnes: 5 },
+    { id: 'res-001-inmem', hostId: 'host-01-inmem', locationId: 'room-101', type: 'Chambre', clientName: 'Alice Wonderland', clientId: 'client-mock-1-inmem', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', nombrePersonnes: 2, status: 'confirmed', notes: 'Early check-in requested', animauxDomestiques: false, channel: 'Booking.com', prixTotal: 600, montantPaye: 600, soldeDu: 0, paiements: [{type: 'card', montant: 600, date: '2024-07-09'}], onlineCheckinStatus: 'not-started', pointsGagnes: 50 },
+    { id: 'res-002-inmem', hostId: 'host-01-inmem', locationId: 'room-102', type: 'Chambre', clientName: 'Bob The Builder', clientId: 'client-mock-2-inmem', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', nombrePersonnes: 1, animauxDomestiques: true, status: 'checked-in', channel: 'Direct', prixTotal: 500, montantPaye: 200, soldeDu: 300, onlineCheckinStatus: 'not-started', pointsGagnes: 0, onlineCheckinData: {fullName: "Bob The Builder", email:"client2@example.com", birthDate:"1980-05-05", phoneNumber: "+1234567891", travelReason: "Business", additionalNotes:"Need high-speed internet.", submissionDate: new Date().toISOString()} },
+    { id: 'res-003-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-room1', type: 'Chambre', clientName: 'Dynamic Test Client User', clientId: 'client-mock-dynamic-inmem', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', nombrePersonnes: 2, notes: "Needs a crib", status: 'pending', animauxDomestiques: false, prixTotal: 396, onlineCheckinStatus: 'pending-review', pointsGagnes: 0, onlineCheckinData: {fullName: "Dynamic User", email:"dynamic_client@example.com", birthDate:"1990-01-01", phoneNumber: "555-1234", submissionDate: new Date().toISOString()} },
+    { id: 'res-004-inmem', hostId: 'host-02-inmem', locationId: 'table-5', type: 'Table', clientName: 'Charlie Passager', clientId: 'client-mock-3-inmem', dateArrivee: '2024-07-20', nombrePersonnes: 4, status: 'confirmed', notes: 'Dinner reservation for 8 PM', channel: 'Phone', prixTotal: 10, montantPaye: 10, soldeDu: 0, onlineCheckinStatus: 'not-started', pointsGagnes: 5 },
     { id: 'res-dynamic-table-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-table1', type: 'Table', clientName: 'Test Diner', dateArrivee: '2024-08-03', nombrePersonnes: 2, status: 'confirmed', notes: 'Table reservation for dynamic host.', prixTotal: 20, onlineCheckinStatus: 'not-started', pointsGagnes: 3 },
 ];
 
@@ -160,26 +160,41 @@ const normalizeUserPassword = (user: any): User => {
     if (!userData.motDePasse && userData.password) {
       userData.motDePasse = userData.password;
     } else if (!userData.motDePasse) {
-      userData.motDePasse = "";
+      userData.motDePasse = ""; // Ensure it's at least an empty string
     }
     delete userData.password;
     if (!userData.nom && userData.email) {
         userData.nom = userData.email.split('@')[0];
+    } else if (!userData.nom) {
+        userData.nom = "Unnamed User"; // Default name if email also missing
     }
     return userData as User;
   } catch(error) {
     log("Error in normalizeUserPassword", {user, error});
-    // Return a default user structure or throw if critical
     return { id: 'error-user', email: 'error@example.com', nom: 'Error User', role: 'client', motDePasse: '', ...user };
   }
 };
+
 
 export const getUserByEmail = async (email: string): Promise<User | undefined> => {
   log(`getUserByEmail called for: ${email} (in-memory)`);
   try {
     const user = usersInMemory.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (user) {
-      return normalizeUserPassword(user);
+      let normalizedUser = { ...user };
+      if (!normalizedUser.motDePasse && (user as any).password) {
+        normalizedUser.motDePasse = (user as any).password;
+      } else if (!normalizedUser.motDePasse) {
+        normalizedUser.motDePasse = "";
+      }
+      delete (normalizedUser as any).password;
+
+      if (!normalizedUser.nom && normalizedUser.email) {
+        normalizedUser.nom = normalizedUser.email.split('@')[0];
+      } else if (!normalizedUser.nom) {
+        normalizedUser.nom = "Unnamed User";
+      }
+      return normalizedUser as User;
     }
     return undefined;
   } catch (e) {
@@ -187,6 +202,7 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
     return undefined;
   }
 };
+
 
 export const getUserById = async (id: string): Promise<User | undefined> => {
   log(`getUserById called for: ${id} (in-memory)`);
@@ -888,7 +904,6 @@ export const getServices = async (
   try {
     let hostServices = [...servicesInMemory].filter(s => s.hostId === hostId);
 
-    // Filter by target location if clientCurrentLocationId is provided
     if (clientCurrentLocationId) {
       const currentScannedLocation = await getRoomOrTableById(clientCurrentLocationId);
       if (!currentScannedLocation) {
@@ -896,29 +911,26 @@ export const getServices = async (
         return [];
       }
 
-      // Build a list of relevant location IDs: current location + all its parents
       const relevantLocationIds: string[] = [currentScannedLocation.id];
       let parentId = currentScannedLocation.parentLocationId;
       while (parentId) {
-        const parentLocation = await getRoomOrTableById(parentId); // This might be slow if many levels
+        const parentLocation = await getRoomOrTableById(parentId);
         if (parentLocation) {
           relevantLocationIds.push(parentId);
           parentId = parentLocation.parentLocationId;
         } else {
-          parentId = undefined; // Stop if parent not found
+          parentId = undefined;
         }
       }
 
       hostServices = hostServices.filter(service => {
         if (!service.targetLocationIds || service.targetLocationIds.length === 0) {
-          return true; // Service is host-wide
+          return true;
         }
-        // Check if any of the service's target locations are in the client's relevant hierarchy
         return service.targetLocationIds.some(targetId => relevantLocationIds.includes(targetId));
       });
     }
 
-    // Filter by categoryId if provided
     if (categoryId && categoryId !== "all" && categoryId !== "") {
       hostServices = hostServices.filter(s => s.categorieId === categoryId);
     }
@@ -982,7 +994,6 @@ export const deleteService = async (id: string): Promise<boolean> => {
     try {
       const initialLength = servicesInMemory.length;
       servicesInMemory = servicesInMemory.filter(s => s.id !== id);
-      // Remove orders associated with this service (optional, depends on desired behavior)
       ordersInMemory = ordersInMemory.filter(o => o.serviceId !== id);
       return servicesInMemory.length < initialLength;
     } catch (e) {
@@ -1011,7 +1022,6 @@ export const getOrders = async (
     if (filters?.serviceId && filters.serviceId !== "all") {
       filteredOrders = filteredOrders.filter(o => o.serviceId === filters.serviceId);
     } else if (filters?.categoryId && filters.categoryId !== "all") {
-      // If filtering by category, find all services in that category for the host
       const servicesInCategory = servicesInMemory.filter(s => s.categorieId === filters.categoryId && s.hostId === hostId).map(s => s.id);
       filteredOrders = filteredOrders.filter(o => servicesInCategory.includes(o.serviceId));
     }
@@ -1023,6 +1033,16 @@ export const getOrders = async (
   } catch (e) {
     console.error("Error in getOrders (in-memory):", e);
     return [];
+  }
+};
+
+export const getOrderById = async (orderId: string): Promise<Order | undefined> => {
+  log(`getOrderById called for: ${orderId}. Using in-memory data.`);
+  try {
+    return ordersInMemory.find(o => o.id === orderId);
+  } catch (e) {
+    console.error(`Error in getOrderById (in-memory) for ID ${orderId}:`, e);
+    return undefined;
   }
 };
 
@@ -1084,7 +1104,6 @@ export const updateOrderStatus = async (orderId: string, status: OrderStatus): P
     if (orderIndex > -1) {
       const order = ordersInMemory[orderIndex];
       order.status = status;
-      // Logic for loyalty points on order completion
       if (status === 'completed') {
           const host = await getHostById(order.hostId);
           if (host?.loyaltySettings?.enabled && host.loyaltySettings.pointsPerEuroSpent > 0 && order.prixTotal && order.prixTotal > 0) {
@@ -1096,7 +1115,7 @@ export const updateOrderStatus = async (orderId: string, status: OrderStatus): P
                   );
                   if (clientRecord) {
                      await addPointsToClient(clientRecord.id, pointsEarned, order.hostId);
-                     order.pointsGagnes = pointsEarned; // Store points earned with this order
+                     order.pointsGagnes = pointsEarned;
                      log(`Awarded ${pointsEarned} loyalty points to client ${clientRecord.nom} for order ${order.id}`);
                   }
               }
@@ -1187,15 +1206,12 @@ export const deleteClientData = async (clientId: string): Promise<boolean> => {
     const initialLength = clientsInMemory.length;
     clientsInMemory = clientsInMemory.filter(c => c.id !== clientId);
     if (clientsInMemory.length < initialLength) {
-      // Unassign this client from reservations (set clientId to undefined)
       reservationsInMemory = reservationsInMemory.map(r => {
         if (r.clientId === clientId) {
           return { ...r, clientId: undefined };
         }
         return r;
       });
-      // Optional: Unassign from orders if `userId` on order corresponds to a user linked to this client
-      // This is more complex as it requires matching client email to user email then user.id to order.userId
     }
     return clientsInMemory.length < initialLength;
   } catch (e) {
@@ -1243,10 +1259,10 @@ export const getReservations = async (
   hostId: string,
   filters?: {
     locationId?: string;
-    month?: number;
+    month?: number; // 0-11 for Date object compatibility
     year?: number;
-    startDate?: Date;
-    endDate?: Date;
+    startDate?: Date; // Full Date object for range start
+    endDate?: Date; // Full Date object for range end
   }
 ): Promise<Reservation[]> => {
   log(`getReservations called for host: ${hostId}, filters: ${JSON.stringify(filters)}. Using in-memory data.`);
@@ -1255,38 +1271,37 @@ export const getReservations = async (
     if (filters?.locationId) {
       hostReservations = hostReservations.filter(r => r.locationId === filters.locationId);
     }
-    // Note: Month/year filtering in the current reservations page is handled client-side by `viewStartDate`.
-    // This server-side filter for month/year would be for a different type of query.
     if (filters?.month !== undefined && filters?.year !== undefined) {
-      hostReservations = hostReservations.filter(r => {
-        try {
-          const arrivalDate = new Date(r.dateArrivee + "T00:00:00Z");
-          const departureDateForRoom = r.dateDepart ? new Date(r.dateDepart + "T00:00:00Z") : null;
-          const effectiveDeparture = r.type === 'Table' || !departureDateForRoom ? new Date(r.dateArrivee + "T23:59:59Z") : departureDateForRoom;
-          if (!effectiveDeparture) return false;
-          const monthStart = new Date(Date.UTC(filters.year!, filters.month!, 1));
-          const monthEnd = new Date(Date.UTC(filters.year!, filters.month! + 1, 0, 23, 59, 59, 999));
-          return (arrivalDate <= monthEnd && effectiveDeparture >= monthStart);
-        } catch (e) {
-          log("Error parsing date for reservation filtering by month/year", { reservationId: r.id, error: e });
-          return false;
-        }
-      });
+        const monthStart = new Date(Date.UTC(filters.year, filters.month, 1));
+        const monthEnd = new Date(Date.UTC(filters.year, filters.month + 1, 0, 23, 59, 59, 999));
+        hostReservations = hostReservations.filter(r => {
+            try {
+                const arrivalDate = new Date(r.dateArrivee + "T00:00:00Z"); // Ensure UTC context for dates
+                const departureDateForRoom = r.dateDepart ? new Date(r.dateDepart + "T00:00:00Z") : null;
+                const effectiveDeparture = r.type === 'Table' || !departureDateForRoom ? new Date(r.dateArrivee + "T23:59:59Z") : departureDateForRoom;
+                if (!effectiveDeparture) return false;
+                return (arrivalDate <= monthEnd && effectiveDeparture >= monthStart);
+            } catch (e) {
+                log("Error parsing date for reservation filtering by month/year", {reservationId: r.id, error: e});
+                return false;
+            }
+        });
     }
-    if (filters?.startDate && filters?.endDate) {
+     if (filters?.startDate && filters?.endDate) {
         const queryStart = filters.startDate;
         const queryEnd = filters.endDate;
         hostReservations = hostReservations.filter(r => {
             try {
                 const resArrival = new Date(r.dateArrivee + "T00:00:00Z");
-                const resDeparture = r.dateDepart ? new Date(r.dateDepart + "T00:00:00Z") : new Date(r.dateArrivee + "T23:59:59Z");
+                const resDeparture = r.dateDepart ? new Date(r.dateDepart + "T00:00:00Z") : new Date(r.dateArrivee + "T23:59:59Z"); // Tables are same day
                 return resArrival < queryEnd && resDeparture > queryStart;
             } catch (e) {
-                log("Error parsing date for reservation range filtering", { reservationId: r.id, error: e });
-                return false;
+                 log("Error parsing date for reservation range filtering", {reservationId: r.id, error: e});
+                 return false;
             }
         });
     }
+
     return [...hostReservations].sort((a,b) => new Date(a.dateArrivee).getTime() - new Date(b.dateArrivee).getTime());
   } catch (e) {
     console.error("Error in getReservations (in-memory):", e);
@@ -1348,8 +1363,9 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
       // Recalculate price if dates or location change
       if(data.dateArrivee || data.dateDepart || data.locationId) {
         const arrivalDate = data.dateArrivee || existingReservation.dateArrivee;
-        const departureDate = data.dateDepart === null ? undefined : (data.dateDepart || existingReservation.dateDepart);
+        const departureDate = data.dateDepart === null ? undefined : (data.dateDepart || existingReservation.dateDepart); // Handle explicit null for clearing dateDepart
         const currentType = location?.type || existingReservation.type;
+
         if (currentType === 'Chambre' && location?.prixParNuit && departureDate) {
             const arrival = new Date(arrivalDate);
             const departure = new Date(departureDate);
@@ -1365,11 +1381,10 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
         ...data,
         type: location?.type || existingReservation.type,
         prixTotal: prixTotalReservation,
-        soldeDu: prixTotalReservation !== undefined ? prixTotalReservation - (existingReservation.montantPaye || 0) : existingReservation.soldeDu,
+        soldeDu: prixTotalReservation !== undefined ? prixTotalReservation - (data.montantPaye !== undefined ? data.montantPaye : (existingReservation.montantPaye || 0)) : existingReservation.soldeDu,
       };
 
-      // Loyalty points for checked-out reservations
-      if (updatedReservation.status === 'checked-out' && existingReservation.status !== 'checked-out') { // Award points only once on transition to checked-out
+      if (updatedReservation.status === 'checked-out' && existingReservation.status !== 'checked-out') {
         const host = await getHostById(updatedReservation.hostId);
         if (host?.loyaltySettings?.enabled) {
           let pointsEarned = 0;
@@ -1381,7 +1396,6 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
           } else if (updatedReservation.type === 'Table' && host.loyaltySettings.pointsPerTableBooking > 0) {
             pointsEarned += host.loyaltySettings.pointsPerTableBooking;
           }
-          // Points per euro spent on the reservation itself (if applicable)
           if (updatedReservation.prixTotal && updatedReservation.prixTotal > 0 && host.loyaltySettings.pointsPerEuroSpent > 0) {
              pointsEarned += Math.floor(updatedReservation.prixTotal * host.loyaltySettings.pointsPerEuroSpent);
           }
@@ -1423,8 +1437,26 @@ export const deleteReservationInData = async (id: string): Promise<boolean> => {
   }
 };
 
+export const getReservationsByUserId = async (userId: string): Promise<Reservation[]> => {
+  log(`getReservationsByUserId called for userId: ${userId}. Using in-memory data.`);
+  try {
+    return [...reservationsInMemory].filter(r => r.clientId === userId) // Assuming clientId is preferred over matching clientName
+      .sort((a, b) => new Date(b.dateArrivee).getTime() - new Date(a.dateArrivee).getTime());
+  } catch (e) {
+    console.error("Error in getReservationsByUserId (in-memory):", e);
+    return [];
+  }
+};
+
+
 log("Initial in-memory data loaded/defined.");
 log(`Users: ${usersInMemory.length}, Hosts: ${hostsInMemory.length}, Global Sites: ${sitesInMemory.length}, Locations: ${roomsOrTablesInMemory.length}`);
 log(`Categories: ${serviceCategoriesInMemory.length}, Forms: ${customFormsInMemory.length}, Fields: ${formFieldsInMemory.length}, Services: ${servicesInMemory.length}`);
 log(`Orders: ${ordersInMemory.length}, Clients: ${clientsInMemory.length}, Reservations: ${reservationsInMemory.length}, Tags: ${tagsInMemory.length}`);
 
+// Ensure all functions used in components are exported
+export {
+  // No need to re-export types
+};
+
+    

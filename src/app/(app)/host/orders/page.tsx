@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, XCircle, Clock, ShoppingCart, Filter, Eye, UserCircle } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, ShoppingCart, Filter, Eye, UserCircle, FileText as InvoiceIcon } from 'lucide-react'; // Added InvoiceIcon
 import {
   Select,
   SelectContent,
@@ -25,6 +25,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter, // Added DialogFooter
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -121,7 +122,7 @@ export default function HostOrdersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [searchParams, toast]); // Removed user from deps as it's checked in useEffect
+  }, [searchParams, toast]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -153,7 +154,6 @@ export default function HostOrdersPage() {
   
   const handleApplyFilters = () => {
       updateFiltersInUrl();
-      // fetchData will be called by useEffect reacting to searchParams change via router.push
   };
   
   const handleResetFilters = () => {
@@ -161,7 +161,7 @@ export default function HostOrdersPage() {
     setSelectedCategoryFilter("all");
     setSelectedServiceFilter("all");
     setClientNameFilter("");
-    router.push(pathname); // Clears query params
+    router.push(pathname); 
   };
 
   const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus) => {
@@ -170,7 +170,7 @@ export default function HostOrdersPage() {
     try {
       await updateOrderStatusInData(orderId, newStatus);
       toast({ title: "Order Status Updated", description: `Order #${orderId.slice(-5)} status changed to ${newStatus}.` });
-      fetchData(user.hostId); // Refresh data
+      fetchData(user.hostId); 
     } catch (error) {
       console.error("Failed to update order status:", error);
       toast({ title: "Error", description: "Could not update order status.", variant: "destructive" });
@@ -235,7 +235,7 @@ export default function HostOrdersPage() {
               {allCategories.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.nom}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={selectedServiceFilter} onValueChange={handleServiceFilterChange} disabled={selectedCategoryFilter === "all" && allServices.length > 10 /* Heuristic: disable if too many services without category filter */}>
+          <Select value={selectedServiceFilter} onValueChange={handleServiceFilterChange} disabled={selectedCategoryFilter === "all" && allServices.length > 10 }>
             <SelectTrigger className="bg-card"><SelectValue placeholder="Filter by service" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Services</SelectItem>
@@ -337,6 +337,7 @@ export default function HostOrdersPage() {
               <div className="text-sm"><strong>Client:</strong> {viewingOrder.clientNom || "N/A"}</div>
               <div className="text-sm"><strong>Date:</strong> {new Date(viewingOrder.dateHeure).toLocaleString()}</div>
               <div className="text-sm"><strong>Status:</strong> <span className="capitalize">{viewingOrder.status}</span></div>
+              {viewingOrder.prixTotal !== undefined && <div className="text-sm"><strong>Total Price:</strong> ${viewingOrder.prixTotal.toFixed(2)}</div>}
               
               <div className="space-y-2">
                 <h4 className="font-semibold">Form Data:</h4>
@@ -362,9 +363,17 @@ export default function HostOrdersPage() {
               </div>
             </div>
           )}
-           <Button variant="outline" onClick={() => setIsDetailsDialogOpen(false)} className="mt-4">Close</Button>
+          <DialogFooter className="mt-4 pt-4 border-t">
+            <Link href={`/invoice/order/${viewingOrder?.id}`} target="_blank" passHref>
+              <Button variant="outline" disabled={!viewingOrder}>
+                  <InvoiceIcon className="mr-2 h-4 w-4" /> View Invoice
+              </Button>
+            </Link>
+            <Button variant="secondary" onClick={() => setIsDetailsDialogOpen(false)}>Close</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
+
