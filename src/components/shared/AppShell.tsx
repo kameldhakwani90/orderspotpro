@@ -19,12 +19,13 @@ import {
   DropdownMenuRadioItem
 } from '@/components/ui/dropdown-menu';
 import {
-  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon, Settings2, ChevronsUpDown
+  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon, Settings2, ChevronsUpDown, MessageSquare
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-// Removed getSites import as managedGlobalSites now comes from AuthContext
+import { useToast } from '@/hooks/use-toast';
+
 
 const adminNavItems: NavItem[] = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: Home, allowedRoles: ['admin'] },
@@ -49,13 +50,13 @@ const hostNavItems: NavItem[] = [
       { label: 'Service Categories', href: '/host/service-categories', icon: ListChecks, allowedRoles: ['host'] },
       { label: 'Custom Forms', href: '/host/forms', icon: FileText, allowedRoles: ['host'] },
       { label: 'My Services', href: '/host/services', icon: ClipboardList, allowedRoles: ['host'] },
-      { label: 'Reservation Page Settings', href: '/host/reservation-settings', icon: Settings2, allowedRoles: ['host'] },
+      { label: 'Paramètres & Fidélité', href: '/host/reservation-settings', icon: Settings2, allowedRoles: ['host'] },
       { label: 'Account Settings', href: '/settings', icon: Settings, allowedRoles: ['host'] }
     ]
   }
 ];
 
-const clientNavItems: NavItem[] = [];
+const clientNavItems: NavItem[] = []; // Clients primarily use public pages
 
 
 const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -69,6 +70,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const { toast } = useToast(); // For placeholder chat button
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>(() => {
@@ -120,7 +122,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
         </div>
         <div className="flex-1 p-6">
-          <Skeleton className="h-16 w-full mb-4" /> {/* Increased header skeleton height */}
+          <Skeleton className="h-16 w-full mb-4" />
           <Skeleton className="h-64 w-full" />
         </div>
       </div>
@@ -143,7 +145,9 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           currentNavItems = hostNavItems;
           break;
       case 'client':
-          currentNavItems = clientNavItems;
+          // Clients usually don't have a complex AppShell like this; they use public pages
+          // If a client lands here by mistake, redirect or show minimal UI
+          // For now, general settings link is added below.
           break;
   }
 
@@ -168,14 +172,17 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
     let isActive;
     
-    const isDashboardLink = item.href === '/dashboard' || (user && item.href === `/${user.role}/dashboard`);
+    // Handle dashboard links specifically for exact match
+    const isDashboardLink = item.href === '/admin/dashboard' || item.href === '/host/dashboard';
 
     if (isDashboardLink) {
         isActive = pathname === item.href;
     } else if (hasChildren) {
         isActive = isParentActive;
     } else {
-        isActive = pathname.startsWith(item.href); 
+        // For other links, startsWith is usually fine, but ensure it's not too broad
+        // e.g., /settings should not make /settings/profile active if we only want /settings
+        isActive = pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/'); 
     }
     
     const isMenuOpen = openMenus[item.label] || false;
@@ -225,9 +232,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   };
 
   const SiteSwitcher = () => {
-    // Ensure setSelectedGlobalSite is defined before trying to use it
     if (!setSelectedGlobalSite) {
-        console.warn("setSelectedGlobalSite is not available from AuthContext yet.");
         return null;
     }
 
@@ -265,8 +270,6 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               onValueChange={(value) => {
                 const site = managedGlobalSites.find(s => s.siteId === value);
                 setSelectedGlobalSite(site || null);
-                // Potentially trigger a route change or data refresh here if needed immediately
-                // For now, context update will be picked up by pages
               }}
             >
               {managedGlobalSites.map((site) => (
@@ -279,7 +282,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </DropdownMenu>
       );
     }
-    return null; // Default case
+    return null; 
   };
 
 
@@ -327,6 +330,16 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <SiteSwitcher />
           </div>
           <div className="flex items-center gap-4">
+            {user.role === 'host' && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                title="Messages (Coming Soon)"
+                onClick={() => toast({ title: "Chat Feature", description: "Host-client chat is coming soon!"})}
+              >
+                <MessageSquare className="h-5 w-5" />
+              </Button>
+            )}
             <span className="text-sm text-muted-foreground hidden md:inline">Role: {user.role}</span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

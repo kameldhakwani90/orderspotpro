@@ -1,3 +1,4 @@
+// src/lib/types.ts
 
 export type UserRole = "admin" | "host" | "client";
 
@@ -154,8 +155,8 @@ export interface Client {
     email?: string;
     telephone?: string;
     type: ClientType;
-    dateArrivee?: string; // YYYY-MM-DD - Optional
-    dateDepart?: string;  // YYYY-MM-DD - Optional
+    dateArrivee?: string; // YYYY-MM-DD
+    dateDepart?: string;  // YYYY-MM-DD
     locationId?: string;
     notes?: string;
     documents?: Array<{ name: string; url: string; uploadedAt: string }>;
@@ -173,7 +174,7 @@ export interface OnlineCheckinData {
   phoneNumber?: string;
   travelReason?: string;
   additionalNotes?: string;
-  submissionDate?: string;
+  submissionDate?: string; // ISO DateTime
 }
 
 export interface Reservation {
@@ -215,4 +216,26 @@ export interface ClientDetails {
   name: string;
   orders: (Order & { serviceName?: string; locationName?: string })[];
   locations: (RoomOrTable & { globalSiteName?: string })[];
+}
+
+// Types for Chat Functionality (Placeholders for now)
+export interface ChatMessage {
+  id: string;
+  conversationId: string;
+  senderId: string; // 'user-client-id' or 'user-host-id' or 'system'
+  receiverId: string; // 'user-host-id' or 'user-client-id'
+  text: string;
+  timestamp: string; // ISO DateTime string
+  read?: boolean;
+}
+
+export interface ChatConversation {
+  id: string; // Could be a composite key like 'client-id_host-id' or 'client-id_globalSite-id'
+  participantIds: string[]; // [clientId, hostUserId or globalSiteId]
+  lastMessage?: Pick<ChatMessage, 'text' | 'timestamp' | 'senderId'>;
+  unreadCounts?: { [userId: string]: number }; // e.g., { 'host-id': 2 }
+  clientName?: string;
+  hostName?: string; // or Establishment Name
+  clientAvatar?: string;
+  hostAvatar?: string;
 }

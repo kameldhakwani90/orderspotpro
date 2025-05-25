@@ -4,9 +4,10 @@ import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
-import { LogIn, Settings, Home } from "lucide-react";
+import { LogIn, Settings, MessageCircle } from "lucide-react"; // Added MessageCircle
 import { usePathname } from "next/navigation";
-import { Toaster } from "@/components/ui/toaster"; // Ensure Toaster is here if not in root layout
+import { Toaster } from "@/components/ui/toaster"; 
+import { useToast } from "@/hooks/use-toast"; // For placeholder chat button
 
 export default function PublicClientLayout({
   children,
@@ -15,6 +16,7 @@ export default function PublicClientLayout({
 }) {
   const { user, isLoading } = useAuth();
   const pathname = usePathname();
+  const { toast } = useToast(); // For placeholder chat button
 
   const userInitial = user?.nom ? user.nom.charAt(0).toUpperCase() : '?';
 
@@ -57,11 +59,21 @@ export default function PublicClientLayout({
       <main className="flex-grow container mx-auto py-8 px-4 md:px-6 lg:px-8">
         {children}
       </main>
+      
+      {/* Placeholder Floating Chat Button for Clients */}
+      <Button
+        variant="default"
+        size="icon"
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-xl z-40 bg-primary hover:bg-primary/90"
+        title="Chat with us (Coming Soon)"
+        onClick={() => toast({ title: "Chat Feature", description: "Live chat with the establishment is coming soon!"})}
+      >
+        <MessageCircle className="h-7 w-7 text-primary-foreground" />
+      </Button>
+
       <footer className="p-6 text-center text-sm text-muted-foreground border-t bg-card/80">
         ConnectHost &copy; {new Date().getFullYear()} - Seamlessly connecting you to services.
       </footer>
-      {/* Toaster might be in RootLayout, if not, uncomment or add it here */}
-      {/* <Toaster /> */}
     </div>
   );
 }
