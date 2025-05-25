@@ -3,22 +3,23 @@
 
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getReservationById, getHostById, getRoomOrTableById, getOrdersByUserId } from '@/lib/data'; // Assuming getOrdersByUserId exists
-import type { Reservation, Host, RoomOrTable, Order } from '@/lib/types';
+import { getReservationById, getHostById, getRoomOrTableById, getOrdersByUserId, getServiceById } from '@/lib/data'; // Assuming getOrdersByUserId exists
+import type { Reservation, Host, RoomOrTable, Order, Service } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { format, parseISO, isValid } from 'date-fns';
+import { format, parseISO, isValid, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { ArrowLeft, Building, CalendarDays, Users, Hash, Info, BedDouble, Utensils, ShoppingBag, CreditCard, FileText as InvoiceIcon } from 'lucide-react';
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
 
 interface EnrichedOrder extends Order {
   serviceName?: string;
-  locationName?: string;
+  locationName?: string; // Not strictly needed here as orders are tied to reservation's host
 }
 
 function ReservationDetailPageContent() {
@@ -30,7 +31,7 @@ function ReservationDetailPageContent() {
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [host, setHost] = useState<Host | null>(null);
   const [location, setLocation] = useState<RoomOrTable | null>(null);
-  const [relatedOrders, setRelatedOrders] = useState<EnrichedOrder[]>([]); // Orders made during the stay
+  const [relatedOrders, setRelatedOrders] = useState<EnrichedOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,7 +55,7 @@ function ReservationDetailPageContent() {
 
       const [hostData, locationData] = await Promise.all([
         resData.hostId ? getHostById(resData.hostId) : Promise.resolve(null),
-        getRoomOrTableById(resData.locationId),
+        resData.locationId ? getRoomOrTableById(resData.locationId) : Promise.resolve(null),
       ]);
       setHost(hostData);
       setLocation(locationData || null);
@@ -67,15 +68,24 @@ function ReservationDetailPageContent() {
           try {
             const orderDate = startOfDay(parseISO(order.dateHeure));
             const resStartDate = startOfDay(parseISO(resData.dateArrivee));
-            const resEndDate = resData.dateDepart ? endOfDay(parseISO(resData.dateDepart)) : endOfDay(parseISO(resData.dateArrivee)); // For tables or one-day events
-            return orderDate >= resStartDate && orderDate <= resEndDate;
-          } catch (e) { return false; }
+            // For tables, departure might not exist or be same as arrival. Use end of arrival day.
+            // For rooms, use actual departure date.
+            const resEndDate = resData.type === 'Table' || !resData.dateDepart
+                ? endOfDay(parseISO(resData.dateArrivee))
+                : endOfDay(parseISO(resData.dateDepart));
+            return isWithinInterval(orderDate, { start: resStartDate, end: resEndDate });
+          } catch (e) { 
+            console.error("Error filtering order dates:", e, order);
+            return false; 
+          }
         });
-        // Enrich orders with service names (simplified for now)
-        const enriched = await Promise.all(filteredOrders.map(async o => ({...o, serviceName: (await getServiceById(o.serviceId))?.titre || 'Service inconnu'})));
+        
+        const enriched = await Promise.all(filteredOrders.map(async o => {
+            const serviceDetails = await getServiceById(o.serviceId);
+            return {...o, serviceName: serviceDetails?.titre || 'Service inconnu'};
+        }));
         setRelatedOrders(enriched);
       }
-
 
     } catch (e: any) {
       console.error("Erreur lors de la récupération des détails de la réservation:", e);
@@ -137,14 +147,14 @@ function ReservationDetailPageContent() {
                 {host?.nom || 'Établissement inconnu'}
               </CardDescription>
             </div>
-            <Badge variant={reservation.status === 'cancelled' ? 'destructive' : 'default'} className="text-lg capitalize h-fit">
+            <Badge variant={reservation.status === 'cancelled' ? 'destructive' : reservation.status === 'checked-out' ? 'secondary' : 'default'} className="text-lg capitalize h-fit">
               {reservation.status || 'N/A'}
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="pt-6">
           <Tabs defaultValue="details" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-6">
               <TabsTrigger value="details">Détails du Séjour</TabsTrigger>
               <TabsTrigger value="services">Services Commandés</TabsTrigger>
               <TabsTrigger value="billing">Facturation</TabsTrigger>
@@ -197,9 +207,9 @@ function ReservationDetailPageContent() {
                           {relatedOrders.map(order => (
                             <TableRow key={order.id}>
                               <TableCell>{order.serviceName}</TableCell>
-                              <TableCell>{format(parseISO(order.dateHeure), 'Pp', {locale: fr})}</TableCell>
+                              <TableCell>{isValid(parseISO(order.dateHeure)) ? format(parseISO(order.dateHeure), 'Pp', {locale: fr}) : 'Date invalide'}</TableCell>
                               <TableCell><Badge variant={order.status === 'completed' ? 'default' : order.status === 'cancelled' ? 'destructive' : 'secondary'} className="capitalize text-xs">{order.status}</Badge></TableCell>
-                              <TableCell className="text-right">{order.prixTotal ? `$${order.prixTotal.toFixed(2)}` : 'N/A'}</TableCell>
+                              <TableCell className="text-right">{order.prixTotal !== undefined ? `$${order.prixTotal.toFixed(2)}` : 'N/A'}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -220,7 +230,7 @@ function ReservationDetailPageContent() {
                         <span>Montant</span>
                     </div>
                     <div className="flex justify-between border-b pb-1">
-                        <span>Séjour {reservation.type === 'Chambre' ? `(${format(parseISO(reservation.dateArrivee), 'dd/MM')} - ${reservation.dateDepart ? format(parseISO(reservation.dateDepart), 'dd/MM') : ''})` : `(${format(parseISO(reservation.dateArrivee), 'dd/MM')})`}</span>
+                        <span>Séjour {reservation.type} ({isValid(parseISO(reservation.dateArrivee)) ? format(parseISO(reservation.dateArrivee), 'dd/MM') : ''} {reservation.dateDepart && reservation.type === 'Chambre' && isValid(parseISO(reservation.dateDepart)) ? `- ${format(parseISO(reservation.dateDepart), 'dd/MM')}` : ''})</span>
                         <span>{reservation.prixTotal !== undefined ? `$${reservation.prixTotal.toFixed(2)}` : 'N/A'}</span>
                     </div>
                     
@@ -236,13 +246,19 @@ function ReservationDetailPageContent() {
                     </div>
                      <div className="flex justify-between font-semibold">
                         <span className="text-muted-foreground">Solde Dû</span>
-                        <span className="text-red-600">${(reservation.soldeDu || 0).toFixed(2)}</span>
+                        <span className={`${(reservation.soldeDu || 0) > 0 ? 'text-red-600' : 'text-foreground'}`}>${(reservation.soldeDu || 0).toFixed(2)}</span>
                     </div>
                      {reservation.status === 'checked-out' && (reservation.soldeDu || 0) > 0 && (
                          <p className="text-destructive text-xs text-center pt-2">Veuillez régler le solde dû auprès de l'établissement.</p>
                      )}
-                     {/* We could link to a more detailed invoice page for the reservation here if needed */}
                 </CardContent>
+                 <CardFooter className="border-t pt-4">
+                    <Link href={`/invoice/order/res_${reservation.id}`} target="_blank" passHref>
+                      <Button variant="outline" className="w-full">
+                        <InvoiceIcon className="mr-2 h-4 w-4" /> Voir la Facture détaillée du séjour
+                      </Button>
+                    </Link>
+                  </CardFooter>
               </Card>
             </TabsContent>
           </Tabs>
@@ -259,3 +275,6 @@ export default function ReservationDetailPage() {
     </Suspense>
   )
 }
+
+
+    

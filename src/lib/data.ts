@@ -139,17 +139,17 @@ let ordersInMemory: Order[] = [
 let clientsInMemory: Client[] = [
     { id: 'client-mock-1-inmem', hostId: 'host-01-inmem', nom: 'Alice Wonderland', email: 'client1@example.com', type: 'heberge', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', locationId: 'room-101', notes: 'Prefers quiet room. Likes extra pillows.', credit: 50, pointsFidelite: 120 },
     { id: 'client-mock-2-inmem', hostId: 'host-01-inmem', nom: 'Bob The Builder', email: 'client2@example.com', type: 'heberge', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', locationId: 'room-102', credit: 0, pointsFidelite: 75 },
-    { id: 'client-mock-3-inmem', hostId: 'host-02-inmem', nom: 'Charlie Passager', telephone: '+1123456789', type: 'passager', notes: 'Regular for lunch on Fridays.', credit: 10, pointsFidelite: 30 + (hostsInMemory.find(h => h.hostId === 'host-02-inmem')?.loyaltySettings?.pointsForNewClientSignup || defaultLoyaltySettings.pointsForNewClientSignup || 0) },
-    { id: 'client-mock-4-inmem', hostId: 'host-01-inmem', nom: 'Diana Visitor', email: 'diana@example.com', type: 'passager', notes: 'Interested in spa services.', credit: 0, pointsFidelite: 0 + (hostsInMemory.find(h => h.hostId === 'host-01-inmem')?.loyaltySettings?.pointsForNewClientSignup || defaultLoyaltySettings.pointsForNewClientSignup || 0)},
-    { id: 'client-mock-dynamic-inmem', hostId: 'host-1747669860022', nom: 'Dynamic Test Client User', email: 'dynamic_client@example.com', type: 'heberge', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', locationId: 'rt-dynamic-room1', notes: 'Testing client for dynamic host.', credit: 100, pointsFidelite: 50 + (hostsInMemory.find(h => h.hostId === 'host-1747669860022')?.loyaltySettings?.pointsForNewClientSignup || defaultLoyaltySettings.pointsForNewClientSignup || 0) },
+    { id: 'client-mock-3-inmem', hostId: 'host-02-inmem', nom: 'Charlie Passager', telephone: '+1123456789', type: 'passager', notes: 'Regular for lunch on Fridays.', credit: 10, pointsFidelite: (hostsInMemory.find(h => h.hostId === 'host-02-inmem')?.loyaltySettings?.pointsForNewClientSignup || 0) },
+    { id: 'client-mock-4-inmem', hostId: 'host-01-inmem', nom: 'Diana Visitor', email: 'diana@example.com', type: 'passager', notes: 'Interested in spa services.', credit: 0, pointsFidelite: (hostsInMemory.find(h => h.hostId === 'host-01-inmem')?.loyaltySettings?.pointsForNewClientSignup || 0)},
+    { id: 'client-mock-dynamic-inmem', hostId: 'host-1747669860022', nom: 'Dynamic Test Client User', email: 'dynamic_client@example.com', type: 'heberge', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', locationId: 'rt-dynamic-room1', notes: 'Testing client for dynamic host.', credit: 100, pointsFidelite: 50 + (hostsInMemory.find(h => h.hostId === 'host-1747669860022')?.loyaltySettings?.pointsForNewClientSignup || 0) },
 ];
 
 let reservationsInMemory: Reservation[] = [
-    { id: 'res-001-inmem', hostId: 'host-01-inmem', locationId: 'room-101', type: 'Chambre', clientName: 'Alice Wonderland', clientId: 'client-mock-1-inmem', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', nombrePersonnes: 2, status: 'confirmed', notes: 'Early check-in requested', animauxDomestiques: false, channel: 'Booking.com', prixTotal: 600, montantPaye: 600, soldeDu: 0, paiements: [{type: 'card', montant: 600, date: '2024-07-09'}], onlineCheckinStatus: 'not-started', pointsGagnes: 50 },
-    { id: 'res-002-inmem', hostId: 'host-01-inmem', locationId: 'room-102', type: 'Chambre', clientName: 'Bob The Builder', clientId: 'client-mock-2-inmem', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', nombrePersonnes: 1, animauxDomestiques: true, status: 'checked-in', channel: 'Direct', prixTotal: 500, montantPaye: 200, soldeDu: 300, onlineCheckinStatus: 'completed', pointsGagnes: 0, onlineCheckinData: {fullName: "Bob The Builder", email:"client2@example.com", birthDate:"1980-05-05", phoneNumber: "+1234567891", travelReason: "Business", additionalNotes:"Need high-speed internet.", submissionDate: new Date(Date.now() - 86400000 * 2).toISOString()} }, // submitted 2 days ago
-    { id: 'res-003-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-room1', type: 'Chambre', clientName: 'Dynamic Test Client User', clientId: 'client-mock-dynamic-inmem', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', nombrePersonnes: 2, notes: "Needs a crib", status: 'pending', animauxDomestiques: false, prixTotal: 396, onlineCheckinStatus: 'pending-review', pointsGagnes: 0, onlineCheckinData: {fullName: "Dynamic User", email:"dynamic_client@example.com", birthDate:"1990-01-01", phoneNumber: "555-1234", submissionDate: new Date(Date.now() - 86400000 * 1).toISOString()} }, // submitted 1 day ago
-    { id: 'res-004-inmem', hostId: 'host-02-inmem', locationId: 'table-5', type: 'Table', clientName: 'Charlie Passager', clientId: 'client-mock-3-inmem', dateArrivee: '2024-07-20', nombrePersonnes: 4, status: 'confirmed', notes: 'Dinner reservation for 8 PM', channel: 'Phone', prixTotal: 10, montantPaye: 10, soldeDu: 0, onlineCheckinStatus: 'not-started', pointsGagnes: 5, dateDepart: '2024-07-20' },
-    { id: 'res-dynamic-table-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-table1', type: 'Table', clientName: 'Test Diner', dateArrivee: '2024-08-03', nombrePersonnes: 2, status: 'confirmed', notes: 'Table reservation for dynamic host.', prixTotal: 20, onlineCheckinStatus: 'not-started', pointsGagnes: 3, dateDepart: '2024-08-03' },
+    { id: 'res-001-inmem', hostId: 'host-01-inmem', locationId: 'room-101', type: 'Chambre', clientName: 'Alice Wonderland', clientId: 'user-client-01', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', nombrePersonnes: 2, status: 'confirmed', notes: 'Early check-in requested', animauxDomestiques: false, channel: 'Booking.com', prixTotal: 600, montantPaye: 600, soldeDu: 0, paiements: [{type: 'card', montant: 600, date: '2024-07-09'}], onlineCheckinStatus: 'not-started', pointsGagnes: 50 },
+    { id: 'res-002-inmem', hostId: 'host-01-inmem', locationId: 'room-102', type: 'Chambre', clientName: 'Bob The Builder', clientId: 'user-client-02', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', nombrePersonnes: 1, animauxDomestiques: true, status: 'checked-in', channel: 'Direct', prixTotal: 500, montantPaye: 200, soldeDu: 300, onlineCheckinStatus: 'completed', pointsGagnes: 0, onlineCheckinData: {fullName: "Bob The Builder", email:"client2@example.com", birthDate:"1980-05-05", phoneNumber: "+1234567891", travelReason: "Business", additionalNotes:"Need high-speed internet.", submissionDate: new Date(Date.now() - 86400000 * 2).toISOString()} }, // submitted 2 days ago
+    { id: 'res-003-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-room1', type: 'Chambre', clientName: 'Dynamic Test Client User', clientId: 'user-dynamic-client-01', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', nombrePersonnes: 2, notes: "Needs a crib", status: 'pending', animauxDomestiques: false, prixTotal: 396, onlineCheckinStatus: 'pending-review', pointsGagnes: 0, onlineCheckinData: {fullName: "Dynamic User", email:"dynamic_client@example.com", birthDate:"1990-01-01", phoneNumber: "555-1234", submissionDate: new Date(Date.now() - 86400000 * 1).toISOString()} }, // submitted 1 day ago
+    { id: 'res-004-inmem', hostId: 'host-02-inmem', locationId: 'table-5', type: 'Table', clientName: 'Charlie Passager', clientId: 'client-mock-3-inmem', dateArrivee: '2024-07-20', dateDepart: '2024-07-20', nombrePersonnes: 4, status: 'confirmed', notes: 'Dinner reservation for 8 PM', channel: 'Phone', prixTotal: 10, montantPaye: 10, soldeDu: 0, onlineCheckinStatus: 'not-started', pointsGagnes: 5 },
+    { id: 'res-dynamic-table-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-table1', type: 'Table', clientName: 'Test Diner', dateArrivee: '2024-08-03', dateDepart: '2024-08-03', nombrePersonnes: 2, status: 'confirmed', notes: 'Table reservation for dynamic host.', prixTotal: 20, onlineCheckinStatus: 'not-started', pointsGagnes: 3 },
 ];
 
 
@@ -922,7 +922,6 @@ export const getServices = async (
           parentId = undefined;
         }
       }
-      // Also include the global site ID as a relevant "location" if the service is targeted at the global site level
       relevantLocationIds.push(currentScannedLocation.globalSiteId);
 
 
@@ -1211,9 +1210,15 @@ export const deleteClientData = async (clientId: string): Promise<boolean> => {
     if (clientsInMemory.length < initialLength) {
       reservationsInMemory = reservationsInMemory.map(r => {
         if (r.clientId === clientId) {
-          return { ...r, clientId: undefined };
+          return { ...r, clientId: undefined }; // Or delete the reservation if policy dictates
         }
         return r;
+      });
+      ordersInMemory = ordersInMemory.map(o => {
+        if (o.userId === clientId) { // Assuming userId on Order can be used to link back to a Client record in some scenarios
+            return { ...o, userId: undefined, clientNom: o.clientNom || "Deleted Client"};
+        }
+        return o;
       });
     }
     return clientsInMemory.length < initialLength;
@@ -1443,15 +1448,6 @@ export const deleteReservationInData = async (id: string): Promise<boolean> => {
 export const getReservationsByUserId = async (userId: string): Promise<Reservation[]> => {
   log(`getReservationsByUserId called for userId: ${userId}. Using in-memory data.`);
   try {
-    // Find the client records associated with this userId (usually there's one primary User, but a User might have multiple Client records if they are a client of multiple Hosts)
-    const user = await getUserById(userId);
-    if (!user) return [];
-
-    // Reservations are linked by clientId in the Reservation record.
-    // We need to ensure the User.id is used as Client.id when a User makes a reservation.
-    // Or, if reservations can be made by non-registered users, we might also check by clientName if email matches.
-    // For now, assuming reservations made by a logged-in user have their user.id stored in Reservation.clientId.
-    
     return [...reservationsInMemory].filter(r => r.clientId === userId) 
       .sort((a, b) => new Date(b.dateArrivee).getTime() - new Date(a.dateArrivee).getTime());
   } catch (e) {
@@ -1470,5 +1466,7 @@ log(`Orders: ${ordersInMemory.length}, Clients: ${clientsInMemory.length}, Reser
 export {
   // No need to re-export types
 };
+
+    
 
     
