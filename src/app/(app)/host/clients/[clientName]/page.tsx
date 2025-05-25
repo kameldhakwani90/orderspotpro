@@ -9,10 +9,10 @@ import {
   getOrdersByClientName,
   getRoomOrTableById,
   getServiceById,
-  getClientsByHostAndName,
-  getReservationsByClientName
+  getClientsByHostAndName, // Function to get Client records
+  getReservationsByClientName // Function to get reservations by client name for this host
 } from '@/lib/data';
-import type { Order, RoomOrTable, Service, Client, Reservation } from '@/lib/types';
+import type { Order, RoomOrTable, Service, Client, Reservation } from '@/lib/types'; // Renamed ClientDetails to avoid conflict
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -94,7 +94,12 @@ export default function ClientFilePage() {
                 const loc = await getRoomOrTableById(record.locationId);
                 if(loc) locFullName = `${loc.type} ${loc.nom}`;
             }
-            const hostSpecificOrders = ordersData.filter(o => o.hostId === record.hostId && (o.status === 'completed' || o.status === 'confirmed'));
+            // Calculate total spent based on orders made by this *specific client record's user ID if available* or by client name at this host
+            const hostSpecificOrders = ordersData.filter(o => 
+                o.hostId === record.hostId && 
+                (o.status === 'completed' || o.status === 'confirmed') &&
+                ( (record.userId && o.userId === record.userId) || (!record.userId && o.clientNom === record.nom) )
+            );
             const totalSpentAtHost = hostSpecificOrders.reduce((sum, order) => sum + (order.prixTotal || 0), 0);
             const netDueAtHost = totalSpentAtHost - (record.credit || 0);
             return { ...record, locationFullName: locFullName, totalSpent: totalSpentAtHost, netDue: netDueAtHost };
@@ -138,8 +143,16 @@ export default function ClientFilePage() {
       .filter(o => o.status === 'completed' && typeof o.prixTotal === 'number')
       .reduce((sum, o) => sum + (o.prixTotal!), 0);
   }, [clientOrders]);
+  
+  const primaryClientRecord = useMemo(() => {
+    // Prefer a record linked by user ID if available, then first by name
+    if (authUser && authUser.role === 'client' && authUser.id) {
+      const userLinkedRecord = clientRecords.find(cr => cr.userId === authUser.id);
+      if (userLinkedRecord) return userLinkedRecord;
+    }
+    return clientRecords.length > 0 ? clientRecords[0] : null;
+  }, [clientRecords, authUser]);
 
-  const primaryClientRecord = useMemo(() => clientRecords.length > 0 ? clientRecords[0] : null, [clientRecords]);
 
   if (isLoading || authLoading) {
     return (
@@ -190,7 +203,7 @@ export default function ClientFilePage() {
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-5">
           <TabsTrigger value="general">Infos Générales</TabsTrigger>
           <TabsTrigger value="orders">Commandes</TabsTrigger>
-          <TabsTrigger value="stays">Séjours & Soldes</TabsTrigger>
+          <TabsTrigger value="stays">Fiches & Soldes</TabsTrigger>
           <TabsTrigger value="reservations">Réservations</TabsTrigger>
           <TabsTrigger value="checkins">Enreg. en Ligne</TabsTrigger>
         </TabsList>
@@ -199,13 +212,13 @@ export default function ClientFilePage() {
           <Card className="shadow-lg">
             <CardHeader>
                 <CardTitle className="text-xl flex items-center"><Info className="mr-2 h-5 w-5 text-primary"/>Informations Clés</CardTitle>
-                <CardDescription>Basé sur la première fiche client trouvée pour ce nom.</CardDescription>
+                <CardDescription>Basé sur la première fiche client trouvée pour ce nom (ou liée à cet utilisateur).</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" /> Email: <span className="ml-1 font-medium">{primaryClientRecord?.email || "(Non renseigné)"}</span></div>
               <div className="flex items-center"><Phone className="mr-2 h-4 w-4 text-muted-foreground" /> Téléphone: <span className="ml-1 font-medium">{primaryClientRecord?.telephone || "(Non renseigné)"}</span></div>
               <div className="flex items-center"><DollarSign className="mr-2 h-4 w-4 text-green-500" /> Total Dépensé (Toutes Commandes): <span className="ml-1 font-semibold">${totalSpentOverall.toFixed(2)}</span></div>
-              <div className="mt-2"><strong className="text-primary">Notes Générales:</strong> <p className="text-muted-foreground whitespace-pre-wrap">{primaryClientRecord?.notes || "(Aucune note)"}</p></div>
+              <div className="mt-2"><strong className="text-primary">Notes Générales (Première Fiche):</strong> <p className="text-muted-foreground whitespace-pre-wrap">{primaryClientRecord?.notes || "(Aucune note)"}</p></div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -214,7 +227,7 @@ export default function ClientFilePage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="text-xl flex items-center"><ShoppingBag className="mr-2 h-5 w-5 text-primary"/>Historique des Commandes</CardTitle>
-              <CardDescription>{clientOrders.length} commande(s) trouvée(s) pour ce client chez vous.</CardDescription>
+              <CardDescription>{clientOrders.length} commande(s) trouvée(s) pour "{clientName}" chez vous.</CardDescription>
             </CardHeader>
             <CardContent>
               {clientOrders.length > 0 ? (
@@ -241,16 +254,17 @@ export default function ClientFilePage() {
         <TabsContent value="stays" className="mt-6">
             <Card className="shadow-lg">
                 <CardHeader>
-                    <CardTitle className="text-xl flex items-center"><ListOrdered className="mr-2 h-5 w-5 text-primary"/>Détails des Séjours & Soldes</CardTitle>
-                    <CardDescription>{clientRecords.length} fiche(s) client trouvée(s) pour "{clientName}" gérée(s) par vous.</CardDescription>
+                    <CardTitle className="text-xl flex items-center"><ListOrdered className="mr-2 h-5 w-5 text-primary"/>Fiches Client & Soldes</CardTitle>
+                    <CardDescription>{clientRecords.length} fiche(s) client créée(s) par vous pour "{clientName}".</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {clientRecords.length > 0 ? (
                         clientRecords.map(record => (
                             <Card key={record.id} className="bg-secondary/30">
                                 <CardHeader className='pb-2'>
-                                  <CardTitle className="text-md">Fiche ID: {record.id.slice(-6)} ({record.type})</CardTitle>
+                                  <CardTitle className="text-md">Fiche ID: #{record.id.slice(-6)} ({record.type === 'heberge' ? 'Hébergé' : 'Passager'})</CardTitle>
                                   {record.locationFullName && record.type === 'heberge' && <CardDescription>Lieu: {record.locationFullName}</CardDescription>}
+                                  {record.email && <CardDescription>Email: {record.email}</CardDescription>}
                                 </CardHeader>
                                 <CardContent className="text-sm space-y-1.5">
                                     {record.type === 'heberge' && (
@@ -261,12 +275,12 @@ export default function ClientFilePage() {
                                     )}
                                     <p><DollarSign className="inline mr-1 h-4 w-4 text-green-500"/> Crédit: <span className="font-semibold">${(record.credit || 0).toFixed(2)}</span></p>
                                     <p className="text-amber-600"><ListOrdered className="inline mr-1 h-4 w-4"/> Points Fidélité: <span className="font-semibold">{record.pointsFidelite || 0} pts</span></p>
-                                    <p><DollarSign className="inline mr-1 h-4 w-4 text-blue-500"/> Total Dépensé (ce séjour/fiche): <span className="font-semibold">${(record.totalSpent || 0).toFixed(2)}</span></p>
-                                    <p className={`font-semibold ${record.netDue && record.netDue > 0 ? 'text-red-600' : 'text-foreground'}`}><DollarSign className="inline mr-1 h-4 w-4"/> Solde Dû (ce séjour/fiche): <span className="font-semibold">${(record.netDue || 0).toFixed(2)}</span></p>
+                                    <p><DollarSign className="inline mr-1 h-4 w-4 text-blue-500"/> Total Dépensé (via cette fiche): <span className="font-semibold">${(record.totalSpent || 0).toFixed(2)}</span></p>
+                                    <div className={`font-semibold flex items-center ${record.netDue && record.netDue > 0 ? 'text-red-600' : 'text-foreground'}`}><DollarSign className="mr-1 h-4 w-4"/> Solde Dû (via cette fiche): <span className="font-semibold ml-1">${(record.netDue || 0).toFixed(2)}</span></div>
                                 </CardContent>
                             </Card>
                         ))
-                    ) : <p className="text-muted-foreground text-center py-4">Aucune fiche de séjour spécifique trouvée pour ce nom.</p>}
+                    ) : <p className="text-muted-foreground text-center py-4">Aucune fiche de séjour/client spécifique trouvée pour ce nom et gérée par vous.</p>}
                 </CardContent>
             </Card>
         </TabsContent>
@@ -274,7 +288,7 @@ export default function ClientFilePage() {
         <TabsContent value="reservations" className="mt-6">
             <Card className="shadow-lg">
                 <CardHeader>
-                    <CardTitle className="text-xl flex items-center"><Building className="mr-2 h-5 w-5 text-primary"/>Réservations du Client</CardTitle>
+                    <CardTitle className="text-xl flex items-center"><Building className="mr-2 h-5 w-5 text-primary"/>Réservations de {clientName}</CardTitle>
                     <CardDescription>{clientReservations.length} réservation(s) trouvée(s) pour ce client chez vous.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -292,7 +306,7 @@ export default function ClientFilePage() {
                                         <TableCell><Badge variant={res.status === 'cancelled' ? 'destructive' : 'secondary'} className="capitalize text-xs">{res.status || 'N/A'}</Badge></TableCell>
                                         <TableCell>
                                             <Link href={`/client/reservations/${res.id}`} passHref>
-                                                <Button variant="outline" size="sm">Voir</Button>
+                                                <Button variant="outline" size="sm">Voir Détails</Button>
                                             </Link>
                                         </TableCell>
                                     </TableRow>
@@ -308,7 +322,7 @@ export default function ClientFilePage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="text-xl flex items-center"><FileCheckIcon className="mr-2 h-5 w-5 text-primary" />Enregistrements en Ligne Soumis</CardTitle>
-              <CardDescription>Informations soumises par le client lors d'enregistrements en ligne pour ses réservations.</CardDescription>
+              <CardDescription>Informations soumises par "{clientName}" lors d'enregistrements en ligne.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {clientReservations.filter(res => res.onlineCheckinData).length > 0 ? (
@@ -325,7 +339,7 @@ export default function ClientFilePage() {
                       <p><strong>Téléphone:</strong> {res.onlineCheckinData!.phoneNumber || 'N/A'}</p>
                       {res.onlineCheckinData!.travelReason && <p><strong>Motif du voyage:</strong> {res.onlineCheckinData!.travelReason}</p>}
                       {res.onlineCheckinData!.additionalNotes && <p><strong>Notes additionnelles:</strong> {res.onlineCheckinData!.additionalNotes}</p>}
-                      <p><strong>Statut Enreg. Ligne:</strong> <Badge variant={res.onlineCheckinStatus === 'completed' ? 'default' : res.onlineCheckinStatus === 'pending-review' ? 'secondary' : 'outline'} className="capitalize text-xs">{res.onlineCheckinStatus?.replace('-', ' ') || 'Non démarré'}</Badge></p>
+                      <div><strong>Statut Enreg. Ligne:</strong> <Badge variant={res.onlineCheckinStatus === 'completed' ? 'default' : res.onlineCheckinStatus === 'pending-review' ? 'secondary' : 'outline'} className="capitalize text-xs">{res.onlineCheckinStatus?.replace('-', ' ') || 'Non démarré'}</Badge></div>
                     </CardContent>
                   </Card>
                 ))
@@ -338,5 +352,6 @@ export default function ClientFilePage() {
     </div>
   );
 }
+
 
     
