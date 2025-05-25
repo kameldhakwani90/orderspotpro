@@ -31,9 +31,12 @@ import { format, parseISO, isValid, isBefore, addDays, startOfDay, isSameDay } f
 import { fr } from 'date-fns/locale';
 import { ArrowLeft, CalendarDays as CalendarIcon, Users as UsersIcon, Dog, FileText, BedDouble, Utensils, Save, Trash2, AlertTriangle, Copy, FileCheck } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge'; // Added Badge import
 
 const NO_CLIENT_SELECTED = "___NO_CLIENT_SELECTED___";
 const reservationStatuses: ReservationStatus[] = ["pending", "confirmed", "checked-in", "checked-out", "cancelled"];
+const onlineCheckinStatuses: OnlineCheckinStatus[] = ['not-started', 'pending-review', 'completed'];
+
 
 function HostReservationDetailPageContent() {
   const params = useParams();
@@ -66,7 +69,7 @@ function HostReservationDetailPageContent() {
   const [currentStatus, setCurrentStatus] = useState<ReservationStatus>('pending');
   const [notes, setNotes] = useState<string>('');
   const [channel, setChannel] = useState<string>('');
-  const [onlineCheckinStatus, setOnlineCheckinStatus] = useState<OnlineCheckinStatus | undefined>(undefined);
+  const [currentOnlineCheckinStatus, setCurrentOnlineCheckinStatus] = useState<OnlineCheckinStatus | undefined>(undefined);
 
 
   const fetchReservationData = useCallback(async () => {
@@ -89,7 +92,7 @@ function HostReservationDetailPageContent() {
         getHostById(user.hostId),
         getRoomsOrTables(user.hostId),
         getClients(user.hostId),
-        fetchAllHostReservations(user.hostId) // Fetch all for conflict checking
+        fetchAllHostReservations(user.hostId) 
       ]);
 
       if (!resData) {
@@ -117,14 +120,27 @@ function HostReservationDetailPageContent() {
 
       setSelectedClientId(resData.clientId || NO_CLIENT_SELECTED);
       setManualClientName(resData.clientId ? "" : resData.clientName || "");
-      setArrivalDate(resData.dateArrivee ? parseISO(resData.dateArrivee) : undefined);
-      setDepartureDate(resData.dateDepart ? parseISO(resData.dateDepart) : undefined);
+      
+      if (resData.dateArrivee && isValid(parseISO(resData.dateArrivee))) {
+        setArrivalDate(parseISO(resData.dateArrivee));
+      } else {
+        setArrivalDate(undefined);
+      }
+      
+      if (resData.dateDepart && isValid(parseISO(resData.dateDepart))) {
+        setDepartureDate(parseISO(resData.dateDepart));
+      } else if (resData.dateArrivee && originalLoc?.type === 'Table' && isValid(parseISO(resData.dateArrivee))) {
+        setDepartureDate(parseISO(resData.dateArrivee));
+      } else {
+        setDepartureDate(undefined);
+      }
+
       setNumPersons(resData.nombrePersonnes || 1);
       setPetsAllowed(resData.animauxDomestiques || false);
       setCurrentStatus(resData.status || 'pending');
       setNotes(resData.notes || '');
       setChannel(resData.channel || '');
-      setOnlineCheckinStatus(resData.onlineCheckinStatus);
+      setCurrentOnlineCheckinStatus(resData.onlineCheckinStatus || 'not-started');
 
     } catch (e: any) {
       console.error("Error fetching reservation details:", e);
@@ -173,7 +189,7 @@ function HostReservationDetailPageContent() {
 
       const isLocationBooked = allReservationsForHost.some(res => {
         if (res.locationId !== loc.id) return false;
-        if (reservation && res.id === reservation.id) return false; // Allow current reservation
+        if (reservation && res.id === reservation.id) return false; 
         if (res.status === 'cancelled') return false;
         try {
           const existingArrival = startOfDay(parseISO(res.dateArrivee));
@@ -249,8 +265,8 @@ function HostReservationDetailPageContent() {
       notes: notes,
       status: currentStatus,
       channel: channel,
-      onlineCheckinStatus: onlineCheckinStatus,
-      // onlineCheckinData is not edited here, it's submitted by client
+      onlineCheckinStatus: currentOnlineCheckinStatus,
+      // onlineCheckinData is updated through its own flow
     };
 
     try {
@@ -341,6 +357,8 @@ function HostReservationDetailPageContent() {
       </div>
     );
   }
+  
+  const LocationSpecificIcon = currentSelectedLocationType === 'Chambre' ? BedDouble : Utensils;
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
@@ -355,8 +373,11 @@ function HostReservationDetailPageContent() {
 
       <Card className="shadow-xl">
         <CardHeader>
-          <CardTitle>Edit Reservation for: {originalLocation?.nom} ({originalLocation?.type})</CardTitle>
-          <CardDescription>Modify the details of this reservation.</CardDescription>
+          <CardTitle className="flex items-center">
+            <LocationSpecificIcon className="mr-2 h-6 w-6 text-primary" />
+            Edit Reservation for: {originalLocation?.nom} ({originalLocation?.type})
+          </CardTitle>
+          <CardDescription>Modify the details of this reservation. Current Status: <Badge variant="outline" className="capitalize">{currentStatus}</Badge></CardDescription>
         </CardHeader>
         <CardContent>
           <ScrollArea className="max-h-[70vh] pr-4 -mr-2">
@@ -403,17 +424,17 @@ function HostReservationDetailPageContent() {
                 <Select
                   value={selectedLocationId || ""}
                   onValueChange={setSelectedLocationId}
-                  disabled={availableLocationsForDialog.length === 0 && !reservation}
+                  disabled={availableLocationsForDialog.length === 0 && !originalLocation}
                 >
                   <SelectTrigger id="locationIdDialog">
                     <SelectValue placeholder={availableLocationsForDialog.length > 0 ? `Select a ${currentSelectedLocationType?.toLowerCase()}` : `No ${currentSelectedLocationType?.toLowerCase()}s available for criteria`} />
                   </SelectTrigger>
                   <SelectContent>
                     {availableLocationsForDialog.map(loc => <SelectItem key={loc.id} value={loc.id}>{loc.nom} ({loc.type} - Cap: {loc.capacity || 'N/A'})</SelectItem>)}
-                    {availableLocationsForDialog.length === 0 && !reservation && <SelectItem value="no_available_placeholder" disabled>No {currentSelectedLocationType?.toLowerCase()}s match criteria</SelectItem>}
-                    {reservation && !availableLocationsForDialog.some(l => l.id === reservation.locationId) &&
-                      <SelectItem value={reservation.locationId} disabled>
-                        {allHostLocations.find(l => l.id === reservation.locationId)?.nom} (Currently selected, may conflict)
+                    {availableLocationsForDialog.length === 0 && !originalLocation && <SelectItem value="no_available_placeholder" disabled>No {currentSelectedLocationType?.toLowerCase()}s match criteria</SelectItem>}
+                    {originalLocation && !availableLocationsForDialog.some(l => l.id === originalLocation.id) &&
+                      <SelectItem value={originalLocation.id} disabled>
+                        {originalLocation.nom} (Current, may conflict)
                       </SelectItem>
                     }
                   </SelectContent>
@@ -497,7 +518,13 @@ function HostReservationDetailPageContent() {
           </Button>
           <Button 
             onClick={handleSaveChanges} 
-            disabled={isSubmitting || !selectedLocationId || (!manualClientName.trim() && selectedClientId === NO_CLIENT_SELECTED) || !arrivalDate || (currentSelectedLocationType === 'Chambre' && (!departureDate || isBefore(departureDate, addDays(arrivalDate,1)) || isSameDay(departureDate, arrivalDate) ))}
+            disabled={
+              isSubmitting || 
+              !selectedLocationId || 
+              (!manualClientName.trim() && selectedClientId === NO_CLIENT_SELECTED) || 
+              !arrivalDate || 
+              (currentSelectedLocationType === 'Chambre' && (!departureDate || isBefore(startOfDay(departureDate), startOfDay(addDays(arrivalDate,1))) || isSameDay(startOfDay(departureDate), startOfDay(arrivalDate)) ))
+            }
           >
             <Save className="mr-2 h-4 w-4" /> {isSubmitting ? "Saving..." : "Save Changes"}
           </Button>
@@ -515,6 +542,3 @@ export default function HostReservationDetailPage() {
     </Suspense>
   );
 }
-
-
-    
