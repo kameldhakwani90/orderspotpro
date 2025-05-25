@@ -189,7 +189,7 @@ export interface Reservation {
   locationId: string;
   type?: 'Chambre' | 'Table';
   clientId?: string;
-  clientName: string;
+  clientName: string; // Keep clientName mandatory for cases where clientId might not be set (guest reservations)
   dateArrivee: string; // YYYY-MM-DD
   dateDepart?: string | undefined; // YYYY-MM-DD, optional for tables
   nombrePersonnes: number;
@@ -219,31 +219,30 @@ export interface EnrichedReservation extends Reservation {
 export interface NavItem {
   label: string;
   href: string;
-  icon: LucideIcon; // Using LucideIcon type
+  icon: LucideIcon;
   allowedRoles: UserRole[];
   children?: NavItem[];
-  isChidren?: boolean; // Typo? Should be isChildren?
   external?: boolean;
 }
 
-// Types for Chat Functionality (Placeholders for now)
+// Types for Chat Functionality
 export interface ChatMessage {
   id: string;
   conversationId: string;
-  senderId: string; // 'user-client-id' or 'user-host-id' or 'system'
-  receiverId: string; // 'user-host-id' or 'user-client-id'
+  senderId: string;
+  receiverId: string;
   text: string;
-  timestamp: string; // ISO DateTime string
+  timestamp: string;
   read?: boolean;
 }
 
 export interface ChatConversation {
-  id: string; // Could be a composite key like 'client-id_host-id' or 'client-id_globalSite-id'
-  participantIds: string[]; // [clientId, hostUserId or globalSiteId]
+  id: string;
+  participantIds: string[];
   lastMessage?: Pick<ChatMessage, 'text' | 'timestamp' | 'senderId'>;
-  unreadCounts?: { [userId: string]: number }; // e.g., { 'host-id': 2 }
+  unreadCounts?: { [userId: string]: number };
   clientName?: string;
-  hostName?: string; // or Establishment Name
+  hostName?: string;
   clientAvatar?: string;
   hostAvatar?: string;
 }
@@ -256,14 +255,32 @@ export interface MenuCard {
   globalSiteId: string;
   description?: string;
   isActive: boolean;
+  visibleFromTime?: string; // e.g., "08:00"
+  visibleToTime?: string;   // e.g., "22:00"
 }
 
 export interface MenuCategory {
   id: string;
   name: string;
   menuCardId: string;
-  hostId: string; // Added hostId for easier querying
+  hostId: string;
   description?: string;
+  displayOrder?: number;
+}
+
+export interface MenuItemOption {
+  id: string;
+  name: string;
+  priceAdjustment?: number;
+}
+
+export interface MenuItemOptionGroup {
+  id: string;
+  name: string;
+  menuItemId: string; // Link back to MenuItem (though in data.ts, they might be nested)
+  selectionType: 'single' | 'multiple';
+  isRequired: boolean;
+  options: MenuItemOption[];
   displayOrder?: number;
 }
 
@@ -271,30 +288,16 @@ export interface MenuItem {
   id: string;
   name: string;
   description?: string;
-  price: number;
+  price: number; // Base price
   imageUrl?: string;
   imageAiHint?: string;
   menuCategoryId: string;
-  hostId: string; // Added hostId for easier querying
-  // For future configurable products:
-  // options?: MenuItemOptionGroup[];
-  // isConfigurable?: boolean;
+  hostId: string;
+  isConfigurable?: boolean;
+  optionGroups?: MenuItemOptionGroup[]; // Nested for simplicity in in-memory data
+  isAvailable?: boolean; // New field for item visibility
 }
 
-// export interface MenuItemOptionGroup {
-//   id: string;
-//   name: string; // e.g., "Taille", "Type de Lait", "Supplément"
-//   selectionType: 'single' | 'multiple'; // ou 'required-single'
-//   options: MenuItemOption[];
-//   displayOrder?: number;
-// }
-
-// export interface MenuItemOption {
-//   id: string;
-//   name: string; // e.g., "Moyen", "Lait d'avoine", "Chantilly"
-//   priceAdjustment?: number; // e.g., 0.5 pour un supplément
-//   isDefault?: boolean;
-// }
 
 // For Language Context
 export type LanguageCode = 'fr' | 'en' | 'ar';

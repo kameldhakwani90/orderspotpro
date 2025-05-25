@@ -7,9 +7,10 @@ import { useRouter } from 'next/navigation';
 import {
   getMenuCards, addMenuCard, updateMenuCard, deleteMenuCard,
   getMenuCategories, addMenuCategory, updateMenuCategory, deleteMenuCategory,
-  getMenuItems, addMenuItem, updateMenuItem, deleteMenuItem, getSites
+  getMenuItems, addMenuItem, updateMenuItem, deleteMenuItem, getSites,
+  duplicateMenuCard as duplicateMenuCardData // Import the duplication function
 } from '@/lib/data';
-import type { MenuCard, MenuCategory, MenuItem, Site as GlobalSiteType } from '@/lib/types';
+import type { MenuCard, MenuCategory, MenuItem, Site as GlobalSiteType, MenuItemOptionGroup, MenuItemOption } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,12 +24,14 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
-import { PlusCircle, Edit2, Trash2, Utensils, ListPlus, Settings, ChevronRight, FolderOpen, ShoppingBasket, Package } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, Utensils, ListPlus, Settings, ChevronRight, FolderOpen, ShoppingBasket, Package, CopyPlus, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import NextImage from 'next/image';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge'; // Added import
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+
 
 export default function HostMenuCardsPage() {
   const { user, isLoading: authLoading, selectedGlobalSite } = useAuth();
@@ -48,38 +51,37 @@ export default function HostMenuCardsPage() {
 
   // Dialog states
   const [isMenuCardDialogOpen, setIsMenuCardDialogOpen] = useState(false);
-  const [currentMenuCardData, setCurrentMenuCardData] = useState<Partial<MenuCard>>({ name: '', description: '', isActive: true });
+  const [currentMenuCardData, setCurrentMenuCardData] = useState<Partial<MenuCard>>({ name: '', description: '', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59" });
   
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [currentCategoryData, setCurrentCategoryData] = useState<Partial<MenuCategory>>({ name: '', description: '', displayOrder: 1 });
 
   const [isMenuItemDialogOpen, setIsMenuItemDialogOpen] = useState(false);
-  const [currentMenuItemData, setCurrentMenuItemData] = useState<Partial<MenuItem>>({ name: '', description: '', price: 0, imageUrl: '' });
+  const [currentMenuItemData, setCurrentMenuItemData] = useState<Partial<MenuItem>>({ name: '', description: '', price: 0, imageUrl: '', isAvailable: true, isConfigurable: false });
 
-  const fetchMenuCardsData = useCallback(async (hostId: string, globalSiteId?: string) => {
+  const fetchMenuCardsData = useCallback(async (hostId: string, globalSiteIdToFilter?: string) => {
     setIsLoadingData(true);
     try {
       const [cards, sites] = await Promise.all([
-        getMenuCards(hostId, globalSiteId),
-        getSites(hostId) // Fetch all global sites managed by host
+        getMenuCards(hostId, globalSiteIdToFilter),
+        getSites(hostId)
       ]);
       setMenuCards(cards);
       setHostGlobalSites(sites);
 
       if (sites.length > 0 && !currentMenuCardData.globalSiteId && !selectedGlobalSite) {
          setCurrentMenuCardData(prev => ({ ...prev, globalSiteId: sites[0].siteId }));
-      } else if (selectedGlobalSite && !currentMenuCardData.globalSiteId) {
+      } else if (selectedGlobalSite && (!currentMenuCardData.globalSiteId || currentMenuCardData.globalSiteId !== selectedGlobalSite.siteId)) {
          setCurrentMenuCardData(prev => ({ ...prev, globalSiteId: selectedGlobalSite.siteId }));
       }
 
-      // If a card was active, try to keep it or its equivalent active
-      if (activeMenuCard) {
+
+      if (activeMenuCard && globalSiteIdToFilter && activeMenuCard.globalSiteId !== globalSiteIdToFilter) {
+        // If selected global site changed and active card doesn't belong to it, reset.
+        setActiveMenuCard(cards.length > 0 ? cards[0] : null);
+      } else if (activeMenuCard) {
         const updatedActiveCard = cards.find(c => c.id === activeMenuCard.id);
-        if (updatedActiveCard) {
-          setActiveMenuCard(updatedActiveCard);
-        } else {
-          setActiveMenuCard(cards.length > 0 ? cards[0] : null);
-        }
+        setActiveMenuCard(updatedActiveCard || (cards.length > 0 ? cards[0] : null));
       } else if (cards.length > 0) {
         setActiveMenuCard(cards[0]);
       } else {
@@ -87,11 +89,11 @@ export default function HostMenuCardsPage() {
       }
 
     } catch (error) {
-      toast({ title: "Error loading menu cards", variant: "destructive" });
+      toast({ title: "Error loading menu cards", variant: "destructive", description: error instanceof Error ? error.message : "Unknown error" });
     } finally {
       setIsLoadingData(false);
     }
-  }, [toast, activeMenuCard, currentMenuCardData.globalSiteId, selectedGlobalSite]);
+  }, [toast, selectedGlobalSite, currentMenuCardData.globalSiteId, activeMenuCard?.id, activeMenuCard?.globalSiteId]);
 
   useEffect(() => {
     if (user?.hostId) {
@@ -108,12 +110,11 @@ export default function HostMenuCardsPage() {
       setItemsForCategory([]);
       return;
     }
-    setIsLoadingData(true); // Or a more specific loading state
+    setIsLoadingData(true);
     try {
       const categories = await getMenuCategories(activeMenuCard.id, user.hostId);
       setCategoriesForCard(categories);
       if (categories.length > 0) {
-        // Try to keep active category or default to first
         const currentActiveCat = activeCategory ? categories.find(c => c.id === activeCategory.id) : null;
         const catToLoadItemsFor = currentActiveCat || categories[0];
         setActiveCategory(catToLoadItemsFor);
@@ -128,7 +129,7 @@ export default function HostMenuCardsPage() {
         setItemsForCategory([]);
       }
     } catch (error) {
-      toast({ title: "Error loading categories/items", variant: "destructive" });
+      toast({ title: "Error loading categories/items", variant: "destructive", description: error instanceof Error ? error.message : "Unknown error" });
     } finally {
       setIsLoadingData(false);
     }
@@ -141,11 +142,21 @@ export default function HostMenuCardsPage() {
 
   // --- Menu Card CRUD ---
   const openAddMenuCardDialog = () => {
-    setCurrentMenuCardData({ name: '', description: '', isActive: true, globalSiteId: selectedGlobalSite?.siteId || hostGlobalSites[0]?.siteId || '' });
+    const defaultGlobalSite = selectedGlobalSite?.siteId || hostGlobalSites[0]?.siteId || '';
+    if (!defaultGlobalSite && hostGlobalSites.length > 0) {
+        // This case should ideally not happen if hostGlobalSites is populated
+        toast({title: "Error", description: "Cannot determine a default global site.", variant:"destructive"});
+        return;
+    }
+    if (hostGlobalSites.length === 0) {
+      toast({title: "No Global Sites", description: "You must have at least one Global Site assigned to create a Menu Card.", variant: "destructive"});
+      return;
+    }
+    setCurrentMenuCardData({ name: '', description: '', isActive: true, globalSiteId: defaultGlobalSite, visibleFromTime: "00:00", visibleToTime: "23:59" });
     setIsMenuCardDialogOpen(true);
   };
   const openEditMenuCardDialog = (card: MenuCard) => {
-    setCurrentMenuCardData({ ...card });
+    setCurrentMenuCardData({ ...card, visibleFromTime: card.visibleFromTime || "00:00", visibleToTime: card.visibleToTime || "23:59"});
     setIsMenuCardDialogOpen(true);
   };
   const handleMenuCardSubmit = async () => {
@@ -153,14 +164,24 @@ export default function HostMenuCardsPage() {
       toast({ title: "Name and Global Site are required for a menu card.", variant: "destructive" });
       return;
     }
+    // Basic time format validation (HH:MM)
+    const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    if ((currentMenuCardData.visibleFromTime && !timeRegex.test(currentMenuCardData.visibleFromTime)) || 
+        (currentMenuCardData.visibleToTime && !timeRegex.test(currentMenuCardData.visibleToTime))) {
+      toast({ title: "Invalid Time Format", description: "Please use HH:MM format for visibility times (e.g., 08:00, 22:30).", variant: "destructive" });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const payload = {
+      const payload: Partial<MenuCard> = {
         name: currentMenuCardData.name!,
         description: currentMenuCardData.description || undefined,
         isActive: currentMenuCardData.isActive !== undefined ? currentMenuCardData.isActive : true,
         globalSiteId: currentMenuCardData.globalSiteId!,
         hostId: user.hostId,
+        visibleFromTime: currentMenuCardData.visibleFromTime || undefined,
+        visibleToTime: currentMenuCardData.visibleToTime || undefined,
       };
       if (currentMenuCardData.id) { // Editing
         await updateMenuCard(currentMenuCardData.id, payload);
@@ -172,7 +193,7 @@ export default function HostMenuCardsPage() {
       fetchMenuCardsData(user.hostId, selectedGlobalSite?.siteId);
       setIsMenuCardDialogOpen(false);
     } catch (error) {
-      toast({ title: "Error saving menu card", variant: "destructive" });
+      toast({ title: "Error saving menu card", variant: "destructive", description: error instanceof Error ? error.message : "Unknown error" });
     } finally {
       setIsSubmitting(false);
     }
@@ -186,7 +207,25 @@ export default function HostMenuCardsPage() {
       fetchMenuCardsData(user.hostId, selectedGlobalSite?.siteId);
       if (activeMenuCard?.id === cardId) setActiveMenuCard(null);
     } catch (error) {
-      toast({ title: "Error deleting menu card", variant: "destructive" });
+      toast({ title: "Error deleting menu card", variant: "destructive", description: error instanceof Error ? error.message : "Unknown error" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDuplicateMenuCard = async (cardId: string) => {
+    if (!user?.hostId) return;
+    setIsSubmitting(true);
+    try {
+      const duplicatedCard = await duplicateMenuCardData(cardId);
+      if (duplicatedCard) {
+        toast({ title: "Menu Card Duplicated", description: `"${duplicatedCard.name}" created.` });
+        fetchMenuCardsData(user.hostId, selectedGlobalSite?.siteId);
+      } else {
+        toast({ title: "Duplication Failed", description: "Could not duplicate the menu card.", variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Error duplicating menu card", variant: "destructive", description: error instanceof Error ? error.message : "Unknown error" });
     } finally {
       setIsSubmitting(false);
     }
@@ -226,7 +265,7 @@ export default function HostMenuCardsPage() {
       fetchCategoriesAndItems();
       setIsCategoryDialogOpen(false);
     } catch (error) {
-      toast({ title: "Error saving category", variant: "destructive" });
+      toast({ title: "Error saving category", variant: "destructive", description: error instanceof Error ? error.message : "Unknown error" });
     } finally {
       setIsSubmitting(false);
     }
@@ -240,7 +279,7 @@ export default function HostMenuCardsPage() {
       fetchCategoriesAndItems();
       if (activeCategory?.id === categoryId) setActiveCategory(null);
     } catch (error) {
-      toast({ title: "Error deleting category", variant: "destructive" });
+      toast({ title: "Error deleting category", variant: "destructive", description: error instanceof Error ? error.message : "Unknown error" });
     } finally {
       setIsSubmitting(false);
     }
@@ -249,11 +288,11 @@ export default function HostMenuCardsPage() {
   // --- Menu Item CRUD ---
   const openAddMenuItemDialog = () => {
     if (!activeCategory) return;
-    setCurrentMenuItemData({ name: '', description: '', price: 0, imageUrl: '' });
+    setCurrentMenuItemData({ name: '', description: '', price: 0, imageUrl: '', isAvailable: true, isConfigurable: false, optionGroups: [] });
     setIsMenuItemDialogOpen(true);
   };
   const openEditMenuItemDialog = (item: MenuItem) => {
-    setCurrentMenuItemData({ ...item });
+    setCurrentMenuItemData({ ...item, optionGroups: item.optionGroups || [] });
     setIsMenuItemDialogOpen(true);
   };
   const handleMenuItemSubmit = async () => {
@@ -263,13 +302,16 @@ export default function HostMenuCardsPage() {
     }
     setIsSubmitting(true);
     try {
-      const payload = {
+      const payload: Partial<Omit<MenuItem, 'id' | 'imageAiHint'>> = { // Use Partial for update
         name: currentMenuItemData.name!,
         description: currentMenuItemData.description || undefined,
         price: currentMenuItemData.price!,
         imageUrl: currentMenuItemData.imageUrl || undefined,
         menuCategoryId: activeCategory.id,
         hostId: user.hostId,
+        isAvailable: currentMenuItemData.isAvailable !== undefined ? currentMenuItemData.isAvailable : true,
+        isConfigurable: currentMenuItemData.isConfigurable !== undefined ? currentMenuItemData.isConfigurable : false,
+        optionGroups: currentMenuItemData.isConfigurable ? (currentMenuItemData.optionGroups || []) : [], // Only save groups if configurable
       };
       if (currentMenuItemData.id) { // Editing
         await updateMenuItem(currentMenuItemData.id, payload);
@@ -278,10 +320,10 @@ export default function HostMenuCardsPage() {
         await addMenuItem(payload as Omit<MenuItem, 'id' | 'imageAiHint'>);
         toast({ title: "Menu Item Created" });
       }
-      fetchCategoriesAndItems(); // This should re-fetch items for the active category
+      fetchCategoriesAndItems();
       setIsMenuItemDialogOpen(false);
     } catch (error) {
-      toast({ title: "Error saving menu item", variant: "destructive" });
+      toast({ title: "Error saving menu item", variant: "destructive", description: error instanceof Error ? error.message : "Unknown error" });
     } finally {
       setIsSubmitting(false);
     }
@@ -294,20 +336,20 @@ export default function HostMenuCardsPage() {
       toast({ title: "Menu Item Deleted", variant: "destructive" });
       fetchCategoriesAndItems();
     } catch (error) {
-      toast({ title: "Error deleting menu item", variant: "destructive" });
+      toast({ title: "Error deleting menu item", variant: "destructive", description: error instanceof Error ? error.message : "Unknown error" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
 
-  if (authLoading || isLoadingData && menuCards.length === 0) { // Show skeleton if initial data is loading heavily
+  if (authLoading || isLoadingData && menuCards.length === 0) {
     return (
       <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8 space-y-6">
         <div className="flex justify-between items-center"><Skeleton className="h-10 w-1/3" /><Skeleton className="h-10 w-36" /></div>
         <div className="grid md:grid-cols-3 gap-6">
-          <Skeleton className="md:col-span-1 h-96" /> {/* For Menu Cards List */}
-          <Skeleton className="md:col-span-2 h-96" /> {/* For Categories/Items View */}
+          <Skeleton className="md:col-span-1 h-96" />
+          <Skeleton className="md:col-span-2 h-96" />
         </div>
       </div>
     );
@@ -331,7 +373,6 @@ export default function HostMenuCardsPage() {
 
 
       <div className="grid md:grid-cols-12 gap-6 items-start">
-        {/* Column 1: Menu Cards List */}
         <Card className="md:col-span-4 shadow-lg sticky top-20">
           <CardHeader>
             <CardTitle>My Menu Cards</CardTitle>
@@ -352,9 +393,15 @@ export default function HostMenuCardsPage() {
                       <div className="flex-1">
                         <p className="font-medium text-sm">{card.name}</p>
                         <p className="text-xs text-muted-foreground">{hostGlobalSites.find(gs => gs.siteId === card.globalSiteId)?.nom || 'Unknown Site'}</p>
-                         <Badge variant={card.isActive ? "default" : "outline"} className="mt-1 text-xs">{card.isActive ? "Active" : "Inactive"}</Badge>
+                         <div className="flex items-center gap-2 mt-1">
+                            <Badge variant={card.isActive ? "default" : "outline"} className="text-xs">{card.isActive ? "Active" : "Inactive"}</Badge>
+                            {(card.visibleFromTime || card.visibleToTime) && 
+                                <Badge variant="outline" className="text-xs flex items-center gap-1"><Clock className="h-3 w-3"/> {card.visibleFromTime || "Any"} - {card.visibleToTime || "Any"}</Badge>
+                            }
+                         </div>
                       </div>
                       <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); handleDuplicateMenuCard(card.id);}} title="Duplicate Menu Card"><CopyPlus className="h-4 w-4 text-blue-500" /></Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEditMenuCardDialog(card);}} title="Edit Menu Card"><Edit2 className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); handleMenuCardDelete(card.id);}} title="Delete Menu Card"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       </div>
@@ -366,7 +413,6 @@ export default function HostMenuCardsPage() {
           </CardContent>
         </Card>
 
-        {/* Column 2: Categories and Items for selected Menu Card */}
         <div className="md:col-span-8 space-y-6">
           {!activeMenuCard && !isLoadingData && (
             <Card className="shadow-lg h-full flex flex-col items-center justify-center py-10">
@@ -378,7 +424,6 @@ export default function HostMenuCardsPage() {
           )}
           {activeMenuCard && (
             <>
-              {/* Categories Section */}
               <Card className="shadow-lg">
                 <CardHeader className="flex flex-row justify-between items-center">
                   <div>
@@ -409,7 +454,6 @@ export default function HostMenuCardsPage() {
                 </CardContent>
               </Card>
 
-              {/* Menu Items Section */}
               {activeCategory && (
                 <Card className="shadow-lg">
                   <CardHeader className="flex flex-row justify-between items-center">
@@ -422,15 +466,16 @@ export default function HostMenuCardsPage() {
                   <CardContent>
                     {itemsForCategory.length === 0 && <p className="text-muted-foreground text-center py-4">No items yet in this category.</p>}
                     <Table>
-                      <TableHeader><TableRow><TableHead className="w-16">Img</TableHead><TableHead>Name</TableHead><TableHead>Price</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                      <TableHeader><TableRow><TableHead className="w-16">Img</TableHead><TableHead>Name</TableHead><TableHead>Price</TableHead><TableHead>Available</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
                       <TableBody>
                         {itemsForCategory.map(item => (
                           <TableRow key={item.id}>
                             <TableCell>
                               <NextImage src={item.imageUrl || 'https://placehold.co/50x50.png'} alt={item.name} width={40} height={40} className="rounded object-cover aspect-square" data-ai-hint={item.imageAiHint || 'menu item'}/>
                             </TableCell>
-                            <TableCell className="font-medium">{item.name}</TableCell>
+                            <TableCell className="font-medium">{item.name} {item.isConfigurable && <Badge variant="outline" className="ml-1 text-xs">Configurable</Badge>}</TableCell>
                             <TableCell>${item.price.toFixed(2)}</TableCell>
+                            <TableCell><Badge variant={item.isAvailable ? "default" : "secondary"} className="text-xs">{item.isAvailable ? "Yes" : "No"}</Badge></TableCell>
                             <TableCell className="text-right space-x-1">
                               <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditMenuItemDialog(item)} title="Edit Item"><Edit2 className="h-4 w-4" /></Button>
                               <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => handleMenuItemDelete(item.id)} title="Delete Item"><Trash2 className="h-4 w-4" /></Button>
@@ -450,7 +495,6 @@ export default function HostMenuCardsPage() {
         </div>
       </div>
 
-      {/* Dialog for Menu Card */}
       <Dialog open={isMenuCardDialogOpen} onOpenChange={(open) => {if(!isSubmitting) setIsMenuCardDialogOpen(open)}}>
         <DialogContent>
           <DialogHeader><DialogTitle>{currentMenuCardData.id ? 'Edit Menu Card' : 'Create New Menu Card'}</DialogTitle></DialogHeader>
@@ -468,7 +512,7 @@ export default function HostMenuCardsPage() {
               <Select
                 value={currentMenuCardData.globalSiteId || ''}
                 onValueChange={(val) => setCurrentMenuCardData(p => ({...p, globalSiteId: val}))}
-                disabled={isSubmitting || hostGlobalSites.length === 0 || !!currentMenuCardData.id /* Cannot change site if editing */}
+                disabled={isSubmitting || hostGlobalSites.length === 0 || !!currentMenuCardData.id}
               >
                 <SelectTrigger id="menuCardGlobalSite"><SelectValue placeholder="Select a Global Site" /></SelectTrigger>
                 <SelectContent>
@@ -476,6 +520,16 @@ export default function HostMenuCardsPage() {
                   {hostGlobalSites.length === 0 && <SelectItem value="" disabled>No Global Sites available</SelectItem>}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="visibleFromTime">Visible From (HH:MM)</Label>
+                <Input id="visibleFromTime" type="time" value={currentMenuCardData.visibleFromTime || "00:00"} onChange={(e) => setCurrentMenuCardData(p => ({...p, visibleFromTime: e.target.value}))} disabled={isSubmitting}/>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="visibleToTime">Visible To (HH:MM)</Label>
+                <Input id="visibleToTime" type="time" value={currentMenuCardData.visibleToTime || "23:59"} onChange={(e) => setCurrentMenuCardData(p => ({...p, visibleToTime: e.target.value}))} disabled={isSubmitting}/>
+              </div>
             </div>
             <div className="flex items-center space-x-2">
               <Switch id="menuCardIsActive" checked={currentMenuCardData.isActive} onCheckedChange={(val) => setCurrentMenuCardData(p => ({...p, isActive: val}))} disabled={isSubmitting}/>
@@ -489,7 +543,6 @@ export default function HostMenuCardsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog for Menu Category */}
       <Dialog open={isCategoryDialogOpen} onOpenChange={(open) => {if(!isSubmitting) setIsCategoryDialogOpen(open)}}>
         <DialogContent>
           <DialogHeader><DialogTitle>{currentCategoryData.id ? 'Edit Category' : 'Add New Category'}</DialogTitle><DialogDescription>For menu card: {activeMenuCard?.name}</DialogDescription></DialogHeader>
@@ -505,16 +558,30 @@ export default function HostMenuCardsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog for Menu Item */}
       <Dialog open={isMenuItemDialogOpen} onOpenChange={(open) => {if(!isSubmitting) setIsMenuItemDialogOpen(open)}}>
         <DialogContent>
           <DialogHeader><DialogTitle>{currentMenuItemData.id ? 'Edit Menu Item' : 'Add New Item'}</DialogTitle><DialogDescription>To category: {activeCategory?.name} (in {activeMenuCard?.name})</DialogDescription></DialogHeader>
-          <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+          <ScrollArea className="max-h-[70vh] pr-2">
+          <div className="grid gap-4 py-4">
             <div className="space-y-1.5"><Label htmlFor="itemName">Name*</Label><Input id="itemName" value={currentMenuItemData.name || ''} onChange={(e) => setCurrentMenuItemData(p => ({...p, name: e.target.value}))} disabled={isSubmitting}/></div>
             <div className="space-y-1.5"><Label htmlFor="itemDesc">Description</Label><Textarea id="itemDesc" value={currentMenuItemData.description || ''} onChange={(e) => setCurrentMenuItemData(p => ({...p, description: e.target.value}))} disabled={isSubmitting}/></div>
-            <div className="space-y-1.5"><Label htmlFor="itemPrice">Price*</Label><Input id="itemPrice" type="number" value={currentMenuItemData.price === undefined ? '' : currentMenuItemData.price} onChange={(e) => setCurrentMenuItemData(p => ({...p, price: parseFloat(e.target.value) || 0}))} step="0.01" min="0" disabled={isSubmitting}/></div>
+            <div className="space-y-1.5"><Label htmlFor="itemPrice">{currentMenuItemData.isConfigurable ? 'Base Price*' : 'Price*'}</Label><Input id="itemPrice" type="number" value={currentMenuItemData.price === undefined ? '' : currentMenuItemData.price} onChange={(e) => setCurrentMenuItemData(p => ({...p, price: parseFloat(e.target.value) || 0}))} step="0.01" min="0" disabled={isSubmitting}/></div>
             <div className="space-y-1.5"><Label htmlFor="itemImg">Image URL</Label><Input id="itemImg" value={currentMenuItemData.imageUrl || ''} onChange={(e) => setCurrentMenuItemData(p => ({...p, imageUrl: e.target.value}))} placeholder="https://placehold.co/300x200.png" disabled={isSubmitting}/></div>
+            <div className="flex items-center space-x-2">
+                <Checkbox id="itemIsAvailable" checked={currentMenuItemData.isAvailable} onCheckedChange={(checked) => setCurrentMenuItemData(p => ({...p, isAvailable: !!checked}))} disabled={isSubmitting}/>
+                <Label htmlFor="itemIsAvailable">Available for Sale</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+                <Checkbox id="itemIsConfigurable" checked={currentMenuItemData.isConfigurable} onCheckedChange={(checked) => setCurrentMenuItemData(p => ({...p, isConfigurable: !!checked}))} disabled={isSubmitting}/>
+                <Label htmlFor="itemIsConfigurable">Product is Configurable</Label>
+            </div>
+            {currentMenuItemData.isConfigurable && (
+                <div className="mt-2 p-3 border rounded-md bg-muted/30">
+                    <p className="text-sm text-muted-foreground">Note: Detailed option group and option management UI is not yet implemented. For demo purposes, define these in the mock data (<code>lib/data.ts</code>) if needed.</p>
+                </div>
+            )}
           </div>
+          </ScrollArea>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsMenuItemDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
             <Button onClick={handleMenuItemSubmit} disabled={isSubmitting || !currentMenuItemData.name?.trim() || currentMenuItemData.price === undefined || currentMenuItemData.price < 0}>Save Item</Button>
