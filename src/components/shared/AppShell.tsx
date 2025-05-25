@@ -15,7 +15,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger // Added DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import {
   Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon, Settings2, ChevronsUpDown, MessageSquare, LayoutDashboard, UserCircle
@@ -107,7 +108,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         };
         const newOpenMenus: Record<string, boolean> = {};
         const allItems = [...navItemsForCurrentUserRole()];
-        if (user.role === 'host') { // Add host's "Mon Compte" which is not in a group
+        if (user.role === 'host') { 
             allItems.push({ label: 'Mon Compte', href: '/settings', icon: UserCircle, allowedRoles: ['host'] });
         } else if (user.role === 'admin') {
             allItems.push({ label: 'Mon Compte', href: '/settings', icon: UserCircle, allowedRoles: ['admin'] });
