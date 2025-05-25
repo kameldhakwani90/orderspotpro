@@ -162,6 +162,7 @@ export interface Client {
     documents?: Array<{ name: string; url: string; uploadedAt: string }>;
     credit?: number;
     pointsFidelite?: number;
+    userId?: string;
 }
 
 export type ReservationStatus = "pending" | "confirmed" | "cancelled" | "checked-in" | "checked-out";
@@ -182,8 +183,8 @@ export interface Reservation {
   hostId: string;
   locationId: string;
   type?: 'Chambre' | 'Table';
-  clientId?: string;
-  clientName: string;
+  clientId?: string; // Corresponds to User.id if the client is a registered user
+  clientName: string; // Name used for the reservation (can be guest name or registered user's name)
   dateArrivee: string; // YYYY-MM-DD
   dateDepart?: string; // YYYY-MM-DD, optional for tables
   nombrePersonnes: number;
@@ -202,6 +203,13 @@ export interface Reservation {
   checkoutNotes?: string;
 }
 
+export interface EnrichedReservation extends Reservation {
+  hostName?: string;
+  locationName?: string;
+  locationType?: 'Chambre' | 'Table' | 'Site';
+}
+
+
 export interface NavItem {
   label: string;
   href: string;
@@ -212,9 +220,10 @@ export interface NavItem {
   external?: boolean;
 }
 
-export interface ClientDetails {
+export interface ClientDetails { // For host-side client file page
   name: string;
   orders: (Order & { serviceName?: string; locationName?: string })[];
+  // This might be replaced by distinct Client records
   locations: (RoomOrTable & { globalSiteName?: string })[];
 }
 

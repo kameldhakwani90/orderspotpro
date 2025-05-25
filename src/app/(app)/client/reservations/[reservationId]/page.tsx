@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getReservationById, getHostById, getRoomOrTableById, getOrdersByUserId, getServiceById } from '@/lib/data'; // Assuming getOrdersByUserId exists
+import { getReservationById, getHostById, getRoomOrTableById, getOrdersByUserId, getServiceById } from '@/lib/data'; 
 import type { Reservation, Host, RoomOrTable, Order, Service } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -121,8 +121,8 @@ function ReservationDetailPageContent() {
         <Info className="mx-auto h-12 w-12 text-destructive mb-4" />
         <h2 className="text-2xl font-semibold text-destructive mb-2">Erreur de Réservation</h2>
         <p className="text-muted-foreground">{error || "Détails de la réservation non disponibles."}</p>
-        <Button onClick={() => router.push('/settings')} className="mt-6">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Retour à Mes Paramètres
+        <Button onClick={() => router.push('/client/my-reservations')} className="mt-6">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Voir mes réservations
         </Button>
       </div>
     );
@@ -132,8 +132,8 @@ function ReservationDetailPageContent() {
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
-      <Button variant="outline" onClick={() => router.push('/settings')} className="mb-6">
-        <ArrowLeft className="mr-2 h-4 w-4" /> Retour à Mes Paramètres
+      <Button variant="outline" onClick={() => router.push('/client/my-reservations')} className="mb-6">
+        <ArrowLeft className="mr-2 h-4 w-4" /> Voir mes réservations
       </Button>
 
       <Card className="shadow-xl">
@@ -141,7 +141,7 @@ function ReservationDetailPageContent() {
           <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
             <div>
               <CardTitle className="text-3xl font-bold text-primary">
-                Réservation #{reservation.id.slice(-6)}
+                Réservation #{reservation.id.slice(-6).toUpperCase()}
               </CardTitle>
               <CardDescription className="text-md">
                 {host?.nom || 'Établissement inconnu'}
@@ -275,6 +275,5 @@ export default function ReservationDetailPage() {
     </Suspense>
   )
 }
-
 
     

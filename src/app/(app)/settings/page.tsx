@@ -13,7 +13,7 @@ import type { User, Order, Client, RoomOrTable, Host as HostType, Service as Ser
 import { updateUser, getOrdersByUserId, getClientRecordsByEmail, getHostById, getRoomOrTableById, getServiceById, getReservationsByUserId } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, ShoppingBag, MapPin, CalendarDays, ListOrdered, Info, Hotel, LogOut as LogOutIcon, Search, FileText as InvoiceIcon } from "lucide-react";
+import { DollarSign, ShoppingBag, MapPin, CalendarDays, ListOrdered, Info, Hotel, LogOut as LogOutIcon, Search, FileText as InvoiceIcon, Edit3 } from "lucide-react";
 import Link from "next/link";
 import { format, parseISO, isValid } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -32,17 +32,15 @@ export default function SettingsPage() {
   const [clientReservations, setClientReservations] = useState<(Reservation & { hostName?: string; locationFullName?: string })[]>([]);
   const [isClientDataLoading, setIsClientDataLoading] = useState(false);
   
-  const [reservationFilter, setReservationFilter] = useState('');
-
 
   const fetchClientSpecificData = useCallback(async (loggedInUser: User) => {
     if (!loggedInUser.id || !loggedInUser.email) return;
     setIsClientDataLoading(true);
     try {
       const [ordersData, clientRecordsData, reservationsData] = await Promise.all([
-        getOrdersByUserId(loggedInUser.id), // Assumes it uses user.id to match Order.userId
+        getOrdersByUserId(loggedInUser.id), 
         getClientRecordsByEmail(loggedInUser.email),
-        getReservationsByUserId(loggedInUser.id) // Assumes it uses user.id to match Reservation.clientId
+        getReservationsByUserId(loggedInUser.id) 
       ]);
 
       const enrichedOrders = await Promise.all(
@@ -68,7 +66,6 @@ export default function SettingsPage() {
                   const loc = await getRoomOrTableById(clientRecord.locationId);
                   if (loc) locationFullName = `${loc.type} ${loc.nom}`;
               }
-              // For total spent and net due, we consider orders where the logged-in user is the one who placed them
               const hostSpecificOrders = ordersData.filter(o => o.hostId === clientRecord.hostId && (o.status === 'completed' || o.status === 'confirmed'));
               const totalSpentAtHost = hostSpecificOrders.reduce((sum, order) => sum + (order.prixTotal || 0), 0);
               const netDueAtHost = totalSpentAtHost - (clientRecord.credit || 0);
@@ -150,16 +147,6 @@ export default function SettingsPage() {
     setConfirmPassword('');
   };
 
-  const filteredClientReservations = clientReservations.filter(res => {
-    const searchTerm = reservationFilter.toLowerCase();
-    return (
-      res.id.toLowerCase().includes(searchTerm) ||
-      (res.hostName && res.hostName.toLowerCase().includes(searchTerm)) ||
-      (res.locationFullName && res.locationFullName.toLowerCase().includes(searchTerm)) ||
-      (isValid(parseISO(res.dateArrivee)) && format(parseISO(res.dateArrivee), 'PPP', { locale: fr }).toLowerCase().includes(searchTerm))
-    );
-  });
-
 
   if (authIsLoading || !user) {
     return (
@@ -175,19 +162,19 @@ export default function SettingsPage() {
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8 space-y-8">
       <div>
-        <h1 className="text-4xl font-bold tracking-tight text-foreground">Settings & My Account</h1>
-        <p className="text-lg text-muted-foreground">Manage your account preferences and information.</p>
+        <h1 className="text-4xl font-bold tracking-tight text-foreground">Mon Compte</h1>
+        <p className="text-lg text-muted-foreground">Gérez vos préférences et informations personnelles.</p>
       </div>
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>Profile Information</CardTitle>
-          <CardDescription>Update your personal details.</CardDescription>
+          <CardTitle className="flex items-center"><Edit3 className="mr-2 h-5 w-5 text-primary"/>Informations de Profil</CardTitle>
+          <CardDescription>Mettez à jour vos détails personnels.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleProfileUpdate} className="space-y-4 max-w-md">
             <div>
-              <Label htmlFor="fullName">Full Name</Label>
+              <Label htmlFor="fullName">Nom Complet</Label>
               <Input
                 id="fullName"
                 value={currentUserName}
@@ -195,7 +182,7 @@ export default function SettingsPage() {
               />
             </div>
             <div>
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="email">Adresse Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -203,39 +190,39 @@ export default function SettingsPage() {
                 disabled
               />
             </div>
-            <Button type="submit">Save Profile</Button>
+            <Button type="submit">Enregistrer le Profil</Button>
           </form>
         </CardContent>
       </Card>
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>Change Password</CardTitle>
-          <CardDescription>Update your account password. (Simulated)</CardDescription>
+          <CardTitle>Changer le Mot de Passe</CardTitle>
+          <CardDescription>Mettez à jour le mot de passe de votre compte. (Simulé)</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
             <div>
-              <Label htmlFor="newPassword">New Password</Label>
+              <Label htmlFor="newPassword">Nouveau Mot de Passe</Label>
               <Input
                 id="newPassword"
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Enter new password"
+                placeholder="Saisir nouveau mot de passe"
               />
             </div>
             <div>
-              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <Label htmlFor="confirmPassword">Confirmer le Nouveau Mot de Passe</Label>
               <Input
                 id="confirmPassword"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm new password"
+                placeholder="Confirmer nouveau mot de passe"
               />
             </div>
-            <Button type="submit">Change Password</Button>
+            <Button type="submit">Changer le Mot de Passe</Button>
           </form>
         </CardContent>
       </Card>
@@ -244,57 +231,26 @@ export default function SettingsPage() {
         <>
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle className="flex items-center"><Hotel className="mr-2 h-5 w-5 text-primary" /> Mes Réservations</CardTitle>
-              <CardDescription>Aperçu de vos réservations actuelles et passées.</CardDescription>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle className="flex items-center"><Hotel className="mr-2 h-5 w-5 text-primary" /> Mes Réservations</CardTitle>
+                  <CardDescription>Aperçu de vos réservations.</CardDescription>
+                </div>
+                <Link href="/client/my-reservations" passHref>
+                  <Button variant="outline">Gérer Toutes Mes Réservations</Button>
+                </Link>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="mb-4">
-                <Input
-                  type="text"
-                  placeholder="Rechercher par ID, établissement, lieu ou date..."
-                  value={reservationFilter}
-                  onChange={(e) => setReservationFilter(e.target.value)}
-                  className="max-w-sm"
-                />
-              </div>
               {isClientDataLoading ? (
-                <Skeleton className="h-60 w-full" />
-              ) : filteredClientReservations.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>ID Rés.</TableHead>
-                        <TableHead>Établissement</TableHead>
-                        <TableHead>Lieu</TableHead>
-                        <TableHead>Arrivée</TableHead>
-                        <TableHead>Départ</TableHead>
-                        <TableHead>Statut</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredClientReservations.map(res => (
-                        <TableRow key={res.id}>
-                          <TableCell className="font-medium text-xs">#{res.id.slice(-6)}</TableCell>
-                          <TableCell>{res.hostName}</TableCell>
-                          <TableCell>{res.locationFullName}</TableCell>
-                          <TableCell>{isValid(parseISO(res.dateArrivee)) ? format(parseISO(res.dateArrivee), 'dd/MM/yy') : 'N/A'}</TableCell>
-                          <TableCell>{res.dateDepart && isValid(parseISO(res.dateDepart)) ? format(parseISO(res.dateDepart), 'dd/MM/yy') : (res.type === 'Table' ? 'N/A' : 'N/A')}</TableCell>
-                          <TableCell><Badge variant={res.status === 'cancelled' ? 'destructive' : 'secondary'} className="capitalize text-xs">{res.status || 'N/A'}</Badge></TableCell>
-                          <TableCell>
-                            <Link href={`/client/reservations/${res.id}`}>
-                              <Button variant="outline" size="sm">Voir Détails</Button>
-                            </Link>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                <Skeleton className="h-20 w-full" />
+              ) : clientReservations.length > 0 ? (
+                <p className="text-muted-foreground">
+                  Vous avez {clientReservations.length} réservation(s). Cliquez sur "Gérer Toutes Mes Réservations" pour voir les détails et filtrer.
+                </p>
               ) : (
                 <p className="text-muted-foreground text-center py-4">
-                  {reservationFilter ? "Aucune réservation ne correspond à votre recherche." : "Vous n'avez aucune réservation."}
+                  Vous n'avez aucune réservation pour le moment.
                 </p>
               )}
             </CardContent>
@@ -310,15 +266,15 @@ export default function SettingsPage() {
                 <Skeleton className="h-40 w-full" />
               ) : clientOrders.length > 0 ? (
                 <ul className="space-y-3 max-h-96 overflow-y-auto">
-                  {clientOrders.map(order => (
+                  {clientOrders.slice(0, 5).map(order => ( // Show up to 5 recent orders
                     <li key={order.id} className="p-3 bg-muted/50 rounded-md text-sm border">
                       <div className="font-semibold">{order.serviceName} à {order.hostName}</div>
                       <div className="text-xs text-muted-foreground">
-                        Lieu: {order.locationName} - Date: {format(parseISO(order.dateHeure), 'Pp', {locale: fr})}
+                        Lieu: {order.locationName} - Date: {isValid(parseISO(order.dateHeure)) ? format(parseISO(order.dateHeure), 'Pp', {locale: fr}) : 'Date invalide'}
                       </div>
                       <div className="flex justify-between items-center mt-1">
                         <Badge variant={order.status === 'completed' ? 'default' : order.status === 'cancelled' ? 'destructive' : 'secondary'} className="capitalize">{order.status}</Badge>
-                        {order.prixTotal && <span className="font-medium text-primary">${order.prixTotal.toFixed(2)}</span>}
+                        {order.prixTotal !== undefined && <span className="font-medium text-primary">${order.prixTotal.toFixed(2)}</span>}
                       </div>
                     </li>
                   ))}
@@ -349,7 +305,7 @@ export default function SettingsPage() {
                         <div className="flex items-center"><DollarSign className="mr-2 h-4 w-4 text-green-500" /> Crédit: <span className="ml-1 font-semibold">${(stay.credit || 0).toFixed(2)}</span></div>
                          <div className="flex items-center text-amber-600"><ListOrdered className="mr-2 h-4 w-4" /> Points Fidélité: <span className="ml-1 font-semibold">{stay.pointsFidelite || 0} pts</span></div>
                         <div className="flex items-center text-blue-500"><ShoppingBag className="mr-2 h-4 w-4" /> Total Dépensé: <span className="ml-1 font-semibold">${(stay.totalSpent || 0).toFixed(2)}</span></div>
-                        <div className="flex items-center font-bold text-red-600"><DollarSign className="mr-2 h-4 w-4" /> Solde Dû: <span className="ml-1">${(stay.netDue || 0).toFixed(2)}</span></div>
+                        <div className={`font-semibold flex items-center ${(stay.netDue || 0) > 0 ? 'text-red-600' : 'text-foreground'}`}><DollarSign className="mr-2 h-4 w-4"/> Solde Dû: <span className="ml-1 font-semibold">${(stay.netDue || 0).toFixed(2)}</span></div>
                       </CardContent>
                     </Card>
                   ))}
@@ -374,3 +330,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+

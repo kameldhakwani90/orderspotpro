@@ -19,8 +19,8 @@ import {
   DropdownMenuRadioItem
 } from '@/components/ui/dropdown-menu';
 import {
-  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon, Settings2, ChevronsUpDown, MessageSquare
-} from 'lucide-react';
+  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon, Settings2, ChevronsUpDown, MessageSquare, ListOrdered
+} from 'lucide-react'; // Added ListOrdered for My Reservations
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -51,12 +51,15 @@ const hostNavItems: NavItem[] = [
       { label: 'Custom Forms', href: '/host/forms', icon: FileText, allowedRoles: ['host'] },
       { label: 'My Services', href: '/host/services', icon: ClipboardList, allowedRoles: ['host'] },
       { label: 'Paramètres & Fidélité', href: '/host/reservation-settings', icon: Settings2, allowedRoles: ['host'] },
-      { label: 'Account Settings', href: '/settings', icon: Settings, allowedRoles: ['host'] }
     ]
   }
 ];
 
-const clientNavItems: NavItem[] = []; // Clients primarily use public pages
+// Client-specific navigation items (will appear as top-level for client role)
+const clientNavItems: NavItem[] = [
+  { label: 'Mes Réservations', href: '/client/my-reservations', icon: ListOrdered, allowedRoles: ['client'] },
+  // Other client-specific links can be added here
+];
 
 
 const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -70,7 +73,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const { toast } = useToast(); // For placeholder chat button
+  const { toast } = useToast(); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>(() => {
@@ -98,7 +101,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             switch (user.role) {
                 case 'admin': return adminNavItems;
                 case 'host': return hostNavItems;
-                case 'client': return clientNavItems;
+                case 'client': return clientNavItems; // Add client items here
                 default: return [];
             }
         };
@@ -110,7 +113,6 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         });
         setOpenMenus(prev => ({...prev, ...newOpenMenus}));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, user]);
 
 
@@ -136,28 +138,38 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   const userInitial = user.nom ? user.nom.charAt(0).toUpperCase() : '?';
   
-  let currentNavItems: NavItem[] = [];
+  let currentNavItemsBasedOnRole: NavItem[] = [];
   switch (user.role) {
       case 'admin':
-          currentNavItems = adminNavItems;
+          currentNavItemsBasedOnRole = adminNavItems;
           break;
       case 'host':
-          currentNavItems = hostNavItems;
+          currentNavItemsBasedOnRole = hostNavItems;
           break;
       case 'client':
-          // Clients usually don't have a complex AppShell like this; they use public pages
-          // If a client lands here by mistake, redirect or show minimal UI
-          // For now, general settings link is added below.
+          currentNavItemsBasedOnRole = clientNavItems;
           break;
   }
 
-  let allNavItemsForUser: NavItem[];
-  if (user.role !== 'host') { 
-    const settingsItem: NavItem = { label: 'Settings', href: '/settings', icon: Settings, allowedRoles: ['admin', 'client'] };
-    allNavItemsForUser = [...currentNavItems, settingsItem];
+  // General settings link for all roles, if not covered by a specific sub-menu
+  const settingsItem: NavItem = { label: 'Mon Compte', href: '/settings', icon: Settings, allowedRoles: ['admin', 'client', 'host'] };
+  // Add settings only if not already present in a submenu (like for host)
+  let allNavItemsForUser: NavItem[] = [...currentNavItemsBasedOnRole];
+  if (user.role !== 'host') {
+      allNavItemsForUser.push(settingsItem);
   } else {
-    allNavItemsForUser = [...currentNavItems];
+      // For hosts, check if settings is already in a submenu
+      const configMenu = hostNavItems.find(item => item.label === 'Configuration');
+      if (configMenu && configMenu.children) {
+          const existingSetting = configMenu.children.find(child => child.href === '/settings');
+          if (!existingSetting) { // If not, add it to the config menu
+              configMenu.children.push({ label: 'Mon Compte', href: '/settings', icon: Settings, allowedRoles: ['host'] });
+          }
+      } else { // If no config menu (should not happen with current setup), add as top level
+          allNavItemsForUser.push(settingsItem);
+      }
   }
+
 
   const toggleMenu = (label: string) => {
     setOpenMenus(prev => ({ ...prev, [label]: !prev[label] }));
@@ -172,16 +184,13 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
     let isActive;
     
-    // Handle dashboard links specifically for exact match
-    const isDashboardLink = item.href === '/admin/dashboard' || item.href === '/host/dashboard';
+    const isDashboardLink = item.href === '/admin/dashboard' || item.href === '/host/dashboard' || item.href === '/client/my-reservations';
 
     if (isDashboardLink) {
         isActive = pathname === item.href;
     } else if (hasChildren) {
         isActive = isParentActive;
     } else {
-        // For other links, startsWith is usually fine, but ensure it's not too broad
-        // e.g., /settings should not make /settings/profile active if we only want /settings
         isActive = pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/'); 
     }
     
@@ -340,7 +349,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <MessageSquare className="h-5 w-5" />
               </Button>
             )}
-            <span className="text-sm text-muted-foreground hidden md:inline">Role: {user.role}</span>
+            <span className="text-sm text-muted-foreground hidden md:inline">Rôle: {user.role}</span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
@@ -362,12 +371,18 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => router.push('/settings')}>
                   <Settings className="mr-2 h-4 w-4" />
-                  <span>Settings</span>
+                  <span>Mon Compte</span>
                 </DropdownMenuItem>
+                {user.role === 'client' && (
+                   <DropdownMenuItem onClick={() => router.push('/client/my-reservations')}>
+                     <ListOrdered className="mr-2 h-4 w-4" />
+                     <span>Mes Réservations</span>
+                   </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout}>
                   <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
+                  <span>Déconnexion</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
