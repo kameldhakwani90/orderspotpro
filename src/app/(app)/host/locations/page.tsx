@@ -1,10 +1,17 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getRoomsOrTables, addRoomOrTable, updateRoomOrTable as updateLocationInData, deleteRoomOrTable as deleteLocationInData, getSites, getTags as fetchHostTags } from '@/lib/data';
+import { 
+  getRoomsOrTables, 
+  addRoomOrTable, 
+  updateRoomOrTable as updateLocationInData, 
+  deleteRoomOrTable as deleteLocationInData, 
+  getSites as fetchGlobalSitesForHost, // Renamed for clarity
+  getTags as fetchHostTags 
+} from '@/lib/data';
 import type { RoomOrTable, Site as GlobalSiteType, Tag } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,9 +19,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Edit2, Trash2, QrCode, Copy, Landmark, Bed, Utensils, Building, Users, Tag as TagIconLucide, FileImage, Info, CopyPlus, DollarSign } from 'lucide-react';
+import { 
+  PlusCircle, Edit2, Trash2, QrCode, Copy, Landmark, Bed, Utensils, Building, Users, 
+  Tag as TagIconLucide, FileImage, Info, CopyPlus, DollarSign, ChevronRight, ChevronDown, FolderPlus
+} from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -35,7 +44,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import NextImage from 'next/image';
 import { PREDEFINED_AMENITIES, AmenityCategory } from '@/lib/amenities';
-
+import { cn } from '@/lib/utils';
 
 type AssignableParentOption = {
   id: string;
@@ -45,24 +54,81 @@ type AssignableParentOption = {
   actualParentLocationId?: string;
 };
 
+interface TreeNode {
+  id: string;
+  name: string;
+  type: 'GlobalSite' | RoomOrTable['type'];
+  data: GlobalSiteType | RoomOrTable;
+  children: TreeNode[];
+  depth: number;
+}
+
+const buildLocationTree = (globalSites: GlobalSiteType[], locations: RoomOrTable[]): TreeNode[] => {
+  const tree: TreeNode[] = [];
+  const locationsMap = new Map<string, RoomOrTable & { treeChildren?: TreeNode[] }>(
+    locations.map(loc => [loc.id, { ...loc, treeChildren: [] }])
+  );
+
+  const createNode = (item: RoomOrTable, depth: number): TreeNode => {
+    const children: TreeNode[] = [];
+    locations.forEach(childLoc => {
+      if (childLoc.parentLocationId === item.id) {
+        children.push(createNode(childLoc, depth + 1));
+      }
+    });
+    return {
+      id: item.id,
+      name: item.nom,
+      type: item.type,
+      data: item,
+      children: children.sort((a, b) => a.name.localeCompare(b.name)),
+      depth,
+    };
+  };
+
+  globalSites.forEach(gs => {
+    const globalSiteNode: TreeNode = {
+      id: gs.siteId,
+      name: gs.nom,
+      type: 'GlobalSite',
+      data: gs,
+      children: [],
+      depth: 0,
+    };
+    locations.forEach(loc => {
+      if (loc.globalSiteId === gs.siteId && !loc.parentLocationId) {
+        globalSiteNode.children.push(createNode(loc, 1));
+      }
+    });
+    globalSiteNode.children.sort((a, b) => a.name.localeCompare(b.name));
+    tree.push(globalSiteNode);
+  });
+
+  return tree.sort((a, b) => a.name.localeCompare(b.name));
+};
+
 
 export default function HostLocationsPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
-  const [locations, setLocations] = useState<RoomOrTable[]>([]);
+  const [allLocations, setAllLocations] = useState<RoomOrTable[]>([]);
   const [globalSites, setGlobalSites] = useState<GlobalSiteType[]>([]);
   const [hostTags, setHostTags] = useState<Tag[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Partial<RoomOrTable> & {selectedParentIdentifier?: string} | null>(null);
+  
+  const [locationTree, setLocationTree] = useState<TreeNode[]>([]);
+  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+
 
   const [currentLocationData, setCurrentLocationData] = useState<{
     nom: string;
     type: "Chambre" | "Table" | "Site";
-    selectedParentIdentifier: string;
+    selectedParentIdentifier: string; // Can be GlobalSite ID or parent RoomOrTable ID of type 'Site'
     capacity?: number;
     tagIds?: string[];
     description?: string;
@@ -82,7 +148,29 @@ export default function HostLocationsPage() {
     prixParNuit: undefined,
     prixFixeReservation: undefined,
   });
-  const [assignableParentOptions, setAssignableParentOptions] = useState<AssignableParentOption[]>([]);
+  
+  const assignableParentOptions = useMemo((): AssignableParentOption[] => {
+    const options: AssignableParentOption[] = [];
+    globalSites.forEach(gs => {
+      options.push({
+        id: gs.siteId,
+        name: `${gs.nom} (Global Site)`,
+        isGlobalSite: true,
+        actualGlobalSiteId: gs.siteId,
+      });
+    });
+    allLocations.filter(loc => loc.type === 'Site').forEach(locSite => {
+      const parentGlobalSite = globalSites.find(gs => gs.siteId === locSite.globalSiteId);
+      options.push({
+        id: locSite.id,
+        name: `${locSite.nom} (Area in ${parentGlobalSite?.nom || 'Unknown'})`,
+        isGlobalSite: false,
+        actualGlobalSiteId: locSite.globalSiteId,
+        actualParentLocationId: locSite.id,
+      });
+    });
+    return options.sort((a,b) => a.name.localeCompare(b.name));
+  }, [globalSites, allLocations]);
 
 
   const fetchData = useCallback(async (hostId: string) => {
@@ -90,47 +178,24 @@ export default function HostLocationsPage() {
     try {
       const [fetchedLocations, fetchedGlobalSites, fetchedTags] = await Promise.all([
         getRoomsOrTables(hostId),
-        getSites(hostId),
+        fetchGlobalSitesForHost(hostId),
         fetchHostTags(hostId)
       ]);
-      setLocations(fetchedLocations);
+      setAllLocations(fetchedLocations);
       setGlobalSites(fetchedGlobalSites);
       setHostTags(fetchedTags);
+      setLocationTree(buildLocationTree(fetchedGlobalSites, fetchedLocations));
 
-      const parentOpts: AssignableParentOption[] = [];
-      fetchedGlobalSites.forEach(gs => {
-        parentOpts.push({
-          id: gs.siteId,
-          name: `${gs.nom} (Global Site)`,
-          isGlobalSite: true,
-          actualGlobalSiteId: gs.siteId,
-          actualParentLocationId: undefined,
-        });
-      });
-      fetchedLocations.filter(loc => loc.type === 'Site').forEach(locSite => {
-        parentOpts.push({
-          id: locSite.id,
-          name: `${locSite.nom} (Area/Zone in ${fetchedGlobalSites.find(gs => gs.siteId === locSite.globalSiteId)?.nom || 'Unknown'})`,
-          isGlobalSite: false,
-          actualGlobalSiteId: locSite.globalSiteId,
-          actualParentLocationId: locSite.id,
-        });
-      });
-      setAssignableParentOptions(parentOpts);
-
-      if (parentOpts.length > 0 && !currentLocationData.selectedParentIdentifier) {
-        setCurrentLocationData(prev => ({ ...prev, selectedParentIdentifier: parentOpts[0].id }));
-      } else if (parentOpts.length === 0) {
-         setCurrentLocationData(prev => ({ ...prev, selectedParentIdentifier: '' }));
+      if (assignableParentOptions.length > 0 && !currentLocationData.selectedParentIdentifier) {
+        // setCurrentLocationData(prev => ({ ...prev, selectedParentIdentifier: assignableParentOptions[0].id }));
       }
-
     } catch (error) {
       console.error("Failed to load locations data:", error);
       toast({ title: "Error", description: "Failed to load locations data. Please try again.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
-  }, [toast, currentLocationData.selectedParentIdentifier]);
+  }, [toast, assignableParentOptions, currentLocationData.selectedParentIdentifier]); // assignableParentOptions added
 
   useEffect(() => {
     if (!authLoading) {
@@ -145,12 +210,10 @@ export default function HostLocationsPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { name: string, value: string | number }) => {
     let { name, value } = 'target' in e ? e.target : e;
-
     if ((name === 'capacity' || name === 'prixParNuit' || name === 'prixFixeReservation') && typeof value === 'string') {
         value = parseFloat(value);
         if (isNaN(value)) value = undefined;
     }
-
     const currentSetter = editingLocation ? setEditingLocation : setCurrentLocationData;
     currentSetter(prev => ({ ...prev, [name]: value }));
   };
@@ -160,7 +223,7 @@ export default function HostLocationsPage() {
     currentSetter(prev => ({
         ...prev,
         type: value,
-        selectedParentIdentifier: (prev as any).selectedParentIdentifier,
+        // selectedParentIdentifier: (prev as any).selectedParentIdentifier, // Keep existing parent
         capacity: value === 'Site' ? undefined : (prev as any).capacity,
         prixParNuit: value === 'Chambre' ? (prev as any).prixParNuit : undefined,
         prixFixeReservation: value === 'Table' ? (prev as any).prixFixeReservation : undefined,
@@ -198,7 +261,6 @@ export default function HostLocationsPage() {
     });
   };
 
-
   const handleSubmitLocation = async () => {
     if (!user?.hostId) return;
     setIsSubmitting(true);
@@ -206,38 +268,41 @@ export default function HostLocationsPage() {
     const isEditing = !!(editingLocation && editingLocation.id);
     const dataForSubmit = editingLocation || currentLocationData;
 
-    const selectedParentOption = assignableParentOptions.find(opt => opt.id === dataForSubmit.selectedParentIdentifier);
-
-    if (!dataForSubmit.nom || !selectedParentOption) {
+    if (!dataForSubmit.nom || !dataForSubmit.selectedParentIdentifier) {
       toast({ title: "Missing Information", description: "Please provide a name and select what it belongs to.", variant: "destructive" });
       setIsSubmitting(false);
       return;
     }
-    if ((dataForSubmit.type === 'Chambre' || dataForSubmit.type === 'Table') && (dataForSubmit.capacity === undefined || dataForSubmit.capacity <= 0)) {
+     if ((dataForSubmit.type === 'Chambre' || dataForSubmit.type === 'Table') && (dataForSubmit.capacity === undefined || dataForSubmit.capacity <= 0)) {
         toast({ title: "Invalid Capacity", description: "Please provide a valid positive capacity for rooms and tables.", variant: "destructive" });
         setIsSubmitting(false);
         return;
     }
-    if (dataForSubmit.type === 'Chambre' && (dataForSubmit.prixParNuit === undefined || dataForSubmit.prixParNuit < 0)) {
+     if (dataForSubmit.type === 'Chambre' && (dataForSubmit.prixParNuit !== undefined && dataForSubmit.prixParNuit < 0)) {
         toast({ title: "Invalid Price", description: "Price per night for rooms cannot be negative.", variant: "destructive" });
         setIsSubmitting(false);
         return;
     }
-    if (dataForSubmit.type === 'Table' && (dataForSubmit.prixFixeReservation === undefined || dataForSubmit.prixFixeReservation < 0)) {
+    if (dataForSubmit.type === 'Table' && (dataForSubmit.prixFixeReservation !== undefined && dataForSubmit.prixFixeReservation < 0)) {
         toast({ title: "Invalid Price", description: "Fixed reservation price for tables cannot be negative.", variant: "destructive" });
         setIsSubmitting(false);
         return;
     }
 
+    const selectedParentOption = assignableParentOptions.find(opt => opt.id === dataForSubmit.selectedParentIdentifier);
+    if (!selectedParentOption) {
+      toast({ title: "Invalid Parent Selection", description: "The selected parent assignment is not valid.", variant: "destructive" });
+      setIsSubmitting(false);
+      return;
+    }
 
     const imageUrlsArray = dataForSubmit.imageUrlsString?.split(',').map(url => url.trim()).filter(url => url) || [];
-
     const payload: Omit<RoomOrTable, 'id' | 'urlPersonnalise'> = {
       nom: dataForSubmit.nom!,
       type: dataForSubmit.type!,
       hostId: user.hostId,
       globalSiteId: selectedParentOption.actualGlobalSiteId,
-      parentLocationId: undefined,
+      parentLocationId: selectedParentOption.isGlobalSite ? undefined : selectedParentOption.actualParentLocationId,
       capacity: (dataForSubmit.type === 'Chambre' || dataForSubmit.type === 'Table') ? dataForSubmit.capacity : undefined,
       tagIds: dataForSubmit.tagIds || [],
       description: dataForSubmit.description || undefined,
@@ -247,25 +312,11 @@ export default function HostLocationsPage() {
       prixParNuit: dataForSubmit.type === 'Chambre' ? dataForSubmit.prixParNuit : undefined,
       prixFixeReservation: dataForSubmit.type === 'Table' ? dataForSubmit.prixFixeReservation : undefined,
     };
-
-     if (dataForSubmit.type === 'Site') {
-        if (selectedParentOption.isGlobalSite) {
-            payload.parentLocationId = undefined;
-        } else {
-            payload.parentLocationId = selectedParentOption.actualParentLocationId;
-        }
+    
+    if (dataForSubmit.type === 'Site') {
+        payload.parentLocationId = selectedParentOption.isGlobalSite ? undefined : selectedParentOption.id;
     } else { // Chambre or Table
-        // Can be parented by a Global Site (isGlobalSite true) or a 'Site' type location (isGlobalSite false, actualParentLocationId has value)
-        payload.parentLocationId = selectedParentOption.isGlobalSite ? undefined : selectedParentOption.actualParentLocationId;
-        // If parented by a GlobalSite, the parentLocationId becomes undefined.
-        // If parented by an Area/Zone (which is a RoomOrTable of type 'Site'), parentLocationId is its ID.
-        // The selectedParentOption.id refers to either globalSiteId or the 'Site' type RoomOrTable id.
-        // If the selected parent is a global site, actualParentLocationId is undefined.
-        // If the selected parent is an area/zone, actualParentLocationId is that area/zone's ID.
-        // So this logic might need refinement.
-        // Let's simplify: if the selected parent is an area (isGlobalSite=false), its ID is the parentLocationId.
-        // If the selected parent is a global site (isGlobalSite=true), then parentLocationId is undefined.
-        payload.parentLocationId = !selectedParentOption.isGlobalSite ? selectedParentOption.id : undefined;
+        payload.parentLocationId = selectedParentOption.isGlobalSite ? undefined : selectedParentOption.id;
     }
 
 
@@ -284,73 +335,75 @@ export default function HostLocationsPage() {
     }
 
     setIsDialogOpen(false);
-    setCurrentLocationData({ nom: '', type: 'Chambre', selectedParentIdentifier: assignableParentOptions.length > 0 ? assignableParentOptions[0].id : '', capacity: undefined, tagIds: [], description: '', imageUrlsString: '', amenityIds: [], prixParNuit: undefined, prixFixeReservation: undefined });
+    setCurrentLocationData({ nom: '', type: 'Chambre', selectedParentIdentifier: '', capacity: undefined, tagIds: [], description: '', imageUrlsString: '', amenityIds: [], prixParNuit: undefined, prixFixeReservation: undefined });
     setEditingLocation(null);
     setIsSubmitting(false);
   };
 
-  const openAddDialog = (locationToDuplicate?: RoomOrTable) => {
+  const openAddDialog = (parentNode?: TreeNode) => {
     if (assignableParentOptions.length === 0 && globalSites.length === 0) {
         toast({ title: "Cannot Add Location", description: "You must have at least one Global Site assigned by an admin.", variant: "destructive"});
         return;
     }
     setEditingLocation(null);
-    if (locationToDuplicate) {
-        let parentIdentifier = '';
-        // If the location to duplicate had a parentLocationId, find that parent in the assignable options.
-        // Otherwise, its parent was a global site, so use its globalSiteId.
-        if (locationToDuplicate.parentLocationId) {
-            const parentOpt = assignableParentOptions.find(opt => !opt.isGlobalSite && opt.actualParentLocationId === locationToDuplicate.parentLocationId);
-            parentIdentifier = parentOpt ? parentOpt.id : locationToDuplicate.globalSiteId;
-        } else {
-            parentIdentifier = locationToDuplicate.globalSiteId;
-        }
-        setCurrentLocationData({
-            nom: `${locationToDuplicate.nom} - Copy`,
-            type: locationToDuplicate.type,
-            selectedParentIdentifier: parentIdentifier,
-            capacity: locationToDuplicate.capacity,
-            tagIds: [...(locationToDuplicate.tagIds || [])],
-            description: locationToDuplicate.description || '',
-            imageUrlsString: locationToDuplicate.imageUrls?.join(', ') || '',
-            amenityIds: [...(locationToDuplicate.amenityIds || [])],
-            prixParNuit: locationToDuplicate.prixParNuit,
-            prixFixeReservation: locationToDuplicate.prixFixeReservation,
-        });
-    } else {
-        setCurrentLocationData({
-            nom: '',
-            type: 'Chambre',
-            selectedParentIdentifier: assignableParentOptions.length > 0 ? assignableParentOptions[0].id : '',
-            capacity: undefined,
-            tagIds: [],
-            description: '',
-            imageUrlsString: '',
-            amenityIds: [],
-            prixParNuit: undefined,
-            prixFixeReservation: undefined,
-        });
+    let defaultParentIdentifier = assignableParentOptions.length > 0 ? assignableParentOptions[0].id : '';
+    if (parentNode) {
+        defaultParentIdentifier = parentNode.id; // ParentNode ID is either GlobalSite.siteId or RoomOrTable.id (for type Site)
     }
+
+    setCurrentLocationData({
+        nom: '',
+        type: 'Chambre',
+        selectedParentIdentifier: defaultParentIdentifier,
+        capacity: undefined,
+        tagIds: [],
+        description: '',
+        imageUrlsString: '',
+        amenityIds: [],
+        prixParNuit: undefined,
+        prixFixeReservation: undefined,
+    });
     setIsDialogOpen(true);
   };
 
+  const openDuplicateDialog = (locationToDuplicate: RoomOrTable) => {
+     if (assignableParentOptions.length === 0 && globalSites.length === 0) {
+        toast({ title: "Cannot Add Location", description: "You must have at least one Global Site assigned by an admin.", variant: "destructive"});
+        return;
+    }
+    setEditingLocation(null); // It's an add operation, but pre-filled
+    let parentIdentifier = '';
+    if (locationToDuplicate.parentLocationId) {
+        const parentOpt = assignableParentOptions.find(opt => !opt.isGlobalSite && opt.actualParentLocationId === locationToDuplicate.parentLocationId);
+        parentIdentifier = parentOpt ? parentOpt.id : locationToDuplicate.globalSiteId;
+    } else {
+        parentIdentifier = locationToDuplicate.globalSiteId;
+    }
+     setCurrentLocationData({
+        nom: `${locationToDuplicate.nom} - Copy`,
+        type: locationToDuplicate.type,
+        selectedParentIdentifier: parentIdentifier,
+        capacity: locationToDuplicate.capacity,
+        tagIds: [...(locationToDuplicate.tagIds || [])],
+        description: locationToDuplicate.description || '',
+        imageUrlsString: locationToDuplicate.imageUrls?.join(', ') || '',
+        amenityIds: [...(locationToDuplicate.amenityIds || [])],
+        prixParNuit: locationToDuplicate.prixParNuit,
+        prixFixeReservation: locationToDuplicate.prixFixeReservation,
+    });
+    setIsDialogOpen(true);
+  }
+
   const openEditDialog = (locationToEdit: RoomOrTable) => {
     let parentIdentifier = '';
-    // If the location has a parentLocationId, it means it's parented by an Area/Zone.
-    // We use that Area/Zone's ID (which is stored as `actualParentLocationId` in the options)
-    // If not, it's parented by a Global Site, so we use the globalSiteId.
     if (locationToEdit.parentLocationId) {
         const parentOption = assignableParentOptions.find(opt => !opt.isGlobalSite && opt.actualParentLocationId === locationToEdit.parentLocationId);
         parentIdentifier = parentOption ? parentOption.id : locationToEdit.globalSiteId;
     } else {
         parentIdentifier = locationToEdit.globalSiteId;
     }
-
-    setEditingLocation({
-        ...locationToEdit,
-        selectedParentIdentifier: parentIdentifier
-    });
-    setCurrentLocationData({
+    setEditingLocation({ ...locationToEdit, selectedParentIdentifier: parentIdentifier }); // Store original ID and pre-selected parent
+    setCurrentLocationData({ // This state is for form binding
         nom: locationToEdit.nom,
         type: locationToEdit.type,
         selectedParentIdentifier: parentIdentifier,
@@ -382,36 +435,85 @@ export default function HostLocationsPage() {
   };
 
   const copyUrlToClipboard = (url: string) => {
-    if (!url.startsWith('http')) {
+    if (!url.startsWith('http') && typeof window !== 'undefined') {
         url = window.location.origin + url;
     }
     navigator.clipboard.writeText(url);
     toast({ title: "Copied to Clipboard", description: "QR Code URL copied!" });
   };
 
-  const getLocationTypeIcon = (type: RoomOrTable['type']) => {
-    switch (type) {
-      case 'Chambre': return <Bed className="h-5 w-5 text-blue-500" title="Chambre" />;
-      case 'Table': return <Utensils className="h-5 w-5 text-green-500" title="Table" />;
-      case 'Site': return <Landmark className="h-5 w-5 text-purple-500" title="Site Area/Zone" />;
-      default: return <Building className="h-5 w-5 text-gray-500" />;
-    }
+  const toggleNodeExpansion = (nodeId: string) => {
+    setExpandedNodes(prev => ({ ...prev, [nodeId]: !prev[nodeId] }));
   };
 
-  const getParentName = (location: RoomOrTable) => {
-    if (location.parentLocationId) {
-        const parentLoc = locations.find(l => l.id === location.parentLocationId);
-        return parentLoc ? `${parentLoc.nom} (Area/Zone)` : 'Unknown Area';
-    }
-    const globalSite = globalSites.find(gs => gs.siteId === location.globalSiteId);
-    return globalSite ? `${globalSite.nom} (Global Site)` : 'Unknown Global Site';
-  };
+  const renderLocationNode = (node: TreeNode): React.ReactNode => {
+    const isExpanded = !!expandedNodes[node.id];
+    const location = node.data as RoomOrTable; // Assuming RoomOrTable specific fields needed for actions
+    const globalSite = node.data as GlobalSiteType;
 
-  const locationDisplayTags = (location: RoomOrTable) => {
-    return (location.tagIds || [])
-        .map(tagId => hostTags.find(t => t.id === tagId)?.name)
-        .filter(Boolean) as string[];
-  }
+    let IconComponent;
+    let iconColor = "text-muted-foreground";
+    switch (node.type) {
+      case 'GlobalSite': IconComponent = Building; iconColor = "text-purple-600"; break;
+      case 'Site': IconComponent = Landmark; iconColor = "text-blue-600"; break;
+      case 'Chambre': IconComponent = Bed; iconColor = "text-green-600"; break;
+      case 'Table': IconComponent = Utensils; iconColor = "text-orange-600"; break;
+      default: IconComponent = Info;
+    }
+
+    const canExpand = node.type === 'GlobalSite' || node.type === 'Site';
+
+    return (
+      <div key={node.id} className="flex flex-col" style={{ paddingLeft: `${node.depth * 1.5}rem` }}>
+        <div className={cn(
+          "flex items-center justify-between p-2 rounded-md hover:bg-accent",
+          isSubmitting && "opacity-50 pointer-events-none"
+        )}>
+          <div className="flex items-center gap-2 flex-grow cursor-pointer" onClick={canExpand ? () => toggleNodeExpansion(node.id) : undefined}>
+            {canExpand && (
+              isExpanded ? <ChevronDown className="h-5 w-5 text-muted-foreground" /> : <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            )}
+            <IconComponent className={cn("h-5 w-5", iconColor)} />
+            <span className="font-medium text-sm truncate" title={node.name}>{node.name}</span>
+            <Badge variant="outline" className="text-xs capitalize">{node.type === 'GlobalSite' ? 'Global Site' : node.type}</Badge>
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {(node.type === 'GlobalSite' || node.type === 'Site') && (
+              <Button variant="ghost" size="icon" onClick={() => openAddDialog(node)} title={`Add to ${node.name}`} disabled={isSubmitting || (assignableParentOptions.length === 0 && globalSites.length === 0)}>
+                <FolderPlus className="h-4 w-4 text-primary" />
+              </Button>
+            )}
+             {node.type !== 'GlobalSite' && (
+              <>
+                <Button variant="ghost" size="icon" onClick={() => openEditDialog(location)} title="Edit Location" disabled={isSubmitting}>
+                  <Edit2 className="h-4 w-4" />
+                </Button>
+                 <Button variant="ghost" size="icon" onClick={() => openDuplicateDialog(location)} title="Duplicate Location" disabled={isSubmitting}>
+                  <CopyPlus className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => handleDeleteLocationWithConfirmation(location)} title="Delete Location" disabled={isSubmitting}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+                {location.urlPersonnalise && (
+                  <Button variant="ghost" size="icon" title="View QR Code URL" onClick={() => copyUrlToClipboard(location.urlPersonnalise)} disabled={isSubmitting}>
+                    <QrCode className="h-4 w-4" />
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+        {isExpanded && node.children && node.children.length > 0 && (
+          <div className="mt-1 border-l border-dashed border-muted-foreground/30">
+            {node.children.map(childNode => renderLocationNode(childNode))}
+          </div>
+        )}
+         {isExpanded && node.children && node.children.length === 0 && node.type !== 'Chambre' && node.type !== 'Table' && (
+            <p className="pl-6 text-xs text-muted-foreground py-1">No sub-locations added here yet.</p>
+        )}
+      </div>
+    );
+  };
 
 
   if (isLoading || authLoading) {
@@ -421,10 +523,8 @@ export default function HostLocationsPage() {
                 <div> <Skeleton className="h-10 w-72 mb-2" /> <Skeleton className="h-6 w-96" /> </div>
                 <Skeleton className="h-10 w-36" />
             </div>
-            <Card className="shadow-lg">
-                <CardHeader> <Skeleton className="h-8 w-48 mb-2" /> <Skeleton className="h-5 w-64" /> </CardHeader>
-                <CardContent> <div className="space-y-4"> {[...Array(3)].map((_, i) => ( <div key={i} className="grid grid-cols-7 gap-4 items-center"> <Skeleton className="h-6 w-full" /> <Skeleton className="h-6 w-full" /> <Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /> <Skeleton className="h-6 w-full" /> <Skeleton className="h-6 w-full" /> <Skeleton className="h-8 w-full" /> </div> ))} </div> </CardContent>
-            </Card>
+            <Card className="shadow-lg"><CardHeader> <Skeleton className="h-8 w-48 mb-2" /> <Skeleton className="h-5 w-64" /> </CardHeader>
+            <CardContent><Skeleton className="h-64 w-full"/></CardContent></Card>
         </div>
     );
   }
@@ -434,8 +534,7 @@ export default function HostLocationsPage() {
   let dialogParentOptions = assignableParentOptions;
   if (editingLocation && editingLocation.id) {
       dialogParentOptions = assignableParentOptions.filter(opt => {
-        if (opt.isGlobalSite) return true; // Global sites are always valid parents
-        // An Area/Zone cannot be its own parent
+        if (opt.isGlobalSite) return true; 
         return opt.actualParentLocationId !== editingLocation.id;
       });
   }
@@ -461,80 +560,18 @@ export default function HostLocationsPage() {
         </Card>
       )}
 
-
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>My Locations</CardTitle>
-          <CardDescription>List of your registered locations. Current count: {locations.length}</CardDescription>
+          <CardTitle>My Locations Structure</CardTitle>
+          <CardDescription>Hierarchical view of your registered locations.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[60px]">Image</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Capacity</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Tags</TableHead>
-                <TableHead>Belongs To / Parent</TableHead>
-                <TableHead>QR Code URL</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {locations.map((loc) => (
-                <TableRow key={loc.id}>
-                  <TableCell>
-                    {loc.imageUrls && loc.imageUrls.length > 0 && loc.imageUrls[0] ? (
-                      <NextImage
-                        src={loc.imageUrls[0]}
-                        alt={loc.nom}
-                        width={50}
-                        height={50}
-                        className="rounded-md object-cover aspect-square bg-muted"
-                        data-ai-hint={loc.imageAiHint || loc.nom.toLowerCase().split(' ').slice(0,2).join(' ')}
-                      />
-                    ) : (
-                      <div className="w-[50px] h-[50px] bg-muted rounded-md flex items-center justify-center">
-                        <FileImage className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-medium">{loc.nom}</TableCell>
-                  <TableCell> <div className="flex items-center gap-2"> {getLocationTypeIcon(loc.type)} <span>{loc.type}</span> </div> </TableCell>
-                  <TableCell>{loc.capacity ?? 'N/A'}</TableCell>
-                  <TableCell>
-                    {loc.type === 'Chambre' && loc.prixParNuit !== undefined ? `$${loc.prixParNuit.toFixed(2)}/nuit` :
-                     loc.type === 'Table' && loc.prixFixeReservation !== undefined ? `$${loc.prixFixeReservation.toFixed(2)}` : 'N/A'}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                        {locationDisplayTags(loc).map(tagName => <Badge key={tagName} variant="secondary">{tagName}</Badge>)}
-                        {locationDisplayTags(loc).length === 0 && <span className="text-xs text-muted-foreground">No tags</span>}
-                    </div>
-                  </TableCell>
-                  <TableCell>{getParentName(loc)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground truncate max-w-[150px] sm:max-w-xs" title={loc.urlPersonnalise}>{loc.urlPersonnalise}</span>
-                      <Button variant="ghost" size="icon" onClick={() => copyUrlToClipboard(loc.urlPersonnalise)} title="Copy URL" disabled={isSubmitting}> <Copy className="h-4 w-4" /> </Button>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right space-x-1">
-                    <Button variant="ghost" size="icon" onClick={() => openAddDialog(loc)} title="Duplicate Location" disabled={isSubmitting}> <CopyPlus className="h-4 w-4" /> </Button>
-                    <Button variant="outline" size="icon" onClick={() => openEditDialog(loc)} title="Edit Location" disabled={isSubmitting}> <Edit2 className="h-4 w-4" /> </Button>
-                    <Button variant="destructive" size="icon" onClick={() => handleDeleteLocationWithConfirmation(loc)} title="Delete Location" disabled={isSubmitting}> <Trash2 className="h-4 w-4" /> </Button>
-                    <Button variant="outline" size="icon" title="View QR Code" onClick={() => alert(`QR code for: ${window.location.origin}${loc.urlPersonnalise}`)} disabled={isSubmitting}> <QrCode className="h-4 w-4" /> </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-           {locations.length === 0 && <p className="p-4 text-center text-muted-foreground">{globalSites.length > 0 ? 'No locations added yet.' : 'Assign Global Sites first, then add locations.'}</p>}
+        <CardContent className="space-y-1">
+          {locationTree.length === 0 && <p className="p-4 text-center text-muted-foreground">{globalSites.length > 0 ? 'No locations added yet.' : 'Assign Global Sites first, then add locations.'}</p>}
+          {locationTree.map(node => renderLocationNode(node))}
         </CardContent>
       </Card>
 
+      {/* Dialog for Add/Edit Location */}
       <Dialog open={isDialogOpen} onOpenChange={(open) => {if(!isSubmitting) setIsDialogOpen(open)}}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -656,14 +693,13 @@ export default function HostLocationsPage() {
                 ))}
                 </ScrollArea>
             </div>
-
           </div>
           </ScrollArea>
           <DialogFooter className="mt-4 pt-4 border-t">
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
             <Button
                 onClick={handleSubmitLocation}
-                disabled={isSubmitting || (assignableParentOptions.length === 0 && !editingLocation) || !dataForDialog.selectedParentIdentifier || !dataForDialog.nom || (dataForDialog.nom.endsWith(" - Copy")) || ((dataForDialog.type === 'Chambre' || dataForDialog.type === 'Table') && (!dataForDialog.capacity || dataForDialog.capacity <=0))}
+                disabled={isSubmitting || (assignableParentOptions.length === 0 && globalSites.length === 0 && !editingLocation) || !dataForDialog.selectedParentIdentifier || !dataForDialog.nom || (dataForDialog.nom.endsWith(" - Copy")) || ((dataForDialog.type === 'Chambre' || dataForDialog.type === 'Table') && (!dataForDialog.capacity || dataForDialog.capacity <=0))}
             >
                 {editingLocation ? (isSubmitting ? 'Saving...' : 'Save Changes') : (isSubmitting ? 'Creating...' : 'Create Location')}
             </Button>
