@@ -117,7 +117,7 @@ export interface Order {
   hostId: string;
   chambreTableId: string;
   clientNom?: string;
-  userId?: string;
+  userId?: string; // ID of the registered user, if logged in
   donneesFormulaire: string;
   dateHeure: string;
   status: OrderStatus;

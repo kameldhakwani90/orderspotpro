@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import type { NavItem, UserRole } from '@/lib/types';
+import type { NavItem, UserRole, Site } from '@/lib/types'; 
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -15,13 +15,16 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem
 } from '@/components/ui/dropdown-menu';
 import {
-  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, QrCode, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon, Settings2
+  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon, Settings2, ChevronsUpDown
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+// Removed getSites import as managedGlobalSites now comes from AuthContext
 
 const adminNavItems: NavItem[] = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: Home, allowedRoles: ['admin'] },
@@ -52,13 +55,18 @@ const hostNavItems: NavItem[] = [
   }
 ];
 
-const clientNavItems: NavItem[] = [
-    // Client dashboard/landing page is typically specific, handled by /dashboard redirect
-];
+const clientNavItems: NavItem[] = [];
 
 
 const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, logout, isLoading } = useAuth();
+  const { 
+    user, 
+    logout, 
+    isLoading, 
+    managedGlobalSites, 
+    selectedGlobalSite, 
+    setSelectedGlobalSite 
+  } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -98,7 +106,6 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             newOpenMenus[item.label] = true;
           }
         });
-        
         setOpenMenus(prev => ({...prev, ...newOpenMenus}));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -113,7 +120,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
         </div>
         <div className="flex-1 p-6">
-          <Skeleton className="h-12 w-full mb-4" />
+          <Skeleton className="h-16 w-full mb-4" /> {/* Increased header skeleton height */}
           <Skeleton className="h-64 w-full" />
         </div>
       </div>
@@ -147,7 +154,6 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   } else {
     allNavItemsForUser = [...currentNavItems];
   }
-
 
   const toggleMenu = (label: string) => {
     setOpenMenus(prev => ({ ...prev, [label]: !prev[label] }));
@@ -192,7 +198,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </button>
           {isMenuOpen && (
             <div className="pl-4 mt-1 space-y-1">
-              {item.children?.map(child => <NavLink key={child.href} item={child} isSubItem={true} />)}
+              {item.children?.map(child => <NavLink key={child.href + child.label} item={child} isSubItem={true} />)}
             </div>
           )}
         </>
@@ -216,6 +222,64 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </a>
       </Link>
     );
+  };
+
+  const SiteSwitcher = () => {
+    // Ensure setSelectedGlobalSite is defined before trying to use it
+    if (!setSelectedGlobalSite) {
+        console.warn("setSelectedGlobalSite is not available from AuthContext yet.");
+        return null;
+    }
+
+    if (user.role !== 'host') {
+      return null;
+    }
+    if (managedGlobalSites.length === 0) {
+      return <span className="text-sm text-muted-foreground hidden md:inline">No establishments assigned</span>;
+    }
+    if (managedGlobalSites.length === 1 && selectedGlobalSite) {
+      return (
+        <div className="text-sm font-medium text-foreground truncate max-w-[200px] flex items-center gap-2">
+          <Building2 className="h-4 w-4 text-primary"/>
+          {selectedGlobalSite.nom}
+        </div>
+      );
+    }
+    if (managedGlobalSites.length > 1) {
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="flex items-center gap-2 min-w-[180px] max-w-[280px] justify-between h-10 px-3">
+              <Building2 className="h-4 w-4 text-primary flex-shrink-0"/>
+              <span className="truncate flex-grow text-left">
+                {selectedGlobalSite?.nom || "Select Establishment"}
+              </span>
+              <ChevronsUpDown className="h-4 w-4 opacity-50 flex-shrink-0" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-[calc(var(--radix-dropdown-menu-trigger-width))] max-w-xs">
+            <DropdownMenuLabel>Switch Establishment</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuRadioGroup 
+              value={selectedGlobalSite?.siteId || ""} 
+              onValueChange={(value) => {
+                const site = managedGlobalSites.find(s => s.siteId === value);
+                setSelectedGlobalSite(site || null);
+                // Potentially trigger a route change or data refresh here if needed immediately
+                // For now, context update will be picked up by pages
+              }}
+            >
+              {managedGlobalSites.map((site) => (
+                <DropdownMenuRadioItem key={site.siteId} value={site.siteId} className="truncate">
+                  {site.nom}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    }
+    return null; // Default case
   };
 
 
@@ -256,9 +320,12 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
       <div className="flex flex-col flex-1 overflow-hidden">
         <header className="flex items-center justify-between h-16 border-b bg-card px-4 md:px-6">
-          <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
-            <Menu />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+              <Menu />
+            </Button>
+            <SiteSwitcher />
+          </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground hidden md:inline">Role: {user.role}</span>
             <DropdownMenu>
