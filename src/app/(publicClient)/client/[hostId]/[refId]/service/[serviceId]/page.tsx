@@ -58,17 +58,19 @@ function PublicClientOrderServicePageContent() {
         setError(null);
         setOrderSuccess(false);
         try {
-          const [itemData, hostData, locationData] = await Promise.all([
-            getServiceById(itemId),
+          const [itemDataResult, hostData, locationData] = await Promise.all([
+            getServiceById(itemId), // This now fetches Service or MenuItem
             getHostById(hostId),
             getRoomOrTableById(refId),
           ]);
+          
+          const itemData = itemDataResult as Service | MenuItem | null; // Ensure type for clarity
 
-          if (!itemData) { setError(t('serviceNotFound')); setIsLoadingPage(false); return; }
-          // @ts-ignore // hostId might not exist on MenuItem directly, but services have it.
-          if (itemData.hostId && itemData.hostId !== hostId) { setError("Item not available for this establishment."); setIsLoadingPage(false); return; }
-          if (!hostData) { setError(t('establishmentNotFound')); setIsLoadingPage(false); return; }
-          if (!locationData || locationData.hostId !== hostId || locationData.id !== refId) { setError(t('locationNotFound')); setIsLoadingPage(false); return; }
+          if (!itemData) { setError(t('serviceNotFound')); setItemDetail(null); setIsLoadingPage(false); return; }
+          // @ts-ignore 
+          if (itemData.hostId && itemData.hostId !== hostId) { setError("Item not available for this establishment."); setItemDetail(null); setIsLoadingPage(false); return; }
+          if (!hostData) { setError(t('establishmentNotFound')); setHostInfo(null); setIsLoadingPage(false); return; }
+          if (!locationData || locationData.hostId !== hostId || locationData.id !== refId) { setError(t('locationNotFound')); setLocationInfo(null); setIsLoadingPage(false); return; }
 
           setItemDetail(itemData);
           setHostInfo(hostData);
@@ -85,20 +87,22 @@ function PublicClientOrderServicePageContent() {
             }
           } else if ('isConfigurable' in itemData && itemData.isConfigurable && itemData.optionGroups) {
             setCustomForm(null); setFormFields([]);
-            setCurrentTotalPrice(itemData.price);
+            setCurrentTotalPrice(itemData.price); // Base price
             const initialSelections: Record<string, string | string[]> = {};
             itemData.optionGroups.forEach(group => {
                 if (group.isRequired && group.selectionType === 'single' && group.options.length > 0) {
+                    // Find a default or the first option
                     const defaultOpt = group.options.find(opt => (opt as any).isDefault) || group.options[0];
-                    initialSelections[group.id] = defaultOpt.id;
+                    if (defaultOpt) initialSelections[group.id] = defaultOpt.id;
                 } else if (group.isRequired && group.selectionType === 'multiple' && group.options.length > 0) {
                      const defaultOpt = group.options.find(opt => (opt as any).isDefault) || group.options[0];
-                     initialSelections[group.id] = [defaultOpt.id];
+                     if (defaultOpt) initialSelections[group.id] = [defaultOpt.id];
                 }
             });
             setSelectedOptions(initialSelections);
           } else {
             setCustomForm(null); setFormFields([]);
+            // @ts-ignore
             setCurrentTotalPrice('price' in itemData ? itemData.price : (itemData as Service)?.prix || 0);
           }
         } catch (e: any) {
@@ -124,7 +128,7 @@ function PublicClientOrderServicePageContent() {
               const option = group.options.find(opt => opt.id === optionId);
               if (option && option.priceAdjustment) newTotal += option.priceAdjustment;
             });
-          } else {
+          } else { // single selection
             const option = group.options.find(opt => opt.id === selection);
             if (option && option.priceAdjustment) newTotal += option.priceAdjustment;
           }
@@ -132,6 +136,7 @@ function PublicClientOrderServicePageContent() {
       });
       setCurrentTotalPrice(newTotal);
     } else if (itemDetail) {
+        // @ts-ignore
        setCurrentTotalPrice('price' in itemDetail ? itemDetail.price : (itemDetail as Service)?.prix || 0);
     }
   }, [selectedOptions, itemDetail]);
@@ -141,7 +146,7 @@ function PublicClientOrderServicePageContent() {
       const newSelections = { ...prev };
       if (selectionType === 'single') {
         newSelections[groupId] = optionId;
-      } else {
+      } else { // multiple
         const currentGroupSelection = (newSelections[groupId] as string[] || []);
         if (currentGroupSelection.includes(optionId)) {
           newSelections[groupId] = currentGroupSelection.filter(id => id !== optionId);
@@ -154,10 +159,10 @@ function PublicClientOrderServicePageContent() {
   };
 
   const handleServiceOrderWithFormSubmit = async (formData: Record<string, any>) => {
-    if (!itemDetail || !hostId || !refId || !('formulaireId' in itemDetail) ) return;
-    // @ts-ignore
+    if (!itemDetail || !hostId || !refId || !('formulaireId' in itemDetail) ) return; // Ensure itemDetail is a Service
     if (itemDetail.loginRequired && !user) {
       toast({ title: t('loginRequired'), description: t('loginToOrder'), variant: "destructive"});
+      router.push(`/login?redirect_url=${encodeURIComponent(pathname)}`);
       return;
     }
     setIsSubmitting(true);
@@ -169,7 +174,7 @@ function PublicClientOrderServicePageContent() {
         clientNom: user?.nom,
         userId: user?.id,
         donneesFormulaire: JSON.stringify(formData),
-        prixTotal: (itemDetail as Service).prix
+        prixTotal: (itemDetail as Service).prix // Explicitly use Service type
       });
       setOrderSuccess(true);
       toast({ title: t('orderSuccessTitle'), description: t('orderSuccessDescription', { serviceName: (itemDetail as Service).titre }) });
@@ -181,9 +186,9 @@ function PublicClientOrderServicePageContent() {
 
   const handleConfigurableItemAddToCart = () => {
     if (!itemDetail || !('isConfigurable' in itemDetail) || !itemDetail.isConfigurable) return;
-    // @ts-ignore
     if (itemDetail.loginRequired && !user) {
       toast({ title: t('loginRequired'), description: t('loginToOrder'), variant: "destructive"});
+      router.push(`/login?redirect_url=${encodeURIComponent(pathname)}`);
       return;
     }
     if (itemDetail.optionGroups) {
@@ -205,9 +210,11 @@ function PublicClientOrderServicePageContent() {
     // @ts-ignore
      if (itemDetail.loginRequired && !user) {
       toast({ title: t('loginRequired'), description: t('loginToOrder'), variant: "destructive"});
+      router.push(`/login?redirect_url=${encodeURIComponent(pathname)}`);
       return;
     }
     addToCart(itemDetail as MenuItem | Service, undefined, currentTotalPrice); 
+    // @ts-ignore
     toast({ title: `${'name' in itemDetail ? itemDetail.name : (itemDetail as Service).titre} ${t('addToCart')} !`, description: t('orderSuccessDescription', { serviceName: ('name' in itemDetail ? itemDetail.name : (itemDetail as Service).titre) }) });
     router.push(`/client/${hostId}/${refId}`);
   };
@@ -240,6 +247,7 @@ function PublicClientOrderServicePageContent() {
       <div className="text-center py-16 bg-card p-8 rounded-xl shadow-xl max-w-md mx-auto">
         <CheckCircle className="mx-auto h-20 w-20 text-green-500 mb-6" />
         <h1 className="text-3xl font-bold text-foreground mb-3">{t('orderSuccessTitle')}</h1>
+        {/* @ts-ignore */}
         <p className="text-lg text-muted-foreground mb-6">
           {t('orderSuccessDescription', { serviceName: itemDetail ? ('titre' in itemDetail ? itemDetail.titre : itemDetail.name) : 'service' })}
         </p>
@@ -249,7 +257,7 @@ function PublicClientOrderServicePageContent() {
       </div>
     );
   }
-
+  
   if (!itemDetail || !hostInfo || !locationInfo) {
     return (
       <div className="text-center py-10 bg-card p-8 rounded-xl shadow-xl max-w-md mx-auto">
@@ -264,11 +272,14 @@ function PublicClientOrderServicePageContent() {
   const itemName = 'titre' in itemDetail ? itemDetail.titre : itemDetail.name;
   const itemDescription = itemDetail.description;
   const itemImage = 'image' in itemDetail ? itemDetail.image : itemDetail.imageUrl;
+  // @ts-ignore
   const itemImageAiHint = 'data-ai-hint' in itemDetail ? itemDetail['data-ai-hint'] : ('imageAiHint' in itemDetail ? itemDetail.imageAiHint : undefined);
   const itemIsConfigurable = 'isConfigurable' in itemDetail ? itemDetail.isConfigurable : false;
+  // @ts-ignore
   const optionGroups = 'optionGroups' in itemDetail ? itemDetail.optionGroups : [];
   // @ts-ignore
   const itemIsLoginRequired = itemDetail.loginRequired;
+  // @ts-ignore
   const itemStock = 'stock' in itemDetail ? itemDetail.stock : undefined;
   const isItemOutOfStock = itemStock === 0;
 
@@ -284,7 +295,7 @@ function PublicClientOrderServicePageContent() {
         <Link href={`/login?redirect_url=${encodeURIComponent(pathname)}`}>
           <Button size="lg" className="w-full bg-primary hover:bg-primary/90">
             <LogIn className="mr-2 h-5 w-5" />
-            {t('loginToContinue')}
+            <span>{t('loginToContinue')}</span>
           </Button>
         </Link>
          <Button variant="outline" onClick={() => router.back()} className="mt-4 w-full">
@@ -376,14 +387,16 @@ function PublicClientOrderServicePageContent() {
                 onSubmit={handleServiceOrderWithFormSubmit}
               />
               <Button onClick={() => formRef.current?.submit()} disabled={isSubmitting || isItemOutOfStock} size="lg" className="mt-6 w-full max-w-xs mx-auto block bg-primary hover:bg-primary/90">
-                {isSubmitting ? t('submitting') : t('orderFor', { price: `${(itemDetail?.currency || hostInfo?.currency || '$')}${currentTotalPrice.toFixed(2)}`})}
+                <ShoppingCart className="mr-2 h-5 w-5"/>
+                <span>{isSubmitting ? t('submitting') : t('orderFor', { price: `${(itemDetail?.currency || hostInfo?.currency || '$')}${currentTotalPrice.toFixed(2)}`})}</span>
               </Button>
             </>
           )}
 
           {itemIsConfigurable && (
             <Button onClick={handleConfigurableItemAddToCart} disabled={isSubmitting || isItemOutOfStock} size="lg" className="w-full max-w-xs mx-auto block bg-primary hover:bg-primary/90">
-              <ShoppingCart className="mr-2 h-5 w-5"/> {isSubmitting ? t('submitting') : t('addToCart')}
+              <ShoppingCart className="mr-2 h-5 w-5"/>
+              <span>{isSubmitting ? t('submitting') : t('addToCart')}</span>
             </Button>
           )}
           
@@ -391,7 +404,8 @@ function PublicClientOrderServicePageContent() {
              <div className="text-center p-4 bg-secondary/50 rounded-lg mt-6">
               <p className="text-muted-foreground mb-4">Cet article sera ajouté directement au panier.</p>
               <Button onClick={handleSimpleItemAddToCart} disabled={isSubmitting || isItemOutOfStock} size="lg" className="w-full max-w-xs mx-auto bg-primary hover:bg-primary/90">
-                <ShoppingCart className="mr-2 h-5 w-5"/> {isSubmitting ? t('submitting') : t('addToCart')}
+                <ShoppingCart className="mr-2 h-5 w-5"/>
+                <span>{isSubmitting ? t('submitting') : t('addToCart')}</span>
               </Button>
             </div>
           )}
@@ -399,7 +413,7 @@ function PublicClientOrderServicePageContent() {
         </CardContent>
       </Card>
       <Button variant="outline" onClick={() => router.back()} className="mt-8 w-full max-w-lg mx-auto block text-base py-3 h-auto">
-        {t('cancelAndBackToServices')}
+        <span>{t('cancelAndBackToServices')}</span>
       </Button>
     </div>
   );
@@ -422,4 +436,5 @@ export default function PublicClientOrderServicePage() {
   );
 }
 
+    
     
