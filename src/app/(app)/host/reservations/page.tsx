@@ -5,7 +5,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { 
-  Calendar as CalendarIconLucide, 
+  CalendarDays as CalendarIconLucide, 
   BedDouble, 
   PlusCircle, 
   Users as UsersIcon, 
@@ -17,7 +17,8 @@ import {
   ChevronRight,
   Filter as FilterIcon,
   Utensils as UtensilsIcon,
-  FileCheck // Nouvelle icône
+  Copy, // Added for copy link button
+  FileCheck 
 } from 'lucide-react';
 import { 
   format, 
@@ -82,12 +83,12 @@ const DAYS_TO_DISPLAY = 7;
 
 const getStatusColorClass = (status?: ReservationStatus): string => {
   switch (status) {
-    case 'pending': return 'bg-yellow-400 hover:bg-yellow-500 border-yellow-600 text-yellow-800';
-    case 'confirmed': return 'bg-blue-400 hover:bg-blue-500 border-blue-600 text-white';
-    case 'checked-in': return 'bg-green-400 hover:bg-green-500 border-green-600 text-white';
-    case 'checked-out': return 'bg-gray-400 hover:bg-gray-500 border-gray-600 text-white';
-    case 'cancelled': return 'bg-red-400 hover:bg-red-500 border-red-600 text-white';
-    default: return 'bg-slate-300 hover:bg-slate-400 border-slate-500 text-slate-700';
+    case 'pending': return 'bg-yellow-400 hover:bg-yellow-500 border-yellow-500 text-yellow-900';
+    case 'confirmed': return 'bg-blue-400 hover:bg-blue-500 border-blue-500 text-white';
+    case 'checked-in': return 'bg-green-400 hover:bg-green-500 border-green-500 text-white';
+    case 'checked-out': return 'bg-gray-500 hover:bg-gray-600 border-gray-600 text-white';
+    case 'cancelled': return 'bg-red-400 hover:bg-red-500 border-red-500 text-white';
+    default: return 'bg-slate-300 hover:bg-slate-400 border-slate-400 text-slate-700';
   }
 };
 
@@ -108,7 +109,7 @@ export default function HostReservationsPage() {
   const [currentView, setCurrentView] = useState<'Chambre' | 'Table'>('Chambre');
 
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const [isDialogLoading, setIsDialogLoading] = useState(false);
   
   const [isAddOrEditDialogOpen, setIsAddOrEditDialogOpen] = useState(false);
@@ -127,12 +128,12 @@ export default function HostReservationsPage() {
   const [filterStatus, setFilterStatus] = useState<ReservationStatus | "all">("all");
 
   const fetchInitialData = useCallback(async (hostId: string) => {
-    setIsLoading(true);
+    setIsLoadingData(true);
     try {
       const [allLocationsData, clientsData, reservationsData] = await Promise.all([
         getRoomsOrTables(hostId),
         getClients(hostId),
-        fetchReservations(hostId)
+        fetchReservations(hostId) 
       ]);
 
       const filteredLocations = allLocationsData
@@ -149,7 +150,7 @@ export default function HostReservationsPage() {
       console.error("Failed to load initial page data:", error);
       toast({ title: "Error loading page data", description: "Could not load locations, clients, or reservations.", variant: "destructive" });
     } finally {
-      setIsLoading(false);
+      setIsLoadingData(false);
     }
   }, [toast]);
 
@@ -182,7 +183,7 @@ export default function HostReservationsPage() {
         return reservableLocations.find(loc => loc.id === selectedLocationForDialog)?.type;
       }
     }
-    return currentView; // Fallback to the active timeline view type
+    return currentView; 
   }, [editingReservation, selectedLocationForDialog, reservableLocations, currentView, isAddOrEditDialogOpen]);
   
 
@@ -197,18 +198,21 @@ export default function HostReservationsPage() {
     }
     
     const checkIn = startOfDay(arrivalDateForDialog);
-    const checkOut = currentSelectedLocationType === 'Table' 
-      ? startOfDay(addDays(arrivalDateForDialog,1)) 
-      : (departureDateForDialog ? startOfDay(departureDateForDialog) : null);
+    let checkOut;
 
-    if (!checkOut) { 
-         setAvailableLocationsForDialog(
-           reservableLocations.filter(loc => 
-             loc.type === currentSelectedLocationType && 
-             (!currentReservationData.nombrePersonnes || (loc.capacity && loc.capacity >= currentReservationData.nombrePersonnes))
-           )
-         );
-         return;
+    if (currentSelectedLocationType === 'Table') {
+      checkOut = startOfDay(addDays(arrivalDateForDialog, 1)); // Table bookings are for the whole day
+    } else if (departureDateForDialog) {
+      checkOut = startOfDay(departureDateForDialog);
+    } else {
+      // Fallback if departure date is somehow not set for a room
+      setAvailableLocationsForDialog(
+        reservableLocations.filter(loc => 
+          loc.type === currentSelectedLocationType && 
+          (!currentReservationData.nombrePersonnes || (loc.capacity && loc.capacity >= currentReservationData.nombrePersonnes))
+        )
+      );
+      return;
     }
 
     const available = reservableLocations.filter(loc => {
@@ -245,11 +249,11 @@ export default function HostReservationsPage() {
 
   }, [arrivalDateForDialog, departureDateForDialog, currentReservationData.nombrePersonnes, reservableLocations, allReservations, editingReservation, selectedLocationForDialog, currentSelectedLocationType]);
 
-  useEffect(() => {
+   useEffect(() => {
     if (isAddOrEditDialogOpen && arrivalDateForDialog && currentSelectedLocationType === 'Table') {
       if (!departureDateForDialog || !isSameDay(arrivalDateForDialog, departureDateForDialog)) {
-         // For table, departure date is not displayed but internally needs to be consistent for calculation.
-         // Effectively, booking is for the arrivalDate.
+         // For table, departure date is effectively the same as arrival for dialog logic, but stored differently.
+         // It might be better to hide departureDateForDialog entirely for tables.
       }
     }
   }, [arrivalDateForDialog, isAddOrEditDialogOpen, currentSelectedLocationType, departureDateForDialog]);
@@ -357,8 +361,9 @@ export default function HostReservationsPage() {
     setCurrentReservationData(prev => ({ ...prev, locationId: value }));
     const newLocType = reservableLocations.find(loc => loc.id === value)?.type;
     if (newLocType === 'Table' && arrivalDateForDialog) {
-      if (!departureDateForDialog || !isSameDay(arrivalDateForDialog, departureDateForDialog)) {
-        // setDepartureDateForDialog(arrivalDateForDialog); // Not strictly needed if UI hides it
+       if (!departureDateForDialog || !isSameDay(arrivalDateForDialog, departureDateForDialog)) {
+        // For tables, departure date isn't displayed in form, but internally it's set for consistency
+        setDepartureDateForDialog(arrivalDateForDialog); 
       }
     } else if (newLocType === 'Chambre' && arrivalDateForDialog && !departureDateForDialog) {
         setDepartureDateForDialog(addDays(arrivalDateForDialog, 1));
@@ -385,8 +390,8 @@ export default function HostReservationsPage() {
             return;
         }
         effectiveDepartureDateStr = format(departureDateForDialog, 'yyyy-MM-dd');
-    } else { // For 'Table'
-        effectiveDepartureDateStr = undefined; // No departure date for tables in DB
+    } else { 
+        effectiveDepartureDateStr = undefined; 
     }
 
 
@@ -427,7 +432,7 @@ export default function HostReservationsPage() {
     });
 
     if (conflictingReservation) {
-        toast({ title: "Double Booking Alert", description: `This ${selectedLocationDetails.type.toLowerCase()} is already booked for some of the selected dates (Reservation for: ${conflictingReservation.clientName}). Please adjust dates.`, variant: "destructive", duration: 7000 });
+        toast({ title: "Double Booking Alert", description: `This ${selectedLocationDetails.type.toLowerCase()} is already booked. Please adjust dates.`, variant: "destructive", duration: 7000 });
         return;
     }
 
@@ -444,7 +449,7 @@ export default function HostReservationsPage() {
         animauxDomestiques: selectedLocationDetails.type === 'Chambre' ? (currentReservationData.animauxDomestiques || false) : undefined,
         notes: currentReservationData.notes || '',
         status: currentReservationData.status || 'pending',
-        channel: currentReservationData.channel, // Keep existing channel if editing, undefined for new
+        channel: currentReservationData.channel, 
     };
 
     try {
@@ -452,7 +457,7 @@ export default function HostReservationsPage() {
         await updateReservationInData(editingReservation.id, reservationPayload);
         toast({ title: "Reservation Updated" });
       } else {
-        await addReservationToData(reservationPayload as Omit<Reservation, 'id' | 'onlineCheckinData' | 'onlineCheckinStatus'>); // Cast might be needed if type is strict
+        await addReservationToData(reservationPayload as Omit<Reservation, 'id' | 'onlineCheckinData' | 'onlineCheckinStatus'>);
         toast({ title: "Reservation Created" });
       }
       if(user.hostId) fetchInitialData(user.hostId); 
@@ -499,28 +504,41 @@ export default function HostReservationsPage() {
     return null;
   };
 
-  const handleReviewOnlineCheckin = async (reservationId: string) => {
+ const handleReviewOnlineCheckin = async (reservationId: string) => {
     if (!user?.hostId) return;
     setIsDialogLoading(true);
     try {
-      await updateReservationInData(reservationId, { onlineCheckinStatus: 'completed' });
-      toast({ title: "Online Check-in Reviewed", description: "The online check-in has been marked as completed." });
+      // Update online check-in status and main reservation status
+      await updateReservationInData(reservationId, { 
+        onlineCheckinStatus: 'completed',
+        status: 'checked-in' 
+      });
+      toast({ title: "Online Check-in Processed", description: "Guest is now checked-in and online check-in marked as complete." });
       fetchInitialData(user.hostId); // Refresh to update UI
-      // Keep dialog open for now, or close it:
+      // Keep dialog open to see the updated status, or close:
       // setIsAddOrEditDialogOpen(false); 
     } catch (error) {
-      console.error("Failed to update online check-in status:", error);
-      toast({ title: "Error", description: "Could not update online check-in status.", variant: "destructive" });
+      console.error("Failed to update online check-in and reservation status:", error);
+      toast({ title: "Error", description: "Could not update statuses.", variant: "destructive" });
     } finally {
       setIsDialogLoading(false);
     }
   };
 
+  const copyOnlineCheckinLink = (reservationId: string) => {
+    if (typeof window !== 'undefined') {
+      const link = `${window.location.origin}/checkin/${reservationId}`;
+      navigator.clipboard.writeText(link)
+        .then(() => toast({ title: "Link Copied!", description: "Online check-in link copied to clipboard." }))
+        .catch(err => toast({ title: "Copy Failed", description: "Could not copy link.", variant: "destructive" }));
+    }
+  };
 
-  if (authLoading || isLoading) {
+
+  if (authLoading || isLoadingData) {
     return (
       <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8 space-y-6">
-        <div className="flex justify-between items-center mb-4"><Skeleton className="h-10 w-1/3" /><Skeleton className="h-10 w-32" /></div>
+        <div className="flex justify-between items-center mb-4"><Skeleton className="h-10 w-1/3" /><div className="flex gap-2"><Skeleton className="h-10 w-24" /><Skeleton className="h-10 w-32" /></div></div>
         <Skeleton className="h-24 w-full mb-4" />
         <Skeleton className="h-[500px] w-full" />
       </div>
@@ -543,7 +561,7 @@ export default function HostReservationsPage() {
               )}
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
-              <Button 
+               <Button 
                 variant={currentView === 'Chambre' ? "default" : "outline"} 
                 onClick={() => setCurrentView('Chambre')}
                 size="sm"
@@ -612,7 +630,7 @@ export default function HostReservationsPage() {
             <div className="grid min-w-[1200px]" 
                  style={{ gridTemplateColumns: `minmax(200px, 1.5fr) repeat(${DAYS_TO_DISPLAY}, minmax(130px, 1fr))` }}>
                 <div className="p-2 border-r border-b border-border font-semibold bg-muted sticky left-0 z-20 text-sm flex items-center">
-                    <FilterIcon className="h-4 w-4 mr-2 text-primary"/> {currentView}
+                    <FilterIcon className="h-4 w-4 mr-2 text-primary"/> {currentView} ({locationsForTimeline.length})
                 </div>
                 {timelineDays.map(day => (
                   <div key={day.toISOString()} className="p-2 text-center border-r border-b border-border bg-muted">
@@ -631,6 +649,7 @@ export default function HostReservationsPage() {
                       </div>
                       {timelineDays.map((day) => {
                         const dayStart = startOfDay(day);
+                        // Find reservations that START on this cell
                         const reservationsStartingThisCell = filteredReservationsForTimeline.filter(res => 
                             res.locationId === location.id &&
                             isValid(parseISO(res.dateArrivee)) &&
@@ -664,8 +683,8 @@ export default function HostReservationsPage() {
                                     resDepartureEffective = location.type === 'Chambre' && res.dateDepart ? startOfDay(parseISO(res.dateDepart)) : startOfDay(addDays(resArrival, 1));
                                 } catch (e) { console.error("Date parsing error for res block:", e, res); return null; }
                                 
-                                const visibleStart = max([resArrival, startOfDay(timelineDays[0])]);
-                                let displayDuration = differenceInDays(resDepartureEffective, visibleStart);
+                                let displayDuration = differenceInDays(resDepartureEffective, resArrival);
+                                if (location.type === 'Table') displayDuration = 1; // Tables always span 1 day visually
                                 if (displayDuration <=0) displayDuration = 1; 
                                 
                                 const startIndexInTimeline = timelineDays.findIndex(d => isSameDay(d, resArrival));
@@ -682,7 +701,7 @@ export default function HostReservationsPage() {
                                 return (
                                     <div
                                         key={res.id}
-                                        className={cn(`m-0.5 p-1.5 rounded text-[10px] shadow-md overflow-hidden cursor-grab border`, getStatusColorClass(res.status))}
+                                        className={cn(`m-0.5 p-1.5 rounded text-[10px] shadow-md overflow-hidden cursor-grab border leading-tight`, getStatusColorClass(res.status))}
                                         style={{ 
                                             width: `calc(${displayDuration * 100}% - ${displayDuration > 1 ? (displayDuration-1)*2 : 0}px)`, 
                                             position: 'absolute', 
@@ -692,7 +711,7 @@ export default function HostReservationsPage() {
                                         onClick={(e) => { e.stopPropagation(); openEditReservationDialog(res); }}
                                         title={`${res.clientName}\nStatut: ${res.status}\n${format(resArrival, 'PP', {locale:fr})} ${location.type === 'Chambre' && res.dateDepart ? `- ${format(parseISO(res.dateDepart), 'PP', {locale:fr})}` : ''}`}
                                     >
-                                        <p className="font-semibold truncate leading-tight flex items-center">
+                                        <p className="font-semibold truncate flex items-center">
                                           {res.onlineCheckinStatus === 'pending-review' && <FileCheck className="h-3 w-3 mr-1 text-white/80" />}
                                           {res.clientName}
                                         </p>
@@ -787,33 +806,44 @@ export default function HostReservationsPage() {
              <div className="space-y-1.5"><Label htmlFor="channelDialog">Booking Channel (Optional)</Label><Input id="channelDialog" name="channel" value={currentReservationData.channel || ''} onChange={handleDialogInputChange} placeholder="e.g., Booking.com, Direct Call"/></div>
             <div className="space-y-1.5"><Label htmlFor="notesDialog"><FileText className="inline mr-1 h-4 w-4" />Notes</Label><Textarea id="notesDialog" name="notes" value={currentReservationData.notes || ''} onChange={handleDialogInputChange} placeholder="e.g., Late check-in, specific requests..." /></div>
             
-            {currentReservationData.onlineCheckinStatus && currentReservationData.onlineCheckinStatus !== 'not-started' && currentReservationData.onlineCheckinData && (
+            {editingReservation && editingReservation.onlineCheckinStatus && editingReservation.onlineCheckinStatus !== 'not-started' && editingReservation.onlineCheckinData && (
               <Card className="mt-4 bg-secondary/50">
                 <CardHeader className="pb-2 pt-4 px-4">
                   <CardTitle className="text-md flex items-center gap-2">
                     <FileCheck className="h-5 w-5 text-blue-600"/> Online Check-in Submitted
                   </CardTitle>
-                  <CardDescription className="text-xs">Status: <Badge variant={currentReservationData.onlineCheckinStatus === 'completed' ? 'default' : 'secondary'} className="capitalize">{currentReservationData.onlineCheckinStatus.replace('-', ' ')}</Badge></CardDescription>
+                  <CardDescription className="text-xs">Status: <Badge variant={editingReservation.onlineCheckinStatus === 'completed' ? 'default' : 'secondary'} className="capitalize">{editingReservation.onlineCheckinStatus.replace('-', ' ')}</Badge></CardDescription>
                 </CardHeader>
                 <CardContent className="px-4 pb-4 text-sm space-y-1">
-                  <p><strong>Full Name:</strong> {currentReservationData.onlineCheckinData.fullName}</p>
-                  <p><strong>Email:</strong> {currentReservationData.onlineCheckinData.email}</p>
-                  <p><strong>Birth Date:</strong> {currentReservationData.onlineCheckinData.birthDate ? format(parseISO(currentReservationData.onlineCheckinData.birthDate), 'PPP', {locale:fr}) : 'N/A'}</p>
-                  <p><strong>Phone:</strong> {currentReservationData.onlineCheckinData.phoneNumber}</p>
-                  {currentReservationData.onlineCheckinData.travelReason && <p><strong>Travel Reason:</strong> {currentReservationData.onlineCheckinData.travelReason}</p>}
-                  {currentReservationData.onlineCheckinData.additionalNotes && <p><strong>Notes:</strong> {currentReservationData.onlineCheckinData.additionalNotes}</p>}
-                  {currentReservationData.onlineCheckinData.submissionDate && <p className="text-xs text-muted-foreground pt-1">Submitted: {format(parseISO(currentReservationData.onlineCheckinData.submissionDate), 'PPP p', {locale:fr})}</p>}
+                  <p><strong>Full Name:</strong> {editingReservation.onlineCheckinData.fullName}</p>
+                  <p><strong>Email:</strong> {editingReservation.onlineCheckinData.email}</p>
+                  <p><strong>Birth Date:</strong> {editingReservation.onlineCheckinData.birthDate ? format(parseISO(editingReservation.onlineCheckinData.birthDate), 'PPP', {locale:fr}) : 'N/A'}</p>
+                  <p><strong>Phone:</strong> {editingReservation.onlineCheckinData.phoneNumber}</p>
+                  {editingReservation.onlineCheckinData.travelReason && <p><strong>Travel Reason:</strong> {editingReservation.onlineCheckinData.travelReason}</p>}
+                  {editingReservation.onlineCheckinData.additionalNotes && <p><strong>Notes:</strong> {editingReservation.onlineCheckinData.additionalNotes}</p>}
+                  {editingReservation.onlineCheckinData.submissionDate && <p className="text-xs text-muted-foreground pt-1">Submitted: {format(parseISO(editingReservation.onlineCheckinData.submissionDate), 'PPP p', {locale:fr})}</p>}
                   
-                  {currentReservationData.onlineCheckinStatus === 'pending-review' && editingReservation && (
+                  <div className="mt-2 flex items-center gap-2">
                     <Button 
-                      size="sm" 
-                      className="mt-2 w-full" 
-                      onClick={() => handleReviewOnlineCheckin(editingReservation.id)}
-                      disabled={isDialogLoading}
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => copyOnlineCheckinLink(editingReservation.id)} 
+                        disabled={isDialogLoading}
+                        className="flex-1"
                     >
-                      Mark as Reviewed & Complete Check-in
+                        <Copy className="mr-2 h-3.5 w-3.5"/> Copy Check-in Link
                     </Button>
-                  )}
+                    {editingReservation.onlineCheckinStatus === 'pending-review' && (
+                        <Button 
+                        size="sm" 
+                        onClick={() => handleReviewOnlineCheckin(editingReservation!.id)}
+                        disabled={isDialogLoading}
+                        className="flex-1"
+                        >
+                        Review & Check-in Guest
+                        </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -834,3 +864,4 @@ export default function HostReservationsPage() {
     </div>
   );
 }
+
