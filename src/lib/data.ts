@@ -1,3 +1,4 @@
+
 // src/lib/data.ts
 import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus, Tag, LoyaltySettings, ReservationPageSettings, OnlineCheckinData, OnlineCheckinStatus, Paiement, MenuCard, MenuCategory, MenuItem, MenuItemOption, MenuItemOptionGroup } from './types';
 // import { db } from './firebase'; // Firestore is currently disabled
@@ -6,7 +7,7 @@ import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormFi
 const log = (message: string, data?: any) => {
   // console.log(`[Data Layer Memory] ${new Date().toISOString()}: ${message}`, data !== undefined ? data : '');
 }
-log("Data layer initialized. USING IN-MEMORY DATA for all entities.");
+// log("Data layer initialized. USING IN-MEMORY DATA for all entities.");
 
 // --- In-memory data store ---
 let usersInMemory: User[] = [
@@ -65,7 +66,7 @@ let tagsInMemory: Tag[] = [
 
 let roomsOrTablesInMemory: RoomOrTable[] = [
   // Salty Pelican
-  { id: 'sp-room-ocean-double', nom: 'Ocean Double', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-ocean-double`, capacity: 2, prixParNuit: 150, description: "Chambre double avec vue imprenable sur l'océan.", imageUrls: ["https://placehold.co/600x400.png?text=Ocean+View+Double", "https://placehold.co/600x400.png?text=Ocean+Room+Balcony"], imageAiHint: "ocean view room", tagIds: ['tag-vue-mer'], amenityIds: ['wifi', 'salle-de-bain', 'tv', 'terrasse-balcon', 'climatisation'] },
+  { id: 'sp-room-ocean-double', nom: 'Ocean Double', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-ocean-double`, capacity: 2, prixParNuit: 150, description: "Chambre double avec vue imprenable sur l'océan.", imageUrls: ["https://placehold.co/600x400.png?text=Ocean+View+Double", "https://placehold.co/600x400.png?text=Ocean+Room+Balcony"], imageAiHint: "ocean view room", tagIds: ['tag-vue-mer'], amenityIds: ['wifi', 'salle-de-bain', 'tv', 'terrasse-balcon', 'climatisation'], menuCardId: 'mc-salty-main' },
   { id: 'sp-room-garden-bungalow', nom: 'Garden Bungalow', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-garden-bungalow`, capacity: 4, prixParNuit: 180, description: "Bungalow spacieux avec accès direct au jardin, idéal pour les familles.", imageUrls: ["https://placehold.co/600x400.png?text=Garden+Bungalow", "https://placehold.co/600x400.png?text=Bungalow+Interior"], imageAiHint: "garden bungalow family", tagIds: ['tag-famille', 'tag-animaux'], amenityIds: ['wifi', 'salle-de-bain', 'cuisine', 'animaux-acceptes'], menuCardId: 'mc-salty-main' },
   { id: 'sp-zone-terrasse', nom: 'Terrasse Plage', type: 'Site', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-zone-terrasse`, description: "Terrasse ensoleillée face à la mer.", amenityIds: ['wifi'], menuCardId: 'mc-salty-main' },
   { id: 'sp-table-terrasse-1', nom: 'Table Terrasse Vue Mer 1', type: 'Table', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', parentLocationId: 'sp-zone-terrasse', urlPersonnalise: `/client/host-salty-pelican/sp-table-terrasse-1`, capacity: 4, prixFixeReservation: 10, description: "Table avec la meilleure vue.", menuCardId: 'mc-salty-main' },
@@ -193,10 +194,63 @@ let menuCategoriesInMemory: MenuCategory[] = [
 let menuItemsInMemory: MenuItem[] = [
   { id: 'mi-salty-coca', name: 'Coca-Cola', description: '33cl, bien frais.', price: 3, menuCategoryId: 'mcat-salty-boissons', hostId: 'host-salty-pelican', imageUrl: 'https://placehold.co/300x200.png?text=Coca-Cola', imageAiHint: 'soda can', isAvailable: true, stock: 50 },
   { id: 'mi-salty-frites', name: 'Cornet de Frites Maison', description: 'Avec sauce au choix.', price: 5, menuCategoryId: 'mcat-salty-snacks', hostId: 'host-salty-pelican', imageUrl: 'https://placehold.co/300x200.png?text=Frites', imageAiHint: 'fries food', isAvailable: true, stock: 0 }, // Rupture de stock
+  { 
+    id: 'mi-salty-pizza', 
+    name: 'Pizza du Pélican Personnalisable', 
+    description: 'Composez votre pizza de plage idéale ! Base tomate et mozzarella incluse.', 
+    price: 12, // Prix de base
+    menuCategoryId: 'mcat-salty-snacks', 
+    hostId: 'host-salty-pelican', 
+    imageUrl: 'https://placehold.co/300x200.png?text=Custom+Pizza', 
+    imageAiHint: 'custom pizza', 
+    isAvailable: true, 
+    isConfigurable: true,
+    stock: 20, // Stock pour les bases de pizza
+    optionGroups: [
+      { 
+        id: 'og-saltypizza-taille', 
+        menuItemId: 'mi-salty-pizza', 
+        name: 'Taille de la Pizza', 
+        selectionType: 'single', 
+        isRequired: true, 
+        displayOrder: 1, 
+        options: [
+          { id: 'opt-saltytaille-moy', name: 'Moyenne (2 pers.)', priceAdjustment: 0 },
+          { id: 'opt-saltytaille-grd', name: 'Grande (3-4 pers.)', priceAdjustment: 4 },
+        ]
+      },
+      { 
+        id: 'og-saltypizza-garnitures', 
+        menuItemId: 'mi-salty-pizza', 
+        name: 'Garnitures Supplémentaires', 
+        selectionType: 'multiple', 
+        isRequired: false, 
+        displayOrder: 2, 
+        options: [
+          { id: 'opt-saltygarn-anchois', name: 'Anchois de la Méditerranée', priceAdjustment: 2.5 },
+          { id: 'opt-saltygarn-olives', name: 'Olives Kalamata', priceAdjustment: 1.5 },
+          { id: 'opt-saltygarn-champ', name: 'Champignons Frais Locaux', priceAdjustment: 2 },
+          { id: 'opt-saltygarn-chorizo', name: 'Chorizo Piquant', priceAdjustment: 3 },
+        ]
+      },
+      { 
+        id: 'og-saltypizza-boisson', 
+        menuItemId: 'mi-salty-pizza', 
+        name: 'Boisson Accompagnement', 
+        selectionType: 'single', 
+        isRequired: false, // Optionnel
+        displayOrder: 3, 
+        options: [
+          { id: 'opt-saltyboisson-eau', name: 'Eau Plate 50cl', priceAdjustment: 1.5 },
+          { id: 'opt-saltyboisson-soda', name: 'Soda Local 33cl', priceAdjustment: 2.5 },
+        ]
+      }
+    ]
+  },
   { id: 'mi-lephare-salade', name: 'Salade César', description: 'Poulet grillé, Grana Padano, croûtons à l\'ail.', price: 14, menuCategoryId: 'mcat-lephare-entrees', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Salade+Cesar', imageAiHint: 'caesar salad', isAvailable: true },
   { id: 'mi-lephare-poisson', name: 'Poisson du Jour Grillé', description: 'Selon arrivage, légumes de saison.', price: 22, menuCategoryId: 'mcat-lephare-plats', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Poisson+Grille', imageAiHint: 'grilled fish', isAvailable: false, stock: 10 }, // Non disponible
   {
-    id: 'mi-lephare-pizza-config', name: 'Pizza Personnalisée', description: 'Composez votre pizza idéale !', price: 10, menuCategoryId: 'mcat-lephare-plats', hostId: 'host-le-phare', isConfigurable: true, isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Custom+Pizza', imageAiHint: 'custom pizza', stock: 20,
+    id: 'mi-lephare-pizza-config', name: 'Pizza Personnalisée (Le Phare)', description: 'Composez votre pizza idéale !', price: 10, menuCategoryId: 'mcat-lephare-plats', hostId: 'host-le-phare', isConfigurable: true, isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Custom+Pizza', imageAiHint: 'custom pizza', stock: 20,
     optionGroups: [
       { id: 'og-pizza-taille', menuItemId: 'mi-lephare-pizza-config', name: 'Choisissez votre taille', selectionType: 'single', isRequired: true, displayOrder: 1, options: [
         { id: 'opt-taille-moyenne', name: 'Moyenne', priceAdjustment: 0 },
@@ -221,16 +275,15 @@ let menuItemsInMemory: MenuItem[] = [
 ];
 
 // --- User Management ---
-// ... (rest of the user functions)
 const normalizeUserPassword = (user: any): User => {
   try {
     const userData = { ...user };
     if (userData.motDePasse === undefined && userData.password !== undefined) {
       userData.motDePasse = String(userData.password);
     } else if (userData.motDePasse === undefined) {
-      userData.motDePasse = ""; 
+      userData.motDePasse = "";
     } else {
-      userData.motDePasse = String(userData.motDePasse); 
+      userData.motDePasse = String(userData.motDePasse);
     }
     delete userData.password;
 
@@ -361,7 +414,7 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
       log(`User ${userId} deleted (in-memory). Cascading updates to related client records.`);
       clientsInMemory = clientsInMemory.map(c => c.userId === userId ? {...c, userId: undefined} : c);
       ordersInMemory = ordersInMemory.map(o => o.userId === userId ? {...o, userId: undefined} : o);
-      reservationsInMemory = reservationsInMemory.map(r => r.clientId === userId ? {...r, clientId: undefined} : r); 
+      reservationsInMemory = reservationsInMemory.map(r => r.clientId === userId ? {...r, clientId: undefined} : r);
       return true;
     }
     log(`User ${userId} not found for deletion (in-memory).`);
@@ -1563,7 +1616,10 @@ export const getReservationsByUserId = async (userId: string): Promise<Reservati
     const clientRecordsForUser = clientsInMemory.filter(c => c.userId === userId);
     const clientRecordIds = clientRecordsForUser.map(cr => cr.id);
 
-    return [...reservationsInMemory].filter(r => (r.clientId && clientRecordIds.includes(r.clientId)) || r.clientId === userId)
+    // Check reservations linked by User.id (if clientId was directly User.id) OR by Client record id.
+    return [...reservationsInMemory].filter(r => 
+      (r.clientId && clientRecordIds.includes(r.clientId)) || r.clientId === userId
+    )
       .sort((a, b) => new Date(b.dateArrivee).getTime() - new Date(a.dateArrivee).getTime());
   } catch (e) {
     console.error("Error in getReservationsByUserId (in-memory):", e);
@@ -1610,8 +1666,8 @@ export const getMenuCardById = async (id: string): Promise<MenuCard | undefined>
 
 export const addMenuCard = async (data: Omit<MenuCard, 'id'>): Promise<MenuCard> => {
   try {
-    const newCard: MenuCard = { 
-      ...data, 
+    const newCard: MenuCard = {
+      ...data,
       id: `menucard-${Date.now()}-${Math.random().toString(36).substring(2,5)}`,
       isActive: data.isActive !== undefined ? data.isActive : true,
       visibleFromTime: data.visibleFromTime || "00:00",
@@ -1641,13 +1697,13 @@ export const deleteMenuCard = async (id: string): Promise<boolean> => {
   try {
     const initialLength = menuCardsInMemory.length;
     menuCardsInMemory = menuCardsInMemory.filter(mc => mc.id !== id);
-    
+
     const categoriesToDelete = menuCategoriesInMemory.filter(cat => cat.menuCardId === id);
     const categoryIdsToDelete = categoriesToDelete.map(cat => cat.id);
-    
+
     menuCategoriesInMemory = menuCategoriesInMemory.filter(cat => cat.menuCardId !== id);
     menuItemsInMemory = menuItemsInMemory.filter(item => !categoryIdsToDelete.includes(item.menuCategoryId));
-    
+
     roomsOrTablesInMemory = roomsOrTablesInMemory.map(loc => loc.menuCardId === id ? { ...loc, menuCardId: undefined } : loc);
     return menuCardsInMemory.length < initialLength;
   } catch (e) {
@@ -1679,7 +1735,7 @@ export const duplicateMenuCard = async (menuCardId: string): Promise<MenuCard | 
       const newMenuCategory: MenuCategory = {
         ...originalCategory,
         id: newMenuCategoryId,
-        menuCardId: newMenuCardId, 
+        menuCardId: newMenuCardId,
       };
       menuCategoriesInMemory.push(newMenuCategory);
       log(`Duplicated MenuCategory: ${newMenuCategory.name} (ID: ${newMenuCategoryId}) for card ${newMenuCardId}`);
@@ -1698,7 +1754,7 @@ export const duplicateMenuCard = async (menuCardId: string): Promise<MenuCard | 
             return {
               ...og,
               id: newOptionGroupId,
-              menuItemId: newMenuItemId, 
+              menuItemId: newMenuItemId,
               options: newOptions,
             };
           });
@@ -1706,7 +1762,7 @@ export const duplicateMenuCard = async (menuCardId: string): Promise<MenuCard | 
         const newMenuItem: MenuItem = {
           ...originalItem,
           id: newMenuItemId,
-          menuCategoryId: newMenuCategoryId, 
+          menuCategoryId: newMenuCategoryId,
           optionGroups: newOptionGroups,
         };
         menuItemsInMemory.push(newMenuItem);
@@ -1783,9 +1839,9 @@ export const getMenuItemById = async (itemId: string): Promise<MenuItem | undefi
 
 export const addMenuItem = async (data: Omit<MenuItem, 'id' | 'imageAiHint'>): Promise<MenuItem> => {
   try {
-    const newItem: MenuItem = { 
-      ...data, 
-      id: `menuitem-${Date.now()}`, 
+    const newItem: MenuItem = {
+      ...data,
+      id: `menuitem-${Date.now()}`,
       imageAiHint: data.imageUrl && data.name ? data.name.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : undefined,
       isAvailable: data.isAvailable !== undefined ? data.isAvailable : true,
       optionGroups: data.optionGroups || [],
@@ -1802,8 +1858,8 @@ export const updateMenuItem = async (id: string, data: Partial<Omit<MenuItem, 'i
   try {
     const index = menuItemsInMemory.findIndex(item => item.id === id);
     if (index > -1) {
-      menuItemsInMemory[index] = { 
-        ...menuItemsInMemory[index], 
+      menuItemsInMemory[index] = {
+        ...menuItemsInMemory[index],
         ...data,
         imageAiHint: data.imageUrl && data.name ? data.name.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : menuItemsInMemory[index].imageAiHint,
         isAvailable: data.isAvailable !== undefined ? data.isAvailable : menuItemsInMemory[index].isAvailable,
@@ -1830,9 +1886,7 @@ export const deleteMenuItem = async (id: string): Promise<boolean> => {
 
 
 log("Initial in-memory data loaded/defined.");
-log(`Users: ${usersInMemory.length}, Hosts: ${hostsInMemory.length}, Global Sites: ${sitesInMemory.length}, Locations: ${roomsOrTablesInMemory.length}`);
-log(`Categories: ${serviceCategoriesInMemory.length}, Forms: ${customFormsInMemory.length}, Fields: ${formFieldsInMemory.length}, Services: ${servicesInMemory.length}`);
-log(`Orders: ${ordersInMemory.length}, Clients: ${clientsInMemory.length}, Reservations: ${reservationsInMemory.length}, Tags: ${tagsInMemory.length}`);
-log(`MenuCards: ${menuCardsInMemory.length}, MenuCategories: ${menuCategoriesInMemory.length}, MenuItems: ${menuItemsInMemory.length}`);
-
-    
+// log(`Users: ${usersInMemory.length}, Hosts: ${hostsInMemory.length}, Global Sites: ${sitesInMemory.length}, Locations: ${roomsOrTablesInMemory.length}`);
+// log(`Categories: ${serviceCategoriesInMemory.length}, Forms: ${customFormsInMemory.length}, Fields: ${formFieldsInMemory.length}, Services: ${servicesInMemory.length}`);
+// log(`Orders: ${ordersInMemory.length}, Clients: ${clientsInMemory.length}, Reservations: ${reservationsInMemory.length}, Tags: ${tagsInMemory.length}`);
+// log(`MenuCards: ${menuCardsInMemory.length}, MenuCategories: ${menuCategoriesInMemory.length}, MenuItems: ${menuItemsInMemory.length}`);
