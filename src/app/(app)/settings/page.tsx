@@ -1,10 +1,11 @@
 
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useCallback } from "react";
@@ -12,9 +13,9 @@ import type { User, Order, Client, RoomOrTable, Host as HostType, Service as Ser
 import { updateUser, getOrdersByUserId, getClientRecordsByEmail, getHostById, getRoomOrTableById, getServiceById, getReservationsByUserId } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, ShoppingBag, MapPin, CalendarDays, ListOrdered, Info, Hotel, LogOut as LogOutIcon } from "lucide-react";
+import { DollarSign, ShoppingBag, MapPin, CalendarDays, ListOrdered, Info, Hotel, LogOut as LogOutIcon, Search, FileText as InvoiceIcon } from "lucide-react";
 import Link from "next/link";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isValid } from "date-fns";
 import { fr } from "date-fns/locale";
 
 
@@ -30,15 +31,18 @@ export default function SettingsPage() {
   const [clientStays, setClientStays] = useState<(Client & { hostName?: string; locationFullName?: string; totalSpent?: number; netDue?: number })[]>([]);
   const [clientReservations, setClientReservations] = useState<(Reservation & { hostName?: string; locationFullName?: string })[]>([]);
   const [isClientDataLoading, setIsClientDataLoading] = useState(false);
+  
+  const [reservationFilter, setReservationFilter] = useState('');
+
 
   const fetchClientSpecificData = useCallback(async (loggedInUser: User) => {
     if (!loggedInUser.id || !loggedInUser.email) return;
     setIsClientDataLoading(true);
     try {
       const [ordersData, clientRecordsData, reservationsData] = await Promise.all([
-        getOrdersByUserId(loggedInUser.id),
+        getOrdersByUserId(loggedInUser.id), // Assumes it uses user.id to match Order.userId
         getClientRecordsByEmail(loggedInUser.email),
-        getReservationsByUserId(loggedInUser.id) // Assuming this function exists or will be created
+        getReservationsByUserId(loggedInUser.id) // Assumes it uses user.id to match Reservation.clientId
       ]);
 
       const enrichedOrders = await Promise.all(
@@ -64,7 +68,8 @@ export default function SettingsPage() {
                   const loc = await getRoomOrTableById(clientRecord.locationId);
                   if (loc) locationFullName = `${loc.type} ${loc.nom}`;
               }
-              const hostSpecificOrders = enrichedOrders.filter(o => o.hostId === clientRecord.hostId && (o.status === 'completed' || o.status === 'confirmed'));
+              // For total spent and net due, we consider orders where the logged-in user is the one who placed them
+              const hostSpecificOrders = ordersData.filter(o => o.hostId === clientRecord.hostId && (o.status === 'completed' || o.status === 'confirmed'));
               const totalSpentAtHost = hostSpecificOrders.reduce((sum, order) => sum + (order.prixTotal || 0), 0);
               const netDueAtHost = totalSpentAtHost - (clientRecord.credit || 0);
               return {
@@ -144,6 +149,17 @@ export default function SettingsPage() {
     setNewPassword('');
     setConfirmPassword('');
   };
+
+  const filteredClientReservations = clientReservations.filter(res => {
+    const searchTerm = reservationFilter.toLowerCase();
+    return (
+      res.id.toLowerCase().includes(searchTerm) ||
+      (res.hostName && res.hostName.toLowerCase().includes(searchTerm)) ||
+      (res.locationFullName && res.locationFullName.toLowerCase().includes(searchTerm)) ||
+      (isValid(parseISO(res.dateArrivee)) && format(parseISO(res.dateArrivee), 'PPP', { locale: fr }).toLowerCase().includes(searchTerm))
+    );
+  });
+
 
   if (authIsLoading || !user) {
     return (
@@ -228,50 +244,66 @@ export default function SettingsPage() {
         <>
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle className="flex items-center"><Hotel className="mr-2 h-5 w-5 text-primary" /> My Stays & Reservations</CardTitle>
-              <CardDescription>Overview of your current and past stays.</CardDescription>
+              <CardTitle className="flex items-center"><Hotel className="mr-2 h-5 w-5 text-primary" /> Mes Réservations</CardTitle>
+              <CardDescription>Aperçu de vos réservations actuelles et passées.</CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="mb-4">
+                <Input
+                  type="text"
+                  placeholder="Rechercher par ID, établissement, lieu ou date..."
+                  value={reservationFilter}
+                  onChange={(e) => setReservationFilter(e.target.value)}
+                  className="max-w-sm"
+                />
+              </div>
               {isClientDataLoading ? (
                 <Skeleton className="h-60 w-full" />
-              ) : clientReservations.length > 0 ? (
-                <div className="space-y-6 max-h-96 overflow-y-auto">
-                  {clientReservations.map(res => (
-                    <Card key={res.id} className="bg-card border shadow-sm">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-lg text-primary">{res.hostName} - {res.locationFullName}</CardTitle>
-                        <CardDescription className="text-xs">
-                          {format(parseISO(res.dateArrivee), 'PPP', { locale: fr })}
-                          {res.dateDepart ? ` - ${format(parseISO(res.dateDepart), 'PPP', { locale: fr })}` : ' (Table Reservation)'}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="text-sm space-y-1">
-                        <p>Status: <Badge variant={res.status === 'cancelled' ? 'destructive' : 'secondary'} className="capitalize">{res.status}</Badge></p>
-                        <p>Guests: {res.nombrePersonnes}</p>
-                        {res.notes && <p className="text-xs text-muted-foreground">Notes: {res.notes}</p>}
-                         {res.onlineCheckinStatus === 'pending-review' && <Badge variant="outline" className="mt-1">Online Check-in Pending</Badge>}
-                        {res.onlineCheckinStatus === 'completed' && <Badge variant="default" className="mt-1">Online Check-in Complete</Badge>}
-                        {(res.status === 'checked-in' || (res.status === 'confirmed' && new Date(res.dateArrivee) <= new Date())) && (
-                           <Link href={`/checkout/${res.id}`} className="block mt-3">
-                             <Button variant="outline" size="sm" className="w-full">
-                               <LogOutIcon className="mr-2 h-4 w-4" /> Proceed to Check-out
-                             </Button>
-                           </Link>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
+              ) : filteredClientReservations.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>ID Rés.</TableHead>
+                        <TableHead>Établissement</TableHead>
+                        <TableHead>Lieu</TableHead>
+                        <TableHead>Arrivée</TableHead>
+                        <TableHead>Départ</TableHead>
+                        <TableHead>Statut</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredClientReservations.map(res => (
+                        <TableRow key={res.id}>
+                          <TableCell className="font-medium text-xs">#{res.id.slice(-6)}</TableCell>
+                          <TableCell>{res.hostName}</TableCell>
+                          <TableCell>{res.locationFullName}</TableCell>
+                          <TableCell>{isValid(parseISO(res.dateArrivee)) ? format(parseISO(res.dateArrivee), 'dd/MM/yy') : 'N/A'}</TableCell>
+                          <TableCell>{res.dateDepart && isValid(parseISO(res.dateDepart)) ? format(parseISO(res.dateDepart), 'dd/MM/yy') : (res.type === 'Table' ? 'N/A' : 'N/A')}</TableCell>
+                          <TableCell><Badge variant={res.status === 'cancelled' ? 'destructive' : 'secondary'} className="capitalize text-xs">{res.status || 'N/A'}</Badge></TableCell>
+                          <TableCell>
+                            <Link href={`/client/reservations/${res.id}`}>
+                              <Button variant="outline" size="sm">Voir Détails</Button>
+                            </Link>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               ) : (
-                <p className="text-muted-foreground">You have no active or past reservations.</p>
+                <p className="text-muted-foreground text-center py-4">
+                  {reservationFilter ? "Aucune réservation ne correspond à votre recherche." : "Vous n'avez aucune réservation."}
+                </p>
               )}
             </CardContent>
           </Card>
 
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle className="flex items-center"><ShoppingBag className="mr-2 h-5 w-5 text-primary" /> My Recent Orders</CardTitle>
-              <CardDescription>Overview of your recent service requests.</CardDescription>
+              <CardTitle className="flex items-center"><ShoppingBag className="mr-2 h-5 w-5 text-primary" /> Mes Commandes Récentes</CardTitle>
+              <CardDescription>Aperçu de vos demandes de service récentes.</CardDescription>
             </CardHeader>
             <CardContent>
               {isClientDataLoading ? (
@@ -280,9 +312,9 @@ export default function SettingsPage() {
                 <ul className="space-y-3 max-h-96 overflow-y-auto">
                   {clientOrders.map(order => (
                     <li key={order.id} className="p-3 bg-muted/50 rounded-md text-sm border">
-                      <div className="font-semibold">{order.serviceName} at {order.hostName}</div>
+                      <div className="font-semibold">{order.serviceName} à {order.hostName}</div>
                       <div className="text-xs text-muted-foreground">
-                        Location: {order.locationName} - Date: {format(parseISO(order.dateHeure), 'Pp', {locale: fr})}
+                        Lieu: {order.locationName} - Date: {format(parseISO(order.dateHeure), 'Pp', {locale: fr})}
                       </div>
                       <div className="flex justify-between items-center mt-1">
                         <Badge variant={order.status === 'completed' ? 'default' : order.status === 'cancelled' ? 'destructive' : 'secondary'} className="capitalize">{order.status}</Badge>
@@ -292,15 +324,15 @@ export default function SettingsPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-muted-foreground">You haven't placed any orders yet.</p>
+                <p className="text-muted-foreground">Vous n'avez passé aucune commande récemment.</p>
               )}
             </CardContent>
           </Card>
 
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle className="flex items-center"><DollarSign className="mr-2 h-5 w-5 text-primary" /> My Billing & Loyalty</CardTitle>
-              <CardDescription>Your credit and loyalty points across establishments.</CardDescription>
+              <CardTitle className="flex items-center"><DollarSign className="mr-2 h-5 w-5 text-primary" /> Ma Facturation & Fidélité</CardTitle>
+              <CardDescription>Votre crédit et vos points de fidélité par établissement.</CardDescription>
             </CardHeader>
             <CardContent>
               {isClientDataLoading ? (
@@ -313,17 +345,17 @@ export default function SettingsPage() {
                         <CardTitle className="text-lg text-primary">{stay.hostName}</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-1 text-sm">
-                        <div className="flex items-center"><Info className="mr-2 h-4 w-4 text-muted-foreground" /> Client Type: <span className="ml-1 capitalize">{stay.type}</span></div>
-                        <div className="flex items-center"><DollarSign className="mr-2 h-4 w-4 text-green-500" /> Credit: <span className="ml-1 font-semibold">${(stay.credit || 0).toFixed(2)}</span></div>
-                         <div className="flex items-center text-amber-600"><ListOrdered className="mr-2 h-4 w-4" /> Loyalty Points: <span className="ml-1 font-semibold">{stay.pointsFidelite || 0} pts</span></div>
-                        <div className="flex items-center text-blue-500"><ShoppingBag className="mr-2 h-4 w-4" /> Total Spent: <span className="ml-1 font-semibold">${(stay.totalSpent || 0).toFixed(2)}</span></div>
-                        <div className="flex items-center font-bold text-red-600"><DollarSign className="mr-2 h-4 w-4" /> Net Due: <span className="ml-1">${(stay.netDue || 0).toFixed(2)}</span></div>
+                        <div className="flex items-center"><Info className="mr-2 h-4 w-4 text-muted-foreground" /> Type de client: <span className="ml-1 capitalize">{stay.type}</span></div>
+                        <div className="flex items-center"><DollarSign className="mr-2 h-4 w-4 text-green-500" /> Crédit: <span className="ml-1 font-semibold">${(stay.credit || 0).toFixed(2)}</span></div>
+                         <div className="flex items-center text-amber-600"><ListOrdered className="mr-2 h-4 w-4" /> Points Fidélité: <span className="ml-1 font-semibold">{stay.pointsFidelite || 0} pts</span></div>
+                        <div className="flex items-center text-blue-500"><ShoppingBag className="mr-2 h-4 w-4" /> Total Dépensé: <span className="ml-1 font-semibold">${(stay.totalSpent || 0).toFixed(2)}</span></div>
+                        <div className="flex items-center font-bold text-red-600"><DollarSign className="mr-2 h-4 w-4" /> Solde Dû: <span className="ml-1">${(stay.netDue || 0).toFixed(2)}</span></div>
                       </CardContent>
                     </Card>
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground">No specific billing or loyalty information found for your email across our establishments.</p>
+                <p className="text-muted-foreground">Aucune information spécifique de facturation ou de fidélité trouvée pour votre email à travers nos établissements.</p>
               )}
             </CardContent>
           </Card>
@@ -331,15 +363,14 @@ export default function SettingsPage() {
       )}
        <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>Theme Preferences</CardTitle>
-          <CardDescription>Customize the application appearance (not functional in MVP).</CardDescription>
+          <CardTitle>Préférences de Thème</CardTitle>
+          <CardDescription>Personnalisez l'apparence de l'application (non fonctionnel en MVP).</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-            <p className="text-sm text-muted-foreground">Theme selection (Light/Dark) will be available in a future update.</p>
-             <Button variant="outline" disabled>Toggle Dark Mode (Soon)</Button>
+            <p className="text-sm text-muted-foreground">La sélection du thème (Clair/Sombre) sera disponible dans une future mise à jour.</p>
+             <Button variant="outline" disabled>Basculer Mode Sombre (Bientôt)</Button>
         </CardContent>
       </Card>
     </div>
   );
 }
-
