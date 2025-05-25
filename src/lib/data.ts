@@ -1,6 +1,6 @@
 // src/lib/data.ts
 import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus, Tag, LoyaltySettings, ReservationPageSettings, OnlineCheckinData, OnlineCheckinStatus, Paiement, MenuCard, MenuCategory, MenuItem, MenuItemOption, MenuItemOptionGroup } from './types';
-// import { db } from './firebase'; // Assuming firebase is correctly configured
+// import { db } from './firebase'; // Firestore is currently disabled
 // import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp } from 'firebase/firestore';
 
 const log = (message: string, data?: any) => {
@@ -66,7 +66,7 @@ let tagsInMemory: Tag[] = [
 let roomsOrTablesInMemory: RoomOrTable[] = [
   // Salty Pelican
   { id: 'sp-room-ocean-double', nom: 'Ocean Double', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-ocean-double`, capacity: 2, prixParNuit: 150, description: "Chambre double avec vue imprenable sur l'océan.", imageUrls: ["https://placehold.co/600x400.png?text=Ocean+View+Double", "https://placehold.co/600x400.png?text=Ocean+Room+Balcony"], imageAiHint: "ocean view room", tagIds: ['tag-vue-mer'], amenityIds: ['wifi', 'salle-de-bain', 'tv', 'terrasse-balcon', 'climatisation'] },
-  { id: 'sp-room-garden-bungalow', nom: 'Garden Bungalow', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-garden-bungalow`, capacity: 4, prixParNuit: 180, description: "Bungalow spacieux avec accès direct au jardin, idéal pour les familles.", imageUrls: ["https://placehold.co/600x400.png?text=Garden+Bungalow", "https://placehold.co/600x400.png?text=Bungalow+Interior"], imageAiHint: "garden bungalow family", tagIds: ['tag-famille', 'tag-animaux'], amenityIds: ['wifi', 'salle-de-bain', 'cuisine', 'animaux-acceptes'] },
+  { id: 'sp-room-garden-bungalow', nom: 'Garden Bungalow', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-garden-bungalow`, capacity: 4, prixParNuit: 180, description: "Bungalow spacieux avec accès direct au jardin, idéal pour les familles.", imageUrls: ["https://placehold.co/600x400.png?text=Garden+Bungalow", "https://placehold.co/600x400.png?text=Bungalow+Interior"], imageAiHint: "garden bungalow family", tagIds: ['tag-famille', 'tag-animaux'], amenityIds: ['wifi', 'salle-de-bain', 'cuisine', 'animaux-acceptes'], menuCardId: 'mc-salty-main' },
   { id: 'sp-zone-terrasse', nom: 'Terrasse Plage', type: 'Site', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-zone-terrasse`, description: "Terrasse ensoleillée face à la mer.", amenityIds: ['wifi'], menuCardId: 'mc-salty-main' },
   { id: 'sp-table-terrasse-1', nom: 'Table Terrasse Vue Mer 1', type: 'Table', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', parentLocationId: 'sp-zone-terrasse', urlPersonnalise: `/client/host-salty-pelican/sp-table-terrasse-1`, capacity: 4, prixFixeReservation: 10, description: "Table avec la meilleure vue.", menuCardId: 'mc-salty-main' },
 
@@ -77,19 +77,19 @@ let roomsOrTablesInMemory: RoomOrTable[] = [
 
   // Paradise Beach Resort
   { id: 'pbr-lobby', nom: 'Lobby Principal Paradise', type: 'Site', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', urlPersonnalise: `/client/host-paradise-resort/pbr-lobby`, amenityIds: ['wifi', 'climatisation'] },
-  { id: 'pbr-room-deluxe-king', nom: 'Deluxe King Suite', type: 'Chambre', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-lobby', urlPersonnalise: `/client/host-paradise-resort/pbr-room-deluxe-king`, capacity: 2, prixParNuit: 250, description: "Suite luxueuse avec lit King Size et vue mer.", imageUrls: ["https://placehold.co/600x400.png?text=Deluxe+King", "https://placehold.co/600x400.png?text=Suite+Bathroom"], imageAiHint: "luxury suite king", tagIds: ['tag-vue-mer-paradise', 'tag-luxe'], amenityIds: ['wifi', 'salle-de-bain', 'tv', 'climatisation', 'terrasse-balcon', 'petit-dejeuner-inclus'] },
-  { id: 'pbr-room-standard-twin', nom: 'Standard Twin Vue Jardin', type: 'Chambre', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-lobby', urlPersonnalise: `/client/host-paradise-resort/pbr-room-standard-twin`, capacity: 2, prixParNuit: 120, description: "Chambre confortable avec deux lits jumeaux et vue sur les jardins.", imageUrls: ["https://placehold.co/600x400.png?text=Standard+Twin", "https://placehold.co/600x400.png?text=Twin+Room+View"], imageAiHint: "twin room garden", tagIds: ['tag-calme', 'tag-famille-paradise'], amenityIds: ['wifi', 'salle-de-bain', 'tv'] },
-  { id: 'pbr-zone-piscine', nom: 'Espace Piscine Paradise', type: 'Site', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', urlPersonnalise: `/client/host-paradise-resort/pbr-zone-piscine`, amenityIds: ['piscine', 'jacuzzi'] },
-  { id: 'pbr-table-piscine-A', nom: 'Table Cabana Piscine A', type: 'Table', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-zone-piscine', urlPersonnalise: `/client/host-paradise-resort/pbr-table-piscine-A`, capacity: 6, prixFixeReservation: 25, description: "Cabana privée près de la piscine." },
+  { id: 'pbr-room-deluxe-king', nom: 'Deluxe King Suite', type: 'Chambre', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-lobby', urlPersonnalise: `/client/host-paradise-resort/pbr-room-deluxe-king`, capacity: 2, prixParNuit: 250, description: "Suite luxueuse avec lit King Size et vue mer.", imageUrls: ["https://placehold.co/600x400.png?text=Deluxe+King", "https://placehold.co/600x400.png?text=Suite+Bathroom"], imageAiHint: "luxury suite king", tagIds: ['tag-vue-mer-paradise', 'tag-luxe'], amenityIds: ['wifi', 'salle-de-bain', 'tv', 'climatisation', 'terrasse-balcon', 'petit-dejeuner-inclus'], menuCardId: "mc-paradise-roomservice" },
+  { id: 'pbr-room-standard-twin', nom: 'Standard Twin Vue Jardin', type: 'Chambre', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-lobby', urlPersonnalise: `/client/host-paradise-resort/pbr-room-standard-twin`, capacity: 2, prixParNuit: 120, description: "Chambre confortable avec deux lits jumeaux et vue sur les jardins.", imageUrls: ["https://placehold.co/600x400.png?text=Standard+Twin", "https://placehold.co/600x400.png?text=Twin+Room+View"], imageAiHint: "twin room garden", tagIds: ['tag-calme', 'tag-famille-paradise'], amenityIds: ['wifi', 'salle-de-bain', 'tv'], menuCardId: "mc-paradise-roomservice" },
+  { id: 'pbr-zone-piscine', nom: 'Espace Piscine Paradise', type: 'Site', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', urlPersonnalise: `/client/host-paradise-resort/pbr-zone-piscine`, amenityIds: ['piscine', 'jacuzzi'], menuCardId: "mc-paradise-pool" },
+  { id: 'pbr-table-piscine-A', nom: 'Table Cabana Piscine A', type: 'Table', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-zone-piscine', urlPersonnalise: `/client/host-paradise-resort/pbr-table-piscine-A`, capacity: 6, prixFixeReservation: 25, description: "Cabana privée près de la piscine.", menuCardId: "mc-paradise-pool" },
 
   // Le Delice Downtown
-  { id: 'ldd-salle-principale', nom: 'Salle Restaurant Le Delice', type: 'Site', hostId: 'host-le-delice', globalSiteId: 'site-le-delice', urlPersonnalise: `/client/host-le-delice/ldd-salle-principale`, amenityIds: ['wifi', 'climatisation'] },
-  { id: 'ldd-table-romantique-2', nom: 'Table Romantique 2pax', type: 'Table', hostId: 'host-le-delice', globalSiteId: 'site-le-delice', parentLocationId: 'ldd-salle-principale', urlPersonnalise: `/client/host-le-delice/ldd-table-romantique-2`, capacity: 2, prixFixeReservation: 10, description: "Table parfaite pour un dîner en amoureux.", tagIds:['tag-romantique'] },
+  { id: 'ldd-salle-principale', nom: 'Salle Restaurant Le Delice', type: 'Site', hostId: 'host-le-delice', globalSiteId: 'site-le-delice', urlPersonnalise: `/client/host-le-delice/ldd-salle-principale`, amenityIds: ['wifi', 'climatisation'], menuCardId: 'mc-delice-dinner' },
+  { id: 'ldd-table-romantique-2', nom: 'Table Romantique 2pax', type: 'Table', hostId: 'host-le-delice', globalSiteId: 'site-le-delice', parentLocationId: 'ldd-salle-principale', urlPersonnalise: `/client/host-le-delice/ldd-table-romantique-2`, capacity: 2, prixFixeReservation: 10, description: "Table parfaite pour un dîner en amoureux.", tagIds:['tag-romantique'], menuCardId: 'mc-delice-dinner' },
 
   // Dynamic Test Establishment
-  { id: 'rt-dynamic-lobby', nom: 'Dynamic Lobby', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-lobby`, description: "Lobby for the dynamic establishment.", amenityIds: ['wifi'] },
-  { id: 'rt-dynamic-room1', nom: 'Dynamic Room 101', type: 'Chambre', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-room1`, capacity: 2, prixParNuit: 100, description: "A standard room in the dynamic establishment.", imageUrls: ["https://placehold.co/600x400.png?text=Dynamic+Room+101"], imageAiHint: "dynamic room hotel", amenityIds: ['wifi', 'salle-de-bain', 'tv'] },
-  { id: 'rt-dynamic-table5', nom: 'Dynamic Table 5', type: 'Table', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-table5`, capacity: 4, prixFixeReservation: 5, description: "A table in the dynamic lobby.", amenityIds: ['wifi'] },
+  { id: 'rt-dynamic-lobby', nom: 'Dynamic Lobby', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-lobby`, description: "Lobby for the dynamic establishment.", amenityIds: ['wifi'], menuCardId: 'mc-dyn-main' },
+  { id: 'rt-dynamic-room1', nom: 'Dynamic Room 101', type: 'Chambre', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-room1`, capacity: 2, prixParNuit: 100, description: "A standard room in the dynamic establishment.", imageUrls: ["https://placehold.co/600x400.png?text=Dynamic+Room+101"], imageAiHint: "dynamic room hotel", amenityIds: ['wifi', 'salle-de-bain', 'tv'], menuCardId: 'mc-dyn-main' },
+  { id: 'rt-dynamic-table5', nom: 'Dynamic Table 5', type: 'Table', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-table5`, capacity: 4, prixFixeReservation: 5, description: "A table in the dynamic lobby.", amenityIds: ['wifi'], menuCardId: 'mc-dyn-main' },
 ];
 
 let serviceCategoriesInMemory: ServiceCategory[] = [
@@ -171,9 +171,12 @@ let reservationsInMemory: Reservation[] = [
 ];
 
 let menuCardsInMemory: MenuCard[] = [
-  { id: 'mc-salty-main', name: 'Menu Principal Salty Pelican', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', description: 'Notre sélection pour votre séjour à la plage.', isActive: true, visibleFromTime: "07:00", visibleToTime: "22:00" },
-  { id: 'mc-lephare-jour', name: 'Carte du Jour Le Phare', hostId: 'host-le-phare', globalSiteId: 'site-le-phare', description: 'Produits frais et de saison.', isActive: true, visibleFromTime: "11:00", visibleToTime: "23:00" },
-  { id: 'mc-paradise-pool', name: 'Menu Piscine Paradise', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', description: 'Rafraîchissements et snacks au bord de la piscine.', isActive: true, visibleFromTime: "10:00", visibleToTime: "18:00" },
+  { id: 'mc-salty-main', name: 'Menu Principal Salty Pelican', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', description: 'Notre sélection pour votre séjour à la plage.', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59" },
+  { id: 'mc-lephare-jour', name: 'Carte du Jour Le Phare', hostId: 'host-le-phare', globalSiteId: 'site-le-phare', description: 'Produits frais et de saison.', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59" },
+  { id: 'mc-paradise-pool', name: 'Menu Piscine Paradise', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', description: 'Rafraîchissements et snacks au bord de la piscine.', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59" },
+  { id: 'mc-paradise-roomservice', name: 'Room Service Paradise', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', description: 'Dégustez nos plats dans le confort de votre chambre.', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59"},
+  { id: 'mc-delice-dinner', name: 'Menu Dîner Le Délice', hostId: 'host-le-delice', globalSiteId: 'site-le-delice', description: 'Expérience culinaire raffinée.', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59" },
+  { id: 'mc-dyn-main', name: 'Dynamic Main Menu', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', description: 'Our main selection.', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59" },
 ];
 
 let menuCategoriesInMemory: MenuCategory[] = [
@@ -182,70 +185,43 @@ let menuCategoriesInMemory: MenuCategory[] = [
   { id: 'mcat-lephare-entrees', name: 'Entrées Le Phare', menuCardId: 'mc-lephare-jour', hostId: 'host-le-phare', displayOrder: 1 },
   { id: 'mcat-lephare-plats', name: 'Plats Le Phare', menuCardId: 'mc-lephare-jour', hostId: 'host-le-phare', displayOrder: 2 },
   { id: 'mcat-paradise-cocktails', name: 'Cocktails Paradise', menuCardId: 'mc-paradise-pool', hostId: 'host-paradise-resort', displayOrder: 1 },
+  { id: 'mcat-pbr-roomservice-main', name: 'Plats Principaux (Room Svc)', menuCardId: 'mc-paradise-roomservice', hostId: 'host-paradise-resort', displayOrder: 1 },
+  { id: 'mcat-delice-dinner-main', name: 'Plats Principaux (Dîner)', menuCardId: 'mc-delice-dinner', hostId: 'host-le-delice', displayOrder: 1},
+  { id: 'mcat-dyn-starters', name: 'Starters (Dynamic)', menuCardId: 'mc-dyn-main', hostId: 'host-1747669860022', displayOrder: 1},
 ];
 
 let menuItemsInMemory: MenuItem[] = [
   { id: 'mi-salty-coca', name: 'Coca-Cola', description: '33cl, bien frais.', price: 3, menuCategoryId: 'mcat-salty-boissons', hostId: 'host-salty-pelican', imageUrl: 'https://placehold.co/300x200.png?text=Coca-Cola', imageAiHint: 'soda can', isAvailable: true, stock: 50 },
   { id: 'mi-salty-frites', name: 'Cornet de Frites Maison', description: 'Avec sauce au choix.', price: 5, menuCategoryId: 'mcat-salty-snacks', hostId: 'host-salty-pelican', imageUrl: 'https://placehold.co/300x200.png?text=Frites', imageAiHint: 'fries food', isAvailable: true, stock: 0 }, // Rupture de stock
   { id: 'mi-lephare-salade', name: 'Salade César', description: 'Poulet grillé, Grana Padano, croûtons à l\'ail.', price: 14, menuCategoryId: 'mcat-lephare-entrees', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Salade+Cesar', imageAiHint: 'caesar salad', isAvailable: true },
-  { id: 'mi-lephare-poisson', name: 'Poisson du Jour Grillé', description: 'Selon arrivage, légumes de saison.', price: 22, menuCategoryId: 'mcat-lephare-plats', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Poisson+Grille', imageAiHint: 'grilled fish', isAvailable: false }, // Non disponible
+  { id: 'mi-lephare-poisson', name: 'Poisson du Jour Grillé', description: 'Selon arrivage, légumes de saison.', price: 22, menuCategoryId: 'mcat-lephare-plats', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Poisson+Grille', imageAiHint: 'grilled fish', isAvailable: false, stock: 10 }, // Non disponible
   {
-    id: 'mi-lephare-burger-config',
-    name: 'Menu Burger Personnalisable',
-    description: 'Composez votre burger idéal !',
-    price: 12, 
-    menuCategoryId: 'mcat-lephare-plats',
-    hostId: 'host-le-phare',
-    isConfigurable: true,
-    isAvailable: true,
-    imageUrl: 'https://placehold.co/300x200.png?text=Custom+Burger',
-    imageAiHint: 'custom burger',
-    stock: 10,
+    id: 'mi-lephare-pizza-config', name: 'Pizza Personnalisée', description: 'Composez votre pizza idéale !', price: 10, menuCategoryId: 'mcat-lephare-plats', hostId: 'host-le-phare', isConfigurable: true, isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Custom+Pizza', imageAiHint: 'custom pizza', stock: 20,
     optionGroups: [
-      {
-        id: 'og-burger-boisson',
-        menuItemId: 'mi-lephare-burger-config',
-        name: 'Choisissez votre boisson',
-        selectionType: 'single',
-        isRequired: true,
-        displayOrder: 1,
-        options: [
-          { id: 'opt-boisson-coca', name: 'Coca-Cola', priceAdjustment: 0 },
-          { id: 'opt-boisson-eau', name: 'Eau Minérale', priceAdjustment: 0 },
-          { id: 'opt-boisson-sprite', name: 'Sprite', priceAdjustment: 0.50 },
-        ]
-      },
-      {
-        id: 'og-burger-frites',
-        menuItemId: 'mi-lephare-burger-config',
-        name: 'Choisissez vos frites',
-        selectionType: 'single',
-        isRequired: true,
-        displayOrder: 2,
-        options: [
-          { id: 'opt-frites-normales', name: 'Frites Normales', priceAdjustment: 0 },
-          { id: 'opt-frites-deluxe', name: 'Frites Deluxe (Patate Douce)', priceAdjustment: 1.50 },
-        ]
-      },
-      {
-        id: 'og-burger-supplements',
-        menuItemId: 'mi-lephare-burger-config',
-        name: 'Suppléments (optionnel)',
-        selectionType: 'multiple',
-        isRequired: false,
-        displayOrder: 3,
-        options: [
-          { id: 'opt-supp-fromage', name: 'Double Fromage', priceAdjustment: 1.00 },
-          { id: 'opt-supp-bacon', name: 'Bacon Croustillant', priceAdjustment: 1.20 },
-        ]
-      }
+      { id: 'og-pizza-taille', menuItemId: 'mi-lephare-pizza-config', name: 'Choisissez votre taille', selectionType: 'single', isRequired: true, displayOrder: 1, options: [
+        { id: 'opt-taille-moyenne', name: 'Moyenne', priceAdjustment: 0 },
+        { id: 'opt-taille-grande', name: 'Grande', priceAdjustment: 3 },
+      ]},
+      { id: 'og-pizza-pate', menuItemId: 'mi-lephare-pizza-config', name: 'Choisissez votre pâte', selectionType: 'single', isRequired: true, displayOrder: 2, options: [
+        { id: 'opt-pate-fine', name: 'Pâte Fine', priceAdjustment: 0 },
+        { id: 'opt-pate-epaisse', name: 'Pâte Épaisse', priceAdjustment: 1 },
+      ]},
+      { id: 'og-pizza-garnitures', menuItemId: 'mi-lephare-pizza-config', name: 'Garnitures (choix multiples)', selectionType: 'multiple', isRequired: false, displayOrder: 3, options: [
+        { id: 'opt-garn-champignons', name: 'Champignons Frais', priceAdjustment: 1.5 },
+        { id: 'opt-garn-pepperoni', name: 'Pepperoni', priceAdjustment: 2 },
+        { id: 'opt-garn-olives', name: 'Olives Noires', priceAdjustment: 1 },
+        { id: 'opt-garn-anchois', name: 'Anchois', priceAdjustment: 2.5 },
+      ]}
     ]
   },
   { id: 'mi-paradise-mojito', name: 'Mojito Classique', description: 'Rhum, menthe fraîche, citron vert, sucre de canne, eau gazeuse.', price: 12, menuCategoryId: 'mcat-paradise-cocktails', hostId: 'host-paradise-resort', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Mojito', imageAiHint: 'mojito cocktail', stock: 3 }, // Stock limité
+  { id: 'mi-pbr-roomservice-club', name: 'Club Sandwich Room Service', description: 'Poulet, bacon, laitue, tomate, frites.', price: 18, menuCategoryId: 'mcat-pbr-roomservice-main', hostId: 'host-paradise-resort', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Club+Sandwich', imageAiHint: 'club sandwich', stock: 10 },
+  { id: 'mi-delice-dinner-sole', name: 'Sole Meunière', description: 'Servie avec pommes de terre grenaille.', price: 28, menuCategoryId: 'mcat-delice-dinner-main', hostId: 'host-le-delice', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Sole+Meuniere', imageAiHint: 'sole fish food'},
+  { id: 'mi-dyn-soup', name: 'Daily Soup (Dynamic)', description: 'Chef\'s special soup of the day.', price: 7, menuCategoryId: 'mcat-dyn-starters', hostId: 'host-1747669860022', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Dynamic+Soup', imageAiHint: 'soup bowl'},
 ];
 
-
 // --- User Management ---
+// ... (rest of the user functions)
 const normalizeUserPassword = (user: any): User => {
   try {
     const userData = { ...user };
@@ -279,9 +255,7 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
       let normalizedUser = { ...user };
       if (normalizedUser.motDePasse === undefined && (user as any).password !== undefined) {
         normalizedUser.motDePasse = String((user as any).password);
-      } else if (normalizedUser.motDePasse === undefined) {
-        normalizedUser.motDePasse = "";
-      } else if (normalizedUser.motDePasse === null) {
+      } else if (normalizedUser.motDePasse === undefined || normalizedUser.motDePasse === null) {
          normalizedUser.motDePasse = "";
       } else {
         normalizedUser.motDePasse = String(normalizedUser.motDePasse);
@@ -1133,7 +1107,9 @@ export const getOrders = async (
       filteredOrders = filteredOrders.filter(o => o.serviceId === filters.serviceId);
     } else if (filters?.categoryId && filters.categoryId !== "all") {
       const servicesInCategory = servicesInMemory.filter(s => s.categorieId === filters.categoryId && s.hostId === hostId).map(s => s.id);
-      filteredOrders = filteredOrders.filter(o => servicesInCategory.includes(o.serviceId));
+      const menuItemsInCategory = menuItemsInMemory.filter(mi => mi.menuCategoryId === filters.categoryId && mi.hostId === hostId).map(mi => mi.id);
+      const allItemIdsInCategory = [...servicesInCategory, ...menuItemsInCategory];
+      filteredOrders = filteredOrders.filter(o => allItemIdsInCategory.includes(o.serviceId));
     }
     if (filters?.clientName && filters.clientName.trim() !== "") {
       filteredOrders = filteredOrders.filter(o => o.clientNom && o.clientNom.toLowerCase().includes(filters.clientName!.toLowerCase()));
@@ -1193,9 +1169,9 @@ export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status' |
       id: `order-${Date.now()}-${Math.random().toString(36).substring(2,5)}`,
       dateHeure: new Date().toISOString(),
       status: 'pending',
-      prixTotal: data.prixTotal !== undefined ? data.prixTotal : serviceDetails?.price,
+      prixTotal: data.prixTotal !== undefined ? data.prixTotal : (serviceDetails?.price || (serviceDetails as Service)?.prix),
       montantPaye: 0,
-      soldeDu: (data.prixTotal !== undefined ? data.prixTotal : serviceDetails?.price) || 0,
+      soldeDu: (data.prixTotal !== undefined ? data.prixTotal : (serviceDetails?.price || (serviceDetails as Service)?.prix)) || 0,
       paiements: [],
       userId: data.userId,
       pointsGagnes: 0,
@@ -1584,7 +1560,10 @@ export const deleteReservationInData = async (id: string): Promise<boolean> => {
 export const getReservationsByUserId = async (userId: string): Promise<Reservation[]> => {
   log(`getReservationsByUserId called for userId: ${userId}. Using in-memory data.`);
   try {
-    return [...reservationsInMemory].filter(r => r.clientId === userId)
+    const clientRecordsForUser = clientsInMemory.filter(c => c.userId === userId);
+    const clientRecordIds = clientRecordsForUser.map(cr => cr.id);
+
+    return [...reservationsInMemory].filter(r => (r.clientId && clientRecordIds.includes(r.clientId)) || r.clientId === userId)
       .sort((a, b) => new Date(b.dateArrivee).getTime() - new Date(a.dateArrivee).getTime());
   } catch (e) {
     console.error("Error in getReservationsByUserId (in-memory):", e);
@@ -1635,6 +1614,8 @@ export const addMenuCard = async (data: Omit<MenuCard, 'id'>): Promise<MenuCard>
       ...data, 
       id: `menucard-${Date.now()}-${Math.random().toString(36).substring(2,5)}`,
       isActive: data.isActive !== undefined ? data.isActive : true,
+      visibleFromTime: data.visibleFromTime || "00:00",
+      visibleToTime: data.visibleToTime || "23:59",
     };
     menuCardsInMemory.push(newCard);
     return newCard;
