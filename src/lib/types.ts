@@ -1,4 +1,5 @@
 
+
 export type UserRole = "admin" | "host" | "client";
 
 export interface User {
@@ -17,19 +18,20 @@ export interface ReservationPageSettings {
   enableTableReservations: boolean;
 }
 
+export interface LoyaltySettings {
+  enabled: boolean;
+  pointsPerEuroSpent: number; 
+  pointsPerNightRoom: number; 
+  pointsPerTableBooking: number; 
+  pointsForNewClientSignup?: number; // Points for new client registration
+}
+
 export interface Host {
   hostId: string;
   nom: string;
   email: string;
   reservationPageSettings?: ReservationPageSettings;
   loyaltySettings?: LoyaltySettings;
-}
-
-export interface LoyaltySettings {
-  enabled: boolean;
-  pointsPerEuroSpent: number;
-  pointsPerNightRoom: number;
-  pointsPerTableBooking: number;
 }
 
 export interface Site { // Represents a Global Site
@@ -115,6 +117,7 @@ export interface Service {
   prix?: number;
   targetLocationIds?: string[];
   loginRequired?: boolean;
+  pointsRequis?: number; // Points needed to "buy" this service
 }
 
 export type OrderStatus = "pending" | "confirmed" | "completed" | "cancelled";
@@ -152,8 +155,8 @@ export interface Client {
     email?: string;
     telephone?: string;
     type: ClientType;
-    dateArrivee?: string; // YYYY-MM-DD
-    dateDepart?: string;  // YYYY-MM-DD
+    dateArrivee?: string; // YYYY-MM-DD - Optional
+    dateDepart?: string;  // YYYY-MM-DD - Optional
     locationId?: string;
     notes?: string;
     documents?: Array<{ name: string; url: string; uploadedAt: string }>;
@@ -215,3 +218,5 @@ export interface ClientDetails { // Used for client file page
   orders: (Order & { serviceName?: string; locationName?: string })[];
   locations: (RoomOrTable & { globalSiteName?: string })[];
 }
+
+    

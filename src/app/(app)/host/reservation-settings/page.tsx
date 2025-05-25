@@ -4,8 +4,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getHostById, updateHost, getSites } from '@/lib/data'; // Added getSites
-import type { Host, ReservationPageSettings, Site as GlobalSiteType } from '@/lib/types'; // Added GlobalSiteType
+import { getHostById, updateHost, getSites } from '@/lib/data'; 
+import type { Host, ReservationPageSettings, Site as GlobalSiteType, LoyaltySettings } from '@/lib/types'; 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,13 +13,21 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, Image as ImageIcon, BedDouble, Utensils, Link as LinkIcon, Copy } from 'lucide-react'; // Added LinkIcon, Copy
+import { AlertTriangle, Image as ImageIcon, BedDouble, Utensils, Link as LinkIcon, Copy, Settings2, Gift } from 'lucide-react'; 
 
-const defaultSettings: ReservationPageSettings = {
+const defaultReservationSettings: ReservationPageSettings = {
   enableRoomReservations: true,
   enableTableReservations: true,
   heroImageUrl: '',
   heroImageAiHint: '',
+};
+
+const defaultLoyaltySettings: LoyaltySettings = {
+  enabled: false,
+  pointsPerEuroSpent: 1,
+  pointsPerNightRoom: 10,
+  pointsPerTableBooking: 5,
+  pointsForNewClientSignup: 0,
 };
 
 export default function HostReservationSettingsPage() {
@@ -27,9 +35,10 @@ export default function HostReservationSettingsPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [hostSettings, setHostSettings] = useState<ReservationPageSettings>(defaultSettings);
-  const [hostName, setHostName] = useState<string>(''); // To generate heroImageAiHint
-  const [managedGlobalSites, setManagedGlobalSites] = useState<GlobalSiteType[]>([]); // New state for host's global sites
+  const [hostSettings, setHostSettings] = useState<ReservationPageSettings>(defaultReservationSettings);
+  const [loyaltySettings, setLoyaltySettings] = useState<LoyaltySettings>(defaultLoyaltySettings);
+  const [hostName, setHostName] = useState<string>(''); 
+  const [managedGlobalSites, setManagedGlobalSites] = useState<GlobalSiteType[]>([]); 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -38,11 +47,12 @@ export default function HostReservationSettingsPage() {
     try {
       const [hostData, sitesData] = await Promise.all([
         getHostById(hostId),
-        getSites(hostId) // Fetch sites managed by this host
+        getSites(hostId) 
       ]);
 
       if (hostData) {
-        setHostSettings(hostData.reservationPageSettings || defaultSettings);
+        setHostSettings(hostData.reservationPageSettings || defaultReservationSettings);
+        setLoyaltySettings(hostData.loyaltySettings || defaultLoyaltySettings);
         setHostName(hostData.nom);
       } else {
         toast({ title: "Erreur", description: "Informations de l'hôte non trouvées.", variant: "destructive" });
@@ -67,24 +77,34 @@ export default function HostReservationSettingsPage() {
     }
   }, [user, authLoading, router, fetchData]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setHostSettings(prev => ({ ...prev, [name]: value }));
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>, settingsType: 'reservation' | 'loyalty') => {
+    const { name, value, type } = e.target;
+    const parsedValue = type === 'number' ? parseFloat(value) || 0 : value;
+
+    if (settingsType === 'reservation') {
+        setHostSettings(prev => ({ ...prev, [name]: parsedValue }));
+    } else {
+        setLoyaltySettings(prev => ({ ...prev, [name]: parsedValue }));
+    }
   };
 
-  const handleSwitchChange = (name: keyof ReservationPageSettings, checked: boolean) => {
-    setHostSettings(prev => {
-      const newSettings = { ...prev, [name]: checked };
-      if (name === 'enableRoomReservations' && !checked && !newSettings.enableTableReservations) {
-        toast({ title: "Erreur de validation", description: "Vous ne pouvez pas désactiver à la fois les réservations de chambres et de tables.", variant: "destructive" });
-        return prev;
-      }
-      if (name === 'enableTableReservations' && !checked && !newSettings.enableRoomReservations) {
-        toast({ title: "Erreur de validation", description: "Vous ne pouvez pas désactiver à la fois les réservations de chambres et de tables.", variant: "destructive" });
-        return prev;
-      }
-      return newSettings;
-    });
+  const handleSwitchChange = (name: keyof ReservationPageSettings | keyof LoyaltySettings, checked: boolean, settingsType: 'reservation' | 'loyalty') => {
+     if (settingsType === 'reservation') {
+        setHostSettings(prev => {
+            const newSettings = { ...prev, [name as keyof ReservationPageSettings]: checked };
+            if (name === 'enableRoomReservations' && !checked && !newSettings.enableTableReservations) {
+                toast({ title: "Erreur de validation", description: "Vous ne pouvez pas désactiver à la fois les réservations de chambres et de tables.", variant: "destructive" });
+                return prev; 
+            }
+            if (name === 'enableTableReservations' && !checked && !newSettings.enableRoomReservations) {
+                toast({ title: "Erreur de validation", description: "Vous ne pouvez pas désactiver à la fois les réservations de chambres et de tables.", variant: "destructive" });
+                return prev;
+            }
+            return newSettings;
+        });
+     } else {
+         setLoyaltySettings(prev => ({ ...prev, [name as keyof LoyaltySettings]: checked }));
+     }
   };
 
   const handleSubmitSettings = async () => {
@@ -111,10 +131,11 @@ export default function HostReservationSettingsPage() {
           heroImageAiHint: hostSettings.heroImageUrl && hostName
             ? hostName.toLowerCase().split(' ').slice(0,2).join(' ') + ' banner' 
             : 'establishment banner',
-        }
+        },
+        loyaltySettings: loyaltySettings,
       };
       await updateHost(user.hostId, updatedHostData);
-      toast({ title: "Paramètres Enregistrés", description: "Vos paramètres de page de réservation ont été mis à jour." });
+      toast({ title: "Paramètres Enregistrés", description: "Vos paramètres ont été mis à jour." });
       fetchData(user.hostId); 
     } catch (error) {
       console.error("Failed to save settings:", error);
@@ -135,24 +156,18 @@ export default function HostReservationSettingsPage() {
       <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
         <Skeleton className="h-10 w-3/4 mb-2" />
         <Skeleton className="h-6 w-1/2 mb-8" />
-        <Card className="shadow-lg mb-8">
-          <CardHeader>
-            <Skeleton className="h-8 w-1/3 mb-2" />
-            <Skeleton className="h-5 w-2/3" />
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </CardContent>
-          <CardFooter>
-            <Skeleton className="h-10 w-24" />
-          </CardFooter>
-        </Card>
-        <Card className="shadow-lg">
-          <CardHeader><Skeleton className="h-8 w-1/2 mb-2" /></CardHeader>
-          <CardContent><Skeleton className="h-20 w-full" /></CardContent>
-        </Card>
+        <div className="grid lg:grid-cols-2 gap-8">
+            <Card className="shadow-lg">
+                <CardHeader><Skeleton className="h-8 w-1/3 mb-2" /><Skeleton className="h-5 w-2/3" /></CardHeader>
+                <CardContent className="space-y-6"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></CardContent>
+            </Card>
+            <Card className="shadow-lg">
+                <CardHeader><Skeleton className="h-8 w-1/3 mb-2" /><Skeleton className="h-5 w-2/3" /></CardHeader>
+                <CardContent className="space-y-6"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></CardContent>
+            </Card>
+        </div>
+        <Card className="shadow-lg mt-8"><CardHeader><Skeleton className="h-8 w-1/2 mb-2" /></CardHeader><CardContent><Skeleton className="h-20 w-full" /></CardContent></Card>
+        <div className="mt-8 flex justify-start"><Skeleton className="h-10 w-32" /></div>
       </div>
     );
   }
@@ -160,13 +175,13 @@ export default function HostReservationSettingsPage() {
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8 space-y-8">
       <div>
-        <h1 className="text-4xl font-bold tracking-tight text-foreground">Paramètres de la Page de Réservation</h1>
-        <p className="text-lg text-muted-foreground">Personnalisez la page de réservation publique de votre établissement.</p>
+        <h1 className="text-4xl font-bold tracking-tight text-foreground">Paramètres de Réservation & Fidélité</h1>
+        <p className="text-lg text-muted-foreground">Personnalisez la page de réservation publique et le programme de fidélité.</p>
       </div>
-
-      <Card className="shadow-lg max-w-2xl mx-auto">
+    <div className="grid lg:grid-cols-2 gap-8 items-start">
+      <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>Affichage & Fonctionnalités</CardTitle>
+          <CardTitle className="flex items-center"><Settings2 className="mr-2 h-5 w-5 text-primary"/>Affichage & Fonctionnalités Réservation</CardTitle>
           <CardDescription>Contrôlez ce que les clients voient et peuvent réserver sur votre page publique.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -178,7 +193,7 @@ export default function HostReservationSettingsPage() {
               id="heroImageUrl"
               name="heroImageUrl"
               value={hostSettings.heroImageUrl || ''}
-              onChange={handleInputChange}
+              onChange={(e) => handleInputChange(e, 'reservation')}
               placeholder="https://placehold.co/1200x400.png"
               disabled={isSubmitting}
             />
@@ -200,7 +215,7 @@ export default function HostReservationSettingsPage() {
               <Switch
                 id="enableRoomReservations"
                 checked={hostSettings.enableRoomReservations}
-                onCheckedChange={(checked) => handleSwitchChange('enableRoomReservations', checked)}
+                onCheckedChange={(checked) => handleSwitchChange('enableRoomReservations', checked, 'reservation')}
                 disabled={isSubmitting}
               />
             </div>
@@ -211,20 +226,57 @@ export default function HostReservationSettingsPage() {
               <Switch
                 id="enableTableReservations"
                 checked={hostSettings.enableTableReservations}
-                onCheckedChange={(checked) => handleSwitchChange('enableTableReservations', checked)}
+                onCheckedChange={(checked) => handleSwitchChange('enableTableReservations', checked, 'reservation')}
                 disabled={isSubmitting}
               />
             </div>
           </div>
         </CardContent>
-        <CardFooter>
-          <Button onClick={handleSubmitSettings} disabled={isSubmitting || (!hostSettings.enableRoomReservations && !hostSettings.enableTableReservations) }>
-            {isSubmitting ? 'Enregistrement...' : 'Enregistrer les Paramètres'}
-          </Button>
-        </CardFooter>
       </Card>
 
-      <Card className="shadow-lg max-w-2xl mx-auto">
+      <Card className="shadow-lg">
+        <CardHeader>
+            <CardTitle className="flex items-center"><Gift className="mr-2 h-5 w-5 text-primary"/>Programme de Fidélité</CardTitle>
+            <CardDescription>Configurez comment les clients gagnent et utilisent des points de fidélité.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+            <div className="flex items-center justify-between p-3 border rounded-md hover:bg-accent/50 transition-colors">
+              <Label htmlFor="loyaltyEnabled" className="flex items-center text-base cursor-pointer">
+                Activer le programme de fidélité
+              </Label>
+              <Switch
+                id="loyaltyEnabled"
+                checked={loyaltySettings.enabled}
+                onCheckedChange={(checked) => handleSwitchChange('enabled', checked, 'loyalty')}
+                disabled={isSubmitting}
+              />
+            </div>
+            {loyaltySettings.enabled && (
+                <>
+                    <div className="space-y-2">
+                        <Label htmlFor="pointsForNewClientSignup">Points offerts à l'inscription d'un nouveau client</Label>
+                        <Input id="pointsForNewClientSignup" name="pointsForNewClientSignup" type="number" value={loyaltySettings.pointsForNewClientSignup || 0} onChange={(e) => handleInputChange(e, 'loyalty')} disabled={isSubmitting || !loyaltySettings.enabled} min="0" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="pointsPerEuroSpent">Points gagnés par Euro dépensé (Commandes)</Label>
+                        <Input id="pointsPerEuroSpent" name="pointsPerEuroSpent" type="number" value={loyaltySettings.pointsPerEuroSpent || 0} onChange={(e) => handleInputChange(e, 'loyalty')} disabled={isSubmitting || !loyaltySettings.enabled} min="0" step="0.1"/>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="pointsPerNightRoom">Points gagnés par nuit en chambre</Label>
+                        <Input id="pointsPerNightRoom" name="pointsPerNightRoom" type="number" value={loyaltySettings.pointsPerNightRoom || 0} onChange={(e) => handleInputChange(e, 'loyalty')} disabled={isSubmitting || !loyaltySettings.enabled} min="0"/>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="pointsPerTableBooking">Points gagnés par réservation de table</Label>
+                        <Input id="pointsPerTableBooking" name="pointsPerTableBooking" type="number" value={loyaltySettings.pointsPerTableBooking || 0} onChange={(e) => handleInputChange(e, 'loyalty')} disabled={isSubmitting || !loyaltySettings.enabled} min="0"/>
+                    </div>
+                </>
+            )}
+        </CardContent>
+      </Card>
+    </div>
+
+
+      <Card className="shadow-lg max-w-4xl mx-auto">
         <CardHeader>
           <CardTitle className="flex items-center"><LinkIcon className="mr-2 h-5 w-5 text-primary" /> Vos Pages de Réservation Publiques</CardTitle>
           <CardDescription>Partagez ces liens avec vos clients ou sur vos réseaux sociaux.</CardDescription>
@@ -264,6 +316,11 @@ export default function HostReservationSettingsPage() {
           )}
         </CardContent>
       </Card>
+       <div className="flex justify-center mt-8">
+          <Button onClick={handleSubmitSettings} disabled={isSubmitting || (!hostSettings.enableRoomReservations && !hostSettings.enableTableReservations) } size="lg">
+            {isSubmitting ? 'Enregistrement...' : 'Enregistrer Tous les Paramètres'}
+          </Button>
+        </div>
     </div>
   );
 }

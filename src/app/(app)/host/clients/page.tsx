@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Edit2, Trash2, Users, CalendarDays as CalendarLucideIcon, DollarSign } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, Users, CalendarDays as CalendarLucideIcon, DollarSign, Link2 } from 'lucide-react'; // Added Link2
 import {
   Dialog,
   DialogContent,
@@ -34,6 +34,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO, isValid } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import Link from 'next/link'; // Import Link
 
 const clientTypes: ClientType[] = ["heberge", "passager"];
 const DEFAULT_NO_LOCATION_ID = "___NO_LOCATION_SELECTED___";
@@ -64,7 +65,8 @@ export default function HostClientsPage() {
     _dateDepart?: Date;  
     locationId?: string;
     notes?: string;
-    credit?: number; // Added for displaying current credit
+    credit?: number;
+    pointsFidelite?: number;
   }>({
     nom: '',
     type: 'passager',
@@ -72,6 +74,7 @@ export default function HostClientsPage() {
     _dateDepart: undefined,
     locationId: undefined,
     credit: 0,
+    pointsFidelite: 0,
   });
 
   const fetchData = useCallback(async (hostId: string) => {
@@ -124,25 +127,22 @@ export default function HostClientsPage() {
       toast({ title: "Validation Error", description: "Client name cannot be empty.", variant: "destructive" });
       return;
     }
+    // Dates are now optional for "heberge"
     if (currentClientData.type === 'heberge') {
-        if (!currentClientData._dateArrivee) {
-            toast({ title: "Validation Error", description: "Arrival date is required for lodged clients.", variant: "destructive"});
-            return;
-        }
-        if (currentClientData._dateDepart && currentClientData._dateArrivee && currentClientData._dateDepart < currentClientData._dateArrivee) {
+        if (currentClientData._dateArrivee && currentClientData._dateDepart && currentClientData._dateDepart < currentClientData._dateArrivee) {
             toast({ title: "Validation Error", description: "Departure date cannot be before arrival date.", variant: "destructive"});
             return;
         }
     }
 
     setIsSubmitting(true);
-    const dataToSubmit: Omit<Client, 'id' | 'hostId' | 'documents' | 'credit'> = {
+    const dataToSubmit: Partial<Omit<Client, 'id' | 'hostId' | 'documents' | 'credit' | 'pointsFidelite'>> = {
       nom: currentClientData.nom.trim(),
       email: currentClientData.email?.trim() || undefined,
       telephone: currentClientData.telephone?.trim() || undefined,
       type: currentClientData.type,
-      dateArrivee: currentClientData.type === 'heberge' && currentClientData._dateArrivee ? format(currentClientData._dateArrivee, 'yyyy-MM-dd') : undefined,
-      dateDepart: currentClientData.type === 'heberge' && currentClientData._dateDepart ? format(currentClientData._dateDepart, 'yyyy-MM-dd') : undefined,
+      dateArrivee: currentClientData._dateArrivee ? format(currentClientData._dateArrivee, 'yyyy-MM-dd') : undefined,
+      dateDepart: currentClientData._dateDepart ? format(currentClientData._dateDepart, 'yyyy-MM-dd') : undefined,
       locationId: currentClientData.type === 'heberge' ? currentClientData.locationId : undefined,
       notes: currentClientData.notes?.trim() || undefined,
     };
@@ -152,6 +152,7 @@ export default function HostClientsPage() {
         await updateClientData(editingClient.id, dataToSubmit);
         toast({ title: "Client Updated", description: `Client "${dataToSubmit.nom}" has been updated.` });
       } else {
+        // Pass hostId for addClientData to handle loyalty point assignment
         await addClientData({ ...dataToSubmit, hostId: user.hostId });
         toast({ title: "Client Added", description: `Client "${dataToSubmit.nom}" has been added.` });
       }
@@ -162,7 +163,7 @@ export default function HostClientsPage() {
     } finally {
       setIsDialogOpen(false);
       setEditingClient(null);
-      setCurrentClientData({ nom: '', type: 'passager', _dateArrivee: undefined, _dateDepart: undefined, locationId: undefined, email: '', telephone: '', notes: '', credit: 0 });
+      setCurrentClientData({ nom: '', type: 'passager', _dateArrivee: undefined, _dateDepart: undefined, locationId: undefined, email: '', telephone: '', notes: '', credit: 0, pointsFidelite: 0 });
       setIsSubmitting(false);
     }
   };
@@ -179,6 +180,7 @@ export default function HostClientsPage() {
       locationId: undefined,
       notes: '',
       credit: 0,
+      pointsFidelite: 0,
     });
     setIsDialogOpen(true);
   };
@@ -203,6 +205,7 @@ export default function HostClientsPage() {
       locationId: client.locationId || undefined,
       notes: client.notes || '',
       credit: client.credit || 0,
+      pointsFidelite: client.pointsFidelite || 0,
     });
     setIsDialogOpen(true);
   };
@@ -238,8 +241,7 @@ export default function HostClientsPage() {
       const updatedClient = await addCreditToClient(clientForCredit.id, creditAmount, user.hostId);
       if (updatedClient) {
         toast({title: "Credit Added", description: `${creditAmount.toFixed(2)}€ added to ${clientForCredit.nom}. New balance: ${updatedClient.credit?.toFixed(2)}€`});
-        fetchData(user.hostId); // Refresh client list to show new credit
-        // Optionally update the editingClient state if the credit dialog was opened from an edit dialog
+        fetchData(user.hostId); 
         if (editingClient && editingClient.id === updatedClient.id) {
           setEditingClient(updatedClient);
           setCurrentClientData(prev => ({...prev, credit: updatedClient.credit}));
@@ -258,7 +260,6 @@ export default function HostClientsPage() {
     }
   };
 
-
   if (isLoading || authLoading) {
     return (
       <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
@@ -268,7 +269,7 @@ export default function HostClientsPage() {
         </div>
         <Card className="shadow-lg">
           <CardHeader><Skeleton className="h-8 w-48 mb-2" /><Skeleton className="h-5 w-64" /></CardHeader>
-          <CardContent><div className="space-y-4">{[...Array(3)].map((_, i) => (<div key={i} className="grid grid-cols-6 gap-4 items-center"><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-8 w-full" /></div>))}</div></CardContent>
+          <CardContent><div className="space-y-4">{[...Array(3)].map((_, i) => (<div key={i} className="grid grid-cols-7 gap-4 items-center"><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-8 w-full" /></div>))}</div></CardContent>
         </Card>
       </div>
     );
@@ -300,13 +301,19 @@ export default function HostClientsPage() {
                 <TableHead>Contact</TableHead>
                 <TableHead>Assigned Location</TableHead>
                 <TableHead>Credit</TableHead>
+                <TableHead>Loyalty Points</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {clients.map((client) => (
                 <TableRow key={client.id}>
-                  <TableCell className="font-medium">{client.nom}</TableCell>
+                  <TableCell className="font-medium">
+                     {/* This link can be updated later to point to /host/clients/[clientId] */}
+                    <Link href={`/host/clients/${encodeURIComponent(client.nom)}`} className="hover:underline text-primary flex items-center gap-1">
+                        {client.nom} <Link2 className="h-3 w-3 opacity-70"/>
+                    </Link>
+                  </TableCell>
                   <TableCell>
                     <span className={`px-2 py-1 text-xs rounded-full font-semibold capitalize ${client.type === 'heberge' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
                         {client.type}
@@ -322,6 +329,9 @@ export default function HostClientsPage() {
                   </TableCell>
                   <TableCell className="font-semibold text-primary">
                     {(client.credit || 0).toFixed(2)}€
+                  </TableCell>
+                  <TableCell className="font-semibold text-amber-600">
+                    {client.pointsFidelite || 0} pts
                   </TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button variant="outline" size="icon" onClick={() => openAddCreditDialog(client)} title="Add Credit" disabled={isSubmitting}>
@@ -377,7 +387,7 @@ export default function HostClientsPage() {
             {currentClientData.type === 'heberge' && (
               <>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="dateArrivee" className="text-right">Arrival*</Label>
+                  <Label htmlFor="dateArrivee" className="text-right">Arrival</Label> {/* No longer mandatory */}
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -449,6 +459,12 @@ export default function HostClientsPage() {
                     <Input id="currentCredit" value={`${(currentClientData.credit || 0).toFixed(2)}€`} className="col-span-3" disabled />
                 </div>
             )}
+            {editingClient && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="currentLoyaltyPoints" className="text-right">Loyalty Points</Label>
+                    <Input id="currentLoyaltyPoints" value={`${currentClientData.pointsFidelite || 0} pts`} className="col-span-3" disabled />
+                </div>
+            )}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="notes" className="text-right">Notes</Label>
               <Textarea id="notes" name="notes" value={currentClientData.notes || ''} onChange={handleInputChange} className="col-span-3" disabled={isSubmitting} placeholder="Any special requests or notes..."/>
@@ -506,3 +522,4 @@ export default function HostClientsPage() {
     </div>
   );
 }
+

@@ -1,9 +1,9 @@
 
 // src/lib/data.ts
-import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus, Tag, OnlineCheckinData, OnlineCheckinStatus } from './types';
+import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus, Tag, OnlineCheckinData, OnlineCheckinStatus, LoyaltySettings } from './types';
 
-// Firestore imports are commented out as we are working with in-memory data
-// import { db } from './firebase';
+// Firebase imports are commented out as we are using in-memory data
+// import { db } from './firebase'; // Assuming firebase is correctly configured
 // import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp } from 'firebase/firestore';
 
 const log = (message: string, data?: any) => {
@@ -23,10 +23,18 @@ let usersInMemory: User[] = [
   { id: 'user-dynamic-client-01', email: 'dynamic_client@example.com', nom: 'Dynamic Test Client User', role: 'client', motDePasse: '1234' },
 ];
 
+const defaultLoyaltySettings: LoyaltySettings = {
+  enabled: false,
+  pointsPerEuroSpent: 1,
+  pointsPerNightRoom: 10,
+  pointsPerTableBooking: 5,
+  pointsForNewClientSignup: 0,
+};
+
 let hostsInMemory: Host[] = [
-  { hostId: 'host-01-inmem', nom: 'Paradise Beach Resort (In-Mem)', email: 'manager@paradise.com', reservationPageSettings: { heroImageUrl: 'https://placehold.co/1200x400.png?text=Paradise+Resort+Banner', heroImageAiHint: 'resort beach banner', enableRoomReservations: true, enableTableReservations: true }, loyaltySettings: { enabled: true, pointsPerEuroSpent: 1, pointsPerNightRoom: 10, pointsPerTableBooking: 5 } },
-  { hostId: 'host-02-inmem', nom: 'Le Delice Downtown (In-Mem)', email: 'contact@delice.com', reservationPageSettings: { enableRoomReservations: false, enableTableReservations: true }, loyaltySettings: { enabled: false, pointsPerEuroSpent: 1, pointsPerNightRoom: 10, pointsPerTableBooking: 5 } },
-  { hostId: 'host-1747669860022', nom: 'Dynamic Test Est. (In-Mem)', email: 'dynamic.host@example.com', reservationPageSettings: { heroImageUrl: 'https://placehold.co/1200x400.png?text=Dynamic+Test+Banner', heroImageAiHint: 'dynamic test banner', enableRoomReservations: true, enableTableReservations: false }, loyaltySettings: { enabled: true, pointsPerEuroSpent: 2, pointsPerNightRoom: 15, pointsPerTableBooking: 3 } },
+  { hostId: 'host-01-inmem', nom: 'Paradise Beach Resort (In-Mem)', email: 'manager@paradise.com', reservationPageSettings: { heroImageUrl: 'https://placehold.co/1200x400.png?text=Paradise+Resort+Banner', heroImageAiHint: 'resort beach banner', enableRoomReservations: true, enableTableReservations: true }, loyaltySettings: { ...defaultLoyaltySettings, enabled: true, pointsPerEuroSpent: 1, pointsPerNightRoom: 10, pointsPerTableBooking: 5, pointsForNewClientSignup: 50 } },
+  { hostId: 'host-02-inmem', nom: 'Le Delice Downtown (In-Mem)', email: 'contact@delice.com', reservationPageSettings: { enableRoomReservations: false, enableTableReservations: true }, loyaltySettings: { ...defaultLoyaltySettings } },
+  { hostId: 'host-1747669860022', nom: 'Dynamic Test Est. (In-Mem)', email: 'dynamic.host@example.com', reservationPageSettings: { heroImageUrl: 'https://placehold.co/1200x400.png?text=Dynamic+Test+Banner', heroImageAiHint: 'dynamic test banner', enableRoomReservations: true, enableTableReservations: false }, loyaltySettings: { ...defaultLoyaltySettings, enabled: true, pointsPerEuroSpent: 2, pointsPerNightRoom: 15, pointsPerTableBooking: 3, pointsForNewClientSignup: 25 } },
 ];
 
 let sitesInMemory: Site[] = [
@@ -145,11 +153,10 @@ const normalizeUserPassword = (user: any): User => {
   if (!userData.motDePasse && userData.password) {
     userData.motDePasse = userData.password;
   } else if (!userData.motDePasse) {
-    // Ensure motDePasse is always defined, even if empty, to match User type
     userData.motDePasse = ""; 
   }
   delete userData.password; 
-  if (!userData.nom && userData.email) { // Provide a default name if 'nom' is missing
+  if (!userData.nom && userData.email) { 
       userData.nom = userData.email.split('@')[0];
   }
   return userData as User;
@@ -161,15 +168,14 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
     const user = usersInMemory.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (user) {
       let userData = { ...user };
-      // Handle potential 'password' field from manual Firestore entry and map to 'motDePasse'
       if (!userData.motDePasse && (user as any).password) {
         userData.motDePasse = (user as any).password;
       } else if (!userData.motDePasse) {
-        userData.motDePasse = ""; // Ensure motDePasse is defined
+        userData.motDePasse = ""; 
       }
-      delete (userData as any).password; // Remove 'password' field if it existed
+      delete (userData as any).password; 
 
-      if (!userData.nom) { // Default name if missing
+      if (!userData.nom) { 
         userData.nom = userData.email.split('@')[0];
       }
       return userData as User;
@@ -219,7 +225,7 @@ export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
     }
     const newUser: User = {
       id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      motDePasse: userData.motDePasse.trim(), // Ensure motDePasse is defined
+      motDePasse: userData.motDePasse.trim(), 
       nom: userData.nom || userData.email.split('@')[0],
       ...userData,
     };
@@ -238,11 +244,9 @@ export const updateUser = async (userId: string, userData: Partial<Omit<User, 'i
     const userIndex = usersInMemory.findIndex(u => u.id === userId);
     if (userIndex > -1) {
       const updatedUser = { ...usersInMemory[userIndex], ...userData };
-      // Only update password if a new, non-empty password is provided
       if (userData.motDePasse && userData.motDePasse.trim() !== '') {
           updatedUser.motDePasse = userData.motDePasse.trim();
       }
-      // If hostId is explicitly passed as null or undefined, clear it
       if (userData.hasOwnProperty('hostId')) {
         updatedUser.hostId = userData.hostId || undefined;
       }
@@ -296,41 +300,29 @@ export const getHostById = async (hostId: string): Promise<Host | undefined> => 
   }
 };
 
-export const addHost = async (hostData: Omit<Host, 'hostId' | 'loyaltySettings'> & { loyaltySettings?: Partial<Host['loyaltySettings']> }): Promise<Host> => {
+export const addHost = async (hostData: Omit<Host, 'hostId' | 'loyaltySettings'> & { loyaltySettings?: Partial<LoyaltySettings> }): Promise<Host> => {
   log(`addHost called for: ${hostData.email} (in-memory)`);
   try {
-    // Check if host already exists by email
     const existingHostByEmail = hostsInMemory.find(h => h.email.toLowerCase() === hostData.email.toLowerCase());
     if (existingHostByEmail) {
         log(`Host with email ${hostData.email} already exists. Updating name if different.`);
         if (existingHostByEmail.nom !== hostData.nom) existingHostByEmail.nom = hostData.nom;
-        
-        // Find or create associated user
         let associatedUser = usersInMemory.find(u => u.email.toLowerCase() === existingHostByEmail.email.toLowerCase());
         if (associatedUser) {
-            // Update existing user
             await updateUser(associatedUser.id, { nom: existingHostByEmail.nom, role: 'host', hostId: existingHostByEmail.hostId });
         } else {
-            // Add new user if not found
             await addUser({ email: existingHostByEmail.email, nom: existingHostByEmail.nom, role: 'host', hostId: existingHostByEmail.hostId, motDePasse: '1234' });
         }
         return { ...existingHostByEmail };
     }
 
-    // Default settings for a new host
     const defaultReservationSettings: ReservationPageSettings = {
       enableRoomReservations: true,
       enableTableReservations: true,
       heroImageUrl: `https://placehold.co/1200x400.png?text=${encodeURIComponent(hostData.nom)}+Banner`,
       heroImageAiHint: hostData.nom.toLowerCase().split(' ').slice(0,2).join(' ') || 'establishment banner',
     };
-    const defaultLoyaltySettings: Host['loyaltySettings'] = {
-        enabled: false,
-        pointsPerEuroSpent: 1,
-        pointsPerNightRoom: 10,
-        pointsPerTableBooking: 5,
-    };
-
+    
     const newHost: Host = {
       hostId: `host-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       ...hostData,
@@ -339,14 +331,12 @@ export const addHost = async (hostData: Omit<Host, 'hostId' | 'loyaltySettings'>
     };
     hostsInMemory.push(newHost);
     log(`Host ${newHost.email} added (in-memory) with ID ${newHost.hostId}.`);
-
-    // Add associated user
     await addUser({
       email: newHost.email,
       nom: newHost.nom,
       role: 'host',
       hostId: newHost.hostId,
-      motDePasse: '1234', // Default password for new host user
+      motDePasse: '1234', 
     });
     return { ...newHost };
   } catch (e) {
@@ -362,11 +352,11 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
     if (hostIndex > -1) {
       const originalHostData = { ...hostsInMemory[hostIndex] };
       const updatedSettings = {
-        ...(originalHostData.reservationPageSettings || { enableRoomReservations: true, enableTableReservations: true }), // Default if undefined
+        ...(originalHostData.reservationPageSettings || { enableRoomReservations: true, enableTableReservations: true }), 
         ...(hostData.reservationPageSettings || {}),
       };
       const updatedLoyaltySettings = {
-        ...(originalHostData.loyaltySettings || { enabled: false, pointsPerEuroSpent: 1, pointsPerNightRoom: 10, pointsPerTableBooking: 5 }),
+        ...(originalHostData.loyaltySettings || defaultLoyaltySettings),
         ...(hostData.loyaltySettings || {}),
       };
 
@@ -374,17 +364,11 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
       log(`Host ${hostId} updated (in-memory).`);
 
       const updatedHost = hostsInMemory[hostIndex];
-      // If email or name changed, update the associated user
       if ((hostData.email && hostData.email !== originalHostData.email) || (hostData.nom && hostData.nom !== originalHostData.nom)) {
           let userToUpdate = usersInMemory.find(u => u.hostId === hostId);
-          // Fallback: find by original email if hostId wasn't perfectly synced (less likely with current setup)
           if (!userToUpdate) userToUpdate = usersInMemory.find(u => u.email.toLowerCase() === originalHostData.email.toLowerCase() && u.role === 'host');
-          
           if (userToUpdate) {
-              await updateUser(userToUpdate.id, {
-                  email: updatedHost.email, // Update email if changed
-                  nom: updatedHost.nom,   // Update name if changed
-              });
+              await updateUser(userToUpdate.id, { email: updatedHost.email, nom: updatedHost.nom, });
               log(`Associated user for host ${hostId} also updated (in-memory).`);
           }
       }
@@ -406,8 +390,6 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
       log(`Host ${hostId} not found for deletion (in-memory).`);
       return false;
     }
-
-    // Attempt to delete associated user
     const userToDelete = usersInMemory.find(u => u.hostId === hostId && u.email.toLowerCase() === hostToDelete.email.toLowerCase());
     if (userToDelete) {
       await deleteUser(userToDelete.id);
@@ -415,25 +397,18 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
     } else {
       log(`No user directly associated with hostId ${hostId} and matching email found for deletion.`);
     }
-
-    // Delete the host
     const initialLength = hostsInMemory.length;
     hostsInMemory = hostsInMemory.filter(h => h.hostId !== hostId);
     const hostDeleted = hostsInMemory.length < initialLength;
-
     if (hostDeleted) {
       log(`Host ${hostId} deleted (in-memory). Cascading deletes to related in-memory data.`);
-      // Cascade delete related data
       sitesInMemory = sitesInMemory.filter(s => s.hostId !== hostId);
       roomsOrTablesInMemory = roomsOrTablesInMemory.filter(rt => rt.hostId !== hostId);
       serviceCategoriesInMemory = serviceCategoriesInMemory.filter(sc => sc.hostId !== hostId);
-      
-      // Delete forms and their fields
       const formsForHost = customFormsInMemory.filter(cf => cf.hostId === hostId);
       const formIdsForHost = formsForHost.map(f => f.id);
       formFieldsInMemory = formFieldsInMemory.filter(ff => !formIdsForHost.includes(ff.formulaireId));
       customFormsInMemory = customFormsInMemory.filter(cf => cf.hostId !== hostId);
-      
       servicesInMemory = servicesInMemory.filter(s => s.hostId !== hostId);
       ordersInMemory = ordersInMemory.filter(o => o.hostId !== hostId);
       clientsInMemory = clientsInMemory.filter(c => c.hostId !== hostId);
@@ -478,9 +453,9 @@ export const addSiteToData = async (siteData: Omit<Site, 'siteId' | 'logoAiHint'
     const newSite: Site = {
       ...siteData,
       siteId: `globalsite-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-      logoUrl: siteData.logoUrl || undefined, // Ensure undefined if empty
+      logoUrl: siteData.logoUrl || undefined, 
       logoAiHint: siteData.logoUrl && siteData.nom ? siteData.nom.toLowerCase().split(' ').slice(0,2).join(' ') : undefined,
-      primaryColor: siteData.primaryColor || undefined, // Ensure undefined if empty
+      primaryColor: siteData.primaryColor || undefined, 
     };
     sitesInMemory.push(newSite);
     return newSite;
@@ -516,7 +491,6 @@ export const deleteSiteInData = async (siteId: string): Promise<boolean> => {
     try {
       const initialLength = sitesInMemory.length;
       sitesInMemory = sitesInMemory.filter(s => s.siteId !== siteId);
-      // Cascade delete locations belonging to this global site
       roomsOrTablesInMemory = roomsOrTablesInMemory.filter(rt => rt.globalSiteId !== siteId);
       return sitesInMemory.length < initialLength;
     } catch (e) {
@@ -535,9 +509,9 @@ export const getRoomsOrTables = async (hostId: string, globalSiteIdParam?: strin
       filtered = filtered.filter(rt => rt.globalSiteId === globalSiteIdParam);
     }
     return [...filtered].sort((a,b) => {
-      if (a.type === 'Site' && b.type !== 'Site') return -1; // Group 'Site' types first
+      if (a.type === 'Site' && b.type !== 'Site') return -1; 
       if (a.type !== 'Site' && b.type === 'Site') return 1;
-      if (a.type === b.type) return a.nom.localeCompare(b.nom); // Then sort by type (Chambre, Table)
+      if (a.type === b.type) return a.nom.localeCompare(b.nom); 
       return a.type.localeCompare(b.type);
     });
   } catch (e) {
@@ -563,7 +537,7 @@ export const addRoomOrTable = async (data: Omit<RoomOrTable, 'id' | 'urlPersonna
     const newRoomOrTable: RoomOrTable = {
       ...data,
       id: newId,
-      urlPersonnalise: `/client/${data.hostId}/${newId}`, // Generate URL based on hostId and newId
+      urlPersonnalise: `/client/${data.hostId}/${newId}`, 
       capacity: data.capacity,
       tagIds: data.tagIds || [],
       description: data.description || undefined,
@@ -590,11 +564,10 @@ export const updateRoomOrTable = async (id: string, data: Partial<Omit<RoomOrTab
       roomsOrTablesInMemory[itemIndex] = {
           ...currentItem,
           ...data,
-          // Explicitly carry over fields not in `data` or ensure defaults
           nom: data.nom !== undefined ? data.nom : currentItem.nom,
           type: data.type !== undefined ? data.type : currentItem.type,
           globalSiteId: data.globalSiteId !== undefined ? data.globalSiteId : currentItem.globalSiteId,
-          parentLocationId: data.hasOwnProperty('parentLocationId') ? data.parentLocationId : currentItem.parentLocationId, // Allow setting to undefined
+          parentLocationId: data.hasOwnProperty('parentLocationId') ? data.parentLocationId : currentItem.parentLocationId, 
           capacity: data.capacity !== undefined ? data.capacity : currentItem.capacity,
           tagIds: data.tagIds !== undefined ? data.tagIds : currentItem.tagIds,
           description: data.description !== undefined ? data.description : currentItem.description,
@@ -620,38 +593,29 @@ export const deleteRoomOrTable = async (id: string): Promise<boolean> => {
       const locationToDelete = roomsOrTablesInMemory.find(rt => rt.id === id);
 
       if (locationToDelete) {
-          // Re-parent children locations
           const children = roomsOrTablesInMemory.filter(rt => rt.parentLocationId === id);
           children.forEach(child => {
               const childIndex = roomsOrTablesInMemory.findIndex(c => c.id === child.id);
               if (childIndex > -1) {
-                  // Re-parent to the deleted location's parent, or make it a top-level location under the global site
                   roomsOrTablesInMemory[childIndex].parentLocationId = locationToDelete.parentLocationId || undefined;
               }
           });
-
-          // Remove from service targetLocationIds
           servicesInMemory.forEach(service => {
               if (service.targetLocationIds?.includes(id)) {
                   service.targetLocationIds = service.targetLocationIds.filter(targetId => targetId !== id);
               }
           });
-
-          // Unassign from clients
           clientsInMemory.forEach(client => {
               if (client.locationId === id) {
                   client.locationId = undefined;
               }
           });
-          
-          // Handle reservations linked to this location
           const linkedReservations = reservationsInMemory.filter(r => r.locationId === id);
           if (linkedReservations.length > 0) {
               log(`Warning: Deleting location ${id} which has ${linkedReservations.length} associated reservations. These reservations will also be removed for in-memory data.`);
               reservationsInMemory = reservationsInMemory.filter(r => r.locationId !== id);
           }
       }
-      
       roomsOrTablesInMemory = roomsOrTablesInMemory.filter(rt => rt.id !== id);
       return roomsOrTablesInMemory.length < initialLength;
     } catch (e) {
@@ -659,7 +623,6 @@ export const deleteRoomOrTable = async (id: string): Promise<boolean> => {
       return false;
     }
 };
-
 
 // --- Tag Management ---
 export const getTags = async (hostId: string): Promise<Tag[]> => {
@@ -704,7 +667,6 @@ export const deleteTag = async (tagId: string): Promise<boolean> => {
   try {
     const initialLength = tagsInMemory.length;
     tagsInMemory = tagsInMemory.filter(tag => tag.id !== tagId);
-    // Remove tag from all locations that use it
     if (tagsInMemory.length < initialLength) {
       roomsOrTablesInMemory = roomsOrTablesInMemory.map(loc => {
         if (loc.tagIds && loc.tagIds.includes(tagId)) {
@@ -721,7 +683,6 @@ export const deleteTag = async (tagId: string): Promise<boolean> => {
     return false;
   }
 };
-
 
 // --- ServiceCategory Management ---
 export const getServiceCategories = async (hostId: string): Promise<ServiceCategory[]> => {
@@ -770,8 +731,7 @@ export const deleteServiceCategory = async (id: string): Promise<boolean> => {
     try {
       const initialLength = serviceCategoriesInMemory.length;
       serviceCategoriesInMemory = serviceCategoriesInMemory.filter(sc => sc.id !== id);
-      // Unassign category from services
-      servicesInMemory = servicesInMemory.map(s => s.categorieId === id ? {...s, categorieId: ''} : s); // Or set to a default "Uncategorized" ID
+      servicesInMemory = servicesInMemory.map(s => s.categorieId === id ? {...s, categorieId: ''} : s); 
       return serviceCategoriesInMemory.length < initialLength;
     } catch (e) {
       console.error("Error in deleteServiceCategory (in-memory):", e);
@@ -788,7 +748,6 @@ export const getServiceCategoryById = async (id: string): Promise<ServiceCategor
     return undefined;
   }
 };
-
 
 // --- CustomForm Management ---
 export const getCustomForms = async (hostId: string): Promise<CustomForm[]> => {
@@ -843,9 +802,7 @@ export const deleteCustomForm = async (id: string): Promise<boolean> => {
     try {
       const initialLength = customFormsInMemory.length;
       customFormsInMemory = customFormsInMemory.filter(cf => cf.id !== id);
-      // Cascade delete form fields
       formFieldsInMemory = formFieldsInMemory.filter(ff => ff.formulaireId !== id);
-      // Unassign form from services
       servicesInMemory = servicesInMemory.map(s => s.formulaireId === id ? {...s, formulaireId: undefined} : s);
       return customFormsInMemory.length < initialLength;
     } catch (e) {
@@ -853,7 +810,6 @@ export const deleteCustomForm = async (id: string): Promise<boolean> => {
       return false;
     }
 };
-
 
 // --- FormField Management ---
 export const getFormFields = async (formulaireId: string): Promise<FormField[]> => {
@@ -905,7 +861,6 @@ export const deleteFormField = async (id: string): Promise<boolean> => {
     }
 };
 
-
 // --- Service Management ---
 export const getServices = async (
   hostId: string,
@@ -915,37 +870,30 @@ export const getServices = async (
   log(`getServices called for host: ${hostId}, location: ${clientCurrentLocationId}, category: ${categoryId}. Using in-memory data.`);
   try {
     let hostServices = [...servicesInMemory].filter(s => s.hostId === hostId);
-
-    // If a specific location ID is provided (client scanning QR code)
     if (clientCurrentLocationId) {
       const currentScannedLocation = await getRoomOrTableById(clientCurrentLocationId);
       if (!currentScannedLocation) {
         log(`Location with ID ${clientCurrentLocationId} not found for service filtering.`);
-        return []; // Or handle as an error
+        return []; 
       }
-
-      // Build a list of relevant location IDs: the scanned location and all its parents up to the global site.
       const relevantLocationIds: string[] = [currentScannedLocation.id];
       let parentId = currentScannedLocation.parentLocationId;
       while (parentId) {
-        const parentLocation = await getRoomOrTableById(parentId); // Assuming this function can fetch 'Site' types too
+        const parentLocation = await getRoomOrTableById(parentId); 
         if (parentLocation) {
           relevantLocationIds.push(parentId);
           parentId = parentLocation.parentLocationId;
         } else {
-          parentId = undefined; // Stop if a parent isn't found
+          parentId = undefined; 
         }
       }
-
       hostServices = hostServices.filter(service => {
         if (!service.targetLocationIds || service.targetLocationIds.length === 0) {
-          return true; // Service is host-wide (no specific targets)
+          return true; 
         }
-        // Service is available if any of its target IDs match the scanned location or any of its ancestors
         return service.targetLocationIds.some(targetId => relevantLocationIds.includes(targetId));
       });
     }
-
     if (categoryId && categoryId !== "all" && categoryId !== "") {
       hostServices = hostServices.filter(s => s.categorieId === categoryId);
     }
@@ -973,7 +921,7 @@ export const addService = async (data: Omit<Service, 'id' | 'data-ai-hint'>): Pr
       ...data,
       id: `svc-${Date.now()}`,
       "data-ai-hint": data.image && data.titre ? data.titre.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : undefined,
-      targetLocationIds: data.targetLocationIds || [] // Ensure it's an array
+      targetLocationIds: data.targetLocationIds || [] 
     };
     servicesInMemory.push(newService);
     return newService;
@@ -992,7 +940,7 @@ export const updateService = async (id: string, data: Partial<Omit<Service, 'id'
         ...servicesInMemory[serviceIndex],
         ...data,
         "data-ai-hint": data.image && data.titre ? data.titre.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : servicesInMemory[serviceIndex]["data-ai-hint"],
-        targetLocationIds: data.targetLocationIds !== undefined ? data.targetLocationIds : servicesInMemory[serviceIndex].targetLocationIds, // Preserve if not provided
+        targetLocationIds: data.targetLocationIds !== undefined ? data.targetLocationIds : servicesInMemory[serviceIndex].targetLocationIds, 
       };
       return { ...servicesInMemory[serviceIndex] };
     }
@@ -1008,7 +956,6 @@ export const deleteService = async (id: string): Promise<boolean> => {
     try {
       const initialLength = servicesInMemory.length;
       servicesInMemory = servicesInMemory.filter(s => s.id !== id);
-      // Remove this service from orders (or handle appropriately - e.g., mark as "deleted service")
       ordersInMemory = ordersInMemory.filter(o => o.serviceId !== id);
       return servicesInMemory.length < initialLength;
     } catch (e) {
@@ -1016,7 +963,6 @@ export const deleteService = async (id: string): Promise<boolean> => {
       return false;
     }
 };
-
 
 // --- Order Management ---
 export const getOrders = async (
@@ -1037,7 +983,6 @@ export const getOrders = async (
     if (filters?.serviceId && filters.serviceId !== "all") {
       filteredOrders = filteredOrders.filter(o => o.serviceId === filters.serviceId);
     } else if (filters?.categoryId && filters.categoryId !== "all") {
-      // If filtering by category, first get all services in that category for the host
       const servicesInCategory = servicesInMemory.filter(s => s.categorieId === filters.categoryId && s.hostId === hostId).map(s => s.id);
       filteredOrders = filteredOrders.filter(o => servicesInCategory.includes(o.serviceId));
     }
@@ -1055,7 +1000,6 @@ export const getOrdersByClientName = async (hostId: string, clientName: string):
   log(`getOrdersByClientName called for host: ${hostId}, clientName: ${clientName}. Using in-memory data.`);
   try {
     if (!clientName) return [];
-    // Ensure case-insensitive comparison
     const clientOrders = [...ordersInMemory].filter(o =>
       o.hostId === hostId &&
       o.clientNom &&
@@ -1088,11 +1032,11 @@ export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status' |
       id: `order-${Date.now()}`,
       dateHeure: new Date().toISOString(),
       status: 'pending',
-      prixTotal: serviceDetails?.prix, // Original price from service
+      prixTotal: serviceDetails?.prix, 
       montantPaye: 0,
       soldeDu: serviceDetails?.prix || 0,
       paiements: [],
-      userId: data.userId, // Capture userId if available
+      userId: data.userId, 
       pointsGagnes: 0,
     };
     ordersInMemory.push(newOrder);
@@ -1110,28 +1054,16 @@ export const updateOrderStatus = async (orderId: string, status: OrderStatus): P
     if (orderIndex > -1) {
       const order = ordersInMemory[orderIndex];
       order.status = status;
-
-      // Add points if order is completed and loyalty is enabled
       if (status === 'completed') {
           const host = await getHostById(order.hostId);
           if (host?.loyaltySettings?.enabled && host.loyaltySettings.pointsPerEuroSpent > 0 && order.prixTotal && order.prixTotal > 0) {
               const pointsEarned = Math.floor(order.prixTotal * host.loyaltySettings.pointsPerEuroSpent);
-              if (pointsEarned > 0 && order.clientNom) { // Assuming clientNom is sufficient for now
-                  const client = clientsInMemory.find(c => c.nom === order.clientNom && c.hostId === order.hostId);
-                  if (client) {
-                     await addPointsToClient(client.id, pointsEarned, order.hostId);
+              if (pointsEarned > 0) {
+                  const clientRecord = clientsInMemory.find(c => (order.userId && c.email === usersInMemory.find(u => u.id === order.userId)?.email) || (order.clientNom && c.nom === order.clientNom) && c.hostId === order.hostId);
+                  if (clientRecord) {
+                     await addPointsToClient(clientRecord.id, pointsEarned, order.hostId);
                      order.pointsGagnes = pointsEarned;
-                     log(`Awarded ${pointsEarned} loyalty points to client ${client.nom} for order ${order.id}`);
-                  } else if (order.userId) { // Fallback to userId if clientNom link isn't direct/found
-                     const userClient = usersInMemory.find(u => u.id === order.userId);
-                     if (userClient) {
-                        const clientRecord = clientsInMemory.find(c => c.email === userClient.email && c.hostId === order.hostId);
-                        if (clientRecord) {
-                           await addPointsToClient(clientRecord.id, pointsEarned, order.hostId);
-                           order.pointsGagnes = pointsEarned;
-                           log(`Awarded ${pointsEarned} loyalty points to client ${clientRecord.nom} (via user ID) for order ${order.id}`);
-                        }
-                     }
+                     log(`Awarded ${pointsEarned} loyalty points to client ${clientRecord.nom} for order ${order.id}`);
                   }
               }
           }
@@ -1144,7 +1076,6 @@ export const updateOrderStatus = async (orderId: string, status: OrderStatus): P
     return undefined;
   }
 };
-
 
 // --- Client Management (Host Side) ---
 export const getClients = async (hostId: string): Promise<Client[]> => {
@@ -1171,23 +1102,29 @@ export const getClientRecordsByEmail = async (email: string): Promise<Client[]> 
   log(`getClientRecordsByEmail called for email: ${email}. Using in-memory data.`);
   try {
     return [...clientsInMemory].filter(c => c.email?.toLowerCase() === email.toLowerCase())
-                  .sort((a,b) => a.nom.localeCompare(b.nom)); // Sort for consistent display
+                  .sort((a,b) => a.nom.localeCompare(b.nom)); 
   } catch (e) {
     console.error("Error in getClientRecordsByEmail (in-memory):", e);
     return [];
   }
 };
 
-export const addClientData = async (clientData: Omit<Client, 'id' | 'documents' | 'credit' | 'pointsFidelite'>): Promise<Client> => {
+export const addClientData = async (clientData: Omit<Client, 'id' | 'documents' | 'credit' | 'pointsFidelite'> & { hostId: string }): Promise<Client> => {
   log(`addClientData called. Data: ${JSON.stringify(clientData)}. Using in-memory data.`);
   try {
+    let initialPoints = 0;
+    const host = await getHostById(clientData.hostId);
+    if (host?.loyaltySettings?.enabled && host.loyaltySettings.pointsForNewClientSignup && host.loyaltySettings.pointsForNewClientSignup > 0) {
+        initialPoints = host.loyaltySettings.pointsForNewClientSignup;
+    }
     const newClient: Client = { 
         ...clientData, 
         id: `client-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, 
         credit: 0, 
-        pointsFidelite: 0 
+        pointsFidelite: initialPoints 
     };
     clientsInMemory.push(newClient);
+    log(`Client ${newClient.nom} added with ${initialPoints} signup loyalty points.`);
     return newClient;
   } catch (e) {
     console.error("Error in addClientData (in-memory):", e);
@@ -1215,13 +1152,10 @@ export const deleteClientData = async (clientId: string): Promise<boolean> => {
   try {
     const initialLength = clientsInMemory.length;
     clientsInMemory = clientsInMemory.filter(c => c.id !== clientId);
-    // Update reservations that might reference this client by clientId
     if (clientsInMemory.length < initialLength) {
       reservationsInMemory = reservationsInMemory.map(r => {
         if (r.clientId === clientId) {
-          // Optionally, instead of just clearing clientId, you might want to update clientName
-          // to indicate the client was deleted, e.g., r.clientName = `${r.clientName} (Deleted)`
-          return { ...r, clientId: undefined /* , clientName: `${r.clientName} (Deleted)` if needed */ };
+          return { ...r, clientId: undefined };
         }
         return r;
       });
@@ -1267,41 +1201,32 @@ export const addPointsToClient = async (clientId: string, pointsToAdd: number, h
   }
 }
 
-
 // --- Reservation Management ---
 export const getReservations = async (
   hostId: string,
   filters?: {
     locationId?: string;
-    month?: number; // 0-indexed (0 for January, 11 for December)
+    month?: number; 
     year?: number;
-    startDate?: Date; // For range queries
-    endDate?: Date;   // For range queries
+    startDate?: Date; 
+    endDate?: Date;   
   }
 ): Promise<Reservation[]> => {
   log(`getReservations called for host: ${hostId}, filters: ${JSON.stringify(filters)}. Using in-memory data.`);
   try {
     let hostReservations = reservationsInMemory.filter(r => r.hostId === hostId);
-
     if (filters?.locationId) {
       hostReservations = hostReservations.filter(r => r.locationId === filters.locationId);
     }
-
-    // Filtering by month and year
     if (filters?.month !== undefined && filters?.year !== undefined) {
       hostReservations = hostReservations.filter(r => {
         try {
-          const arrivalDate = new Date(r.dateArrivee + "T00:00:00Z"); // Assume UTC for ISO strings
-          // For tables, dateDepart might be undefined. If so, consider it a single-day event.
-          const departureDateForRoom = r.dateDepart ? new Date(r.dateDepart + "T00:00:00Z") : null; // Assume UTC
-          // Effective departure for filtering: end of arrival day for tables, or actual departure for rooms
+          const arrivalDate = new Date(r.dateArrivee + "T00:00:00Z"); 
+          const departureDateForRoom = r.dateDepart ? new Date(r.dateDepart + "T00:00:00Z") : null; 
           const effectiveDeparture = r.type === 'Table' || !departureDateForRoom ? new Date(r.dateArrivee + "T23:59:59Z") : departureDateForRoom;
-
-          if (!effectiveDeparture) return false; // Should not happen if dateArrivee is valid
-
+          if (!effectiveDeparture) return false; 
           const monthStart = new Date(Date.UTC(filters.year!, filters.month!, 1));
-          const monthEnd = new Date(Date.UTC(filters.year!, filters.month! + 1, 0, 23, 59, 59, 999)); // End of the last day of the month
-          // Check if the reservation interval overlaps with the month interval
+          const monthEnd = new Date(Date.UTC(filters.year!, filters.month! + 1, 0, 23, 59, 59, 999)); 
           return (arrivalDate <= monthEnd && effectiveDeparture >= monthStart);
         } catch (e) {
           log("Error parsing date for reservation filtering by month/year", { reservationId: r.id, error: e });
@@ -1309,16 +1234,13 @@ export const getReservations = async (
         }
       });
     }
-
-    // Filtering by date range (startDate and endDate)
     if (filters?.startDate && filters?.endDate) {
-        const queryStart = filters.startDate; // These are Date objects
-        const queryEnd = filters.endDate;     // These are Date objects
+        const queryStart = filters.startDate; 
+        const queryEnd = filters.endDate;     
         hostReservations = hostReservations.filter(r => {
             try {
                 const resArrival = new Date(r.dateArrivee + "T00:00:00Z");
-                const resDeparture = r.dateDepart ? new Date(r.dateDepart + "T00:00:00Z") : new Date(r.dateArrivee + "T23:59:59Z"); // For tables, depart is end of arrival day
-                // Check for overlap: (StartA < EndB) and (EndA > StartB)
+                const resDeparture = r.dateDepart ? new Date(r.dateDepart + "T00:00:00Z") : new Date(r.dateArrivee + "T23:59:59Z"); 
                 return resArrival < queryEnd && resDeparture > queryStart;
             } catch (e) {
                 log("Error parsing date for reservation range filtering", { reservationId: r.id, error: e });
@@ -1326,8 +1248,6 @@ export const getReservations = async (
             }
         });
     }
-
-
     return [...hostReservations].sort((a,b) => new Date(a.dateArrivee).getTime() - new Date(b.dateArrivee).getTime());
   } catch (e) {
     console.error("Error in getReservations (in-memory):", e);
@@ -1358,11 +1278,10 @@ export const addReservationToData = async (data: Omit<Reservation, 'id' | 'prixT
     } else if (location?.type === 'Table' && location.prixFixeReservation) {
         prixTotalReservation = location.prixFixeReservation;
     }
-
     const newReservation: Reservation = {
       ...data,
       id: `res-${Date.now()}-${Math.random().toString(36).substring(2,5)}`,
-      type: location?.type, // Ensure type is set from location
+      type: location?.type, 
       prixTotal: prixTotalReservation,
       montantPaye: 0,
       soldeDu: prixTotalReservation || 0,
@@ -1385,14 +1304,11 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
     if (resIndex > -1) {
       const existingReservation = reservationsInMemory[resIndex];
       const location = data.locationId ? await getRoomOrTableById(data.locationId) : await getRoomOrTableById(existingReservation.locationId);
-      
       let prixTotalReservation = existingReservation.prixTotal;
-      // Recalculate price if dates or location change
       if(data.dateArrivee || data.dateDepart || data.locationId) { 
         const arrivalDate = data.dateArrivee || existingReservation.dateArrivee;
-        const departureDate = data.dateDepart === null ? undefined : (data.dateDepart || existingReservation.dateDepart); // Handle explicit null for clearing departure
+        const departureDate = data.dateDepart === null ? undefined : (data.dateDepart || existingReservation.dateDepart); 
         const currentType = location?.type || existingReservation.type;
-
         if (currentType === 'Chambre' && location?.prixParNuit && departureDate) {
             const arrival = new Date(arrivalDate);
             const departure = new Date(departureDate);
@@ -1402,17 +1318,14 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
             prixTotalReservation = location.prixFixeReservation;
         }
       }
-      
       const updatedReservation = {
         ...existingReservation,
         ...data,
-        type: location?.type || existingReservation.type, // Update type if location changed
+        type: location?.type || existingReservation.type, 
         prixTotal: prixTotalReservation,
         soldeDu: prixTotalReservation !== undefined ? prixTotalReservation - (existingReservation.montantPaye || 0) : existingReservation.soldeDu,
       };
-      reservationsInMemory[resIndex] = updatedReservation;
-
-      // Add points if reservation is checked-out
+      
       if (updatedReservation.status === 'checked-out') {
         const host = await getHostById(updatedReservation.hostId);
         if (host?.loyaltySettings?.enabled) {
@@ -1421,28 +1334,31 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
             const arrival = new Date(updatedReservation.dateArrivee);
             const departure = new Date(updatedReservation.dateDepart);
             const nights = Math.max(1, Math.ceil((departure.getTime() - arrival.getTime()) / (1000 * 3600 * 24)));
-            pointsEarned = nights * host.loyaltySettings.pointsPerNightRoom;
+            pointsEarned += nights * host.loyaltySettings.pointsPerNightRoom;
           } else if (updatedReservation.type === 'Table' && host.loyaltySettings.pointsPerTableBooking > 0) {
-            pointsEarned = host.loyaltySettings.pointsPerTableBooking;
+            pointsEarned += host.loyaltySettings.pointsPerTableBooking;
+          }
+          if (updatedReservation.prixTotal && host.loyaltySettings.pointsPerEuroSpent > 0) {
+             pointsEarned += Math.floor(updatedReservation.prixTotal * host.loyaltySettings.pointsPerEuroSpent);
           }
 
           if (pointsEarned > 0) {
              if (updatedReservation.clientId) {
                 await addPointsToClient(updatedReservation.clientId, pointsEarned, updatedReservation.hostId);
-                updatedReservation.pointsGagnes = pointsEarned;
+                updatedReservation.pointsGagnes = (updatedReservation.pointsGagnes || 0) + pointsEarned;
                 log(`Awarded ${pointsEarned} loyalty points to client ID ${updatedReservation.clientId} for reservation ${id}`);
              } else {
                 const clientFromRecord = clientsInMemory.find(c => c.nom === updatedReservation.clientName && c.hostId === updatedReservation.hostId);
                 if (clientFromRecord) {
                     await addPointsToClient(clientFromRecord.id, pointsEarned, updatedReservation.hostId);
-                    updatedReservation.pointsGagnes = pointsEarned;
+                    updatedReservation.pointsGagnes = (updatedReservation.pointsGagnes || 0) + pointsEarned;
                     log(`Awarded ${pointsEarned} loyalty points to client ${updatedReservation.clientName} (matched by name) for reservation ${id}`);
                 }
              }
           }
         }
       }
-      reservationsInMemory[resIndex] = updatedReservation; // Save again if pointsGagnes changed
+      reservationsInMemory[resIndex] = updatedReservation; 
       return { ...updatedReservation };
     }
     return undefined;
@@ -1464,9 +1380,9 @@ export const deleteReservationInData = async (id: string): Promise<boolean> => {
   }
 };
 
-
-// --- General Data Logging ---
 log("Initial in-memory data loaded/defined.");
 log(`Users: ${usersInMemory.length}, Hosts: ${hostsInMemory.length}, Global Sites: ${sitesInMemory.length}, Locations: ${roomsOrTablesInMemory.length}`);
 log(`Categories: ${serviceCategoriesInMemory.length}, Forms: ${customFormsInMemory.length}, Fields: ${formFieldsInMemory.length}, Services: ${servicesInMemory.length}`);
 log(`Orders: ${ordersInMemory.length}, Clients: ${clientsInMemory.length}, Reservations: ${reservationsInMemory.length}, Tags: ${tagsInMemory.length}`);
+
+    

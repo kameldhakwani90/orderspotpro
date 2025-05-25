@@ -3,8 +3,8 @@
 
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getReservationById, updateReservationInData, getRoomOrTableById } from '@/lib/data';
-import type { Reservation, OnlineCheckinData, RoomOrTable } from '@/lib/types';
+import { getReservationById, updateReservationInData, getRoomOrTableById, getHostById } from '@/lib/data';
+import type { Reservation, OnlineCheckinData, RoomOrTable, Host } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,12 +12,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar as ShadCalendar } from '@/components/ui/calendar';
-import { CalendarDays, UserCircle, Hotel, ScanText, Send, CheckCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { CalendarDays, UserCircle, Hotel, ScanText, Send, CheckCircle, AlertTriangle, ArrowLeft, FileText as FileTextIcon, Edit } from 'lucide-react'; // Added FileTextIcon, Edit
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO, isValid } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import Image from 'next/image';
+import NextImage from 'next/image'; // Renamed to avoid conflict with lucide-react Image icon
 
 function OnlineCheckinPageContent() {
   const params = useParams();
@@ -29,6 +29,7 @@ function OnlineCheckinPageContent() {
   const [step, setStep] = useState(1); // 1: Welcome, 2: Form, 3: Confirmation
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [locationDetails, setLocationDetails] = useState<RoomOrTable | null>(null);
+  const [hostDetails, setHostDetails] = useState<Host | null>(null); // Added host details
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,11 +61,15 @@ function OnlineCheckinPageContent() {
         setCheckinData(prev => ({
           ...prev,
           fullName: resData.clientName || '',
-          // Potentiellement pré-remplir l'email si on a un clientId et qu'on peut chercher l'utilisateur
+          // Email could be pre-filled if linked to a user account later
         }));
         if (resData.locationId) {
           const locData = await getRoomOrTableById(resData.locationId);
           setLocationDetails(locData);
+        }
+        if (resData.hostId) {
+            const hData = await getHostById(resData.hostId);
+            setHostDetails(hData);
         }
       }
     } catch (e: any) {
@@ -92,8 +97,9 @@ function OnlineCheckinPageContent() {
   const validateForm = () => {
     if (!checkinData.fullName?.trim()) return "Le nom complet est requis.";
     if (!checkinData.email?.trim() || !/\S+@\S+\.\S+/.test(checkinData.email)) return "Une adresse e-mail valide est requise.";
-    if (!checkinData.birthDate) return "La date de naissance est requise.";
-    if (!checkinData.phoneNumber?.trim()) return "Le numéro de téléphone est requis.";
+    // Birth date is optional for now, but could be made mandatory
+    // if (!checkinData.birthDate) return "La date de naissance est requise.";
+    // if (!checkinData.phoneNumber?.trim()) return "Le numéro de téléphone est requis.";
     return null; // No errors
   };
 
@@ -151,24 +157,37 @@ function OnlineCheckinPageContent() {
     );
   }
 
+  const heroImageUrl = hostDetails?.reservationPageSettings?.heroImageUrl || "https://placehold.co/800x400.png?text=Bienvenue";
+  const heroImageAiHint = hostDetails?.reservationPageSettings?.heroImageAiHint || hostDetails?.nom.toLowerCase().split(' ').slice(0,2).join(' ') || "establishment banner";
+
   return (
     <div className="flex items-center justify-center min-h-screen p-4 bg-gradient-to-br from-secondary to-background">
-      <Card className="w-full max-w-md shadow-2xl">
-        {step !== 1 && (
-          <Button variant="ghost" size="sm" onClick={() => setStep(step - 1)} className="absolute top-4 left-4 text-muted-foreground hover:text-foreground">
+      <Card className="w-full max-w-lg shadow-2xl"> {/* Increased max-width */}
+        {step !== 1 && step !== 3 && ( // Hide back button on confirmation step
+          <Button variant="ghost" size="sm" onClick={() => setStep(step - 1)} className="absolute top-4 left-4 text-muted-foreground hover:text-foreground z-10">
             <ArrowLeft className="h-5 w-5 mr-1" /> Retour
           </Button>
         )}
         {step === 1 && (
           <>
-            <CardHeader className="text-center">
-              <Image src="https://placehold.co/800x400.png?text=Hotel+Resort+View" alt="Resort View" width={800} height={400} className="rounded-t-lg object-cover aspect-[2/1] mb-4" data-ai-hint="hotel resort pool"/>
-              <CardTitle className="text-2xl font-bold">Enregistrement en Ligne</CardTitle>
+            <CardHeader className="text-center p-0">
+              <div className="relative h-48 w-full rounded-t-lg overflow-hidden">
+                <NextImage 
+                  src={heroImageUrl} 
+                  alt={hostDetails?.nom || "Image d'accueil"} 
+                  layout="fill" 
+                  objectFit="cover" 
+                  data-ai-hint={heroImageAiHint}
+                />
+              </div>
+              <div className="p-6">
+                <CardTitle className="text-2xl font-bold">Enregistrement en Ligne</CardTitle>
+              </div>
             </CardHeader>
-            <CardContent className="text-center space-y-3">
+            <CardContent className="text-center space-y-3 px-6">
               <p className="text-xl">Bonjour {reservation.clientName} !</p>
               <p className="text-muted-foreground">
-                Préparez votre arrivée à <span className="font-semibold text-primary">{locationDetails?.nom || 'votre lieu de séjour'}</span>.
+                Préparez votre arrivée à <span className="font-semibold text-primary">{hostDetails?.nom || 'votre lieu de séjour'}</span> pour le lieu <span className="font-semibold text-primary">{locationDetails?.nom}</span>.
               </p>
               <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
                 <p>Du {format(parseISO(reservation.dateArrivee), 'PPP', { locale: fr })}</p>
@@ -177,7 +196,7 @@ function OnlineCheckinPageContent() {
               </div>
               <p className="mt-2">Commencez votre enregistrement pour gagner du temps à votre arrivée.</p>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="px-6 pb-6">
               <Button onClick={() => setStep(2)} className="w-full" size="lg">
                 Démarrer l'Enregistrement
                 <ScanText className="ml-2 h-5 w-5" />
@@ -188,17 +207,17 @@ function OnlineCheckinPageContent() {
 
         {step === 2 && (
           <>
-            <CardHeader>
+            <CardHeader className="px-6 pt-6">
               <CardTitle className="text-xl font-semibold text-center">Vos Informations</CardTitle>
               <CardDescription className="text-center">Veuillez vérifier et compléter vos informations.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 px-6">
               <div>
-                <Label htmlFor="fullName">Nom Complet</Label>
+                <Label htmlFor="fullName">Nom Complet*</Label>
                 <Input id="fullName" name="fullName" value={checkinData.fullName} onChange={handleInputChange} />
               </div>
               <div>
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Email*</Label>
                 <Input id="email" name="email" type="email" value={checkinData.email} onChange={handleInputChange} />
               </div>
               <div>
@@ -217,7 +236,7 @@ function OnlineCheckinPageContent() {
                       onSelect={handleDateChange}
                       captionLayout="dropdown-buttons"
                       fromYear={1920}
-                      toYear={new Date().getFullYear() - 10} // Example: min 10 years old
+                      toYear={new Date().getFullYear() - 10} 
                       initialFocus
                     />
                   </PopoverContent>
@@ -228,23 +247,23 @@ function OnlineCheckinPageContent() {
                 <Input id="phoneNumber" name="phoneNumber" type="tel" value={checkinData.phoneNumber} onChange={handleInputChange} />
               </div>
               <div>
-                <Label htmlFor="travelReason">Motif du Voyage</Label>
+                <Label htmlFor="travelReason">Motif du Voyage (Optionnel)</Label>
                 <Input id="travelReason" name="travelReason" value={checkinData.travelReason} onChange={handleInputChange} placeholder="Ex: Vacances, Affaires" />
               </div>
               <div>
-                <Label htmlFor="additionalNotes">Notes Supplémentaires</Label>
+                <Label htmlFor="additionalNotes">Notes Supplémentaires (Optionnel)</Label>
                 <Textarea id="additionalNotes" name="additionalNotes" value={checkinData.additionalNotes} onChange={handleInputChange} placeholder="Allergies, demandes spéciales..." />
               </div>
-              <div className="text-center p-3 bg-secondary/50 rounded-md">
-                <p className="text-sm font-semibold text-muted-foreground">Photo du Passeport</p>
-                <p className="text-xs text-muted-foreground">(Fonctionnalité de téléversement à venir. Non requis pour cette étape.)</p>
+              <div className="text-center p-3 bg-secondary/50 rounded-md border">
+                <p className="text-sm font-semibold text-muted-foreground flex items-center justify-center"><FileTextIcon className="mr-2 h-4 w-4"/>Pièce d'Identité (Ex: Passeport)</p>
+                <p className="text-xs text-muted-foreground mt-1">La fonctionnalité de téléversement sécurisé de documents sera bientôt disponible. Votre hôte pourra vous demander de présenter une pièce d'identité à votre arrivée.</p>
               </div>
-              <div className="text-center p-3 bg-secondary/50 rounded-md">
-                <p className="text-sm font-semibold text-muted-foreground">Signature Numérique</p>
-                <p className="text-xs text-muted-foreground">(Zone de signature à venir. Non requis pour cette étape.)</p>
+              <div className="text-center p-3 bg-secondary/50 rounded-md border">
+                <p className="text-sm font-semibold text-muted-foreground flex items-center justify-center"><Edit className="mr-2 h-4 w-4"/>Signature Numérique</p>
+                <p className="text-xs text-muted-foreground mt-1">La signature numérique sera intégrée prochainement. Pour l'instant, votre soumission vaudra pour accord.</p>
               </div>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="px-6 pb-6">
               <Button onClick={handleSubmitCheckin} className="w-full" disabled={isSubmitting} size="lg">
                 {isSubmitting ? "Envoi en cours..." : "Envoyer les Informations"}
                 <Send className="ml-2 h-5 w-5" />
@@ -255,17 +274,17 @@ function OnlineCheckinPageContent() {
 
         {step === 3 && (
           <>
-            <CardHeader className="text-center">
+            <CardHeader className="text-center px-6 pt-6">
               <CheckCircle className="mx-auto h-16 w-16 text-green-500 mb-4" />
               <CardTitle className="text-2xl font-bold">Enregistrement Soumis !</CardTitle>
             </CardHeader>
-            <CardContent className="text-center">
+            <CardContent className="text-center px-6">
               <p className="text-muted-foreground">
-                Merci, {checkinData.fullName || reservation.clientName} ! Vos informations ont été envoyées à <span className="font-semibold text-primary">{locationDetails?.nom || 'l\'établissement'}</span>.
+                Merci, {checkinData.fullName || reservation.clientName} ! Vos informations ont été envoyées à <span className="font-semibold text-primary">{hostDetails?.nom || 'l\'établissement'}</span>.
               </p>
               <p className="text-sm mt-2 text-muted-foreground">Vous pouvez maintenant fermer cette page ou préparer le reste de votre voyage.</p>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="px-6 pb-6">
               <Button onClick={() => router.push('/')} className="w-full" variant="outline" size="lg">
                 Retour à l'Accueil du Site
               </Button>
@@ -285,3 +304,6 @@ export default function OnlineCheckinPage() {
     </Suspense>
   )
 }
+
+
+    
