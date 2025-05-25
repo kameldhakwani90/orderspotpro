@@ -65,6 +65,7 @@ export const translations: Translations = {
     myAccount: "Mon Compte",
     footerText: "ConnectHost © {{year}} - Vous connecte aux services, en toute simplicité.",
     chatComingSoon: "Le chat avec l'établissement sera bientôt disponible !",
+    chatFeatureTitle: "Fonctionnalité de Chat",
     orderService: "Commander le service",
     serviceDescription: "Description du service",
     servicePrice: "Prix du service",
@@ -135,6 +136,7 @@ export const translations: Translations = {
     stockStatusLimited: "Stock Limité",
     configure: "Configurer",
     addToCart: "Ajouter au Panier",
+    viewCart: "Voir le panier",
   },
   en: {
     welcomeTo: "Welcome to",
@@ -199,6 +201,7 @@ export const translations: Translations = {
     myAccount: "My Account",
     footerText: "ConnectHost © {{year}} - Seamlessly connecting you to services.",
     chatComingSoon: "Chat with the establishment will be available soon!",
+    chatFeatureTitle: "Chat Feature",
     orderService: "Order Service",
     serviceDescription: "Service Description",
     servicePrice: "Service Price",
@@ -269,6 +272,7 @@ export const translations: Translations = {
     stockStatusLimited: "Limited Stock",
     configure: "Configure",
     addToCart: "Add to Cart",
+    viewCart: "View Cart",
   },
   ar: {
     welcomeTo: "مرحباً بك في",
@@ -333,6 +337,7 @@ export const translations: Translations = {
     myAccount: "حسابي",
     footerText: "ConnectHost © {{year}} - يوصلك بالخدمات، بكل سهولة.",
     chatComingSoon: "الدردشة مع المنشأة ستكون متاحة قريباً!",
+    chatFeatureTitle: "ميزة الدردشة",
     orderService: "طلب الخدمة",
     serviceDescription: "وصف الخدمة",
     servicePrice: "سعر الخدمة",
@@ -403,7 +408,6 @@ export const translations: Translations = {
     stockStatusLimited: "مخزون محدود",
     configure: "تخصيص",
     addToCart: "أضف إلى السلة",
+    viewCart: "عرض السلة",
   },
 };
-
-    
