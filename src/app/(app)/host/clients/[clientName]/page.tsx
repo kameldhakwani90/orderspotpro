@@ -9,14 +9,14 @@ import {
   getOrdersByClientName,
   getRoomOrTableById,
   getServiceById,
-  getClientsByHostAndName, // Function to get Client records
-  getReservationsByClientName // Function to get reservations by client name for this host
+  getClientsByHostAndName, 
+  getReservationsByClientName 
 } from '@/lib/data';
-import type { Order, RoomOrTable, Service, Client, Reservation } from '@/lib/types'; // Renamed ClientDetails to avoid conflict
+import type { Order, RoomOrTable, Service, Client, Reservation } from '@/lib/types'; 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { User, ShoppingBag, MapPin, CalendarDays, Phone, Mail, DollarSign, AlertTriangle, Info, ListOrdered, Building, BedDouble, Utensils, FileText as FileCheckIcon } from 'lucide-react';
+import { User, ShoppingBag, MapPin, CalendarDays, Phone, Mail, DollarSign, AlertTriangle, Info, ListOrdered, Building, BedDouble, Utensils, FileCheck as FileCheckIcon, ArrowLeft, Edit3 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -94,7 +94,6 @@ export default function ClientFilePage() {
                 const loc = await getRoomOrTableById(record.locationId);
                 if(loc) locFullName = `${loc.type} ${loc.nom}`;
             }
-            // Calculate total spent based on orders made by this *specific client record's user ID if available* or by client name at this host
             const hostSpecificOrders = ordersData.filter(o => 
                 o.hostId === record.hostId && 
                 (o.status === 'completed' || o.status === 'confirmed') &&
@@ -145,7 +144,6 @@ export default function ClientFilePage() {
   }, [clientOrders]);
   
   const primaryClientRecord = useMemo(() => {
-    // Prefer a record linked by user ID if available, then first by name
     if (authUser && authUser.role === 'client' && authUser.id) {
       const userLinkedRecord = clientRecords.find(cr => cr.userId === authUser.id);
       if (userLinkedRecord) return userLinkedRecord;
@@ -196,7 +194,9 @@ export default function ClientFilePage() {
           </h1>
           <p className="text-lg text-muted-foreground">Aperçu de l'activité et des détails du client.</p>
         </div>
-        <Button onClick={() => router.push('/host/clients')} variant="outline">Retour à la liste des Clients</Button>
+        <Button onClick={() => router.push('/host/clients')} variant="outline" className="flex items-center">
+            <ArrowLeft className="mr-2 h-4 w-4"/> Retour à la liste des Clients
+        </Button>
       </div>
 
       <Tabs defaultValue="general" className="w-full">
@@ -305,8 +305,10 @@ export default function ClientFilePage() {
                                         <TableCell>{res.dateDepart && isValid(parseISO(res.dateDepart)) ? format(parseISO(res.dateDepart), 'P', {locale: fr}) : (res.type === 'Table' ? 'N/A' : 'N/A')}</TableCell>
                                         <TableCell><Badge variant={res.status === 'cancelled' ? 'destructive' : 'secondary'} className="capitalize text-xs">{res.status || 'N/A'}</Badge></TableCell>
                                         <TableCell>
-                                            <Link href={`/client/reservations/${res.id}`} passHref>
-                                                <Button variant="outline" size="sm">Voir Détails</Button>
+                                            <Link href={`/host/reservations/detail/${res.id}`} passHref>
+                                                <Button variant="outline" size="sm" className="flex items-center">
+                                                  <Edit3 className="mr-1.5 h-3.5 w-3.5"/> Voir/Gérer
+                                                </Button>
                                             </Link>
                                         </TableCell>
                                     </TableRow>
@@ -322,7 +324,7 @@ export default function ClientFilePage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="text-xl flex items-center"><FileCheckIcon className="mr-2 h-5 w-5 text-primary" />Enregistrements en Ligne Soumis</CardTitle>
-              <CardDescription>Informations soumises par "{clientName}" lors d'enregistrements en ligne.</CardDescription>
+              <CardDescription>Informations soumises par "{clientName}" lors d'enregistrements en ligne pour ses réservations.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {clientReservations.filter(res => res.onlineCheckinData).length > 0 ? (
@@ -352,6 +354,5 @@ export default function ClientFilePage() {
     </div>
   );
 }
-
 
     
