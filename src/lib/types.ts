@@ -111,6 +111,13 @@ export interface Service {
 
 export type OrderStatus = "pending" | "confirmed" | "completed" | "cancelled";
 
+export interface Paiement {
+  type: 'credit' | 'cash' | 'card' | 'points';
+  montant: number;
+  date: string; // ISO string
+  notes?: string;
+}
+
 export interface Order {
   id: string;
   serviceId: string;
@@ -119,26 +126,12 @@ export interface Order {
   clientNom?: string;
   userId?: string; // ID of the registered user, if logged in
   donneesFormulaire: string;
-  dateHeure: string;
+  dateHeure: string; // ISO string
   status: OrderStatus;
-  prix?: number;
-}
-
-// Helper type for navigation items
-export interface NavItem {
-  label: string;
-  href: string;
-  icon: React.ElementType;
-  allowedRoles: UserRole[];
-  children?: NavItem[];
-  isChidren?: boolean;
-  external?: boolean;
-}
-
-export interface ClientDetails {
-  name: string;
-  orders: (Order & { serviceName?: string; locationName?: string })[];
-  locations: (RoomOrTable & { globalSiteName?: string })[];
+  prixTotal?: number; // Original price of the order
+  montantPaye?: number;
+  soldeDu?: number;
+  paiements?: Paiement[];
 }
 
 export type ClientType = "heberge" | "passager";
@@ -155,7 +148,7 @@ export interface Client {
     locationId?: string;
     notes?: string;
     documents?: Array<{ name: string; url: string; uploadedAt: string }>;
-    credit?: number;
+    credit?: number; // Client's available credit balance
 }
 
 export type ReservationStatus = "pending" | "confirmed" | "cancelled" | "checked-in" | "checked-out";
@@ -164,14 +157,35 @@ export interface Reservation {
   id: string;
   hostId: string;
   locationId: string;
-  type?: 'Chambre' | 'Table'; // Added to know the type of the reserved location
+  type?: 'Chambre' | 'Table';
   clientId?: string;
   clientName: string;
   dateArrivee: string; // YYYY-MM-DD
-  dateDepart?: string; // YYYY-MM-DD, optional for tables
+  dateDepart?: string; // YYYY-MM-DD, optional for tables, required for rooms
   nombrePersonnes: number;
-  animauxDomestiques?: boolean;
+  animauxDomestiques?: boolean; // Only relevant for Chambre type
   notes?: string;
   status?: ReservationStatus;
   channel?: string;
+  prixTotal?: number; // Original price of the reservation
+  montantPaye?: number;
+  soldeDu?: number;
+  paiements?: Paiement[];
+}
+
+// Helper type for navigation items
+export interface NavItem {
+  label: string;
+  href: string;
+  icon: React.ElementType;
+  allowedRoles: UserRole[];
+  children?: NavItem[];
+  isChidren?: boolean;
+  external?: boolean;
+}
+
+export interface ClientDetails { // Used for client file page
+  name: string;
+  orders: (Order & { serviceName?: string; locationName?: string })[];
+  locations: (RoomOrTable & { globalSiteName?: string })[];
 }

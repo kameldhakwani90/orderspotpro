@@ -4,7 +4,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getClients, addClientData, updateClientData, deleteClientData, getRoomsOrTables } from '@/lib/data';
+import { getClients, addClientData, updateClientData, deleteClientData, getRoomsOrTables, addCreditToClient } from '@/lib/data';
 import type { Client, ClientType, RoomOrTable } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Edit2, Trash2, Users, CalendarDays as CalendarLucideIcon } from 'lucide-react'; // Renamed CalendarIcon to avoid conflict
+import { PlusCircle, Edit2, Trash2, Users, CalendarDays as CalendarLucideIcon, DollarSign } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogClose
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -49,6 +50,11 @@ export default function HostClientsPage() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [isCreditDialogOpen, setIsCreditDialogOpen] = useState(false);
+  const [clientForCredit, setClientForCredit] = useState<Client | null>(null);
+  const [creditAmount, setCreditAmount] = useState<number | ''>('');
+
+
   const [currentClientData, setCurrentClientData] = useState<{
     nom: string;
     email?: string;
@@ -58,12 +64,14 @@ export default function HostClientsPage() {
     _dateDepart?: Date;  
     locationId?: string;
     notes?: string;
+    credit?: number; // Added for displaying current credit
   }>({
     nom: '',
     type: 'passager',
     _dateArrivee: undefined,
     _dateDepart: undefined,
     locationId: undefined,
+    credit: 0,
   });
 
   const fetchData = useCallback(async (hostId: string) => {
@@ -128,7 +136,7 @@ export default function HostClientsPage() {
     }
 
     setIsSubmitting(true);
-    const dataToSubmit: Omit<Client, 'id' | 'hostId' | 'documents'> = {
+    const dataToSubmit: Omit<Client, 'id' | 'hostId' | 'documents' | 'credit'> = {
       nom: currentClientData.nom.trim(),
       email: currentClientData.email?.trim() || undefined,
       telephone: currentClientData.telephone?.trim() || undefined,
@@ -154,7 +162,7 @@ export default function HostClientsPage() {
     } finally {
       setIsDialogOpen(false);
       setEditingClient(null);
-      setCurrentClientData({ nom: '', type: 'passager', _dateArrivee: undefined, _dateDepart: undefined, locationId: undefined, email: '', telephone: '', notes: '' });
+      setCurrentClientData({ nom: '', type: 'passager', _dateArrivee: undefined, _dateDepart: undefined, locationId: undefined, email: '', telephone: '', notes: '', credit: 0 });
       setIsSubmitting(false);
     }
   };
@@ -170,6 +178,7 @@ export default function HostClientsPage() {
       _dateDepart: undefined,
       locationId: undefined,
       notes: '',
+      credit: 0,
     });
     setIsDialogOpen(true);
   };
@@ -177,13 +186,11 @@ export default function HostClientsPage() {
   const openEditDialog = (client: Client) => {
     setEditingClient(client);
     let arriveeDate, departDate;
-    if (client.dateArrivee) {
-        const parsed = parseISO(client.dateArrivee);
-        if (isValid(parsed)) arriveeDate = parsed;
+    if (client.dateArrivee && isValid(parseISO(client.dateArrivee))) {
+        arriveeDate = parseISO(client.dateArrivee);
     }
-    if (client.dateDepart) {
-        const parsed = parseISO(client.dateDepart);
-        if (isValid(parsed)) departDate = parsed;
+    if (client.dateDepart && isValid(parseISO(client.dateDepart))) {
+        departDate = parseISO(client.dateDepart);
     }
 
     setCurrentClientData({
@@ -195,6 +202,7 @@ export default function HostClientsPage() {
       _dateDepart: departDate,
       locationId: client.locationId || undefined,
       notes: client.notes || '',
+      credit: client.credit || 0,
     });
     setIsDialogOpen(true);
   };
@@ -214,6 +222,43 @@ export default function HostClientsPage() {
     }
   };
 
+  const openAddCreditDialog = (client: Client) => {
+    setClientForCredit(client);
+    setCreditAmount('');
+    setIsCreditDialogOpen(true);
+  };
+
+  const handleAddCreditSubmit = async () => {
+    if (!clientForCredit || !user?.hostId || typeof creditAmount !== 'number' || creditAmount <= 0) {
+      toast({title: "Invalid Amount", description: "Please enter a valid positive amount.", variant: "destructive"});
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const updatedClient = await addCreditToClient(clientForCredit.id, creditAmount, user.hostId);
+      if (updatedClient) {
+        toast({title: "Credit Added", description: `${creditAmount.toFixed(2)}€ added to ${clientForCredit.nom}. New balance: ${updatedClient.credit?.toFixed(2)}€`});
+        fetchData(user.hostId); // Refresh client list to show new credit
+        // Optionally update the editingClient state if the credit dialog was opened from an edit dialog
+        if (editingClient && editingClient.id === updatedClient.id) {
+          setEditingClient(updatedClient);
+          setCurrentClientData(prev => ({...prev, credit: updatedClient.credit}));
+        }
+      } else {
+        toast({title: "Error", description: "Failed to add credit.", variant: "destructive"});
+      }
+    } catch (error) {
+      console.error("Failed to add credit:", error);
+      toast({title: "Error", description: `Could not add credit. ${error instanceof Error ? error.message : ''}`, variant: "destructive"});
+    } finally {
+      setIsSubmitting(false);
+      setIsCreditDialogOpen(false);
+      setClientForCredit(null);
+      setCreditAmount('');
+    }
+  };
+
+
   if (isLoading || authLoading) {
     return (
       <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
@@ -223,7 +268,7 @@ export default function HostClientsPage() {
         </div>
         <Card className="shadow-lg">
           <CardHeader><Skeleton className="h-8 w-48 mb-2" /><Skeleton className="h-5 w-64" /></CardHeader>
-          <CardContent><div className="space-y-4">{[...Array(3)].map((_, i) => (<div key={i} className="grid grid-cols-5 gap-4 items-center"><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-8 w-full" /></div>))}</div></CardContent>
+          <CardContent><div className="space-y-4">{[...Array(3)].map((_, i) => (<div key={i} className="grid grid-cols-6 gap-4 items-center"><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-8 w-full" /></div>))}</div></CardContent>
         </Card>
       </div>
     );
@@ -254,6 +299,7 @@ export default function HostClientsPage() {
                 <TableHead>Type</TableHead>
                 <TableHead>Contact</TableHead>
                 <TableHead>Assigned Location</TableHead>
+                <TableHead>Credit</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -274,7 +320,13 @@ export default function HostClientsPage() {
                     {client.type === 'heberge' && client.locationId ? 
                         (hostLocations.find(l => l.id === client.locationId)?.nom || 'N/A') : 'N/A'}
                   </TableCell>
+                  <TableCell className="font-semibold text-primary">
+                    {(client.credit || 0).toFixed(2)}€
+                  </TableCell>
                   <TableCell className="text-right space-x-2">
+                    <Button variant="outline" size="icon" onClick={() => openAddCreditDialog(client)} title="Add Credit" disabled={isSubmitting}>
+                      <DollarSign className="h-4 w-4" />
+                    </Button>
                     <Button variant="outline" size="icon" onClick={() => openEditDialog(client)} title="Edit Client" disabled={isSubmitting}>
                       <Edit2 className="h-4 w-4" />
                     </Button>
@@ -290,6 +342,7 @@ export default function HostClientsPage() {
         </CardContent>
       </Card>
 
+      {/* Edit/Add Client Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={(open) => {if(!isSubmitting) setIsDialogOpen(open)}}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -390,6 +443,12 @@ export default function HostClientsPage() {
                 </div>
               </>
             )}
+             {editingClient && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="currentCredit" className="text-right">Current Credit</Label>
+                    <Input id="currentCredit" value={`${(currentClientData.credit || 0).toFixed(2)}€`} className="col-span-3" disabled />
+                </div>
+            )}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="notes" className="text-right">Notes</Label>
               <Textarea id="notes" name="notes" value={currentClientData.notes || ''} onChange={handleInputChange} className="col-span-3" disabled={isSubmitting} placeholder="Any special requests or notes..."/>
@@ -409,8 +468,41 @@ export default function HostClientsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add Credit Dialog */}
+      <Dialog open={isCreditDialogOpen} onOpenChange={(open) => {if(!isSubmitting) setIsCreditDialogOpen(open)}}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Add Credit to {clientForCredit?.nom}</DialogTitle>
+            <DialogDescription>
+              Current Balance: {(clientForCredit?.credit || 0).toFixed(2)}€
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div>
+              <Label htmlFor="creditAmount">Amount to Add (€)</Label>
+              <Input 
+                id="creditAmount" 
+                type="number" 
+                value={creditAmount}
+                onChange={(e) => setCreditAmount(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                placeholder="e.g., 50"
+                min="0.01"
+                step="0.01"
+                disabled={isSubmitting}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+             <DialogClose asChild>
+                <Button variant="outline" disabled={isSubmitting}>Cancel</Button>
+             </DialogClose>
+            <Button onClick={handleAddCreditSubmit} disabled={isSubmitting || !creditAmount || creditAmount <= 0}>
+              {isSubmitting ? "Adding Credit..." : "Confirm Add Credit"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
-    

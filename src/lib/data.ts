@@ -1,13 +1,12 @@
 
 // src/lib/data.ts
-import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus, Tag, ReservationPageSettings } from './types';
-
-// Firestore imports are commented out as we are reverting to in-memory
+import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus, Tag, ReservationPageSettings, Paiement } from './types';
+// Firestore imports are commented out as we are working with in-memory data
 // import { db } from './firebase';
 // import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp } from 'firebase/firestore';
 
 const log = (message: string, data?: any) => {
-  console.log(`[Data Layer Memory] ${new Date().toISOString()}: ${message}`, data !== undefined ? data : '');
+  // console.log(`[Data Layer Memory] ${new Date().toISOString()}: ${message}`, data !== undefined ? data : '');
 }
 log("Data layer initialized. USING IN-MEMORY DATA for all entities.");
 
@@ -17,10 +16,10 @@ let usersInMemory: User[] = [
   { id: 'user-admin-01', email: 'kamel@gmail.com', nom: 'Kamel Admin', role: 'admin', motDePasse: '0000' },
   { id: 'user-host-01', email: 'manager@paradise.com', nom: 'Paradise Manager', role: 'host', hostId: 'host-01-inmem', motDePasse: '1234' },
   { id: 'user-host-02', email: 'contact@delice.com', nom: 'Delice Owner', role: 'host', hostId: 'host-02-inmem', motDePasse: '1234' },
-  { id: 'user-dynamic-host-01', email: 'dynamic.host@example.com', nom: 'Dynamic Test Host', role: 'host', hostId: 'host-1747669860022', motDePasse: '1234' },
+  { id: 'user-dynamic-host-01', email: 'dynamic.host@example.com', nom: 'Dynamic Test Host User', role: 'host', hostId: 'host-1747669860022', motDePasse: '1234' },
   { id: 'user-client-01', email: 'client1@example.com', nom: 'Alice Wonderland', role: 'client', motDePasse: '1234' },
   { id: 'user-client-02', email: 'client2@example.com', nom: 'Bob The Builder', role: 'client', motDePasse: '1234' },
-  { id: 'user-dynamic-client-01', email: 'dynamic_client@example.com', nom: 'Dynamic Test Client', role: 'client', motDePasse: '1234' },
+  { id: 'user-dynamic-client-01', email: 'dynamic_client@example.com', nom: 'Dynamic Test Client User', role: 'client', motDePasse: '1234' },
 ];
 
 let hostsInMemory: Host[] = [
@@ -30,9 +29,9 @@ let hostsInMemory: Host[] = [
 ];
 
 let sitesInMemory: Site[] = [
-  { siteId: 'site-01', nom: 'Paradise Beach Resort (In-Mem)', hostId: 'host-01-inmem', logoUrl: 'https://placehold.co/100x100.png?text=Paradise+Logo', logoAiHint: 'resort logo', primaryColor: '#64B5F6' }, // Calming Blue
-  { siteId: 'site-02', nom: 'Le Delice Downtown (In-Mem)', hostId: 'host-02-inmem', logoUrl: 'https://placehold.co/100x100.png?text=Delice+Logo', logoAiHint: 'restaurant logo', primaryColor: '#9575CD' }, // Soft Purple
-  { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment (In-Mem)', hostId: 'host-1747669860022', logoUrl: 'https://placehold.co/100x100.png?text=Dynamic+Logo', logoAiHint: 'dynamic logo', primaryColor: '#FF5733' }, // Example Orange
+  { siteId: 'site-01', nom: 'Paradise Beach Resort (Global)', hostId: 'host-01-inmem', logoUrl: 'https://placehold.co/100x100.png?text=Paradise', logoAiHint: 'resort logo', primaryColor: '#64B5F6' },
+  { siteId: 'site-02', nom: 'Le Delice Downtown (Global)', hostId: 'host-02-inmem', logoUrl: 'https://placehold.co/100x100.png?text=Delice', logoAiHint: 'restaurant logo', primaryColor: '#9575CD' },
+  { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment (Global)', hostId: 'host-1747669860022', logoUrl: 'https://placehold.co/100x100.png?text=Dynamic', logoAiHint: 'dynamic logo', primaryColor: '#FF5733' },
 ];
 
 let roomsOrTablesInMemory: RoomOrTable[] = [
@@ -113,42 +112,41 @@ let servicesInMemory: Service[] = [
 ];
 
 let ordersInMemory: Order[] = [
-  { id: 'order-001-inmem', serviceId: 'svc-taxi-inmem', hostId: 'host-01-inmem', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({ persons: 2, date: '2024-08-15', time: '10:00' }), dateHeure: new Date(Date.now() - 3600000 * 2).toISOString(), status: 'pending', prix: 50 },
-  { id: 'order-002-inmem', serviceId: 'svc-breakfast-inmem', hostId: 'host-01-inmem', chambreTableId: 'room-102', clientNom: 'Bob The Builder', userId: 'user-client-02', donneesFormulaire: JSON.stringify({ dish: "Continental Breakfast", notes: "Extra orange juice"}), dateHeure: new Date(Date.now() - 3600000 * 5).toISOString(), status: 'completed', prix: 25},
-  { id: 'order-003-inmem', serviceId: 'svc-pizza-inmem', hostId: 'host-02-inmem', chambreTableId: 'table-5', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({dish: "Pepperoni Pizza", notes: "Extra cheese"}), dateHeure: new Date(Date.now() - 3600000 * 1).toISOString(), status: 'confirmed', prix: 18},
-  { id: 'order-004-inmem', serviceId: 'svc-spa-inmem', hostId: 'host-01-inmem', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({ persons: 1, date: '2024-09-10', time: '14:00' }), dateHeure: new Date().toISOString(), status: 'pending', prix: 150 },
-  { id: 'order-005-inmem', serviceId: 'svc-citytour-inmem', hostId: 'host-01-inmem', chambreTableId: 'rt-reception-desk-01', clientNom: 'Bob The Builder', userId: 'user-client-02', donneesFormulaire: JSON.stringify({ participant_name: "Bob Builder", participant_age: "35" }), dateHeure: new Date(Date.now() - 3600000 * 24).toISOString(), status: 'completed', prix: 75 },
-  { id: 'order-006-inmem', serviceId: 'svc-dynamic-info-inmem', hostId: 'host-1747669860022', chambreTableId: 'rt-dynamic-lobby', clientNom: 'Test Guest', userId: undefined, donneesFormulaire: JSON.stringify({ request_detail: "Need directions to the nearest ATM."}), dateHeure: new Date().toISOString(), status: 'pending'},
-  { id: 'order-007-inmem', hostId: 'host-1747669860022', serviceId: 'svc-dynamic-roomclean-inmem', chambreTableId: 'rt-dynamic-room1', clientNom: 'Dynamic Test Client', userId: 'user-dynamic-client-01', donneesFormulaire: '{}', dateHeure: new Date(Date.now() - 3600000 * 3).toISOString(), status: 'completed' },
+  { id: 'order-001-inmem', serviceId: 'svc-taxi-inmem', hostId: 'host-01-inmem', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({ persons: 2, date: '2024-08-15', time: '10:00' }), dateHeure: new Date(Date.now() - 3600000 * 2).toISOString(), status: 'pending', prixTotal: 50, montantPaye: 0, soldeDu: 50 },
+  { id: 'order-002-inmem', serviceId: 'svc-breakfast-inmem', hostId: 'host-01-inmem', chambreTableId: 'room-102', clientNom: 'Bob The Builder', userId: 'user-client-02', donneesFormulaire: JSON.stringify({ dish: "Continental Breakfast", notes: "Extra orange juice"}), dateHeure: new Date(Date.now() - 3600000 * 5).toISOString(), status: 'completed', prixTotal: 25, montantPaye: 25, soldeDu: 0, paiements: [{ type: 'card', montant: 25, date: new Date(Date.now() - 3600000 * 5).toISOString() }] },
+  { id: 'order-003-inmem', serviceId: 'svc-pizza-inmem', hostId: 'host-02-inmem', chambreTableId: 'table-5', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({dish: "Pepperoni Pizza", notes: "Extra cheese"}), dateHeure: new Date(Date.now() - 3600000 * 1).toISOString(), status: 'confirmed', prixTotal: 18, montantPaye: 0, soldeDu: 18 },
+  { id: 'order-004-inmem', serviceId: 'svc-spa-inmem', hostId: 'host-01-inmem', chambreTableId: 'room-101', clientNom: 'Alice Wonderland', userId: 'user-client-01', donneesFormulaire: JSON.stringify({ persons: 1, date: '2024-09-10', time: '14:00' }), dateHeure: new Date().toISOString(), status: 'pending', prixTotal: 150, montantPaye: 0, soldeDu: 150 },
+  { id: 'order-005-inmem', serviceId: 'svc-citytour-inmem', hostId: 'host-01-inmem', chambreTableId: 'rt-reception-desk-01', clientNom: 'Bob The Builder', userId: 'user-client-02', donneesFormulaire: JSON.stringify({ participant_name: "Bob Builder", participant_age: "35" }), dateHeure: new Date(Date.now() - 3600000 * 24).toISOString(), status: 'completed', prixTotal: 75, montantPaye: 75, soldeDu: 0, paiements: [{type: 'cash', montant: 75, date: new Date(Date.now() - 3600000 * 24).toISOString()}] },
+  { id: 'order-006-inmem', serviceId: 'svc-dynamic-info-inmem', hostId: 'host-1747669860022', chambreTableId: 'rt-dynamic-lobby', clientNom: 'Test Guest', userId: undefined, donneesFormulaire: JSON.stringify({ request_detail: "Need directions to the nearest ATM."}), dateHeure: new Date().toISOString(), status: 'pending' },
+  { id: 'order-007-inmem', hostId: 'host-1747669860022', serviceId: 'svc-dynamic-roomclean-inmem', chambreTableId: 'rt-dynamic-room1', clientNom: 'Dynamic Test Client User', userId: 'user-dynamic-client-01', donneesFormulaire: '{}', dateHeure: new Date(Date.now() - 3600000 * 3).toISOString(), status: 'completed' },
 ];
 
 let clientsInMemory: Client[] = [
     { id: 'client-mock-1-inmem', hostId: 'host-01-inmem', nom: 'Alice Wonderland (In-Mem)', email: 'client1@example.com', type: 'heberge', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', locationId: 'room-101', notes: 'Prefers quiet room. Likes extra pillows.', credit: 50 },
     { id: 'client-mock-2-inmem', hostId: 'host-01-inmem', nom: 'Bob The Builder (In-Mem)', email: 'client2@example.com', type: 'heberge', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', locationId: 'room-102', credit: 0 },
     { id: 'client-mock-3-inmem', hostId: 'host-02-inmem', nom: 'Charlie Passager (In-Mem)', telephone: '+1123456789', type: 'passager', notes: 'Regular for lunch on Fridays.', credit: 10 },
-    { id: 'client-mock-4-inmem', hostId: 'host-01-inmem', nom: 'Diana Visitor (In-Mem)', email: 'diana@example.com', type: 'passager', notes: 'Interested in spa services.'},
-    { id: 'client-mock-dynamic-inmem', hostId: 'host-1747669860022', nom: 'Dynamic Test Client (In-Mem)', email: 'dynamic_client@example.com', type: 'heberge', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', locationId: 'rt-dynamic-room1', notes: 'Testing client for dynamic host.', credit: 100 },
+    { id: 'client-mock-4-inmem', hostId: 'host-01-inmem', nom: 'Diana Visitor (In-Mem)', email: 'diana@example.com', type: 'passager', notes: 'Interested in spa services.', credit: 0},
+    { id: 'client-mock-dynamic-inmem', hostId: 'host-1747669860022', nom: 'Dynamic Test Client User (In-Mem)', email: 'dynamic_client@example.com', type: 'heberge', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', locationId: 'rt-dynamic-room1', notes: 'Testing client for dynamic host.', credit: 100 },
 ];
 
 let reservationsInMemory: Reservation[] = [
-    { id: 'res-001-inmem', hostId: 'host-01-inmem', locationId: 'room-101', type: 'Chambre', clientName: 'Alice Wonderland (In-Mem)', clientId: 'client-mock-1-inmem', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', nombrePersonnes: 2, status: 'confirmed', notes: 'Early check-in requested', animauxDomestiques: false, channel: 'Booking.com' },
-    { id: 'res-002-inmem', hostId: 'host-01-inmem', locationId: 'room-102', type: 'Chambre', clientName: 'Bob The Builder (In-Mem)', clientId: 'client-mock-2-inmem', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', nombrePersonnes: 1, animauxDomestiques: true, status: 'checked-in', channel: 'Direct' },
-    { id: 'res-003-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-room1', type: 'Chambre', clientName: 'Dynamic Test Client (In-Mem)', clientId: 'client-mock-dynamic-inmem', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', nombrePersonnes: 2, notes: "Needs a crib", status: 'pending', animauxDomestiques: false },
-    { id: 'res-004-inmem', hostId: 'host-02-inmem', locationId: 'table-5', type: 'Table', clientName: 'Charlie Passager (In-Mem)', clientId: 'client-mock-3-inmem', dateArrivee: '2024-07-20', dateDepart: '2024-07-20', nombrePersonnes: 4, status: 'confirmed', notes: 'Dinner reservation for 8 PM', channel: 'Phone' },
-    { id: 'res-dynamic-table-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-table1', type: 'Table', clientName: 'Test Diner', dateArrivee: '2024-08-03', dateDepart: '2024-08-03', nombrePersonnes: 2, status: 'confirmed', notes: 'Table reservation for dynamic host.' },
+    { id: 'res-001-inmem', hostId: 'host-01-inmem', locationId: 'room-101', type: 'Chambre', clientName: 'Alice Wonderland (In-Mem)', clientId: 'client-mock-1-inmem', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', nombrePersonnes: 2, status: 'confirmed', notes: 'Early check-in requested', animauxDomestiques: false, channel: 'Booking.com', prixTotal: 600, montantPaye: 600, soldeDu: 0, paiements: [{type: 'card', montant: 600, date: '2024-07-09'}] },
+    { id: 'res-002-inmem', hostId: 'host-01-inmem', locationId: 'room-102', type: 'Chambre', clientName: 'Bob The Builder (In-Mem)', clientId: 'client-mock-2-inmem', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', nombrePersonnes: 1, animauxDomestiques: true, status: 'checked-in', channel: 'Direct', prixTotal: 500, montantPaye: 200, soldeDu: 300 },
+    { id: 'res-003-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-room1', type: 'Chambre', clientName: 'Dynamic Test Client User (In-Mem)', clientId: 'client-mock-dynamic-inmem', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', nombrePersonnes: 2, notes: "Needs a crib", status: 'pending', animauxDomestiques: false, prixTotal: 396 },
+    { id: 'res-004-inmem', hostId: 'host-02-inmem', locationId: 'table-5', type: 'Table', clientName: 'Charlie Passager (In-Mem)', clientId: 'client-mock-3-inmem', dateArrivee: '2024-07-20', dateDepart: '2024-07-20', nombrePersonnes: 4, status: 'confirmed', notes: 'Dinner reservation for 8 PM', channel: 'Phone', prixTotal: 10, montantPaye: 10, soldeDu: 0 },
+    { id: 'res-dynamic-table-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-table1', type: 'Table', clientName: 'Test Diner', dateArrivee: '2024-08-03', dateDepart: '2024-08-03', nombrePersonnes: 2, status: 'confirmed', notes: 'Table reservation for dynamic host.', prixTotal: 20 },
 ];
 
 
 // --- User Management (In-memory) ---
-// Helper to ensure password field consistency (handle 'password' vs 'motDePasse')
 const normalizeUserPassword = (user: any): User => {
   const userData = { ...user };
   if (!userData.motDePasse && userData.password) {
     userData.motDePasse = userData.password;
   } else if (!userData.motDePasse) {
-    userData.motDePasse = ""; // Ensure it's defined
+    userData.motDePasse = ""; 
   }
-  delete userData.password; // Remove the old 'password' field if it existed
+  delete userData.password; 
   if (!userData.nom && userData.email) {
       userData.nom = userData.email.split('@')[0];
   }
@@ -159,7 +157,20 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
   log(`getUserByEmail called for: ${email} (in-memory)`);
   try {
     const user = usersInMemory.find(u => u.email.toLowerCase() === email.toLowerCase());
-    return user ? normalizeUserPassword(user) : undefined;
+    if (user) {
+      let userData = { ...user };
+      if (!userData.motDePasse && (user as any).password) {
+        userData.motDePasse = (user as any).password;
+      } else if (!userData.motDePasse) {
+        userData.motDePasse = "";
+      }
+      delete (userData as any).password;
+      if (!userData.nom) {
+        userData.nom = userData.email.split('@')[0];
+      }
+      return userData as User;
+    }
+    return undefined;
   } catch (e) {
     console.error("Error in getUserByEmail (in-memory):", e);
     return undefined;
@@ -193,7 +204,7 @@ export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
     const existingUser = usersInMemory.find(u => u.email.toLowerCase() === userData.email.toLowerCase());
     if (existingUser) {
       log(`User with email ${userData.email} already exists. Updating existing user (in-memory).`);
-      existingUser.nom = userData.nom;
+      existingUser.nom = userData.nom || existingUser.email.split('@')[0];
       existingUser.role = userData.role;
       existingUser.hostId = userData.hostId || undefined;
       if (userData.motDePasse && userData.motDePasse.trim() !== '') existingUser.motDePasse = userData.motDePasse.trim();
@@ -205,6 +216,7 @@ export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
     const newUser: User = {
       id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       motDePasse: userData.motDePasse.trim(),
+      nom: userData.nom || userData.email.split('@')[0],
       ...userData,
     };
     usersInMemory.push(newUser);
@@ -224,10 +236,10 @@ export const updateUser = async (userId: string, userData: Partial<Omit<User, 'i
       const updatedUser = { ...usersInMemory[userIndex], ...userData };
       if (userData.motDePasse && userData.motDePasse.trim() !== '') {
           updatedUser.motDePasse = userData.motDePasse.trim();
-      } else if (userData.hasOwnProperty('motDePasse')) {
-          // If motDePasse is explicitly set to empty or null, it means DO NOT CHANGE the password field.
-          // Real password change should be handled differently (e.g. with currentPassword verification).
-          updatedUser.motDePasse = usersInMemory[userIndex].motDePasse; // Keep old password
+      } else if (userData.hasOwnProperty('motDePasse') && userData.motDePasse === '') {
+          // Allow explicitly setting an empty password if needed, though generally not recommended.
+          // For not changing password, omit motDePasse from userData
+          updatedUser.motDePasse = usersInMemory[userIndex].motDePasse;
       }
       if (userData.hasOwnProperty('hostId')) {
         updatedUser.hostId = userData.hostId || undefined;
@@ -1014,7 +1026,7 @@ export const getOrdersByUserId = async (userId: string): Promise<Order[]> => {
   }
 };
 
-export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status'>): Promise<Order> => {
+export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status' | 'montantPaye' | 'soldeDu' | 'paiements'>): Promise<Order> => {
   log(`addOrder called. Data: ${JSON.stringify(data)}. Using in-memory data.`);
   try {
     const serviceDetails = await getServiceById(data.serviceId);
@@ -1023,7 +1035,10 @@ export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status'>)
       id: `order-${Date.now()}`,
       dateHeure: new Date().toISOString(),
       status: 'pending',
-      prix: serviceDetails?.prix,
+      prixTotal: serviceDetails?.prix,
+      montantPaye: 0,
+      soldeDu: serviceDetails?.prix || 0,
+      paiements: [],
       userId: data.userId
     };
     ordersInMemory.push(newOrder);
@@ -1082,10 +1097,10 @@ export const getClientRecordsByEmail = async (email: string): Promise<Client[]> 
   }
 };
 
-export const addClientData = async (clientData: Omit<Client, 'id' | 'documents'>): Promise<Client> => {
+export const addClientData = async (clientData: Omit<Client, 'id' | 'documents' | 'credit'>): Promise<Client> => {
   log(`addClientData called. Data: ${JSON.stringify(clientData)}. Using in-memory data.`);
   try {
-    const newClient: Client = { ...clientData, id: `client-${Date.now()}-${Math.random().toString(36).substring(2, 7)}` };
+    const newClient: Client = { ...clientData, id: `client-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, credit: 0 };
     clientsInMemory.push(newClient);
     return newClient;
   } catch (e) {
@@ -1094,7 +1109,7 @@ export const addClientData = async (clientData: Omit<Client, 'id' | 'documents'>
   }
 };
 
-export const updateClientData = async (clientId: string, clientData: Partial<Omit<Client, 'id' | 'hostId' | 'documents'>>): Promise<Client | undefined> => {
+export const updateClientData = async (clientId: string, clientData: Partial<Omit<Client, 'id' | 'hostId' | 'documents' | 'credit'>>): Promise<Client | undefined> => {
   log(`updateClientData called for ID: ${clientId}. Data: ${JSON.stringify(clientData)}. Using in-memory data.`);
   try {
     const clientIndex = clientsInMemory.findIndex(c => c.id === clientId);
@@ -1130,6 +1145,23 @@ export const deleteClientData = async (clientId: string): Promise<boolean> => {
   }
 };
 
+export const addCreditToClient = async (clientId: string, amount: number, hostId: string): Promise<Client | undefined> => {
+  log(`addCreditToClient called for client: ${clientId}, amount: ${amount}, host: ${hostId}. Using in-memory data.`);
+  try {
+    const clientIndex = clientsInMemory.findIndex(c => c.id === clientId && c.hostId === hostId);
+    if (clientIndex > -1) {
+      clientsInMemory[clientIndex].credit = (clientsInMemory[clientIndex].credit || 0) + amount;
+      log(`Credit updated for client ${clientId}. New balance: ${clientsInMemory[clientIndex].credit}.`);
+      return { ...clientsInMemory[clientIndex] };
+    }
+    log(`Client ${clientId} not found for host ${hostId} to add credit.`);
+    return undefined;
+  } catch (e) {
+    console.error("Error in addCreditToClient (in-memory):", e);
+    return undefined;
+  }
+}
+
 
 // --- Reservation Management ---
 export const getReservations = async (
@@ -1157,7 +1189,7 @@ export const getReservations = async (
           const departureDateForRoom = r.dateDepart ? new Date(r.dateDepart + "T00:00:00Z") : null; // Assume UTC
           const effectiveDeparture = r.type === 'Table' || !departureDateForRoom ? new Date(r.dateArrivee + "T23:59:59Z") : departureDateForRoom;
 
-          if (!effectiveDeparture) return false; // Should not happen if dateArrivee is always present
+          if (!effectiveDeparture) return false;
 
           const monthStart = new Date(Date.UTC(filters.year!, filters.month!, 1));
           const monthEnd = new Date(Date.UTC(filters.year!, filters.month! + 1, 0, 23, 59, 59, 999));
@@ -1192,11 +1224,29 @@ export const getReservations = async (
   }
 };
 
-export const addReservationToData = async (data: Omit<Reservation, 'id'>): Promise<Reservation> => {
+export const addReservationToData = async (data: Omit<Reservation, 'id' | 'prixTotal' | 'montantPaye' | 'soldeDu' | 'paiements'>): Promise<Reservation> => {
   log(`addReservation called. Data: ${JSON.stringify(data)}. Using in-memory data.`);
   try {
     const location = await getRoomOrTableById(data.locationId);
-    const newReservation: Reservation = { ...data, id: `res-${Date.now()}`, type: location?.type };
+    let prixTotalReservation: number | undefined = undefined;
+    if (location?.type === 'Chambre' && location.prixParNuit && data.dateDepart) {
+        const arrival = new Date(data.dateArrivee);
+        const departure = new Date(data.dateDepart);
+        const nights = Math.max(1, Math.ceil((departure.getTime() - arrival.getTime()) / (1000 * 3600 * 24)));
+        prixTotalReservation = nights * location.prixParNuit;
+    } else if (location?.type === 'Table' && location.prixFixeReservation) {
+        prixTotalReservation = location.prixFixeReservation;
+    }
+
+    const newReservation: Reservation = {
+      ...data,
+      id: `res-${Date.now()}`,
+      type: location?.type,
+      prixTotal: prixTotalReservation,
+      montantPaye: 0,
+      soldeDu: prixTotalReservation || 0,
+      paiements: [],
+    };
     reservationsInMemory.push(newReservation);
     return newReservation;
   } catch (e) {
@@ -1210,11 +1260,29 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
   try {
     const resIndex = reservationsInMemory.findIndex(r => r.id === id);
     if (resIndex > -1) {
-      const location = data.locationId ? await getRoomOrTableById(data.locationId) : undefined;
+      const existingReservation = reservationsInMemory[resIndex];
+      const location = data.locationId ? await getRoomOrTableById(data.locationId) : await getRoomOrTableById(existingReservation.locationId);
+      
+      let prixTotalReservation = existingReservation.prixTotal;
+      if(data.dateArrivee || data.dateDepart || data.locationId) { // Recalculate price if dates or location change
+        const arrivalDate = data.dateArrivee || existingReservation.dateArrivee;
+        const departureDate = data.dateDepart || existingReservation.dateDepart;
+        if (location?.type === 'Chambre' && location.prixParNuit && departureDate) {
+            const arrival = new Date(arrivalDate);
+            const departure = new Date(departureDate);
+            const nights = Math.max(1, Math.ceil((departure.getTime() - arrival.getTime()) / (1000 * 3600 * 24)));
+            prixTotalReservation = nights * location.prixParNuit;
+        } else if (location?.type === 'Table' && location.prixFixeReservation) {
+            prixTotalReservation = location.prixFixeReservation;
+        }
+      }
+
       reservationsInMemory[resIndex] = {
-        ...reservationsInMemory[resIndex],
+        ...existingReservation,
         ...data,
-        type: location?.type || reservationsInMemory[resIndex].type
+        type: location?.type || existingReservation.type,
+        prixTotal: prixTotalReservation,
+        soldeDu: prixTotalReservation !== undefined ? prixTotalReservation - (existingReservation.montantPaye || 0) : existingReservation.soldeDu,
       };
       return { ...reservationsInMemory[resIndex] };
     }
@@ -1243,3 +1311,4 @@ log("Initial in-memory data loaded/defined.");
 log(`Users: ${usersInMemory.length}, Hosts: ${hostsInMemory.length}, Global Sites: ${sitesInMemory.length}, Locations: ${roomsOrTablesInMemory.length}`);
 log(`Categories: ${serviceCategoriesInMemory.length}, Forms: ${customFormsInMemory.length}, Fields: ${formFieldsInMemory.length}, Services: ${servicesInMemory.length}`);
 log(`Orders: ${ordersInMemory.length}, Clients: ${clientsInMemory.length}, Reservations: ${reservationsInMemory.length}, Tags: ${tagsInMemory.length}`);
+
