@@ -20,10 +20,7 @@ export default function DashboardRedirectPage() {
           router.replace('/host/dashboard');
           break;
         case 'client':
-          // Clients don't typically have a dashboard, they access via specific URLs
-          // For now, redirect to a generic client page or show a message.
-          // This could be a page that says "Scan a QR code to begin."
-          router.replace('/client/landing'); // A placeholder client landing page
+          router.replace('/settings'); // Changed from '/client/landing'
           break;
         default:
           router.replace('/login');
