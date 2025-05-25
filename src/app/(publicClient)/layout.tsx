@@ -4,14 +4,15 @@ import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
-import { LogIn, UserCircle, MessageCircle, ShoppingCart } from "lucide-react"; // Added ShoppingCart
+import { LogIn, UserCircle, MessageCircle, ShoppingCart } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
-import { LanguageProvider, useLanguage } from "@/context/LanguageContext"; // Import LanguageProvider & useLanguage
+import { LanguageProvider, useLanguage } from "@/context/LanguageContext";
 import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
-import { CartProvider, useCart } from "@/context/CartContext"; // Import CartProvider and useCart
-import { Badge } from "@/components/ui/badge"; // For cart item count
+import { CartProvider, useCart } from "@/context/CartContext";
+import { Badge } from "@/components/ui/badge";
+import React, { useState, useEffect } from 'react'; // Added useState and useEffect
 
 function HeaderContent() {
   const { user, isLoading } = useAuth();
@@ -19,6 +20,11 @@ function HeaderContent() {
   const { t } = useLanguage();
   const { getTotalItems } = useCart();
   const totalCartItems = getTotalItems();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const userInitial = user?.nom ? user.nom.charAt(0).toUpperCase() : '?';
 
@@ -32,7 +38,7 @@ function HeaderContent() {
           <LanguageSwitcher />
           <Button variant="ghost" size="icon" className="relative" onClick={() => { /* Logic to open cart summary (e.g., a Popover or Sheet) will be here later */ console.log("Cart icon clicked") }}>
             <ShoppingCart className="h-5 w-5" />
-            {totalCartItems > 0 && (
+            {isMounted && totalCartItems > 0 && (
               <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-xs">
                 {totalCartItems}
               </Badge>
@@ -75,13 +81,13 @@ export default function PublicClientLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { toast } = useToast(); // useToast can be here if used by footer/chat directly
+  const { toast } = useToast();
 
   return (
     <LanguageProvider>
-      <CartProvider> {/* CartProvider wraps the content */}
+      <CartProvider>
         <div className="min-h-screen flex flex-col bg-gradient-to-br from-background to-secondary/30">
-          <HeaderContent /> {/* Header uses useLanguage and useCart, so needs to be within providers */}
+          <HeaderContent />
           <main className="flex-grow container mx-auto py-8 px-4 md:px-6 lg:px-8">
             {children}
           </main>
@@ -104,5 +110,3 @@ export default function PublicClientLayout({
     </LanguageProvider>
   );
 }
-
-    
