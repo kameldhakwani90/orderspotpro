@@ -28,6 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import NextImage from 'next/image';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge'; // Added import
 
 export default function HostMenuCardsPage() {
   const { user, isLoading: authLoading, selectedGlobalSite } = useAuth();
