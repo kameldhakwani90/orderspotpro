@@ -109,7 +109,7 @@ export const translations: Translations = {
     billingSummaryExample: "Sommaire de Facturation (Exemple)",
     estimatedTotal: "Total estimé :",
     amountPaid: "Montant payé :",
-    balanceDue: "Solde dû :",
+    balanceDue: "Solde Dû :",
     pleaseSettleBalance: "Veuillez régler tout solde restant à la réception.",
     departureNotesOptional: "Notes de Départ (Optionnel)",
     exampleEverythingPerfect: "Ex: Tout était parfait, clé laissée à la réception...",
@@ -123,6 +123,12 @@ export const translations: Translations = {
     reservationAlreadyFinalized: "Cette réservation a déjà été finalisée (check-out effectué) ou annulée.",
     reservationCancelledMessage: "La réservation pour {{locationName}} à {{establishmentName}} a été annulée.",
     checkoutProcessedOrCancelled: "L'opération de check-out pour cette réservation a déjà été traitée ou la réservation est annulée.",
+    ourMenuCategories: "Nos catégories de menu",
+    noMenuAvailable: "Aucune carte de menu n'est actuellement disponible pour ce lieu.",
+    itemsInCategory: "Articles dans : {{categoryName}}",
+    noItemsInCategory: "Aucun article dans cette catégorie pour le moment.",
+    backToMenuCategories: "Retour aux catégories du menu",
+    browseServices: "Parcourir les services généraux",
   },
   en: {
     welcomeTo: "Welcome to",
@@ -245,6 +251,12 @@ export const translations: Translations = {
     reservationAlreadyFinalized: "This reservation has already been finalized (checked out) or cancelled.",
     reservationCancelledMessage: "The reservation for {{locationName}} at {{establishmentName}} has been cancelled.",
     checkoutProcessedOrCancelled: "The checkout operation for this reservation has already been processed or the reservation is cancelled.",
+    ourMenuCategories: "Our Menu Categories",
+    noMenuAvailable: "No menu card is currently available for this location.",
+    itemsInCategory: "Items in: {{categoryName}}",
+    noItemsInCategory: "No items in this category at the moment.",
+    backToMenuCategories: "Back to Menu Categories",
+    browseServices: "Browse General Services",
   },
   ar: {
     welcomeTo: "مرحباً بك في",
@@ -367,5 +379,13 @@ export const translations: Translations = {
     reservationAlreadyFinalized: "تمت معالجة هذا الحجز بالفعل (تم تسجيل المغادرة) أو تم إلغاؤه.",
     reservationCancelledMessage: "تم إلغاء الحجز لـ {{locationName}} في {{establishmentName}}.",
     checkoutProcessedOrCancelled: "تمت معالجة عملية المغادرة لهذا الحجز بالفعل أو تم إلغاء الحجز.",
+    ourMenuCategories: "فئات قائمتنا",
+    noMenuAvailable: "لا توجد قائمة طعام متاحة حاليًا لهذا المكان.",
+    itemsInCategory: "العناصر في: {{categoryName}}",
+    noItemsInCategory: "لا توجد عناصر في هذه الفئة في الوقت الحالي.",
+    backToMenuCategories: "العودة إلى فئات القائمة",
+    browseServices: "تصفح الخدمات العامة",
   },
 };
+
+    

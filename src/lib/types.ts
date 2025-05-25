@@ -82,7 +82,7 @@ export interface RoomOrTable {
   menuCardId?: string; // ID of the MenuCard associated with this location
 }
 
-export interface ServiceCategory {
+export interface ServiceCategory { // These are general service categories for a host
   id: string;
   nom: string;
   hostId: string;
@@ -109,13 +109,13 @@ export interface FormField {
   options?: string[];
 }
 
-export interface Service {
+export interface Service { // General services, distinct from MenuItems
   id: string;
   titre: string;
   description: string;
   image?: string;
   "data-ai-hint"?: string;
-  categorieId: string;
+  categorieId: string; // Links to ServiceCategory.id
   hostId: string;
   formulaireId?: string;
   prix?: number;
@@ -135,12 +135,12 @@ export interface Paiement {
 
 export interface Order {
   id: string;
-  serviceId: string;
+  serviceId: string; // Could be a Service.id or a MenuItem.id
   hostId: string;
-  chambreTableId: string;
-  clientNom?: string; // Name used for the order
-  userId?: string; // Link to User.id if the client is a registered user
-  donneesFormulaire: string;
+  chambreTableId: string; // RoomOrTable.id where order was placed
+  clientNom?: string;
+  userId?: string;
+  donneesFormulaire: string; // JSON string of selected options for configurable items, or form data
   dateHeure: string; // ISO string
   status: OrderStatus;
   prixTotal?: number;
@@ -149,6 +149,7 @@ export interface Order {
   paiements?: Paiement[];
   pointsGagnes?: number;
   currency?: string;
+  // Future: items: Array<{itemId: string, itemName: string, quantity: number, unitPrice: number, options: any}>
 }
 
 export type ClientType = "heberge" | "passager";
@@ -189,7 +190,7 @@ export interface Reservation {
   locationId: string;
   type?: 'Chambre' | 'Table';
   clientId?: string;
-  clientName: string; // Keep clientName mandatory for cases where clientId might not be set (guest reservations)
+  clientName?: string; // Keep clientName, especially if clientId is not always set (guests)
   dateArrivee: string; // YYYY-MM-DD
   dateDepart?: string | undefined; // YYYY-MM-DD, optional for tables
   nombrePersonnes: number;
@@ -209,7 +210,6 @@ export interface Reservation {
   currency?: string;
 }
 
-// For enriching reservation data with names
 export interface EnrichedReservation extends Reservation {
   hostName?: string;
   locationName?: string;
@@ -225,29 +225,28 @@ export interface NavItem {
   external?: boolean;
 }
 
-// Types for Chat Functionality
 export interface ChatMessage {
   id: string;
   conversationId: string;
-  senderId: string;
-  receiverId: string;
+  senderId: string; // User.id
+  receiverId: string; // User.id (can be host or client)
   text: string;
-  timestamp: string;
+  timestamp: string; // ISO string
   read?: boolean;
 }
 
 export interface ChatConversation {
-  id: string;
-  participantIds: string[];
+  id: string; // e.g., sortedUserIds.join('-')
+  participantIds: string[]; // [userId1, userId2]
   lastMessage?: Pick<ChatMessage, 'text' | 'timestamp' | 'senderId'>;
-  unreadCounts?: { [userId: string]: number };
+  unreadCounts?: { [userId: string]: number }; // e.g., { userId1: 2, userId2: 0 }
+  // Denormalized data for easier display
   clientName?: string;
   hostName?: string;
-  clientAvatar?: string;
-  hostAvatar?: string;
+  clientAvatar?: string; // URL
+  hostAvatar?: string;   // URL
 }
 
-// Types for Menu Cards (Food & Beverage)
 export interface MenuCard {
   id: string;
   name: string;
@@ -259,11 +258,11 @@ export interface MenuCard {
   visibleToTime?: string;   // e.g., "22:00"
 }
 
-export interface MenuCategory {
+export interface MenuCategory { // Category within a MenuCard
   id: string;
   name: string;
   menuCardId: string;
-  hostId: string;
+  hostId: string; // For ownership, though linked via MenuCard
   description?: string;
   displayOrder?: number;
 }
@@ -271,13 +270,13 @@ export interface MenuCategory {
 export interface MenuItemOption {
   id: string;
   name: string;
-  priceAdjustment?: number;
+  priceAdjustment?: number; // Can be positive or negative
 }
 
 export interface MenuItemOptionGroup {
   id: string;
   name: string;
-  menuItemId: string; // Link back to MenuItem (though in data.ts, they might be nested)
+  menuItemId: string; // Link back to MenuItem
   selectionType: 'single' | 'multiple';
   isRequired: boolean;
   options: MenuItemOption[];
@@ -294,8 +293,28 @@ export interface MenuItem {
   menuCategoryId: string;
   hostId: string;
   isConfigurable?: boolean;
-  optionGroups?: MenuItemOptionGroup[]; // Nested for simplicity in in-memory data
-  isAvailable?: boolean; // New field for item visibility
+  optionGroups?: MenuItemOptionGroup[]; // Embedded for in-memory simplicity
+  isAvailable?: boolean;
+  loginRequired?: boolean; // Re-using from Service for consistency
+  pointsRequis?: number;   // Re-using from Service
+}
+
+// Cart Types - Basic for now
+export type CartItem = (MenuItem | Service) & {
+  quantity: number;
+  uniqueIdInCart: string; // To differentiate identical items added multiple times if needed
+  selectedOptions?: Record<string, string | string[]>; // For configurable items
+  finalPrice?: number; // Price including options
+};
+
+export interface CartContextType {
+  cartItems: CartItem[];
+  addToCart: (item: MenuItem | Service, options?: Record<string, string | string[]>) => void;
+  removeFromCart: (uniqueIdInCart: string) => void;
+  updateQuantity: (uniqueIdInCart: string, newQuantity: number) => void;
+  clearCart: () => void;
+  getCartTotal: () => number;
+  getTotalItems: () => number;
 }
 
 
@@ -327,6 +346,9 @@ export type TranslationKeys =
   | 'processingInProgress' | 'checkoutConfirmedTitle' | 'checkoutConfirmedDescription' | 'hopeToSeeYouSoon'
   | 'errorCheckout' | 'errorConfirmingCheckout' | 'reservationAlreadyFinalized'
   | 'reservationCancelledMessage' | 'checkoutProcessedOrCancelled'
+  // New keys for menu card display
+  | 'ourMenuCategories' | 'noMenuAvailable' | 'itemsInCategory' | 'noItemsInCategory'
+  | 'backToMenuCategories' | 'browseServices'
   ;
 
 export type Translations = {
@@ -334,3 +356,5 @@ export type Translations = {
     [key in TranslationKeys]?: string;
   };
 };
+
+    
