@@ -22,6 +22,14 @@ export interface Host {
   nom: string;
   email: string;
   reservationPageSettings?: ReservationPageSettings;
+  loyaltySettings?: LoyaltySettings;
+}
+
+export interface LoyaltySettings {
+  enabled: boolean;
+  pointsPerEuroSpent: number;
+  pointsPerNightRoom: number;
+  pointsPerTableBooking: number;
 }
 
 export interface Site { // Represents a Global Site
@@ -132,6 +140,7 @@ export interface Order {
   montantPaye?: number;
   soldeDu?: number;
   paiements?: Paiement[];
+  pointsGagnes?: number;
 }
 
 export type ClientType = "heberge" | "passager";
@@ -149,9 +158,23 @@ export interface Client {
     notes?: string;
     documents?: Array<{ name: string; url: string; uploadedAt: string }>;
     credit?: number; // Client's available credit balance
+    pointsFidelite?: number;
 }
 
 export type ReservationStatus = "pending" | "confirmed" | "cancelled" | "checked-in" | "checked-out";
+export type OnlineCheckinStatus = 'not-started' | 'pending-review' | 'completed';
+
+export interface OnlineCheckinData {
+  fullName?: string;
+  email?: string;
+  birthDate?: string; // Format YYYY-MM-DD
+  phoneNumber?: string;
+  travelReason?: string;
+  additionalNotes?: string;
+  // passportPhotoUris?: string[]; // For future use
+  // digitalSignatureUri?: string; // For future use
+  submissionDate?: string; // ISO DateTime
+}
 
 export interface Reservation {
   id: string;
@@ -161,7 +184,7 @@ export interface Reservation {
   clientId?: string;
   clientName: string;
   dateArrivee: string; // YYYY-MM-DD
-  dateDepart?: string; // YYYY-MM-DD, optional for tables, required for rooms
+  dateDepart?: string; // YYYY-MM-DD, optional for tables
   nombrePersonnes: number;
   animauxDomestiques?: boolean; // Only relevant for Chambre type
   notes?: string;
@@ -171,6 +194,9 @@ export interface Reservation {
   montantPaye?: number;
   soldeDu?: number;
   paiements?: Paiement[];
+  pointsGagnes?: number;
+  onlineCheckinData?: OnlineCheckinData;
+  onlineCheckinStatus?: OnlineCheckinStatus;
 }
 
 // Helper type for navigation items
