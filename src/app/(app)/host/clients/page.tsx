@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Edit2, Trash2, Users, CalendarDays as CalendarLucideIcon, DollarSign, Link2 } from 'lucide-react'; // Added Link2
+import { PlusCircle, Edit2, Trash2, Users, CalendarDays as CalendarLucideIcon, DollarSign, Link2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -31,10 +31,10 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format, parseISO, isValid } from 'date-fns';
+import { format, parseISO, isValid, isBefore } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import Link from 'next/link'; // Import Link
+import Link from 'next/link';
 
 const clientTypes: ClientType[] = ["heberge", "passager"];
 const DEFAULT_NO_LOCATION_ID = "___NO_LOCATION_SELECTED___";
@@ -61,8 +61,8 @@ export default function HostClientsPage() {
     email?: string;
     telephone?: string;
     type: ClientType;
-    _dateArrivee?: Date; 
-    _dateDepart?: Date;  
+    _dateArrivee?: Date;
+    _dateDepart?: Date;
     locationId?: string;
     notes?: string;
     credit?: number;
@@ -72,7 +72,7 @@ export default function HostClientsPage() {
     type: 'passager',
     _dateArrivee: undefined,
     _dateDepart: undefined,
-    locationId: undefined,
+    locationId: DEFAULT_NO_LOCATION_ID,
     credit: 0,
     pointsFidelite: 0,
   });
@@ -110,15 +110,29 @@ export default function HostClientsPage() {
   };
 
   const handleTypeChange = (value: ClientType) => {
-    setCurrentClientData(prev => ({ ...prev, type: value }));
+    setCurrentClientData(prev => {
+      const newState = { ...prev, type: value };
+      if (value === 'passager') {
+        newState._dateArrivee = undefined;
+        newState._dateDepart = undefined;
+        newState.locationId = DEFAULT_NO_LOCATION_ID;
+      }
+      return newState;
+    });
   };
-  
+
   const handleLocationChange = (value: string) => {
-    setCurrentClientData(prev => ({ ...prev, locationId: value === DEFAULT_NO_LOCATION_ID ? undefined : value }));
+    setCurrentClientData(prev => ({ ...prev, locationId: value }));
   };
 
   const handleDateChange = (field: '_dateArrivee' | '_dateDepart', date?: Date) => {
-    setCurrentClientData(prev => ({ ...prev, [field]: date }));
+    setCurrentClientData(prev => {
+      const newState = { ...prev, [field]: date };
+      if (field === '_dateArrivee' && date && newState._dateDepart && isBefore(newState._dateDepart, date)) {
+        newState._dateDepart = undefined; // Reset departure if it's before new arrival
+      }
+      return newState;
+    });
   };
 
   const handleSubmitClient = async () => {
@@ -127,43 +141,52 @@ export default function HostClientsPage() {
       toast({ title: "Validation Error", description: "Client name cannot be empty.", variant: "destructive" });
       return;
     }
-    // Dates are now optional for "heberge"
+
     if (currentClientData.type === 'heberge') {
-        if (currentClientData._dateArrivee && currentClientData._dateDepart && currentClientData._dateDepart < currentClientData._dateArrivee) {
+        if (currentClientData._dateArrivee && currentClientData._dateDepart && isBefore(currentClientData._dateDepart, currentClientData._dateArrivee)) {
             toast({ title: "Validation Error", description: "Departure date cannot be before arrival date.", variant: "destructive"});
             return;
         }
     }
 
     setIsSubmitting(true);
-    const dataToSubmit: Partial<Omit<Client, 'id' | 'hostId' | 'documents' | 'credit' | 'pointsFidelite'>> = {
+    const dataToSubmit: Partial<Omit<Client, 'id' | 'hostId' | 'documents'>> = {
       nom: currentClientData.nom.trim(),
       email: currentClientData.email?.trim() || undefined,
       telephone: currentClientData.telephone?.trim() || undefined,
       type: currentClientData.type,
-      dateArrivee: currentClientData._dateArrivee ? format(currentClientData._dateArrivee, 'yyyy-MM-dd') : undefined,
-      dateDepart: currentClientData._dateDepart ? format(currentClientData._dateDepart, 'yyyy-MM-dd') : undefined,
-      locationId: currentClientData.type === 'heberge' ? currentClientData.locationId : undefined,
+      dateArrivee: currentClientData.type === 'heberge' && currentClientData._dateArrivee ? format(currentClientData._dateArrivee, 'yyyy-MM-dd') : undefined,
+      dateDepart: currentClientData.type === 'heberge' && currentClientData._dateDepart ? format(currentClientData._dateDepart, 'yyyy-MM-dd') : undefined,
+      locationId: currentClientData.type === 'heberge' && currentClientData.locationId !== DEFAULT_NO_LOCATION_ID ? currentClientData.locationId : undefined,
       notes: currentClientData.notes?.trim() || undefined,
     };
+
+    // Retain existing credit and pointsFidelite if editing
+    if (editingClient) {
+      dataToSubmit.credit = currentClientData.credit;
+      dataToSubmit.pointsFidelite = currentClientData.pointsFidelite;
+    } else {
+      dataToSubmit.credit = 0; // Default for new client
+      // pointsFidelite will be handled by addClientData based on host settings
+    }
+
 
     try {
       if (editingClient) {
         await updateClientData(editingClient.id, dataToSubmit);
         toast({ title: "Client Updated", description: `Client "${dataToSubmit.nom}" has been updated.` });
       } else {
-        // Pass hostId for addClientData to handle loyalty point assignment
-        await addClientData({ ...dataToSubmit, hostId: user.hostId });
+        await addClientData({ ...dataToSubmit, hostId: user.hostId } as Omit<Client, 'id' | 'documents'> & { hostId: string });
         toast({ title: "Client Added", description: `Client "${dataToSubmit.nom}" has been added.` });
       }
-      fetchData(user.hostId);
+      if (user.hostId) fetchData(user.hostId);
     } catch (error) {
       console.error("Failed to save client:", error);
       toast({ title: "Error", description: `Could not save client. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
     } finally {
       setIsDialogOpen(false);
       setEditingClient(null);
-      setCurrentClientData({ nom: '', type: 'passager', _dateArrivee: undefined, _dateDepart: undefined, locationId: undefined, email: '', telephone: '', notes: '', credit: 0, pointsFidelite: 0 });
+      setCurrentClientData({ nom: '', type: 'passager', _dateArrivee: undefined, _dateDepart: undefined, locationId: DEFAULT_NO_LOCATION_ID, email: '', telephone: '', notes: '', credit: 0, pointsFidelite: 0 });
       setIsSubmitting(false);
     }
   };
@@ -177,7 +200,7 @@ export default function HostClientsPage() {
       type: 'passager',
       _dateArrivee: undefined,
       _dateDepart: undefined,
-      locationId: undefined,
+      locationId: DEFAULT_NO_LOCATION_ID,
       notes: '',
       credit: 0,
       pointsFidelite: 0,
@@ -202,7 +225,7 @@ export default function HostClientsPage() {
       type: client.type,
       _dateArrivee: arriveeDate,
       _dateDepart: departDate,
-      locationId: client.locationId || undefined,
+      locationId: client.locationId || DEFAULT_NO_LOCATION_ID,
       notes: client.notes || '',
       credit: client.credit || 0,
       pointsFidelite: client.pointsFidelite || 0,
@@ -212,11 +235,11 @@ export default function HostClientsPage() {
 
   const handleDeleteClient = async (client: Client) => {
     if (!user?.hostId || !window.confirm(`Are you sure you want to delete client "${client.nom}"?`)) return;
-    setIsSubmitting(true); 
+    setIsSubmitting(true);
     try {
       await deleteClientData(client.id);
       toast({ title: "Client Deleted", description: `Client "${client.nom}" has been deleted.`, variant: "destructive" });
-      fetchData(user.hostId);
+      if (user.hostId) fetchData(user.hostId);
     } catch (error) {
       console.error("Failed to delete client:", error);
       toast({ title: "Error", description: `Could not delete client. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
@@ -241,9 +264,9 @@ export default function HostClientsPage() {
       const updatedClient = await addCreditToClient(clientForCredit.id, creditAmount, user.hostId);
       if (updatedClient) {
         toast({title: "Credit Added", description: `${creditAmount.toFixed(2)}€ added to ${clientForCredit.nom}. New balance: ${updatedClient.credit?.toFixed(2)}€`});
-        fetchData(user.hostId); 
+        if (user.hostId) fetchData(user.hostId);
         if (editingClient && editingClient.id === updatedClient.id) {
-          setEditingClient(updatedClient);
+          setEditingClient(updatedClient); // Update editing client if it's the one being modified
           setCurrentClientData(prev => ({...prev, credit: updatedClient.credit}));
         }
       } else {
@@ -259,6 +282,7 @@ export default function HostClientsPage() {
       setCreditAmount('');
     }
   };
+
 
   if (isLoading || authLoading) {
     return (
@@ -309,7 +333,6 @@ export default function HostClientsPage() {
               {clients.map((client) => (
                 <TableRow key={client.id}>
                   <TableCell className="font-medium">
-                     {/* This link can be updated later to point to /host/clients/[clientId] */}
                     <Link href={`/host/clients/${encodeURIComponent(client.nom)}`} className="hover:underline text-primary flex items-center gap-1">
                         {client.nom} <Link2 className="h-3 w-3 opacity-70"/>
                     </Link>
@@ -324,7 +347,7 @@ export default function HostClientsPage() {
                     {client.telephone && <div className="text-xs text-muted-foreground">{client.telephone}</div>}
                   </TableCell>
                   <TableCell>
-                    {client.type === 'heberge' && client.locationId ? 
+                    {client.type === 'heberge' && client.locationId ?
                         (hostLocations.find(l => l.id === client.locationId)?.nom || 'N/A') : 'N/A'}
                   </TableCell>
                   <TableCell className="font-semibold text-primary">
@@ -387,7 +410,7 @@ export default function HostClientsPage() {
             {currentClientData.type === 'heberge' && (
               <>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="dateArrivee" className="text-right">Arrival</Label> {/* No longer mandatory */}
+                  <Label htmlFor="dateArrivee" className="text-right">Arrival</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -396,7 +419,7 @@ export default function HostClientsPage() {
                         disabled={isSubmitting}
                       >
                         <CalendarLucideIcon className="mr-2 h-4 w-4" />
-                        {currentClientData._dateArrivee ? format(currentClientData._dateArrivee, "PPP") : <span>Pick arrival date</span>}
+                        {currentClientData._dateArrivee ? format(currentClientData._dateArrivee, "PPP", {locale: fr}) : <span>Pick arrival date</span>}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
@@ -419,7 +442,7 @@ export default function HostClientsPage() {
                         disabled={isSubmitting || !currentClientData._dateArrivee}
                       >
                         <CalendarLucideIcon className="mr-2 h-4 w-4" />
-                        {currentClientData._dateDepart ? format(currentClientData._dateDepart, "PPP") : <span>Pick departure date</span>}
+                        {currentClientData._dateDepart ? format(currentClientData._dateDepart, "PPP", {locale: fr}) : <span>Pick departure date</span>}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
@@ -427,7 +450,7 @@ export default function HostClientsPage() {
                         mode="single"
                         selected={currentClientData._dateDepart}
                         onSelect={(date) => handleDateChange('_dateDepart', date)}
-                        disabled={(date) => currentClientData._dateArrivee ? date < currentClientData._dateArrivee : false}
+                        disabled={(date) => currentClientData._dateArrivee ? isBefore(date, currentClientData._dateArrivee) : false}
                         initialFocus
                       />
                     </PopoverContent>
@@ -435,9 +458,9 @@ export default function HostClientsPage() {
                 </div>
                  <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="locationId" className="text-right">Location</Label>
-                    <Select 
-                        value={currentClientData.locationId || DEFAULT_NO_LOCATION_ID} 
-                        onValueChange={handleLocationChange} 
+                    <Select
+                        value={currentClientData.locationId || DEFAULT_NO_LOCATION_ID}
+                        onValueChange={handleLocationChange}
                         disabled={isSubmitting || hostLocations.length === 0}
                     >
                         <SelectTrigger className="col-span-3">
@@ -497,9 +520,9 @@ export default function HostClientsPage() {
           <div className="py-4 space-y-4">
             <div>
               <Label htmlFor="creditAmount">Amount to Add (€)</Label>
-              <Input 
-                id="creditAmount" 
-                type="number" 
+              <Input
+                id="creditAmount"
+                type="number"
                 value={creditAmount}
                 onChange={(e) => setCreditAmount(e.target.value === '' ? '' : parseFloat(e.target.value))}
                 placeholder="e.g., 50"
@@ -522,4 +545,3 @@ export default function HostClientsPage() {
     </div>
   );
 }
-
