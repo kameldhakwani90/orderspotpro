@@ -12,12 +12,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar as ShadCalendar } from '@/components/ui/calendar';
-import { CalendarDays, UserCircle, Hotel, ScanText, Send, CheckCircle, AlertTriangle, ArrowLeft, FileText as FileTextIcon, Edit } from 'lucide-react'; // Added FileTextIcon, Edit
+import { CalendarDays, Hotel, ScanText, Send, CheckCircle, AlertTriangle, ArrowLeft, FileText as FileTextIcon, PenSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO, isValid } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import NextImage from 'next/image'; // Renamed to avoid conflict with lucide-react Image icon
+import NextImage from 'next/image';
 
 function OnlineCheckinPageContent() {
   const params = useParams();
@@ -29,7 +29,7 @@ function OnlineCheckinPageContent() {
   const [step, setStep] = useState(1); // 1: Welcome, 2: Form, 3: Confirmation
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [locationDetails, setLocationDetails] = useState<RoomOrTable | null>(null);
-  const [hostDetails, setHostDetails] = useState<Host | null>(null); // Added host details
+  const [hostDetails, setHostDetails] = useState<Host | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +61,6 @@ function OnlineCheckinPageContent() {
         setCheckinData(prev => ({
           ...prev,
           fullName: resData.clientName || '',
-          // Email could be pre-filled if linked to a user account later
         }));
         if (resData.locationId) {
           const locData = await getRoomOrTableById(resData.locationId);
@@ -97,10 +96,7 @@ function OnlineCheckinPageContent() {
   const validateForm = () => {
     if (!checkinData.fullName?.trim()) return "Le nom complet est requis.";
     if (!checkinData.email?.trim() || !/\S+@\S+\.\S+/.test(checkinData.email)) return "Une adresse e-mail valide est requise.";
-    // Birth date is optional for now, but could be made mandatory
-    // if (!checkinData.birthDate) return "La date de naissance est requise.";
-    // if (!checkinData.phoneNumber?.trim()) return "Le numéro de téléphone est requis.";
-    return null; // No errors
+    return null;
   };
 
   const handleSubmitCheckin = async () => {
@@ -122,7 +118,7 @@ function OnlineCheckinPageContent() {
         onlineCheckinStatus: 'pending-review',
       });
       toast({ title: "Enregistrement Soumis", description: "Vos informations d'enregistrement ont été envoyées." });
-      setStep(3); // Move to confirmation step
+      setStep(3);
     } catch (e: any) {
       setError("Échec de la soumission de l'enregistrement. " + e.message);
       toast({ title: "Erreur de Soumission", description: "Impossible de soumettre vos informations.", variant: "destructive" });
@@ -162,9 +158,9 @@ function OnlineCheckinPageContent() {
 
   return (
     <div className="flex items-center justify-center min-h-screen p-4 bg-gradient-to-br from-secondary to-background">
-      <Card className="w-full max-w-lg shadow-2xl"> {/* Increased max-width */}
-        {step !== 1 && step !== 3 && ( // Hide back button on confirmation step
-          <Button variant="ghost" size="sm" onClick={() => setStep(step - 1)} className="absolute top-4 left-4 text-muted-foreground hover:text-foreground z-10">
+      <Card className="w-full max-w-lg shadow-2xl">
+        {step !== 3 && (
+          <Button variant="ghost" size="sm" onClick={() => step === 2 ? setStep(1) : router.back()} className="absolute top-4 left-4 text-muted-foreground hover:text-foreground z-10">
             <ArrowLeft className="h-5 w-5 mr-1" /> Retour
           </Button>
         )}
@@ -175,8 +171,8 @@ function OnlineCheckinPageContent() {
                 <NextImage 
                   src={heroImageUrl} 
                   alt={hostDetails?.nom || "Image d'accueil"} 
-                  layout="fill" 
-                  objectFit="cover" 
+                  fill
+                  style={{objectFit:"cover"}}
                   data-ai-hint={heroImageAiHint}
                 />
               </div>
@@ -254,14 +250,36 @@ function OnlineCheckinPageContent() {
                 <Label htmlFor="additionalNotes">Notes Supplémentaires (Optionnel)</Label>
                 <Textarea id="additionalNotes" name="additionalNotes" value={checkinData.additionalNotes} onChange={handleInputChange} placeholder="Allergies, demandes spéciales..." />
               </div>
-              <div className="text-center p-3 bg-secondary/50 rounded-md border">
-                <p className="text-sm font-semibold text-muted-foreground flex items-center justify-center"><FileTextIcon className="mr-2 h-4 w-4"/>Pièce d'Identité (Ex: Passeport)</p>
-                <p className="text-xs text-muted-foreground mt-1">La fonctionnalité de téléversement sécurisé de documents sera bientôt disponible. Votre hôte pourra vous demander de présenter une pièce d'identité à votre arrivée.</p>
-              </div>
-              <div className="text-center p-3 bg-secondary/50 rounded-md border">
-                <p className="text-sm font-semibold text-muted-foreground flex items-center justify-center"><Edit className="mr-2 h-4 w-4"/>Signature Numérique</p>
-                <p className="text-xs text-muted-foreground mt-1">La signature numérique sera intégrée prochainement. Pour l'instant, votre soumission vaudra pour accord.</p>
-              </div>
+              
+              <Card className="mt-4">
+                <CardHeader className="flex flex-row items-center space-x-3 p-4">
+                  <FileTextIcon className="h-6 w-6 text-primary" />
+                  <div>
+                    <CardTitle className="text-base">Pièce d'Identité (Ex: Passeport)</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <p className="text-xs text-muted-foreground">
+                    La fonctionnalité de téléversement sécurisé de documents sera bientôt disponible.
+                    Votre hôte pourra vous demander de présenter une pièce d'identité à votre arrivée.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="mt-4">
+                <CardHeader className="flex flex-row items-center space-x-3 p-4">
+                  <PenSquare className="h-6 w-6 text-primary" />
+                  <div>
+                    <CardTitle className="text-base">Signature Numérique</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <p className="text-xs text-muted-foreground">
+                    La signature numérique sera intégrée prochainement. Pour l'instant, votre soumission vaudra pour accord.
+                  </p>
+                </CardContent>
+              </Card>
+
             </CardContent>
             <CardFooter className="px-6 pb-6">
               <Button onClick={handleSubmitCheckin} className="w-full" disabled={isSubmitting} size="lg">
@@ -296,7 +314,6 @@ function OnlineCheckinPageContent() {
   );
 }
 
-
 export default function OnlineCheckinPage() {
   return (
     <Suspense fallback={<div className="flex justify-center items-center min-h-screen"><p>Chargement de la page d'enregistrement...</p></div>}>
@@ -304,6 +321,5 @@ export default function OnlineCheckinPage() {
     </Suspense>
   )
 }
-
 
     
