@@ -1,13 +1,11 @@
 
 // src/lib/data.ts
 import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus, Tag, LoyaltySettings, ReservationPageSettings, OnlineCheckinData, OnlineCheckinStatus, Paiement, MenuCard, MenuCategory, MenuItem, MenuItemOption, MenuItemOptionGroup } from './types';
-// import { db } from './firebase'; // Firestore is currently disabled
-// import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp } from 'firebase/firestore';
 
 const log = (message: string, data?: any) => {
   // console.log(`[Data Layer Memory] ${new Date().toISOString()}: ${message}`, data !== undefined ? data : '');
 }
-// log("Data layer initialized. USING IN-MEMORY DATA for all entities.");
+log("Data layer initialized. Using IN-MEMORY DATA for all entities.");
 
 // --- In-memory data store ---
 let usersInMemory: User[] = [
@@ -252,19 +250,19 @@ let menuItemsInMemory: MenuItem[] = [
   {
     id: 'mi-lephare-pizza-config', name: 'Pizza Personnalisée (Le Phare)', description: 'Composez votre pizza idéale !', price: 10, menuCategoryId: 'mcat-lephare-plats', hostId: 'host-le-phare', isConfigurable: true, isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Custom+Pizza', imageAiHint: 'custom pizza', stock: 20,
     optionGroups: [
-      { id: 'og-pizza-taille', menuItemId: 'mi-lephare-pizza-config', name: 'Choisissez votre taille', selectionType: 'single', isRequired: true, displayOrder: 1, options: [
-        { id: 'opt-taille-moyenne', name: 'Moyenne', priceAdjustment: 0 },
-        { id: 'opt-taille-grande', name: 'Grande', priceAdjustment: 3 },
+      { id: 'og-pizza-taille-lp', menuItemId: 'mi-lephare-pizza-config', name: 'Choisissez votre taille', selectionType: 'single', isRequired: true, displayOrder: 1, options: [
+        { id: 'opt-taille-moyenne-lp', name: 'Moyenne', priceAdjustment: 0 },
+        { id: 'opt-taille-grande-lp', name: 'Grande', priceAdjustment: 3 },
       ]},
-      { id: 'og-pizza-pate', menuItemId: 'mi-lephare-pizza-config', name: 'Choisissez votre pâte', selectionType: 'single', isRequired: true, displayOrder: 2, options: [
-        { id: 'opt-pate-fine', name: 'Pâte Fine', priceAdjustment: 0 },
-        { id: 'opt-pate-epaisse', name: 'Pâte Épaisse', priceAdjustment: 1 },
+      { id: 'og-pizza-pate-lp', menuItemId: 'mi-lephare-pizza-config', name: 'Choisissez votre pâte', selectionType: 'single', isRequired: true, displayOrder: 2, options: [
+        { id: 'opt-pate-fine-lp', name: 'Pâte Fine', priceAdjustment: 0 },
+        { id: 'opt-pate-epaisse-lp', name: 'Pâte Épaisse', priceAdjustment: 1 },
       ]},
-      { id: 'og-pizza-garnitures', menuItemId: 'mi-lephare-pizza-config', name: 'Garnitures (choix multiples)', selectionType: 'multiple', isRequired: false, displayOrder: 3, options: [
-        { id: 'opt-garn-champignons', name: 'Champignons Frais', priceAdjustment: 1.5 },
-        { id: 'opt-garn-pepperoni', name: 'Pepperoni', priceAdjustment: 2 },
-        { id: 'opt-garn-olives', name: 'Olives Noires', priceAdjustment: 1 },
-        { id: 'opt-garn-anchois', name: 'Anchois', priceAdjustment: 2.5 },
+      { id: 'og-pizza-garnitures-lp', menuItemId: 'mi-lephare-pizza-config', name: 'Garnitures (choix multiples)', selectionType: 'multiple', isRequired: false, displayOrder: 3, options: [
+        { id: 'opt-garn-champignons-lp', name: 'Champignons Frais', priceAdjustment: 1.5 },
+        { id: 'opt-garn-pepperoni-lp', name: 'Pepperoni', priceAdjustment: 2 },
+        { id: 'opt-garn-olives-lp', name: 'Olives Noires', priceAdjustment: 1 },
+        { id: 'opt-garn-anchois-lp', name: 'Anchois', priceAdjustment: 2.5 },
       ]}
     ]
   },
@@ -274,7 +272,7 @@ let menuItemsInMemory: MenuItem[] = [
   { id: 'mi-dyn-soup', name: 'Daily Soup (Dynamic)', description: 'Chef\'s special soup of the day.', price: 7, menuCategoryId: 'mcat-dyn-starters', hostId: 'host-1747669860022', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Dynamic+Soup', imageAiHint: 'soup bowl'},
 ];
 
-// --- User Management ---
+// --- Helper to normalize user data ---
 const normalizeUserPassword = (user: any): User => {
   try {
     const userData = { ...user };
@@ -299,28 +297,17 @@ const normalizeUserPassword = (user: any): User => {
   }
 };
 
-
+// --- User Management ---
 export const getUserByEmail = async (email: string): Promise<User | undefined> => {
   log(`getUserByEmail called for: ${email} (in-memory)`);
   try {
     const user = usersInMemory.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (user) {
-      let normalizedUser = { ...user };
-      if (normalizedUser.motDePasse === undefined && (user as any).password !== undefined) {
-        normalizedUser.motDePasse = String((user as any).password);
-      } else if (normalizedUser.motDePasse === undefined || normalizedUser.motDePasse === null) {
-         normalizedUser.motDePasse = "";
-      } else {
-        normalizedUser.motDePasse = String(normalizedUser.motDePasse);
-      }
-      delete (normalizedUser as any).password;
-
-      if (normalizedUser.nom === undefined && normalizedUser.email) {
-        normalizedUser.nom = normalizedUser.email.split('@')[0];
-      } else if (normalizedUser.nom === undefined) {
-        normalizedUser.nom = "Unnamed User";
-      }
-      return normalizedUser as User;
+      const normalizedUser = normalizeUserPassword(user);
+      // For debugging password issues:
+      // log('Stored password for ' + email + ' (raw): ' + user.motDePasse);
+      // log('Normalized password for ' + email + ': ' + normalizedUser.motDePasse);
+      return normalizedUser;
     }
     return undefined;
   } catch (e) {
@@ -328,7 +315,6 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
     return undefined;
   }
 };
-
 
 export const getUserById = async (id: string): Promise<User | undefined> => {
   log(`getUserById called for: ${id} (in-memory)`);
@@ -424,7 +410,6 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
     return false;
   }
 };
-
 
 // --- Host Management (In-memory) ---
 export const getHosts = async (): Promise<Host[]> => {
@@ -667,7 +652,6 @@ export const deleteSiteInData = async (siteId: string): Promise<boolean> => {
       return false;
     }
 };
-
 
 // --- RoomOrTable Management (Host Locations) ---
 export const getRoomsOrTables = async (hostId: string, globalSiteIdParam?: string): Promise<RoomOrTable[]> => {
@@ -1033,6 +1017,30 @@ export const deleteFormField = async (id: string): Promise<boolean> => {
 };
 
 // --- Service Management ---
+// Updated getServiceById to also look in menuItemsInMemory
+export const getServiceById = async (itemId: string): Promise<Service | MenuItem | undefined> => {
+  log(`getServiceById (or MenuItem) called for: ${itemId} (in-memory)`);
+  try {
+    const service = servicesInMemory.find(s => s.id === itemId);
+    if (service) {
+      log(`Found in servicesInMemory: ${itemId}`);
+      return service;
+    }
+
+    const menuItem = menuItemsInMemory.find(mi => mi.id === itemId);
+    if (menuItem) {
+      log(`Found in menuItemsInMemory: ${itemId}`);
+      return menuItem;
+    }
+    
+    log(`Item not found: ${itemId}`);
+    return undefined;
+  } catch (e) {
+    console.error("Error in getServiceById (or MenuItem) (in-memory):", e);
+    return undefined;
+  }
+};
+
 export const getServices = async (
   hostId: string,
   clientCurrentLocationId?: string,
@@ -1076,16 +1084,6 @@ export const getServices = async (
   } catch (e) {
     console.error("Error in getServices (in-memory):", e);
     return [];
-  }
-};
-
-export const getServiceById = async (serviceId: string): Promise<Service | undefined> => {
-  log(`getServiceById called for: ${serviceId}. Using in-memory data.`);
-  try {
-    return servicesInMemory.find(s => s.id === serviceId);
-  } catch (e) {
-    console.error("Error in getServiceById (in-memory):", e);
-    return undefined;
   }
 };
 
@@ -1212,19 +1210,27 @@ export const getOrdersByUserId = async (userId: string): Promise<Order[]> => {
   }
 };
 
-export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status' | 'montantPaye' | 'soldeDu' | 'paiements' | 'pointsGagnes' | 'currency'>): Promise<Order> => {
+export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status' | 'montantPaye' | 'soldeDu' | 'paiements' | 'pointsGagnes' | 'currency'> & { prixTotal?: number }): Promise<Order> => {
   log(`addOrder called. Data: ${JSON.stringify(data)}. Using in-memory data.`);
   try {
-    const serviceDetails = await getServiceById(data.serviceId) || await getMenuItemById(data.serviceId);
+    const itemDetails = await getServiceById(data.serviceId); // This now gets Service or MenuItem
     const hostDetails = await getHostById(data.hostId);
+
+    let basePrice = 0;
+    if (itemDetails) {
+      basePrice = 'price' in itemDetails ? itemDetails.price : (itemDetails as Service)?.prix || 0;
+    }
+    
+    const finalPrice = data.prixTotal !== undefined ? data.prixTotal : basePrice;
+
     const newOrder: Order = {
       ...data,
       id: `order-${Date.now()}-${Math.random().toString(36).substring(2,5)}`,
       dateHeure: new Date().toISOString(),
       status: 'pending',
-      prixTotal: data.prixTotal !== undefined ? data.prixTotal : (serviceDetails?.price || (serviceDetails as Service)?.prix),
+      prixTotal: finalPrice,
       montantPaye: 0,
-      soldeDu: (data.prixTotal !== undefined ? data.prixTotal : (serviceDetails?.price || (serviceDetails as Service)?.prix)) || 0,
+      soldeDu: finalPrice,
       paiements: [],
       userId: data.userId,
       pointsGagnes: 0,
@@ -1613,10 +1619,9 @@ export const deleteReservationInData = async (id: string): Promise<boolean> => {
 export const getReservationsByUserId = async (userId: string): Promise<Reservation[]> => {
   log(`getReservationsByUserId called for userId: ${userId}. Using in-memory data.`);
   try {
-    const clientRecordsForUser = clientsInMemory.filter(c => c.userId === userId);
-    const clientRecordIds = clientRecordsForUser.map(cr => cr.id);
+    const userClientRecords = clientsInMemory.filter(c => c.userId === userId);
+    const clientRecordIds = userClientRecords.map(cr => cr.id);
 
-    // Check reservations linked by User.id (if clientId was directly User.id) OR by Client record id.
     return [...reservationsInMemory].filter(r => 
       (r.clientId && clientRecordIds.includes(r.clientId)) || r.clientId === userId
     )
@@ -1776,7 +1781,6 @@ export const duplicateMenuCard = async (menuCardId: string): Promise<MenuCard | 
   }
 };
 
-
 // --- Menu Category Management ---
 export const getMenuCategories = async (menuCardId: string, hostId: string): Promise<MenuCategory[]> => {
   try {
@@ -1786,7 +1790,7 @@ export const getMenuCategories = async (menuCardId: string, hostId: string): Pro
   }
 };
 
-export const addMenuCategory = async (data: Omit<MenuCategory, 'id'>): Promise<MenuCategory> => {
+export const addMenuCategory = async (data: Omit<MenuCategory, 'id' | 'hostId'> & { hostId: string }): Promise<MenuCategory> => {
   try {
     const newCategory: MenuCategory = { ...data, id: `menucat-${Date.now()}` };
     menuCategoriesInMemory.push(newCategory);
@@ -1884,9 +1888,5 @@ export const deleteMenuItem = async (id: string): Promise<boolean> => {
   }
 };
 
-
 log("Initial in-memory data loaded/defined.");
-// log(`Users: ${usersInMemory.length}, Hosts: ${hostsInMemory.length}, Global Sites: ${sitesInMemory.length}, Locations: ${roomsOrTablesInMemory.length}`);
-// log(`Categories: ${serviceCategoriesInMemory.length}, Forms: ${customFormsInMemory.length}, Fields: ${formFieldsInMemory.length}, Services: ${servicesInMemory.length}`);
-// log(`Orders: ${ordersInMemory.length}, Clients: ${clientsInMemory.length}, Reservations: ${reservationsInMemory.length}, Tags: ${tagsInMemory.length}`);
-// log(`MenuCards: ${menuCardsInMemory.length}, MenuCategories: ${menuCategoriesInMemory.length}, MenuItems: ${menuItemsInMemory.length}`);
+    

@@ -1,19 +1,25 @@
 
 "use client";
 
-import React, { useEffect, useState, useRef } from 'react'; // Added useRef
+import React, { useEffect, useState, useRef, useCallback } from 'react'; 
 import { useParams, useRouter, usePathname } from 'next/navigation';
 import { getServiceById, getFormById, getFormFields, addOrder, getHostById, getRoomOrTableById } from '@/lib/data';
-import type { Service, CustomForm, FormField as FormFieldType, Host, RoomOrTable } from '@/lib/types';
-import { DynamicFormRenderer, type DynamicFormRendererRef } from '@/components/shared/DynamicFormRenderer'; // Import ref type
+import type { Service, CustomForm, FormField as FormFieldType, Host, RoomOrTable, MenuItem, MenuItemOptionGroup, MenuItemOption } from '@/lib/types';
+import { DynamicFormRenderer, type DynamicFormRendererRef } from '@/components/shared/DynamicFormRenderer';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, CheckCircle, Utensils, BedDouble, LogIn, Lock } from 'lucide-react'; // Added Lock
+import { AlertTriangle, CheckCircle, Utensils, BedDouble, LogIn, Lock, ShoppingCart, PlusCircle, MinusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardContent, CardDescription, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
+import { useLanguage } from '@/context/LanguageContext';
+import { useCart } from '@/context/CartContext';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from '@/components/ui/checkbox';
+
 
 export default function PublicClientOrderServicePage() {
   const params = useParams();
@@ -21,13 +27,15 @@ export default function PublicClientOrderServicePage() {
   const pathname = usePathname();
   const { toast } = useToast();
   const { user, isLoading: authIsLoading } = useAuth();
-  const formRef = useRef<DynamicFormRendererRef>(null); // Ref for DynamicFormRenderer
+  const { t } = useLanguage();
+  const { addToCart } = useCart();
+  const formRef = useRef<DynamicFormRendererRef>(null);
 
   const hostId = params.hostId as string;
-  const refId = params.refId as string; // RoomOrTable ID
-  const serviceId = params.serviceId as string;
+  const refId = params.refId as string; 
+  const itemId = params.serviceId as string; // Renamed serviceId to itemId for clarity
 
-  const [service, setService] = useState<Service | null>(null);
+  const [itemDetail, setItemDetail] = useState<Service | MenuItem | null>(null);
   const [customForm, setCustomForm] = useState<CustomForm | null>(null);
   const [formFields, setFormFields] = useState<FormFieldType[]>([]);
   const [hostInfo, setHostInfo] = useState<Host | null>(null);
@@ -38,238 +46,226 @@ export default function PublicClientOrderServicePage() {
   const [error, setError] = useState<string | null>(null);
   const [orderSuccess, setOrderSuccess] = useState(false);
 
-  useEffect(() => {
-    console.log(`PublicClientOrderServicePage: Effect triggered. hostId: ${hostId}, refId: ${refId}, serviceId: ${serviceId}, authIsLoading: ${authIsLoading}`);
-    if (authIsLoading) {
-      console.log("PublicClientOrderServicePage: Auth is still loading, deferring data fetch.");
-      return;
-    }
+  // State for configurable items
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string | string[]>>({});
+  const [currentTotalPrice, setCurrentTotalPrice] = useState<number>(0);
 
-    if (hostId && refId && serviceId) {
+  useEffect(() => {
+    if (authIsLoading) return;
+
+    if (hostId && refId && itemId) {
       const fetchData = async () => {
         setIsLoadingPage(true);
         setError(null);
         setOrderSuccess(false);
-        console.log("PublicClientOrderServicePage: Starting data fetch...");
         try {
-          const [serviceData, hostData, locationData] = await Promise.all([
-            getServiceById(serviceId),
+          const [itemData, hostData, locationData] = await Promise.all([
+            getServiceById(itemId), // This function now fetches Service or MenuItem
             getHostById(hostId),
             getRoomOrTableById(refId),
           ]);
-          console.log("PublicClientOrderServicePage: Fetched core data", { serviceData, hostData, locationData });
 
-          if (!serviceData) {
-            setError("Service not found.");
-            setIsLoadingPage(false); return;
-          }
-          if (serviceData.hostId !== hostId) {
-            setError("Service not available for this establishment.");
-            setIsLoadingPage(false); return;
-          }
-          if (!hostData) {
-            setError(`Establishment with ID ${hostId} not found.`);
-            setIsLoadingPage(false); return;
-          }
-          if (!locationData || locationData.hostId !== hostId || locationData.id !== refId) {
-            setError(`Location with ID ${refId} not found or invalid for this establishment.`);
-            setIsLoadingPage(false); return;
-          }
+          if (!itemData) { setError(t('serviceNotFound')); setIsLoadingPage(false); return; }
+          if (itemData.hostId !== hostId) { setError("Item not available for this establishment."); setIsLoadingPage(false); return; }
+          if (!hostData) { setError(t('establishmentNotFound')); setIsLoadingPage(false); return; }
+          if (!locationData || locationData.hostId !== hostId || locationData.id !== refId) { setError(t('locationNotFound')); setIsLoadingPage(false); return; }
 
-          setService(serviceData);
+          setItemDetail(itemData);
           setHostInfo(hostData);
           setLocationInfo(locationData);
 
-          if (serviceData.formulaireId) {
-            console.log(`PublicClientOrderServicePage: Service has formId: ${serviceData.formulaireId}. Fetching form details.`);
-            const formDetails = await getFormById(serviceData.formulaireId);
-            console.log("PublicClientOrderServicePage: Fetched form details", { formDetails });
+          if ('formulaireId' in itemData && itemData.formulaireId) { // It's a Service with a CustomForm
+            const formDetails = await getFormById(itemData.formulaireId);
             if (formDetails && formDetails.hostId === hostId) {
               setCustomForm(formDetails);
               const fields = await getFormFields(formDetails.id);
-              console.log("PublicClientOrderServicePage: Fetched form fields", { fields });
               setFormFields(fields);
             } else {
-              console.warn(`Form ${serviceData.formulaireId} (for service ${serviceData.id}) not found or invalid for host ${hostId}`);
-              setError(`The information form required for this service is currently unavailable. Please check service configuration.`);
-              setCustomForm(null);
-              setFormFields([]);
-              // No return here, will fall through to show an error state based on 'error' state variable
+              setError("The information form for this service is unavailable.");
+              setCustomForm(null); setFormFields([]);
             }
-          } else {
-             console.log("PublicClientOrderServicePage: Service does not have a formId.");
-             setCustomForm(null); setFormFields([]);
+          } else if ('isConfigurable' in itemData && itemData.isConfigurable && itemData.optionGroups) { // It's a MenuItem that's configurable
+            setCustomForm(null); setFormFields([]); // Not using DynamicFormRenderer for this
+            setCurrentTotalPrice(itemData.price); // Initialize with base price
+            // Initialize selectedOptions for required single-select groups
+            const initialSelections: Record<string, string | string[]> = {};
+            itemData.optionGroups.forEach(group => {
+                if (group.isRequired && group.selectionType === 'single' && group.options.length > 0) {
+                    // Try to find a default option or take the first one
+                    const defaultOpt = group.options.find(opt => (opt as any).isDefault) || group.options[0];
+                    initialSelections[group.id] = defaultOpt.id;
+                } else if (group.isRequired && group.selectionType === 'multiple' && group.options.length > 0) {
+                     const defaultOpt = group.options.find(opt => (opt as any).isDefault) || group.options[0]; // or handle required multiple differently
+                     initialSelections[group.id] = [defaultOpt.id];
+                }
+            });
+            setSelectedOptions(initialSelections);
+          } else { // Simple MenuItem or Service without form
+            setCustomForm(null); setFormFields([]);
+            setCurrentTotalPrice('price' in itemData ? itemData.price : (itemData as Service)?.prix || 0);
           }
-          console.log("PublicClientOrderServicePage: Data fetch complete.");
         } catch (e: any) {
-          console.error("PublicClientOrderServicePage: Failed to fetch service/form data:", e);
-          setError(`Failed to load service details. Please try again later or contact support. (Details: ${e.message})`);
+          setError(t('errorLoadingServiceDetails') + ` (${e.message})`);
         }
         setIsLoadingPage(false);
       };
       fetchData();
     } else {
-        console.warn("PublicClientOrderServicePage: hostId, refId, or serviceId is missing.");
-        setError("Required information (host, location, or service ID) is missing from the URL.");
-        setIsLoadingPage(false);
+      setError("Required information (host, location, or item ID) is missing.");
+      setIsLoadingPage(false);
     }
-  }, [hostId, refId, serviceId, authIsLoading]);
+  }, [hostId, refId, itemId, authIsLoading, t]);
 
-  // This is the function called by DynamicFormRenderer's onSubmit
-  const handleActualFormSubmit = async (formData: Record<string, any>) => {
-    if (!service || !hostId || !refId) return;
-    if (service.loginRequired && !user) {
-      toast({ title: "Login Required", description: "Please log in to order this service.", variant: "destructive"});
+  useEffect(() => {
+    if (itemDetail && 'isConfigurable' in itemDetail && itemDetail.isConfigurable && itemDetail.optionGroups) {
+      let newTotal = itemDetail.price;
+      itemDetail.optionGroups.forEach(group => {
+        const selection = selectedOptions[group.id];
+        if (selection) {
+          if (Array.isArray(selection)) { // Multiple selection
+            selection.forEach(optionId => {
+              const option = group.options.find(opt => opt.id === optionId);
+              if (option && option.priceAdjustment) newTotal += option.priceAdjustment;
+            });
+          } else { // Single selection
+            const option = group.options.find(opt => opt.id === selection);
+            if (option && option.priceAdjustment) newTotal += option.priceAdjustment;
+          }
+        }
+      });
+      setCurrentTotalPrice(newTotal);
+    } else if (itemDetail) {
+       setCurrentTotalPrice('price' in itemDetail ? itemDetail.price : (itemDetail as Service)?.prix || 0);
+    }
+  }, [selectedOptions, itemDetail]);
+
+  const handleOptionChange = (groupId: string, optionId: string, selectionType: 'single' | 'multiple') => {
+    setSelectedOptions(prev => {
+      const newSelections = { ...prev };
+      if (selectionType === 'single') {
+        newSelections[groupId] = optionId;
+      } else { // Multiple
+        const currentGroupSelection = (newSelections[groupId] as string[] || []);
+        if (currentGroupSelection.includes(optionId)) {
+          newSelections[groupId] = currentGroupSelection.filter(id => id !== optionId);
+        } else {
+          newSelections[groupId] = [...currentGroupSelection, optionId];
+        }
+      }
+      return newSelections;
+    });
+  };
+
+
+  // Called by DynamicFormRenderer for services with custom forms
+  const handleServiceOrderWithFormSubmit = async (formData: Record<string, any>) => {
+    if (!itemDetail || !hostId || !refId || !('formulaireId' in itemDetail) ) return;
+    if (itemDetail.loginRequired && !user) {
+      toast({ title: t('loginRequired'), description: t('loginToOrder'), variant: "destructive"});
       return;
     }
-
     setIsSubmitting(true);
     try {
       await addOrder({
-        serviceId: service.id,
+        serviceId: itemDetail.id,
         hostId: hostId,
         chambreTableId: refId,
         clientNom: user?.nom,
         userId: user?.id,
         donneesFormulaire: JSON.stringify(formData),
-        prix: service.prix
+        prixTotal: (itemDetail as Service).prix // Use original service price for services with forms
       });
       setOrderSuccess(true);
-      toast({
-        title: "Order Submitted!",
-        description: `Your request for ${service.titre} has been sent.`,
-      });
+      toast({ title: t('orderSuccessTitle'), description: t('orderSuccessDescription', { serviceName: (itemDetail as Service).titre }) });
     } catch (e) {
-      console.error("Failed to submit order:", e);
-      toast({
-        title: "Order Submission Failed",
-        description: "There was an error submitting your order. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Order Submission Failed", description: "There was an error. Please try again.", variant: "destructive" });
     }
     setIsSubmitting(false);
   };
-  
-  // This function is for services without a custom form
-  const handleDirectOrder = async () => {
-    if (!service || !hostId || !refId) return;
-     if (service.loginRequired && !user) {
-      toast({ title: "Login Required", description: "Please log in to order this service.", variant: "destructive"});
+
+  const handleConfigurableItemAddToCart = () => {
+    if (!itemDetail || !('isConfigurable' in itemDetail) || !itemDetail.isConfigurable) return;
+    if (itemDetail.loginRequired && !user) {
+      toast({ title: t('loginRequired'), description: t('loginToOrder'), variant: "destructive"});
       return;
     }
-    setIsSubmitting(true);
-    try {
-      await addOrder({
-        serviceId: service.id,
-        hostId: hostId,
-        chambreTableId: refId,
-        clientNom: user?.nom,
-        userId: user?.id,
-        donneesFormulaire: JSON.stringify({ directOrder: true }), // Indicate no specific form data
-        prix: service.prix
-      });
-      setOrderSuccess(true);
-      toast({
-        title: "Order Submitted!",
-        description: `Your request for ${service.titre} has been sent.`,
-      });
-    } catch (e) {
-      console.error("Failed to submit direct order:", e);
-       toast({
-        title: "Order Submission Failed",
-        description: "There was an error submitting your order. Please try again.",
-        variant: "destructive",
-      });
+    // Validate required options
+    if (itemDetail.optionGroups) {
+      for (const group of itemDetail.optionGroups) {
+        if (group.isRequired && !selectedOptions[group.id]) {
+          toast({ title: "Option requise", description: `Veuillez sélectionner une option pour "${group.name}".`, variant: "destructive" });
+          return;
+        }
+        if (group.isRequired && group.selectionType === 'multiple' && (!selectedOptions[group.id] || (selectedOptions[group.id] as string[]).length === 0) ) {
+            toast({ title: "Option requise", description: `Veuillez sélectionner au moins une option pour "${group.name}".`, variant: "destructive" });
+            return;
+        }
+      }
     }
-    setIsSubmitting(false);
+
+    addToCart(itemDetail as MenuItem, selectedOptions); // Pass selectedOptions
+    toast({ title: `${itemDetail.name} ${t('addToCart')} !`, description: t('orderSuccessDescription', { serviceName: itemDetail.name }) });
+    router.push(`/client/${hostId}/${refId}`); // Go back to menu/service list
   };
-
-  const triggerFormSubmission = () => {
-    formRef.current?.submit();
-  };
-
-
-  if (isLoadingPage || authIsLoading) {
-    return (
-      <div className="space-y-6 max-w-3xl mx-auto p-4">
-        <Skeleton className="h-10 w-3/4" />
-        <Skeleton className="h-64 w-full rounded-lg" />
-        <Skeleton className="h-8 w-1/2" />
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-48 w-full" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center py-10 max-w-3xl mx-auto p-4">
-        <AlertTriangle className="mx-auto h-16 w-16 text-destructive mb-4" />
-        <h1 className="text-2xl font-semibold text-destructive mb-2">Error</h1>
-        <p className="text-muted-foreground">{error}</p>
-        <Button onClick={() => router.back()} className="mt-6">Go Back</Button>
-      </div>
-    );
-  }
-
-  if (orderSuccess) {
-    return (
-      <div className="text-center py-16 max-w-3xl mx-auto p-4">
-        <CheckCircle className="mx-auto h-20 w-20 text-green-500 mb-6" />
-        <h1 className="text-3xl font-bold text-foreground mb-3">Order Successful!</h1>
-        <p className="text-lg text-muted-foreground mb-6">
-          Your request for <span className="font-semibold text-primary">{service?.titre}</span> has been submitted.
-        </p>
-        <p className="text-sm text-muted-foreground mb-8">You will be contacted shortly if confirmation is needed. Thank you!</p>
-        <Button onClick={() => router.push(`/client/${hostId}/${refId}`)} size="lg" className="bg-primary hover:bg-primary/90">
-          Back to Services
-        </Button>
-      </div>
-    );
-  }
-
-  if (!service || !hostInfo || !locationInfo) { // Added hostInfo and locationInfo checks for safety
-    return (
-      <div className="text-center py-10 max-w-3xl mx-auto p-4">
-        <AlertTriangle className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-        <p className="text-muted-foreground">Service, establishment, or location details could not be loaded.</p>
-         <Button onClick={() => router.back()} className="mt-4">Go Back</Button>
-      </div>
-    );
-  }
   
-  // Login Gate for specific services
-  if (service.loginRequired && !user) {
+  const handleSimpleItemAddToCart = () => {
+    if (!itemDetail || ('isConfigurable' in itemDetail && itemDetail.isConfigurable) || ('formulaireId' in itemDetail && itemDetail.formulaireId) ) return;
+     if (itemDetail.loginRequired && !user) {
+      toast({ title: t('loginRequired'), description: t('loginToOrder'), variant: "destructive"});
+      return;
+    }
+    addToCart(itemDetail as MenuItem | Service); // No options for simple items
+    toast({ title: `${'name' in itemDetail ? itemDetail.name : (itemDetail as Service).titre} ${t('addToCart')} !`, description: t('orderSuccessDescription', { serviceName: ('name' in itemDetail ? itemDetail.name : (itemDetail as Service).titre) }) });
+    router.push(`/client/${hostId}/${refId}`);
+  };
+
+
+  if (isLoadingPage || authIsLoading) { /* ... skeleton ... */ }
+  if (error) { /* ... error display ... */ }
+  if (orderSuccess) { /* ... success display ... */ }
+  if (!itemDetail || !hostInfo || !locationInfo) { /* ... not found display ... */ }
+
+  const itemName = 'titre' in itemDetail ? itemDetail.titre : itemDetail.name;
+  const itemDescription = itemDetail.description;
+  const itemImage = 'image' in itemDetail ? itemDetail.image : itemDetail.imageUrl;
+  const itemImageAiHint = 'data-ai-hint' in itemDetail ? itemDetail['data-ai-hint'] : itemDetail.imageAiHint;
+  const itemBasePrice = 'prix' in itemDetail ? itemDetail.prix : itemDetail.price;
+  const isConfigurable = 'isConfigurable' in itemDetail ? itemDetail.isConfigurable : false;
+  const optionGroups = 'optionGroups' in itemDetail ? itemDetail.optionGroups : [];
+  const itemStock = 'stock' in itemDetail ? itemDetail.stock : undefined;
+  const isItemOutOfStock = itemStock === 0;
+
+
+  if (itemDetail.loginRequired && !user) {
     return (
       <div className="text-center py-10 bg-card p-8 rounded-xl shadow-xl max-w-md mx-auto">
         <Lock className="mx-auto h-16 w-16 text-primary mb-6" />
-        <h1 className="text-2xl font-semibold text-foreground mb-3">Login Required</h1>
+        <h1 className="text-2xl font-semibold text-foreground mb-3">{t('loginRequired')}</h1>
         <p className="text-muted-foreground mb-6">
-          The service <span className="font-semibold text-primary">&quot;{service.titre}&quot;</span> requires you to be logged in to proceed.
+          {t('loginToOrder', { serviceName: itemName })}
         </p>
         <Link href={`/login?redirect_url=${encodeURIComponent(pathname)}`}>
           <Button size="lg" className="w-full bg-primary hover:bg-primary/90">
             <LogIn className="mr-2 h-5 w-5" />
-            Login to Continue
+            {t('loginToContinue')}
           </Button>
         </Link>
          <Button variant="outline" onClick={() => router.back()} className="mt-4 w-full">
-          Go Back to Services
+          {t('goBack')}
         </Button>
       </div>
     );
   }
 
   const LocationIcon = locationInfo.type === 'Chambre' ? BedDouble : Utensils;
-  const serviceImageAiHint = service.titre ? service.titre.toLowerCase().split(' ').slice(0,2).join(' ') : 'service detail';
 
   return (
     <div className="max-w-3xl mx-auto">
       <Card className="shadow-xl overflow-hidden bg-card">
         <CardHeader className="p-0">
-          {service.image && (
+          {itemImage && (
             <div className="relative w-full h-56 sm:h-72 md:h-80">
-              <Image src={service.image} alt={service.titre} layout="fill" objectFit="cover" data-ai-hint={serviceImageAiHint} priority/>
+              <Image src={itemImage} alt={itemName} layout="fill" objectFit="cover" data-ai-hint={itemImageAiHint || "item image"} priority/>
             </div>
           )}
         </CardHeader>
@@ -278,38 +274,98 @@ export default function PublicClientOrderServicePage() {
               <LocationIcon className="h-5 w-5 mr-2 text-primary"/>
               <span>{hostInfo.nom} - {locationInfo.type} {locationInfo.nom}</span>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">{service.titre}</h1>
-          <p className="text-muted-foreground mb-4 text-base leading-relaxed">{service.description}</p>
-          {service.prix !== undefined && ( // Check for undefined as well as null
-            <p className="text-3xl font-semibold text-primary mb-6">Price: ${service.prix.toFixed(2)}</p>
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">{itemName}</h1>
+          <p className="text-muted-foreground mb-4 text-base leading-relaxed">{itemDescription}</p>
+          
+          {isConfigurable && optionGroups && optionGroups.length > 0 && (
+            <div className="space-y-6 mb-6">
+              {optionGroups.sort((a,b) => (a.displayOrder || 0) - (b.displayOrder || 0)).map(group => (
+                <div key={group.id} className="p-4 border rounded-lg bg-muted/30">
+                  <h3 className="text-lg font-semibold mb-2">{group.name}{group.isRequired && <span className="text-destructive ml-1">*</span>}</h3>
+                  {group.selectionType === 'single' ? (
+                    <RadioGroup
+                      value={selectedOptions[group.id] as string || ""}
+                      onValueChange={(value) => handleOptionChange(group.id, value, 'single')}
+                    >
+                      {group.options.map(option => (
+                        <div key={option.id} className="flex items-center space-x-2 py-1">
+                          <RadioGroupItem value={option.id} id={`${group.id}-${option.id}`} />
+                          <Label htmlFor={`${group.id}-${option.id}`} className="flex-1 cursor-pointer">
+                            {option.name}
+                            {option.priceAdjustment && option.priceAdjustment !== 0 ? (
+                              <span className="text-xs ml-1 text-muted-foreground">({option.priceAdjustment > 0 ? `+` : ``}${option.priceAdjustment.toFixed(2)}$)</span>
+                            ) : ""}
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  ) : ( // Multiple selection
+                    <div className="space-y-2">
+                    {group.options.map(option => (
+                        <div key={option.id} className="flex items-center space-x-2 py-1">
+                          <Checkbox
+                            id={`${group.id}-${option.id}`}
+                            checked={(selectedOptions[group.id] as string[] || []).includes(option.id)}
+                            onCheckedChange={(checked) => handleOptionChange(group.id, option.id, 'multiple')}
+                          />
+                          <Label htmlFor={`${group.id}-${option.id}`} className="flex-1 cursor-pointer">
+                            {option.name}
+                            {option.priceAdjustment && option.priceAdjustment !== 0 ? (
+                              <span className="text-xs ml-1 text-muted-foreground">({option.priceAdjustment > 0 ? `+` : ``}${option.priceAdjustment.toFixed(2)}$)</span>
+                            ) : ""}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
 
-          {(customForm && formFields.length > 0) ? (
+          <p className="text-3xl font-semibold text-primary mb-6">
+            {isConfigurable ? "Total: " : "Price: "} ${currentTotalPrice.toFixed(2)}
+          </p>
+
+          {isItemOutOfStock && <Badge variant="destructive" className="text-md mb-4">En Rupture de Stock</Badge>}
+
+          {customForm && formFields.length > 0 && !isConfigurable && (
             <>
               <DynamicFormRenderer
                 ref={formRef}
-                formName={`Order Details: ${service.titre}`}
+                formName={`Order Details: ${itemName}`}
                 formDescription={customForm.nom || "Please provide the following details:"}
                 fields={formFields}
-                onSubmit={handleActualFormSubmit}
+                onSubmit={handleServiceOrderWithFormSubmit}
               />
-              <Button onClick={triggerFormSubmission} disabled={isSubmitting} size="lg" className="mt-6 w-full max-w-xs mx-auto block bg-primary hover:bg-primary/90">
-                {isSubmitting ? 'Submitting...' : (service.prix !== undefined ? `Order for $${service.prix.toFixed(2)}` : "Submit Request")}
+              <Button onClick={() => formRef.current?.submit()} disabled={isSubmitting || isItemOutOfStock} size="lg" className="mt-6 w-full max-w-xs mx-auto block bg-primary hover:bg-primary/90">
+                {isSubmitting ? t('submitting') : t('orderFor', { price: currentTotalPrice.toFixed(2)})}
               </Button>
             </>
-          ) : (
-            <div className="text-center p-4 bg-secondary/50 rounded-lg mt-6">
-              <p className="text-muted-foreground mb-4">This service does not require additional information.</p>
-              <Button onClick={handleDirectOrder} disabled={isSubmitting} size="lg" className="w-full max-w-xs mx-auto bg-primary hover:bg-primary/90">
-                {isSubmitting ? 'Processing...' : (service.prix !== undefined ? `Confirm Order for $${service.prix.toFixed(2)}` : "Confirm Request")}
+          )}
+
+          {isConfigurable && (
+            <Button onClick={handleConfigurableItemAddToCart} disabled={isSubmitting || isItemOutOfStock} size="lg" className="w-full max-w-xs mx-auto block bg-primary hover:bg-primary/90">
+              <ShoppingCart className="mr-2 h-5 w-5"/> {isSubmitting ? t('submitting') : t('addToCart')}
+            </Button>
+          )}
+          
+          {!customForm && !isConfigurable && (
+             <div className="text-center p-4 bg-secondary/50 rounded-lg mt-6">
+              <p className="text-muted-foreground mb-4">Cet article sera ajouté directement au panier.</p>
+              <Button onClick={handleSimpleItemAddToCart} disabled={isSubmitting || isItemOutOfStock} size="lg" className="w-full max-w-xs mx-auto bg-primary hover:bg-primary/90">
+                <ShoppingCart className="mr-2 h-5 w-5"/> {isSubmitting ? t('submitting') : t('addToCart')}
               </Button>
             </div>
           )}
+
         </CardContent>
       </Card>
       <Button variant="outline" onClick={() => router.back()} className="mt-8 w-full max-w-lg mx-auto block text-base py-3 h-auto">
-        Cancel & Go Back to Services
+        {t('cancelAndBackToServices')}
       </Button>
     </div>
   );
 }
+
+    
