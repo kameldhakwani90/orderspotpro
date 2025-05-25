@@ -6,17 +6,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tag, Lock } from "lucide-react";
+import { Tag, Lock, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface ServiceCardProps {
   service: Service;
   hostId: string;
   refId: string; // RoomOrTable ID
-  isUserLoggedIn: boolean; // New prop
+  isUserLoggedIn: boolean;
 }
 
 export function ServiceCard({ service, hostId, refId, isUserLoggedIn }: ServiceCardProps) {
+  const { t } = useLanguage();
   const imageUrl = service.image || 'https://placehold.co/600x400.png';
   const imageAiHint = (service as any)['data-ai-hint'] || service.titre.toLowerCase().split(' ').slice(0,2).join(' ') || 'service item';
   
@@ -24,48 +26,54 @@ export function ServiceCard({ service, hostId, refId, isUserLoggedIn }: ServiceC
 
   return (
     <Card className={cn(
-      "flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 h-full",
-      requiresLoginAndNotLoggedIn && "opacity-75 bg-muted/30"
+      "flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 h-full group",
+      (requiresLoginAndNotLoggedIn) && "opacity-70 bg-muted/20"
     )}>
-      <CardHeader className="p-0 relative">
-        <div className="relative w-full h-48">
-          <Image
-            src={imageUrl}
-            alt={service.titre}
-            layout="fill"
-            objectFit="cover"
-            data-ai-hint={imageAiHint}
-          />
-        </div>
-        {requiresLoginAndNotLoggedIn && (
-          <div className="absolute top-2 right-2 bg-secondary text-secondary-foreground p-1.5 rounded-full shadow-md">
-            <Lock className="h-4 w-4" title="Login required"/>
-          </div>
-        )}
-      </CardHeader>
-      <CardContent className="p-4 flex-grow">
-        <CardTitle className="text-xl mb-1">{service.titre}</CardTitle>
-        <CardDescription className="text-sm text-muted-foreground mb-2 h-16 overflow-hidden text-ellipsis">
-          {service.description}
-        </CardDescription>
-        {service.prix && (
-          <div className="flex items-center text-lg font-semibold text-primary mt-2">
-            <Tag className="h-5 w-5 mr-2" />
-            Price: ${service.prix.toFixed(2)}
-          </div>
-        )}
-      </CardContent>
-      <CardFooter className="p-4 border-t mt-auto">
-        <Link href={`/client/${hostId}/${refId}/service/${service.id}`} className="w-full">
-          <Button 
-            className="w-full" 
-            disabled={requiresLoginAndNotLoggedIn && !isUserLoggedIn} // Visually disable if login needed and not logged in
-            variant={requiresLoginAndNotLoggedIn ? "secondary" : "default"}
-          >
-            {requiresLoginAndNotLoggedIn ? 'Login to Order' : (service.prix ? 'Order Now' : 'View Details')}
-          </Button>
-        </Link>
-      </CardFooter>
+      <Link href={`/client/${hostId}/${refId}/service/${service.id}`} legacyBehavior passHref>
+        <a className="flex flex-col h-full">
+          <CardHeader className="p-0 relative">
+            <div className="relative w-full h-48 group-hover:opacity-90 transition-opacity">
+              <Image
+                src={imageUrl}
+                alt={service.titre}
+                fill // Changed from layout="fill"
+                style={{objectFit:"cover"}} // Added style for objectFit
+                data-ai-hint={imageAiHint}
+              />
+            </div>
+            {requiresLoginAndNotLoggedIn && (
+              <div className="absolute top-2 right-2 bg-card text-foreground p-1.5 rounded-full shadow-md border">
+                <Lock className="h-4 w-4" title={t('loginRequired') || "Login required"}/>
+              </div>
+            )}
+          </CardHeader>
+          <CardContent className="p-3 flex-grow">
+            <CardTitle className="text-md sm:text-lg mb-1 line-clamp-2">{service.titre}</CardTitle>
+            {service.description && (
+              <CardDescription className="text-xs text-muted-foreground mb-2 line-clamp-2 h-8">
+                {service.description}
+              </CardDescription>
+            )}
+            {service.prix !== undefined && (
+              <div className="flex items-center text-md font-semibold text-primary mt-1">
+                <Tag className="h-4 w-4 mr-1.5" />
+                {t('servicePrice') || "Price"}: {(service.currency || '$')}{service.prix.toFixed(2)}
+              </div>
+            )}
+          </CardContent>
+          <CardFooter className="p-3 border-t mt-auto">
+            <Button 
+              className="w-full" 
+              variant={requiresLoginAndNotLoggedIn ? "secondary" : "default"}
+              // The Link component handles navigation, this button is primarily for styling
+              // For a real button, the onClick would use router.push
+            >
+              {requiresLoginAndNotLoggedIn ? t('loginToOrder') : (service.formulaireId ? t('viewDetails') : t('orderNow'))}
+              {!requiresLoginAndNotLoggedIn && <ArrowRight className="ml-2 h-4 w-4"/>}
+            </Button>
+          </CardFooter>
+        </a>
+      </Link>
     </Card>
   );
 }

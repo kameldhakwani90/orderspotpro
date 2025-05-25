@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import type { MenuItem, Service, CartItem, CartContextType } from '@/lib/types';
+import type { MenuItem, Service, CartItem, CartContextType } from '@/lib/types'; // Service is kept for type union if needed, but addToCart will focus on MenuItem
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
@@ -12,7 +12,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     if (typeof window !== 'undefined') {
       const storedCart = localStorage.getItem(CART_STORAGE_KEY);
-      return storedCart ? JSON.parse(storedCart) : [];
+      try {
+        return storedCart ? JSON.parse(storedCart) : [];
+      } catch (e) {
+        console.error("Failed to parse cart from localStorage", e);
+        return [];
+      }
     }
     return [];
   });
@@ -22,45 +27,63 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
     }
   }, [cartItems]);
+  
+  const calculateFinalPrice = (item: MenuItem, options?: Record<string, string | string[]>): number => {
+      let finalPrice = item.price; // MenuItem always has price
+      if (item.isConfigurable && item.optionGroups && options) {
+          item.optionGroups.forEach(group => {
+              const selection = options[group.id];
+              if (selection) {
+                  if (Array.isArray(selection)) {
+                      selection.forEach(optionId => {
+                          const optionDetails = group.options.find(opt => opt.id === optionId);
+                          if (optionDetails && optionDetails.priceAdjustment) {
+                              finalPrice += optionDetails.priceAdjustment;
+                          }
+                      });
+                  } else { 
+                      const optionDetails = group.options.find(opt => opt.id === selection);
+                      if (optionDetails && optionDetails.priceAdjustment) {
+                          finalPrice += optionDetails.priceAdjustment;
+                      }
+                  }
+              }
+          });
+      }
+      return Math.max(0, finalPrice); 
+  };
 
-  const addToCart = useCallback((item: MenuItem | Service, options?: Record<string, string | string[]>) => {
+  const addToCart = useCallback((item: MenuItem, options?: Record<string, string | string[]>, preCalculatedFinalPrice?: number) => {
     setCartItems(prevItems => {
-      // For simplicity now, always add as a new item. Quantity management can be an enhancement.
-      // Or, check if item with same ID and options exists, then increment quantity.
+      const finalPrice = preCalculatedFinalPrice !== undefined 
+        ? preCalculatedFinalPrice
+        : calculateFinalPrice(item, options);
+
       const newItem: CartItem = {
-        ...(item as any), // Cast to any to avoid type conflict if MenuItem/Service have slightly different props not in CartItem base
-        id: item.id, // Ensure id is correctly passed
-        name: 'titre' in item ? item.titre : item.name, // Handle 'titre' for Service and 'name' for MenuItem
-        price: item.price || 0, // Ensure price is a number
+        ...item, 
+        id: item.id, 
+        name: item.name, 
+        price: item.price, 
         quantity: 1,
-        uniqueIdInCart: `${item.id}-${Date.now()}-${Math.random().toString(16).slice(2)}`, // Simple unique ID
+        uniqueIdInCart: `${item.id}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
         selectedOptions: options,
-        // finalPrice would be calculated here if options affect price
-        finalPrice: options ? calculateFinalPrice(item, options) : item.price,
+        finalPrice: finalPrice,
+        // Ensure all other MenuItem properties are spread
+        imageUrl: item.imageUrl,
+        imageAiHint: item.imageAiHint,
+        menuCategoryId: item.menuCategoryId,
+        hostId: item.hostId,
+        isConfigurable: item.isConfigurable,
+        optionGroups: item.optionGroups,
+        isAvailable: item.isAvailable,
+        loginRequired: item.loginRequired,
+        pointsRequis: item.pointsRequis,
+        stock: item.stock,
+        currency: item.currency // Assuming MenuItem might have currency
       };
       return [...prevItems, newItem];
     });
   }, []);
-  
-  const calculateFinalPrice = (item: MenuItem | Service, options: Record<string, string | string[]>): number => {
-      let finalPrice = item.price || 0;
-      if ('optionGroups' in item && item.optionGroups && item.isConfigurable) {
-          const menuItem = item as MenuItem; // Type assertion
-          Object.keys(options).forEach(groupId => {
-              const group = menuItem.optionGroups?.find(og => og.id === groupId);
-              if (group) {
-                  const selectedOptionIds = Array.isArray(options[groupId]) ? options[groupId] as string[] : [options[groupId] as string];
-                  selectedOptionIds.forEach(optionId => {
-                      const optionDetails = group.options.find(opt => opt.id === optionId);
-                      if (optionDetails && optionDetails.priceAdjustment) {
-                          finalPrice += optionDetails.priceAdjustment;
-                      }
-                  });
-              }
-          });
-      }
-      return Math.max(0, finalPrice); // Ensure price is not negative
-  };
 
 
   const removeFromCart = useCallback((uniqueIdInCart: string) => {
@@ -69,11 +92,19 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateQuantity = useCallback((uniqueIdInCart: string, newQuantity: number) => {
     setCartItems(prevItems =>
-      prevItems.map(item =>
-        item.uniqueIdInCart === uniqueIdInCart
-          ? { ...item, quantity: Math.max(1, newQuantity) } // Ensure quantity is at least 1
-          : item
-      )
+      prevItems.map(item => {
+        if (item.uniqueIdInCart === uniqueIdInCart) {
+          const quantity = Math.max(1, newQuantity);
+          // Optional: Check against stock if item is a MenuItem and has stock
+          if ('stock' in item && item.stock !== undefined && quantity > item.stock) {
+            // Potentially show a toast here or prevent update
+            console.warn(`Cannot update quantity for ${item.name} beyond stock: ${item.stock}`);
+            return { ...item, quantity: item.stock }; // Set to max stock
+          }
+          return { ...item, quantity };
+        }
+        return item;
+      })
     );
   }, []);
 
@@ -103,5 +134,3 @@ export const useCart = (): CartContextType => {
   }
   return context;
 };
-
-    

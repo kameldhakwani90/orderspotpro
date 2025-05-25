@@ -7,7 +7,7 @@ import { getServiceById, getFormById, getFormFields, addOrder, getHostById, getR
 import type { Service, CustomForm, FormField as FormFieldType, Host, RoomOrTable, MenuItem, MenuItemOptionGroup, MenuItemOption } from '@/lib/types';
 import { DynamicFormRenderer, type DynamicFormRendererRef } from '@/components/shared/DynamicFormRenderer';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, CheckCircle, Utensils, BedDouble, LogIn, Lock, ShoppingCart, PlusCircle, MinusCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Utensils, BedDouble, LogIn, Lock, ShoppingCart, ArrowLeft, Tag } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,7 @@ function PublicClientOrderServicePageContent() {
 
   const hostId = params.hostId as string;
   const refId = params.refId as string; 
-  const itemId = params.serviceId as string;
+  const itemId = params.serviceId as string; // Can be Service.id or MenuItem.id
 
   const [itemDetail, setItemDetail] = useState<Service | MenuItem | null>(null);
   const [customForm, setCustomForm] = useState<CustomForm | null>(null);
@@ -49,6 +49,11 @@ function PublicClientOrderServicePageContent() {
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string | string[]>>({});
   const [currentTotalPrice, setCurrentTotalPrice] = useState<number>(0);
 
+  // Helper to determine if the item is a MenuItem
+  const isMenuItem = (item: Service | MenuItem | null): item is MenuItem => {
+    return item !== null && ('menuCategoryId' in item || 'isConfigurable' in item);
+  };
+
   useEffect(() => {
     if (authIsLoading) return;
 
@@ -58,52 +63,54 @@ function PublicClientOrderServicePageContent() {
         setError(null);
         setOrderSuccess(false);
         try {
-          const [itemDataResult, hostData, locationData] = await Promise.all([
-            getServiceById(itemId), // This now fetches Service or MenuItem
+          const [fetchedItemData, fetchedHostData, fetchedLocationData] = await Promise.all([
+            getServiceById(itemId), 
             getHostById(hostId),
             getRoomOrTableById(refId),
           ]);
           
-          const itemData = itemDataResult as Service | MenuItem | null; // Ensure type for clarity
+          if (!fetchedItemData) { setError(t('serviceNotFound')); setItemDetail(null); setIsLoadingPage(false); return; }
+          // @ts-ignore - hostId check is a bit tricky with union type here, but important
+          if (fetchedItemData.hostId && fetchedItemData.hostId !== hostId) { setError("Item not available for this establishment."); setItemDetail(null); setIsLoadingPage(false); return; }
+          if (!fetchedHostData) { setError(t('establishmentNotFound')); setHostInfo(null); setIsLoadingPage(false); return; }
+          if (!fetchedLocationData || fetchedLocationData.hostId !== hostId || fetchedLocationData.id !== refId) { setError(t('locationNotFound')); setLocationInfo(null); setIsLoadingPage(false); return; }
 
-          if (!itemData) { setError(t('serviceNotFound')); setItemDetail(null); setIsLoadingPage(false); return; }
-          // @ts-ignore 
-          if (itemData.hostId && itemData.hostId !== hostId) { setError("Item not available for this establishment."); setItemDetail(null); setIsLoadingPage(false); return; }
-          if (!hostData) { setError(t('establishmentNotFound')); setHostInfo(null); setIsLoadingPage(false); return; }
-          if (!locationData || locationData.hostId !== hostId || locationData.id !== refId) { setError(t('locationNotFound')); setLocationInfo(null); setIsLoadingPage(false); return; }
+          setItemDetail(fetchedItemData);
+          setHostInfo(fetchedHostData);
+          setLocationInfo(fetchedLocationData);
 
-          setItemDetail(itemData);
-          setHostInfo(hostData);
-          setLocationInfo(locationData);
-
-          if ('formulaireId' in itemData && itemData.formulaireId) {
-            const formDetails = await getFormById(itemData.formulaireId);
-            if (formDetails && formDetails.hostId === hostId) {
-              setCustomForm(formDetails);
-              const fields = await getFormFields(formDetails.id);
-              setFormFields(fields);
+          if (isMenuItem(fetchedItemData)) {
+            if (fetchedItemData.isConfigurable && fetchedItemData.optionGroups) {
+              setCurrentTotalPrice(fetchedItemData.price);
+              const initialSelections: Record<string, string | string[]> = {};
+              fetchedItemData.optionGroups.forEach(group => {
+                  if (group.isRequired && group.selectionType === 'single' && group.options.length > 0) {
+                      const defaultOpt = group.options.find(opt => (opt as any).isDefault) || group.options[0];
+                      if (defaultOpt) initialSelections[group.id] = defaultOpt.id;
+                  } else if (group.isRequired && group.selectionType === 'multiple' && group.options.length > 0) {
+                       const defaultOpt = group.options.find(opt => (opt as any).isDefault) || group.options[0];
+                       if (defaultOpt) initialSelections[group.id] = [defaultOpt.id];
+                  }
+              });
+              setSelectedOptions(initialSelections);
+            } else {
+              setCurrentTotalPrice(fetchedItemData.price);
+            }
+            setCustomForm(null); setFormFields([]);
+          } else { // It's a Service
+            setCurrentTotalPrice(fetchedItemData.prix || 0);
+            if (fetchedItemData.formulaireId) {
+              const formDetails = await getFormById(fetchedItemData.formulaireId);
+              if (formDetails && formDetails.hostId === hostId) {
+                setCustomForm(formDetails);
+                const fields = await getFormFields(formDetails.id);
+                setFormFields(fields);
+              } else {
+                setCustomForm(null); setFormFields([]);
+              }
             } else {
               setCustomForm(null); setFormFields([]);
             }
-          } else if ('isConfigurable' in itemData && itemData.isConfigurable && itemData.optionGroups) {
-            setCustomForm(null); setFormFields([]);
-            setCurrentTotalPrice(itemData.price); // Base price
-            const initialSelections: Record<string, string | string[]> = {};
-            itemData.optionGroups.forEach(group => {
-                if (group.isRequired && group.selectionType === 'single' && group.options.length > 0) {
-                    // Find a default or the first option
-                    const defaultOpt = group.options.find(opt => (opt as any).isDefault) || group.options[0];
-                    if (defaultOpt) initialSelections[group.id] = defaultOpt.id;
-                } else if (group.isRequired && group.selectionType === 'multiple' && group.options.length > 0) {
-                     const defaultOpt = group.options.find(opt => (opt as any).isDefault) || group.options[0];
-                     if (defaultOpt) initialSelections[group.id] = [defaultOpt.id];
-                }
-            });
-            setSelectedOptions(initialSelections);
-          } else {
-            setCustomForm(null); setFormFields([]);
-            // @ts-ignore
-            setCurrentTotalPrice('price' in itemData ? itemData.price : (itemData as Service)?.prix || 0);
           }
         } catch (e: any) {
           setError(t('errorLoadingServiceDetails') + ` (${e.message})`);
@@ -118,7 +125,7 @@ function PublicClientOrderServicePageContent() {
   }, [hostId, refId, itemId, authIsLoading, t]);
 
   useEffect(() => {
-    if (itemDetail && 'isConfigurable' in itemDetail && itemDetail.isConfigurable && itemDetail.optionGroups) {
+    if (itemDetail && isMenuItem(itemDetail) && itemDetail.isConfigurable && itemDetail.optionGroups) {
       let newTotal = itemDetail.price;
       itemDetail.optionGroups.forEach(group => {
         const selection = selectedOptions[group.id];
@@ -128,7 +135,7 @@ function PublicClientOrderServicePageContent() {
               const option = group.options.find(opt => opt.id === optionId);
               if (option && option.priceAdjustment) newTotal += option.priceAdjustment;
             });
-          } else { // single selection
+          } else { 
             const option = group.options.find(opt => opt.id === selection);
             if (option && option.priceAdjustment) newTotal += option.priceAdjustment;
           }
@@ -136,8 +143,7 @@ function PublicClientOrderServicePageContent() {
       });
       setCurrentTotalPrice(newTotal);
     } else if (itemDetail) {
-        // @ts-ignore
-       setCurrentTotalPrice('price' in itemDetail ? itemDetail.price : (itemDetail as Service)?.prix || 0);
+       setCurrentTotalPrice(isMenuItem(itemDetail) ? itemDetail.price : (itemDetail as Service).prix || 0);
     }
   }, [selectedOptions, itemDetail]);
 
@@ -146,7 +152,7 @@ function PublicClientOrderServicePageContent() {
       const newSelections = { ...prev };
       if (selectionType === 'single') {
         newSelections[groupId] = optionId;
-      } else { // multiple
+      } else { 
         const currentGroupSelection = (newSelections[groupId] as string[] || []);
         if (currentGroupSelection.includes(optionId)) {
           newSelections[groupId] = currentGroupSelection.filter(id => id !== optionId);
@@ -158,64 +164,54 @@ function PublicClientOrderServicePageContent() {
     });
   };
 
-  const handleServiceOrderWithFormSubmit = async (formData: Record<string, any>) => {
-    if (!itemDetail || !hostId || !refId || !('formulaireId' in itemDetail) ) return; // Ensure itemDetail is a Service
-    if (itemDetail.loginRequired && !user) {
-      toast({ title: t('loginRequired'), description: t('loginToOrder'), variant: "destructive"});
+  const handleDirectServiceOrderSubmit = async (formData: Record<string, any>) => {
+    if (!itemDetail || isMenuItem(itemDetail) || !hostId || !refId) return; // Only for Service type
+    
+    const service = itemDetail as Service; // Type assertion
+    if (service.loginRequired && !user) {
+      toast({ title: t('loginRequired') || "Login Required", description: t('loginToOrder', { serviceName: service.titre }) || "Please log in to order.", variant: "destructive"});
       router.push(`/login?redirect_url=${encodeURIComponent(pathname)}`);
       return;
     }
     setIsSubmitting(true);
     try {
       await addOrder({
-        serviceId: itemDetail.id,
+        serviceId: service.id,
         hostId: hostId,
         chambreTableId: refId,
         clientNom: user?.nom,
         userId: user?.id,
         donneesFormulaire: JSON.stringify(formData),
-        prixTotal: (itemDetail as Service).prix // Explicitly use Service type
+        prixTotal: service.prix,
+        currency: hostInfo?.currency
       });
       setOrderSuccess(true);
-      toast({ title: t('orderSuccessTitle'), description: t('orderSuccessDescription', { serviceName: (itemDetail as Service).titre }) });
+      toast({ title: t('orderSuccessTitle') || "Order Submitted!", description: t('orderSuccessDescription', { serviceName: service.titre }) || "Your order has been sent." });
     } catch (e) {
       toast({ title: "Order Submission Failed", description: "There was an error. Please try again.", variant: "destructive" });
     }
     setIsSubmitting(false);
   };
 
-  const handleConfigurableItemAddToCart = () => {
-    if (!itemDetail || !('isConfigurable' in itemDetail) || !itemDetail.isConfigurable) return;
-    if (itemDetail.loginRequired && !user) {
-      toast({ title: t('loginRequired'), description: t('loginToOrder'), variant: "destructive"});
+  const handleAddToCartClick = () => {
+    if (!itemDetail || !isMenuItem(itemDetail)) return;
+    
+    const menuItem = itemDetail as MenuItem; // Type assertion
+    if (menuItem.loginRequired && !user) {
+      toast({ title: t('loginRequired') || "Login Required", description: t('loginToOrder', { serviceName: menuItem.name }) || "Please log in to add to cart.", variant: "destructive"});
       router.push(`/login?redirect_url=${encodeURIComponent(pathname)}`);
       return;
     }
-    if (itemDetail.optionGroups) {
-      for (const group of itemDetail.optionGroups) {
+    if (menuItem.isConfigurable && menuItem.optionGroups) {
+      for (const group of menuItem.optionGroups) {
         if (group.isRequired && (!selectedOptions[group.id] || (Array.isArray(selectedOptions[group.id]) && (selectedOptions[group.id] as string[]).length === 0))) {
           toast({ title: "Option requise", description: `Veuillez sélectionner une option pour "${group.name}".`, variant: "destructive" });
           return;
         }
       }
     }
-
-    addToCart(itemDetail as MenuItem, selectedOptions, currentTotalPrice); 
-    toast({ title: `${itemDetail.name} ${t('addToCart')} !`, description: t('orderSuccessDescription', { serviceName: itemDetail.name }) });
-    router.push(`/client/${hostId}/${refId}`);
-  };
-  
-  const handleSimpleItemAddToCart = () => {
-    if (!itemDetail || ('isConfigurable' in itemDetail && itemDetail.isConfigurable) || ('formulaireId' in itemDetail && itemDetail.formulaireId) ) return;
-    // @ts-ignore
-     if (itemDetail.loginRequired && !user) {
-      toast({ title: t('loginRequired'), description: t('loginToOrder'), variant: "destructive"});
-      router.push(`/login?redirect_url=${encodeURIComponent(pathname)}`);
-      return;
-    }
-    addToCart(itemDetail as MenuItem | Service, undefined, currentTotalPrice); 
-    // @ts-ignore
-    toast({ title: `${'name' in itemDetail ? itemDetail.name : (itemDetail as Service).titre} ${t('addToCart')} !`, description: t('orderSuccessDescription', { serviceName: ('name' in itemDetail ? itemDetail.name : (itemDetail as Service).titre) }) });
+    addToCart(menuItem, selectedOptions, currentTotalPrice); 
+    toast({ title: `${menuItem.name} ${t('addToCart') || "added to cart"}!`, description: t('orderSuccessDescription', { serviceName: menuItem.name }) || `Added ${menuItem.name} to your cart.` });
     router.push(`/client/${hostId}/${refId}`);
   };
 
@@ -235,9 +231,9 @@ function PublicClientOrderServicePageContent() {
     return (
       <div className="text-center py-10 bg-card p-8 rounded-xl shadow-xl max-w-md mx-auto">
         <AlertTriangle className="mx-auto h-16 w-16 text-destructive mb-6" />
-        <h1 className="text-2xl font-semibold text-destructive mb-3">{t('errorAccessingReservation')}</h1>
+        <h1 className="text-2xl font-semibold text-destructive mb-3">{t('errorAccessingReservation') || 'Access Error'}</h1>
         <p className="text-muted-foreground mb-6">{error}</p>
-        <Button onClick={() => router.back()} className="mt-4 w-full">{t('goBack')}</Button>
+        <Button onClick={() => router.back()} className="mt-4 w-full">{t('goBack') || 'Go Back'}</Button>
       </div>
     );
   }
@@ -246,13 +242,12 @@ function PublicClientOrderServicePageContent() {
     return (
       <div className="text-center py-16 bg-card p-8 rounded-xl shadow-xl max-w-md mx-auto">
         <CheckCircle className="mx-auto h-20 w-20 text-green-500 mb-6" />
-        <h1 className="text-3xl font-bold text-foreground mb-3">{t('orderSuccessTitle')}</h1>
-        {/* @ts-ignore */}
+        <h1 className="text-3xl font-bold text-foreground mb-3">{t('orderSuccessTitle') || "Order Submitted!"}</h1>
         <p className="text-lg text-muted-foreground mb-6">
-          {t('orderSuccessDescription', { serviceName: itemDetail ? ('titre' in itemDetail ? itemDetail.titre : itemDetail.name) : 'service' })}
+          {t('orderSuccessDescription', { serviceName: itemDetail ? (isMenuItem(itemDetail) ? itemDetail.name : (itemDetail as Service).titre) : 'service' }) || "Your order has been sent."}
         </p>
         <Button onClick={() => router.push(`/client/${hostId}/${refId}`)} size="lg" className="bg-primary hover:bg-primary/90">
-          {t('backToServices')}
+          {t('backToServices') || "Back to Services"}
         </Button>
       </div>
     );
@@ -262,25 +257,23 @@ function PublicClientOrderServicePageContent() {
     return (
       <div className="text-center py-10 bg-card p-8 rounded-xl shadow-xl max-w-md mx-auto">
         <AlertTriangle className="mx-auto h-16 w-16 text-destructive mb-6" />
-        <h1 className="text-2xl font-semibold text-destructive mb-3">{t('serviceNotFound')}</h1>
-        <p className="text-muted-foreground mb-6">{t('errorLoadingServiceDetails')}</p>
-        <Button onClick={() => router.back()} className="mt-4 w-full">{t('goBack')}</Button>
+        <h1 className="text-2xl font-semibold text-destructive mb-3">{t('serviceNotFound') || "Item Not Found"}</h1>
+        <p className="text-muted-foreground mb-6">{t('errorLoadingServiceDetails') || "Details for this item could not be loaded."}</p>
+        <Button onClick={() => router.back()} className="mt-4 w-full">{t('goBack') || "Go Back"}</Button>
       </div>
     );
   }
 
-  const itemName = 'titre' in itemDetail ? itemDetail.titre : itemDetail.name;
+  const currentItemIsMenuItem = isMenuItem(itemDetail);
+  const itemName = currentItemIsMenuItem ? itemDetail.name : (itemDetail as Service).titre;
   const itemDescription = itemDetail.description;
-  const itemImage = 'image' in itemDetail ? itemDetail.image : itemDetail.imageUrl;
-  // @ts-ignore
-  const itemImageAiHint = 'data-ai-hint' in itemDetail ? itemDetail['data-ai-hint'] : ('imageAiHint' in itemDetail ? itemDetail.imageAiHint : undefined);
-  const itemIsConfigurable = 'isConfigurable' in itemDetail ? itemDetail.isConfigurable : false;
-  // @ts-ignore
-  const optionGroups = 'optionGroups' in itemDetail ? itemDetail.optionGroups : [];
-  // @ts-ignore
+  const itemImage = currentItemIsMenuItem ? itemDetail.imageUrl : (itemDetail as Service).image;
+  const itemImageAiHint = currentItemIsMenuItem ? itemDetail.imageAiHint : (itemDetail as Service)['data-ai-hint'];
   const itemIsLoginRequired = itemDetail.loginRequired;
-  // @ts-ignore
-  const itemStock = 'stock' in itemDetail ? itemDetail.stock : undefined;
+  const itemIsConfigurable = currentItemIsMenuItem && itemDetail.isConfigurable;
+  const optionGroups = currentItemIsMenuItem && itemDetail.optionGroups ? itemDetail.optionGroups : [];
+  const serviceHasForm = !currentItemIsMenuItem && (itemDetail as Service).formulaireId;
+  const itemStock = currentItemIsMenuItem ? itemDetail.stock : undefined;
   const isItemOutOfStock = itemStock === 0;
 
 
@@ -288,18 +281,18 @@ function PublicClientOrderServicePageContent() {
     return (
       <div className="text-center py-10 bg-card p-8 rounded-xl shadow-xl max-w-md mx-auto">
         <Lock className="mx-auto h-16 w-16 text-primary mb-6" />
-        <h1 className="text-2xl font-semibold text-foreground mb-3">{t('loginRequired')}</h1>
+        <h1 className="text-2xl font-semibold text-foreground mb-3">{t('loginRequired') || "Login Required"}</h1>
         <p className="text-muted-foreground mb-6">
-          {t('loginToOrder', { serviceName: itemName })}
+          {t('loginToOrder', { serviceName: itemName }) || `Please log in to order ${itemName}.`}
         </p>
         <Link href={`/login?redirect_url=${encodeURIComponent(pathname)}`}>
           <Button size="lg" className="w-full bg-primary hover:bg-primary/90">
             <LogIn className="mr-2 h-5 w-5" />
-            <span>{t('loginToContinue')}</span>
+            <span>{t('loginToContinue') || "Login to Continue"}</span>
           </Button>
         </Link>
          <Button variant="outline" onClick={() => router.back()} className="mt-4 w-full">
-          {t('goBack')}
+          {t('goBack') || 'Go Back'}
         </Button>
       </div>
     );
@@ -307,13 +300,29 @@ function PublicClientOrderServicePageContent() {
 
   const LocationIcon = locationInfo.type === 'Chambre' ? BedDouble : Utensils;
 
+  const submitButtonText = () => {
+    if (isSubmitting) return t('submitting') || "Submitting...";
+    if (currentItemIsMenuItem) return t('addToCart') || "Add to Cart";
+    return t('orderFor', { price: `${(itemDetail?.currency || hostInfo?.currency || '$')}${currentTotalPrice.toFixed(2)}` }) || `Order for ${(itemDetail?.currency || hostInfo?.currency || '$')}${currentTotalPrice.toFixed(2)}`;
+  };
+
+  const handleMainAction = () => {
+    if (currentItemIsMenuItem) {
+      handleAddToCartClick();
+    } else if (serviceHasForm && formRef.current) {
+      formRef.current.submit();
+    } else {
+      handleDirectServiceOrderSubmit({});
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto py-6">
       <Card className="shadow-xl overflow-hidden bg-card">
         <CardHeader className="p-0">
           {itemImage && (
             <div className="relative w-full h-56 sm:h-72 md:h-80">
-              <Image src={itemImage} alt={itemName} layout="fill" objectFit="cover" data-ai-hint={itemImageAiHint || "item image"} priority/>
+              <Image src={itemImage} alt={itemName} fill style={{objectFit:"cover"}} data-ai-hint={itemImageAiHint || "item image"} priority/>
             </div>
           )}
         </CardHeader>
@@ -371,49 +380,34 @@ function PublicClientOrderServicePageContent() {
             </div>
           )}
 
-          <p className="text-3xl font-semibold text-primary mb-6">
-            {itemIsConfigurable ? t('totalEstimatedPrice') : t('servicePrice')}: {(itemDetail?.currency || hostInfo?.currency || '$')}{currentTotalPrice.toFixed(2)}
+          <p className="text-3xl font-semibold text-primary mb-6 flex items-center">
+            <Tag className="h-7 w-7 mr-2" />
+            <span>{itemIsConfigurable ? t('totalEstimatedPrice') : t('servicePrice')}: {(itemDetail?.currency || hostInfo?.currency || '$')}{currentTotalPrice.toFixed(2)}</span>
           </p>
 
-          {isItemOutOfStock && <Badge variant="destructive" className="text-md mb-4">{t('stockStatusOutOfStock')}</Badge>}
 
-          {customForm && formFields.length > 0 && !itemIsConfigurable && (
-            <>
-              <DynamicFormRenderer
-                ref={formRef}
-                formName={t('additionalInformation')}
-                formDescription={customForm.nom || "Please provide the following details:"}
-                fields={formFields}
-                onSubmit={handleServiceOrderWithFormSubmit}
-              />
-              <Button onClick={() => formRef.current?.submit()} disabled={isSubmitting || isItemOutOfStock} size="lg" className="mt-6 w-full max-w-xs mx-auto block bg-primary hover:bg-primary/90">
-                <ShoppingCart className="mr-2 h-5 w-5"/>
-                <span>{isSubmitting ? t('submitting') : t('orderFor', { price: `${(itemDetail?.currency || hostInfo?.currency || '$')}${currentTotalPrice.toFixed(2)}`})}</span>
-              </Button>
-            </>
+          {isItemOutOfStock && <Badge variant="destructive" className="text-md mb-4 block w-fit">{t('stockStatusOutOfStock') || "Out of Stock"}</Badge>}
+
+          {!currentItemIsMenuItem && serviceHasForm && formFields.length > 0 && (
+            <DynamicFormRenderer
+              ref={formRef}
+              formName={t('additionalInformation') || "Additional Information"}
+              formDescription={customForm?.nom || "Please provide the following details:"}
+              fields={formFields}
+              onSubmit={handleDirectServiceOrderSubmit}
+            />
           )}
-
-          {itemIsConfigurable && (
-            <Button onClick={handleConfigurableItemAddToCart} disabled={isSubmitting || isItemOutOfStock} size="lg" className="w-full max-w-xs mx-auto block bg-primary hover:bg-primary/90">
+          <div className="mt-6">
+            <Button onClick={handleMainAction} disabled={isSubmitting || isItemOutOfStock} size="lg" className="w-full max-w-xs mx-auto block bg-primary hover:bg-primary/90">
               <ShoppingCart className="mr-2 h-5 w-5"/>
-              <span>{isSubmitting ? t('submitting') : t('addToCart')}</span>
+              <span>{submitButtonText()}</span>
             </Button>
-          )}
-          
-          {!customForm && !itemIsConfigurable && (
-             <div className="text-center p-4 bg-secondary/50 rounded-lg mt-6">
-              <p className="text-muted-foreground mb-4">Cet article sera ajouté directement au panier.</p>
-              <Button onClick={handleSimpleItemAddToCart} disabled={isSubmitting || isItemOutOfStock} size="lg" className="w-full max-w-xs mx-auto bg-primary hover:bg-primary/90">
-                <ShoppingCart className="mr-2 h-5 w-5"/>
-                <span>{isSubmitting ? t('submitting') : t('addToCart')}</span>
-              </Button>
-            </div>
-          )}
+          </div>
 
         </CardContent>
       </Card>
       <Button variant="outline" onClick={() => router.back()} className="mt-8 w-full max-w-lg mx-auto block text-base py-3 h-auto">
-        <span>{t('cancelAndBackToServices')}</span>
+         <ArrowLeft className="mr-2 h-4 w-4"/> <span>{t('cancelAndBackToServices') || "Cancel & Back to Services"}</span>
       </Button>
     </div>
   );
@@ -435,6 +429,3 @@ export default function PublicClientOrderServicePage() {
     </Suspense>
   );
 }
-
-    
-    
