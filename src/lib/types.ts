@@ -1,5 +1,4 @@
 
-
 export type UserRole = "admin" | "host" | "client";
 
 export interface User {
@@ -20,10 +19,10 @@ export interface ReservationPageSettings {
 
 export interface LoyaltySettings {
   enabled: boolean;
-  pointsPerEuroSpent: number; 
-  pointsPerNightRoom: number; 
-  pointsPerTableBooking: number; 
-  pointsForNewClientSignup?: number; // Points for new client registration
+  pointsPerEuroSpent: number;
+  pointsPerNightRoom: number;
+  pointsPerTableBooking: number;
+  pointsForNewClientSignup?: number;
 }
 
 export interface Host {
@@ -37,10 +36,10 @@ export interface Host {
 export interface Site { // Represents a Global Site
   siteId: string;
   nom: string;
-  hostId: string; // FK to Host.hostId
+  hostId: string;
   logoUrl?: string;
   logoAiHint?: string;
-  primaryColor?: string; // HEX string, e.g., "#FF5733"
+  primaryColor?: string; // HEX string
 }
 
 export interface Tag {
@@ -63,19 +62,19 @@ export interface AmenityCategory {
 export interface RoomOrTable {
   id: string;
   nom: string;
-  type: "Chambre" | "Table" | "Site"; // 'Site' here means a sub-area/zone within a Global Site
+  type: "Chambre" | "Table" | "Site";
   hostId: string;
-  globalSiteId: string; // FK to Site.siteId (the overarching Global Site)
-  parentLocationId?: string; // FK to another RoomOrTable.id (if this location is nested)
+  globalSiteId: string;
+  parentLocationId?: string;
   urlPersonnalise: string;
-  capacity?: number; // Max number of persons
+  capacity?: number;
   description?: string;
   imageUrls?: string[];
   imageAiHint?: string;
   tagIds?: string[];
   amenityIds?: string[];
-  prixParNuit?: number; // For rooms
-  prixFixeReservation?: number; // For tables
+  prixParNuit?: number;
+  prixFixeReservation?: number;
 }
 
 export interface ServiceCategory {
@@ -117,7 +116,7 @@ export interface Service {
   prix?: number;
   targetLocationIds?: string[];
   loginRequired?: boolean;
-  pointsRequis?: number; // Points needed to "buy" this service
+  pointsRequis?: number;
 }
 
 export type OrderStatus = "pending" | "confirmed" | "completed" | "cancelled";
@@ -135,11 +134,11 @@ export interface Order {
   hostId: string;
   chambreTableId: string;
   clientNom?: string;
-  userId?: string; // ID of the registered user, if logged in
+  userId?: string;
   donneesFormulaire: string;
   dateHeure: string; // ISO string
   status: OrderStatus;
-  prixTotal?: number; // Original price of the order
+  prixTotal?: number;
   montantPaye?: number;
   soldeDu?: number;
   paiements?: Paiement[];
@@ -160,7 +159,7 @@ export interface Client {
     locationId?: string;
     notes?: string;
     documents?: Array<{ name: string; url: string; uploadedAt: string }>;
-    credit?: number; // Client's available credit balance
+    credit?: number;
     pointsFidelite?: number;
 }
 
@@ -170,13 +169,11 @@ export type OnlineCheckinStatus = 'not-started' | 'pending-review' | 'completed'
 export interface OnlineCheckinData {
   fullName?: string;
   email?: string;
-  birthDate?: string; // Format YYYY-MM-DD
+  birthDate?: string;
   phoneNumber?: string;
   travelReason?: string;
   additionalNotes?: string;
-  // passportPhotoUris?: string[]; // For future use
-  // digitalSignatureUri?: string; // For future use
-  submissionDate?: string; // ISO DateTime
+  submissionDate?: string;
 }
 
 export interface Reservation {
@@ -189,20 +186,21 @@ export interface Reservation {
   dateArrivee: string; // YYYY-MM-DD
   dateDepart?: string; // YYYY-MM-DD, optional for tables
   nombrePersonnes: number;
-  animauxDomestiques?: boolean; // Only relevant for Chambre type
+  animauxDomestiques?: boolean;
   notes?: string;
   status?: ReservationStatus;
   channel?: string;
-  prixTotal?: number; // Original price of the reservation
+  prixTotal?: number;
   montantPaye?: number;
   soldeDu?: number;
   paiements?: Paiement[];
   pointsGagnes?: number;
   onlineCheckinData?: OnlineCheckinData;
   onlineCheckinStatus?: OnlineCheckinStatus;
+  clientInitiatedCheckoutTime?: string; // ISO string
+  checkoutNotes?: string;
 }
 
-// Helper type for navigation items
 export interface NavItem {
   label: string;
   href: string;
@@ -213,10 +211,8 @@ export interface NavItem {
   external?: boolean;
 }
 
-export interface ClientDetails { // Used for client file page
+export interface ClientDetails {
   name: string;
   orders: (Order & { serviceName?: string; locationName?: string })[];
   locations: (RoomOrTable & { globalSiteName?: string })[];
 }
-
-    
