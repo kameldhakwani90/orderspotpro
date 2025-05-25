@@ -6,8 +6,10 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import {
   getMenuCards, addMenuCard, updateMenuCard, deleteMenuCard,
-  getMenuCategories, addMenuCategory, updateMenuCategory, deleteMenuCategory,
-  getMenuItems, addMenuItem, updateMenuItem, deleteMenuItem, getSites,
+  getMenuCategories as fetchMenuCategoriesForCard, // Renamed for clarity
+  addMenuCategory, updateMenuCategory, deleteMenuCategory,
+  getMenuItems, addMenuItem, updateMenuItem, deleteMenuItem, 
+  getSites as getGlobalSitesForHost, // Renamed for clarity
   duplicateMenuCard as duplicateMenuCardData 
 } from '@/lib/data';
 import type { MenuCard, MenuCategory, MenuItem, Site as GlobalSiteType, MenuItemOptionGroup, MenuItemOption } from '@/lib/types';
@@ -39,7 +41,7 @@ export default function HostMenuCardsPage() {
   const { toast } = useToast();
 
   const [menuCards, setMenuCards] = useState<MenuCard[]>([]);
-  const [hostGlobalSites, setHostGlobalSites] = useState<GlobalSiteType[]>([]);
+  const [hostGlobalSites, setHostGlobalSitesState] = useState<GlobalSiteType[]>([]); // Renamed for clarity
   
   const [activeMenuCard, setActiveMenuCard] = useState<MenuCard | null>(null);
   const [categoriesForCard, setCategoriesForCard] = useState<MenuCategory[]>([]);
@@ -57,24 +59,23 @@ export default function HostMenuCardsPage() {
   const [currentCategoryData, setCurrentCategoryData] = useState<Partial<MenuCategory>>({ name: '', description: '', displayOrder: 1 });
 
   const [isMenuItemDialogOpen, setIsMenuItemDialogOpen] = useState(false);
-  const [currentMenuItemData, setCurrentMenuItemData] = useState<Partial<MenuItem>>({ name: '', description: '', price: 0, imageUrl: '', isAvailable: true, isConfigurable: false, stock: undefined });
+  const [currentMenuItemData, setCurrentMenuItemData] = useState<Partial<MenuItem>>({ name: '', description: '', price: 0, imageUrl: '', isAvailable: true, isConfigurable: false, optionGroups: [], stock: undefined });
 
   const fetchMenuCardsData = useCallback(async (hostId: string, globalSiteIdToFilter?: string) => {
     setIsLoadingData(true);
     try {
       const [cards, sites] = await Promise.all([
         getMenuCards(hostId, globalSiteIdToFilter),
-        getSites(hostId)
+        getGlobalSitesForHost(hostId)
       ]);
       setMenuCards(cards);
-      setHostGlobalSites(sites);
+      setHostGlobalSitesState(sites); // Use renamed setter
 
       if (sites.length > 0 && !currentMenuCardData.globalSiteId && !selectedGlobalSite) {
          setCurrentMenuCardData(prev => ({ ...prev, globalSiteId: sites[0].siteId }));
       } else if (selectedGlobalSite && (!currentMenuCardData.globalSiteId || currentMenuCardData.globalSiteId !== selectedGlobalSite.siteId)) {
          setCurrentMenuCardData(prev => ({ ...prev, globalSiteId: selectedGlobalSite.siteId }));
       }
-
 
       if (activeMenuCard && globalSiteIdToFilter && activeMenuCard.globalSiteId !== globalSiteIdToFilter) {
         setActiveMenuCard(cards.length > 0 ? cards[0] : null);
@@ -111,7 +112,7 @@ export default function HostMenuCardsPage() {
     }
     setIsLoadingData(true);
     try {
-      const categories = await getMenuCategories(activeMenuCard.id, user.hostId);
+      const categories = await fetchMenuCategoriesForCard(activeMenuCard.id, user.hostId);
       setCategoriesForCard(categories);
       if (categories.length > 0) {
         const currentActiveCat = activeCategory ? categories.find(c => c.id === activeCategory.id) : null;
@@ -382,15 +383,19 @@ export default function HostMenuCardsPage() {
               <ul className="space-y-2">
                 {menuCards.map(card => (
                   <li key={card.id}>
-                    <Button
-                      variant={activeMenuCard?.id === card.id ? "secondary" : "ghost"}
-                      className="w-full justify-between text-left h-auto py-2.5 px-3"
-                      onClick={() => setActiveMenuCard(card)}
-                      disabled={isSubmitting}
+                    <div 
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Select menu card ${card.name}`}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setActiveMenuCard(card);}}
+                      className={`w-full justify-between text-left h-auto py-2.5 px-3 rounded-lg transition-colors flex items-center
+                        ${activeMenuCard?.id === card.id ? "bg-secondary text-secondary-foreground font-medium" : "hover:bg-muted/50"}
+                        ${isSubmitting ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
+                      onClick={() => { if(!isSubmitting) setActiveMenuCard(card); }}
                     >
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{card.name}</p>
-                        <p className="text-xs text-muted-foreground">{hostGlobalSites.find(gs => gs.siteId === card.globalSiteId)?.nom || 'Unknown Site'}</p>
+                      <div className="flex-1 min-w-0" onClick={(e) => { if(!isSubmitting) setActiveMenuCard(card); }}> {/* Main clickable area */}
+                        <p className="font-medium text-sm truncate">{card.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{hostGlobalSites.find(gs => gs.siteId === card.globalSiteId)?.nom || 'Unknown Site'}</p>
                          <div className="flex items-center gap-2 mt-1">
                             <Badge variant={card.isActive ? "default" : "outline"} className="text-xs">{card.isActive ? "Active" : "Inactive"}</Badge>
                             {(card.visibleFromTime || card.visibleToTime) && 
@@ -398,12 +403,12 @@ export default function HostMenuCardsPage() {
                             }
                          </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); handleDuplicateMenuCard(card.id);}} title="Duplicate Menu Card"><CopyPlus className="h-4 w-4 text-blue-500" /></Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEditMenuCardDialog(card);}} title="Edit Menu Card"><Edit2 className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); handleMenuCardDelete(card.id);}} title="Delete Menu Card"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); handleDuplicateMenuCard(card.id);}} title="Duplicate Menu Card" disabled={isSubmitting}><CopyPlus className="h-4 w-4 text-blue-500" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEditMenuCardDialog(card);}} title="Edit Menu Card" disabled={isSubmitting}><Edit2 className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); handleMenuCardDelete(card.id);}} title="Delete Menu Card" disabled={isSubmitting}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       </div>
-                    </Button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -434,19 +439,23 @@ export default function HostMenuCardsPage() {
                   {categoriesForCard.length === 0 && <p className="text-muted-foreground text-center py-4">No categories yet for this menu card.</p>}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {categoriesForCard.map(cat => (
-                      <Button
+                      <div 
                         key={cat.id}
-                        variant={activeCategory?.id === cat.id ? "default" : "outline"}
-                        className="w-full justify-between text-left h-auto py-2 px-3 items-center group"
-                        onClick={() => setActiveCategory(cat)}
-                        disabled={isSubmitting}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Select category ${cat.name}`}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setActiveCategory(cat);}}
+                        className={`w-full justify-between text-left h-auto py-2 px-3 rounded-lg border transition-colors flex items-center group
+                          ${activeCategory?.id === cat.id ? "bg-primary text-primary-foreground font-medium shadow-md" : "bg-card hover:bg-muted/60"}
+                          ${isSubmitting ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
+                        onClick={() => { if(!isSubmitting) setActiveCategory(cat);}}
                       >
                         <span className="font-medium text-sm truncate flex-1">{cat.name}</span>
                         <div className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex gap-0.5">
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openEditCategoryDialog(cat);}} title="Edit Category"><Edit2 className="h-3.5 w-3.5" /></Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); handleCategoryDelete(cat.id);}} title="Delete Category"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                          <Button variant="ghost" size="icon" className={`h-6 w-6 ${activeCategory?.id === cat.id ? "text-primary-foreground hover:bg-primary/80" : "text-foreground hover:bg-accent" }`} onClick={(e) => { e.stopPropagation(); openEditCategoryDialog(cat);}} title="Edit Category" disabled={isSubmitting}><Edit2 className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className={`h-6 w-6 ${activeCategory?.id === cat.id ? "text-primary-foreground hover:bg-primary/80" : "text-destructive hover:bg-destructive/10" }`} onClick={(e) => { e.stopPropagation(); handleCategoryDelete(cat.id);}} title="Delete Category" disabled={isSubmitting}><Trash2 className="h-3.5 w-3.5" /></Button>
                         </div>
-                      </Button>
+                      </div>
                     ))}
                   </div>
                 </CardContent>
@@ -476,13 +485,13 @@ export default function HostMenuCardsPage() {
                             <TableCell>
                               {item.stock === 0 ? <Badge variant="destructive" className="text-xs">Rupture</Badge> : 
                                !item.isAvailable ? <Badge variant="secondary" className="text-xs">Caché</Badge> :
-                               item.stock !== undefined && item.stock < 5 ? <Badge variant="outline" className="text-xs text-orange-600 border-orange-400">Stock Faible ({item.stock})</Badge> :
+                               item.stock !== undefined && item.stock > 0 && item.stock < 5 ? <Badge variant="outline" className="text-xs text-amber-600 border-amber-400">Stock Faible ({item.stock})</Badge> :
                                <Badge variant="default" className="text-xs bg-green-500 hover:bg-green-600">Actif</Badge>
                               }
                             </TableCell>
                             <TableCell className="text-right space-x-1">
-                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditMenuItemDialog(item)} title="Edit Item"><Edit2 className="h-4 w-4" /></Button>
-                              <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => handleMenuItemDelete(item.id)} title="Delete Item"><Trash2 className="h-4 w-4" /></Button>
+                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditMenuItemDialog(item)} title="Edit Item" disabled={isSubmitting}><Edit2 className="h-4 w-4" /></Button>
+                              <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => handleMenuItemDelete(item.id)} title="Delete Item" disabled={isSubmitting}><Trash2 className="h-4 w-4" /></Button>
                             </TableCell>
                           </TableRow>
                         ))}
