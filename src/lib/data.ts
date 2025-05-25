@@ -1,4 +1,3 @@
-
 // src/lib/data.ts
 import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus, Tag, LoyaltySettings, ReservationPageSettings, OnlineCheckinData, OnlineCheckinStatus, Paiement } from './types';
 // Firebase imports are commented out as we are using in-memory data
@@ -9,7 +8,6 @@ const log = (message: string, data?: any) => {
   // console.log(`[Data Layer Memory] ${new Date().toISOString()}: ${message}`, data !== undefined ? data : '');
 }
 log("Data layer initialized. USING IN-MEMORY DATA for all entities.");
-
 
 // --- In-memory data store ---
 let usersInMemory: User[] = [
@@ -33,20 +31,20 @@ const defaultLoyaltySettings: LoyaltySettings = {
 const defaultReservationPageSettings: ReservationPageSettings = {
   enableRoomReservations: true,
   enableTableReservations: true,
-  heroImageUrl: '',
-  heroImageAiHint: '',
+  heroImageUrl: 'https://placehold.co/1200x300.png?text=Welcome',
+  heroImageAiHint: 'establishment banner',
 };
 
 let hostsInMemory: Host[] = [
-  { hostId: 'host-01-inmem', nom: 'Paradise Beach Resort', email: 'manager@paradise.com', reservationPageSettings: { heroImageUrl: 'https://placehold.co/1200x400.png?text=Paradise+Resort+Banner', heroImageAiHint: 'resort beach banner', enableRoomReservations: true, enableTableReservations: true }, loyaltySettings: { ...defaultLoyaltySettings, enabled: true, pointsPerEuroSpent: 1, pointsPerNightRoom: 10, pointsPerTableBooking: 5, pointsForNewClientSignup: 50 } },
-  { hostId: 'host-02-inmem', nom: 'Le Delice Downtown', email: 'contact@delice.com', reservationPageSettings: { heroImageUrl: 'https://placehold.co/1200x400.png?text=Le+Delice+Banner', heroImageAiHint: 'restaurant city banner', enableRoomReservations: false, enableTableReservations: true }, loyaltySettings: { ...defaultLoyaltySettings } },
-  { hostId: 'host-1747669860022', nom: 'Dynamic Test Establishment', email: 'dynamic.host@example.com', reservationPageSettings: { heroImageUrl: 'https://placehold.co/1200x400.png?text=Dynamic+Test+Banner', heroImageAiHint: 'dynamic test banner', enableRoomReservations: true, enableTableReservations: false }, loyaltySettings: { ...defaultLoyaltySettings, enabled: true, pointsPerEuroSpent: 2, pointsPerNightRoom: 15, pointsPerTableBooking: 3, pointsForNewClientSignup: 25 } },
+  { hostId: 'host-01-inmem', nom: 'Paradise Beach Resort', email: 'manager@paradise.com', reservationPageSettings: { ...defaultReservationPageSettings, heroImageUrl: 'https://placehold.co/1200x400.png?text=Paradise+Resort+Banner', heroImageAiHint: 'resort beach banner' }, loyaltySettings: { ...defaultLoyaltySettings, enabled: true, pointsPerEuroSpent: 1, pointsPerNightRoom: 10, pointsPerTableBooking: 5, pointsForNewClientSignup: 50 } },
+  { hostId: 'host-02-inmem', nom: 'Le Delice Downtown', email: 'contact@delice.com', reservationPageSettings: { ...defaultReservationPageSettings, heroImageUrl: 'https://placehold.co/1200x400.png?text=Le+Delice+Banner', heroImageAiHint: 'restaurant city banner', enableRoomReservations: false }, loyaltySettings: { ...defaultLoyaltySettings } },
+  { hostId: 'host-1747669860022', nom: 'Dynamic Test Establishment', email: 'dynamic.host@example.com', reservationPageSettings: { ...defaultReservationPageSettings, heroImageUrl: 'https://placehold.co/1200x400.png?text=Dynamic+Test+Banner', heroImageAiHint: 'dynamic test banner', enableTableReservations: false }, loyaltySettings: { ...defaultLoyaltySettings, enabled: true, pointsPerEuroSpent: 2, pointsPerNightRoom: 15, pointsPerTableBooking: 3, pointsForNewClientSignup: 25 } },
 ];
 
 let sitesInMemory: Site[] = [
-  { siteId: 'site-01', nom: 'Paradise Beach Resort (Global)', hostId: 'host-01-inmem', logoUrl: 'https://placehold.co/100x100.png?text=Paradise', logoAiHint: 'resort logo', primaryColor: '#64B5F6' },
-  { siteId: 'site-02', nom: 'Le Delice Downtown (Global)', hostId: 'host-02-inmem', logoUrl: 'https://placehold.co/100x100.png?text=Delice', logoAiHint: 'restaurant logo', primaryColor: '#9575CD' },
-  { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment (Global)', hostId: 'host-1747669860022', logoUrl: 'https://placehold.co/100x100.png?text=Dynamic', logoAiHint: 'dynamic logo', primaryColor: '#FF5733' },
+  { siteId: 'site-01', nom: 'Paradise Beach Resort (Global)', hostId: 'host-01-inmem', logoUrl: 'https://placehold.co/100x100.png?text=PBR', logoAiHint: 'resort logo', primaryColor: '#FF5733' },
+  { siteId: 'site-02', nom: 'Le Delice Downtown (Global)', hostId: 'host-02-inmem', logoUrl: 'https://placehold.co/100x100.png?text=LDD', logoAiHint: 'restaurant logo', primaryColor: '#33FF57' },
+  { siteId: 'site-dynamic-01', nom: 'Dynamic Test Establishment (Global)', hostId: 'host-1747669860022', logoUrl: 'https://placehold.co/100x100.png?text=DYN', logoAiHint: 'dynamic logo', primaryColor: '#5733FF' },
 ];
 
 let roomsOrTablesInMemory: RoomOrTable[] = [
@@ -145,28 +143,28 @@ let clientsInMemory: Client[] = [
 ];
 
 let reservationsInMemory: Reservation[] = [
-    { id: 'res-001-inmem', hostId: 'host-01-inmem', locationId: 'room-101', type: 'Chambre', clientName: 'Alice Wonderland', clientId: 'client-mock-1-inmem', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', nombrePersonnes: 2, status: 'confirmed', notes: 'Early check-in requested', animauxDomestiques: false, channel: 'Booking.com', prixTotal: 600, montantPaye: 600, soldeDu: 0, paiements: [{type: 'card', montant: 600, date: '2024-07-09'}], onlineCheckinStatus: 'not-started', pointsGagnes: 50 },
-    { id: 'res-002-inmem', hostId: 'host-01-inmem', locationId: 'room-102', type: 'Chambre', clientName: 'Bob The Builder', clientId: 'client-mock-2-inmem', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', nombrePersonnes: 1, animauxDomestiques: true, status: 'checked-in', channel: 'Direct', prixTotal: 500, montantPaye: 200, soldeDu: 300, onlineCheckinStatus: 'completed', pointsGagnes: 0, onlineCheckinData: {fullName: "Bob The Builder", email:"client2@example.com", birthDate:"1980-05-05", phoneNumber: "+1234567891", travelReason: "Business", additionalNotes:"Need high-speed internet.", submissionDate: new Date(Date.now() - 86400000 * 2).toISOString()} }, // submitted 2 days ago
-    { id: 'res-003-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-room1', type: 'Chambre', clientName: 'Dynamic Test Client User', clientId: 'client-mock-dynamic-inmem', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', nombrePersonnes: 2, notes: "Needs a crib", status: 'pending', animauxDomestiques: false, prixTotal: 396, onlineCheckinStatus: 'pending-review', pointsGagnes: 0, onlineCheckinData: {fullName: "Dynamic User", email:"dynamic_client@example.com", birthDate:"1990-01-01", phoneNumber: "555-1234", submissionDate: new Date(Date.now() - 86400000 * 1).toISOString()} }, // submitted 1 day ago
-    { id: 'res-004-inmem', hostId: 'host-02-inmem', locationId: 'table-5', type: 'Table', clientName: 'Charlie Passager', clientId: 'client-mock-3-inmem', dateArrivee: '2024-07-20', dateDepart: '2024-07-20', nombrePersonnes: 4, status: 'confirmed', notes: 'Dinner reservation for 8 PM', channel: 'Phone', prixTotal: 10, montantPaye: 10, soldeDu: 0, onlineCheckinStatus: 'not-started', pointsGagnes: 5 },
-    { id: 'res-dynamic-table-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-table1', type: 'Table', clientName: 'Test Diner', dateArrivee: '2024-08-03', dateDepart: '2024-08-03', nombrePersonnes: 2, status: 'confirmed', notes: 'Table reservation for dynamic host.', prixTotal: 20, onlineCheckinStatus: 'not-started', pointsGagnes: 3 },
+    { id: 'res-001-inmem', hostId: 'host-01-inmem', locationId: 'room-101', type: 'Chambre', clientName: 'Alice Wonderland', clientId: 'user-client-01', dateArrivee: '2024-07-10', dateDepart: '2024-07-15', nombrePersonnes: 2, status: 'confirmed', notes: 'Early check-in requested', animauxDomestiques: false, channel: 'Booking.com', prixTotal: 600, montantPaye: 600, soldeDu: 0, paiements: [{type: 'card', montant: 600, date: '2024-07-09'}], onlineCheckinStatus: 'not-started', pointsGagnes: 50 },
+    { id: 'res-002-inmem', hostId: 'host-01-inmem', locationId: 'room-102', type: 'Chambre', clientName: 'Bob The Builder', clientId: 'user-client-02', dateArrivee: '2024-07-12', dateDepart: '2024-07-14', nombrePersonnes: 1, animauxDomestiques: true, status: 'checked-in', channel: 'Direct', prixTotal: 500, montantPaye: 200, soldeDu: 300, onlineCheckinStatus: 'completed', pointsGagnes: 0, onlineCheckinData: {fullName: "Bob The Builder", email:"client2@example.com", birthDate:"1980-05-05", phoneNumber: "+1234567891", travelReason: "Business", additionalNotes:"Need high-speed internet.", submissionDate: new Date(Date.now() - 86400000 * 2).toISOString()} }, // submitted 2 days ago
+    { id: 'res-003-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-room1', type: 'Chambre', clientName: 'Dynamic Test Client User', clientId: 'user-dynamic-client-01', dateArrivee: '2024-08-01', dateDepart: '2024-08-05', nombrePersonnes: 2, notes: "Needs a crib", status: 'pending', animauxDomestiques: false, prixTotal: 396, onlineCheckinStatus: 'pending-review', pointsGagnes: 0, onlineCheckinData: {fullName: "Dynamic User", email:"dynamic_client@example.com", birthDate:"1990-01-01", phoneNumber: "555-1234", submissionDate: new Date(Date.now() - 86400000 * 1).toISOString()} }, // submitted 1 day ago
+    { id: 'res-004-inmem', hostId: 'host-02-inmem', locationId: 'table-5', type: 'Table', clientName: 'Charlie Passager', clientId: 'client-mock-3-inmem', dateArrivee: '2024-07-20', dateDepart: undefined, nombrePersonnes: 4, status: 'confirmed', notes: 'Dinner reservation for 8 PM', channel: 'Phone', prixTotal: 10, montantPaye: 10, soldeDu: 0, onlineCheckinStatus: 'not-started', pointsGagnes: 5 },
+    { id: 'res-dynamic-table-inmem', hostId: 'host-1747669860022', locationId: 'rt-dynamic-table1', type: 'Table', clientName: 'Test Diner', dateArrivee: '2024-08-03', dateDepart: undefined, nombrePersonnes: 2, status: 'confirmed', notes: 'Table reservation for dynamic host.', prixTotal: 20, onlineCheckinStatus: 'not-started', pointsGagnes: 3 },
 ];
 
 
-// --- User Management (In-memory) ---
+// --- User Management ---
 const normalizeUserPassword = (user: any): User => {
   try {
     const userData = { ...user };
     if (!userData.motDePasse && userData.password) {
       userData.motDePasse = userData.password;
     } else if (!userData.motDePasse) {
-      userData.motDePasse = ""; // Ensure it's at least an empty string
+      userData.motDePasse = ""; 
     }
     delete userData.password;
     if (!userData.nom && userData.email) {
         userData.nom = userData.email.split('@')[0];
     } else if (!userData.nom) {
-        userData.nom = "Unnamed User"; // Default name if email also missing
+        userData.nom = "Unnamed User"; 
     }
     return userData as User;
   } catch(error) {
@@ -182,15 +180,18 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
     const user = usersInMemory.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (user) {
       let normalizedUser = { ...user };
-      // Handle 'password' if 'motDePasse' is missing
       if (!normalizedUser.motDePasse && (user as any).password) {
         normalizedUser.motDePasse = (user as any).password;
-      } else if (user.motDePasse === undefined) { // Check for undefined specifically for existing users
-        normalizedUser.motDePasse = ""; // Default to empty string if truly undefined
+      } else if (user.motDePasse === undefined && !(user as any).password) { 
+        normalizedUser.motDePasse = ""; 
       }
-      delete (normalizedUser as any).password; // Remove 'password' if it existed
+      if (normalizedUser.motDePasse === undefined && (user as any).password) { // This handles the specific case of 'password' field
+        normalizedUser.motDePasse = (user as any).password;
+      }
 
-      if (!normalizedUser.nom && normalizedUser.email) { // Default 'nom' from email if missing
+      delete (normalizedUser as any).password; 
+
+      if (!normalizedUser.nom && normalizedUser.email) {
         normalizedUser.nom = normalizedUser.email.split('@')[0];
       } else if (!normalizedUser.nom) {
         normalizedUser.nom = "Unnamed User";
@@ -287,6 +288,12 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
     usersInMemory = usersInMemory.filter(u => u.id !== userId);
     if (usersInMemory.length < initialLength) {
       log(`User ${userId} deleted (in-memory).`);
+      // Also remove from client records if linked
+      clientsInMemory = clientsInMemory.map(c => c.userId === userId ? {...c, userId: undefined} : c);
+      // Also remove from orders if linked
+      ordersInMemory = ordersInMemory.map(o => o.userId === userId ? {...o, userId: undefined} : o);
+      // Also remove from reservations if linked
+      reservationsInMemory = reservationsInMemory.map(r => r.clientId === userId ? {...r, clientId: undefined} : r);
       return true;
     }
     log(`User ${userId} not found for deletion (in-memory).`);
@@ -562,7 +569,7 @@ export const addRoomOrTable = async (data: Omit<RoomOrTable, 'id' | 'urlPersonna
     const newRoomOrTable: RoomOrTable = {
       ...data,
       id: newId,
-      urlPersonnalise: `/client/${data.hostId}/${newId}`, // QR Code URL remains tied to HostID and LocationID
+      urlPersonnalise: `/client/${data.hostId}/${newId}`, 
       capacity: data.capacity,
       tagIds: data.tagIds || [],
       description: data.description || undefined,
@@ -922,13 +929,17 @@ export const getServices = async (
           parentId = undefined;
         }
       }
-      relevantLocationIds.push(currentScannedLocation.globalSiteId);
+      // Add the global site ID as a potential target
+      if (currentScannedLocation.globalSiteId) {
+        relevantLocationIds.push(currentScannedLocation.globalSiteId);
+      }
 
 
       hostServices = hostServices.filter(service => {
         if (!service.targetLocationIds || service.targetLocationIds.length === 0) {
-          return true;
+          return true; // Service is host-wide
         }
+        // Check if any of the service's target IDs match the current location or its parents/global site
         return service.targetLocationIds.some(targetId => relevantLocationIds.includes(targetId));
       });
     }
@@ -996,6 +1007,8 @@ export const deleteService = async (id: string): Promise<boolean> => {
     try {
       const initialLength = servicesInMemory.length;
       servicesInMemory = servicesInMemory.filter(s => s.id !== id);
+      // Remove orders linked to this service? Or mark them as "service deleted"?
+      // For now, let's just delete the service. Orders will refer to a non-existent serviceId.
       ordersInMemory = ordersInMemory.filter(o => o.serviceId !== id);
       return servicesInMemory.length < initialLength;
     } catch (e) {
@@ -1111,15 +1124,22 @@ export const updateOrderStatus = async (orderId: string, status: OrderStatus): P
           if (host?.loyaltySettings?.enabled && host.loyaltySettings.pointsPerEuroSpent > 0 && order.prixTotal && order.prixTotal > 0) {
               const pointsEarned = Math.floor(order.prixTotal * host.loyaltySettings.pointsPerEuroSpent);
               if (pointsEarned > 0) {
-                  const clientRecord = clientsInMemory.find(c =>
-                      (order.userId && c.email === usersInMemory.find(u => u.id === order.userId)?.email && c.hostId === order.hostId) ||
-                      (order.clientNom && c.nom === order.clientNom && c.hostId === order.hostId)
-                  );
+                const clientUserId = order.userId;
+                if (clientUserId) {
+                  const clientRecord = clientsInMemory.find(c => c.userId === clientUserId && c.hostId === order.hostId);
+                  if (clientRecord) {
+                     await addPointsToClient(clientRecord.id, pointsEarned, order.hostId);
+                     order.pointsGagnes = pointsEarned;
+                     log(`Awarded ${pointsEarned} loyalty points to client (user ID ${clientUserId}) for order ${order.id}`);
+                  }
+                } else if (order.clientNom) { // Fallback to client name if no userId
+                  const clientRecord = clientsInMemory.find(c => c.nom === order.clientNom && c.hostId === order.hostId);
                   if (clientRecord) {
                      await addPointsToClient(clientRecord.id, pointsEarned, order.hostId);
                      order.pointsGagnes = pointsEarned;
                      log(`Awarded ${pointsEarned} loyalty points to client ${clientRecord.nom} for order ${order.id}`);
                   }
+                }
               }
           }
       }
@@ -1179,6 +1199,17 @@ export const getClientRecordsByEmail = async (email: string): Promise<Client[]> 
   }
 };
 
+export const getClientRecordsByUserId = async (userId: string): Promise<Client[]> => {
+  log(`getClientRecordsByUserId called for userId: ${userId}. Using in-memory data.`);
+  try {
+    return [...clientsInMemory].filter(c => c.userId === userId)
+                  .sort((a,b) => (a.hostId || '').localeCompare(b.hostId || '')); // Sort by host or other criteria
+  } catch (e) {
+    console.error("Error in getClientRecordsByUserId (in-memory):", e);
+    return [];
+  }
+};
+
 export const addClientData = async (clientData: Omit<Client, 'id' | 'documents' | 'credit' | 'pointsFidelite'> & { hostId: string }): Promise<Client> => {
   log(`addClientData called. Data: ${JSON.stringify(clientData)}. Using in-memory data.`);
   try {
@@ -1192,9 +1223,10 @@ export const addClientData = async (clientData: Omit<Client, 'id' | 'documents' 
         id: `client-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         credit: 0,
         pointsFidelite: initialPoints,
+        userId: clientData.userId || undefined, // Ensure userId is passed if available
     };
     clientsInMemory.push(newClient);
-    log(`Client ${newClient.nom} added with ${initialPoints} signup loyalty points.`);
+    log(`Client ${newClient.nom} added with ${initialPoints} signup loyalty points for host ${clientData.hostId}.`);
     return newClient;
   } catch (e) {
     console.error("Error in addClientData (in-memory):", e);
@@ -1225,12 +1257,13 @@ export const deleteClientData = async (clientId: string): Promise<boolean> => {
     if (clientsInMemory.length < initialLength) {
       reservationsInMemory = reservationsInMemory.map(r => {
         if (r.clientId === clientId) {
-          return { ...r, clientId: undefined }; // Or delete the reservation if policy dictates
+          return { ...r, clientId: undefined, clientName: r.clientName || "Deleted Client" }; 
         }
         return r;
       });
       ordersInMemory = ordersInMemory.map(o => {
-        if (o.userId === clientId) { // Assuming userId on Order can be used to link back to a Client record in some scenarios
+        // Assuming Client.id might be used in Order.userId if the Client record was linked to a global User
+        if (o.userId && clientsInMemory.find(c => c.id === clientId && c.userId === o.userId)) {
             return { ...o, userId: undefined, clientNom: o.clientNom || "Deleted Client"};
         }
         return o;
@@ -1352,7 +1385,7 @@ export const addReservationToData = async (data: Omit<Reservation, 'id' | 'prixT
         const departure = new Date(data.dateDepart);
         const nights = Math.max(1, Math.ceil((departure.getTime() - arrival.getTime()) / (1000 * 3600 * 24)));
         prixTotalReservation = nights * location.prixParNuit;
-    } else if (location?.type === 'Table' && location.prixFixeReservation) {
+    } else if (location?.type === 'Table' && location.prixFixeReservation !== undefined) {
         prixTotalReservation = location.prixFixeReservation;
     }
     const newReservation: Reservation = {
@@ -1383,18 +1416,17 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
       const location = data.locationId ? await getRoomOrTableById(data.locationId) : await getRoomOrTableById(existingReservation.locationId);
       let prixTotalReservation = existingReservation.prixTotal;
 
-      // Recalculate price if dates or location change
       if(data.dateArrivee || data.dateDepart || data.locationId) {
         const arrivalDate = data.dateArrivee || existingReservation.dateArrivee;
-        const departureDate = data.dateDepart === null ? undefined : (data.dateDepart || existingReservation.dateDepart); // Handle explicit null for clearing dateDepart
+        const departureDate = data.dateDepart === null ? undefined : (data.dateDepart || existingReservation.dateDepart); 
         const currentType = location?.type || existingReservation.type;
 
-        if (currentType === 'Chambre' && location?.prixParNuit && departureDate) {
+        if (currentType === 'Chambre' && location?.prixParNuit !== undefined && departureDate) {
             const arrival = new Date(arrivalDate);
             const departure = new Date(departureDate);
             const nights = Math.max(1, Math.ceil((departure.getTime() - arrival.getTime()) / (1000 * 3600 * 24)));
             prixTotalReservation = nights * location.prixParNuit;
-        } else if (currentType === 'Table' && location?.prixFixeReservation) {
+        } else if (currentType === 'Table' && location?.prixFixeReservation !== undefined) {
             prixTotalReservation = location.prixFixeReservation;
         }
       }
@@ -1419,15 +1451,21 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
           } else if (updatedReservation.type === 'Table' && host.loyaltySettings.pointsPerTableBooking > 0) {
             pointsEarned += host.loyaltySettings.pointsPerTableBooking;
           }
+          
+          // Add points for total spent only if it hasn't been awarded via order completion
+          // This logic might need refinement to avoid double-counting if orders are part of a reservation bill
           if (updatedReservation.prixTotal && updatedReservation.prixTotal > 0 && host.loyaltySettings.pointsPerEuroSpent > 0) {
              pointsEarned += Math.floor(updatedReservation.prixTotal * host.loyaltySettings.pointsPerEuroSpent);
           }
 
           if (pointsEarned > 0) {
              let clientToAwardPoints: Client | undefined = undefined;
+             // Prefer linking via clientId which might be a User.id or a Client.id
              if (updatedReservation.clientId) {
-                clientToAwardPoints = clientsInMemory.find(c => c.id === updatedReservation.clientId && c.hostId === updatedReservation.hostId);
-             } else {
+                clientToAwardPoints = clientsInMemory.find(c => c.id === updatedReservation.clientId && c.hostId === updatedReservation.hostId) || clientsInMemory.find(c => c.userId === updatedReservation.clientId && c.hostId === updatedReservation.hostId);
+             }
+             // Fallback to name if no clientId match
+             if (!clientToAwardPoints && updatedReservation.clientName) {
                 clientToAwardPoints = clientsInMemory.find(c => c.nom === updatedReservation.clientName && c.hostId === updatedReservation.hostId);
              }
              if (clientToAwardPoints) {
@@ -1463,7 +1501,13 @@ export const deleteReservationInData = async (id: string): Promise<boolean> => {
 export const getReservationsByUserId = async (userId: string): Promise<Reservation[]> => {
   log(`getReservationsByUserId called for userId: ${userId}. Using in-memory data.`);
   try {
-    return [...reservationsInMemory].filter(r => r.clientId === userId) 
+    // Find Client records linked to this User.id
+    const clientRecords = clientsInMemory.filter(c => c.userId === userId);
+    const clientRecordIds = clientRecords.map(cr => cr.id);
+
+    // Find reservations linked either by User.id directly (if clientId on reservation means User.id)
+    // OR by any of the Client.id records linked to this user.
+    return [...reservationsInMemory].filter(r => r.clientId === userId || (r.clientId && clientRecordIds.includes(r.clientId))) 
       .sort((a, b) => new Date(b.dateArrivee).getTime() - new Date(a.dateArrivee).getTime());
   } catch (e) {
     console.error("Error in getReservationsByUserId (in-memory):", e);
@@ -1496,7 +1540,3 @@ log(`Orders: ${ordersInMemory.length}, Clients: ${clientsInMemory.length}, Reser
 export {
   // No need to re-export types
 };
-
-    
-
-    

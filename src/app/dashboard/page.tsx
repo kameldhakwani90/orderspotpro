@@ -20,7 +20,7 @@ export default function DashboardRedirectPage() {
           router.replace('/host/dashboard');
           break;
         case 'client':
-          router.replace('/settings'); // Changed from '/client/landing'
+          router.replace('/client/dashboard'); // Redirect client to their new dashboard
           break;
         default:
           router.replace('/login');

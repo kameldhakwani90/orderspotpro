@@ -20,9 +20,9 @@ export interface ReservationPageSettings {
 
 export interface LoyaltySettings {
   enabled: boolean;
-  pointsPerEuroSpent: number;
-  pointsPerNightRoom: number;
-  pointsPerTableBooking: number;
+  pointsPerEuroSpent: number; // Ex: 1 point pour 1 euro dépensé
+  pointsPerNightRoom: number; // Ex: 10 points par nuit de chambre
+  pointsPerTableBooking: number; // Ex: 5 points par réservation de table
   pointsForNewClientSignup?: number;
 }
 
@@ -40,7 +40,7 @@ export interface Site { // Represents a Global Site
   hostId: string;
   logoUrl?: string;
   logoAiHint?: string;
-  primaryColor?: string; // HEX string
+  primaryColor?: string; // HEX string, e.g., "#FF5733"
 }
 
 export interface Tag {
@@ -74,8 +74,8 @@ export interface RoomOrTable {
   imageAiHint?: string;
   tagIds?: string[];
   amenityIds?: string[];
-  prixParNuit?: number;
-  prixFixeReservation?: number;
+  prixParNuit?: number; // For rooms
+  prixFixeReservation?: number; // For tables
 }
 
 export interface ServiceCategory {
@@ -134,8 +134,8 @@ export interface Order {
   serviceId: string;
   hostId: string;
   chambreTableId: string;
-  clientNom?: string;
-  userId?: string;
+  clientNom?: string; // Name used for the order
+  userId?: string; // Link to User.id if the client is a registered user
   donneesFormulaire: string;
   dateHeure: string; // ISO string
   status: OrderStatus;
@@ -157,12 +157,12 @@ export interface Client {
     type: ClientType;
     dateArrivee?: string; // YYYY-MM-DD
     dateDepart?: string;  // YYYY-MM-DD
-    locationId?: string;
+    locationId?: string; // Associated RoomOrTable ID
     notes?: string;
     documents?: Array<{ name: string; url: string; uploadedAt: string }>;
     credit?: number;
     pointsFidelite?: number;
-    userId?: string;
+    userId?: string; // Link to global User.id
 }
 
 export type ReservationStatus = "pending" | "confirmed" | "cancelled" | "checked-in" | "checked-out";
@@ -171,7 +171,7 @@ export type OnlineCheckinStatus = 'not-started' | 'pending-review' | 'completed'
 export interface OnlineCheckinData {
   fullName?: string;
   email?: string;
-  birthDate?: string;
+  birthDate?: string; // YYYY-MM-DD
   phoneNumber?: string;
   travelReason?: string;
   additionalNotes?: string;
@@ -183,7 +183,7 @@ export interface Reservation {
   hostId: string;
   locationId: string;
   type?: 'Chambre' | 'Table';
-  clientId?: string; // Corresponds to User.id if the client is a registered user
+  clientId?: string; // Link to Client.id (host-specific client record) or directly to User.id
   clientName: string; // Name used for the reservation (can be guest name or registered user's name)
   dateArrivee: string; // YYYY-MM-DD
   dateDepart?: string; // YYYY-MM-DD, optional for tables
@@ -191,7 +191,7 @@ export interface Reservation {
   animauxDomestiques?: boolean;
   notes?: string;
   status?: ReservationStatus;
-  channel?: string;
+  channel?: string; // e.g., "Booking.com", "Direct", "Phone"
   prixTotal?: number;
   montantPaye?: number;
   soldeDu?: number;
@@ -203,12 +203,12 @@ export interface Reservation {
   checkoutNotes?: string;
 }
 
+// For enriching reservation data with names
 export interface EnrichedReservation extends Reservation {
   hostName?: string;
   locationName?: string;
   locationType?: 'Chambre' | 'Table' | 'Site';
 }
-
 
 export interface NavItem {
   label: string;
@@ -218,13 +218,6 @@ export interface NavItem {
   children?: NavItem[];
   isChidren?: boolean;
   external?: boolean;
-}
-
-export interface ClientDetails { // For host-side client file page
-  name: string;
-  orders: (Order & { serviceName?: string; locationName?: string })[];
-  // This might be replaced by distinct Client records
-  locations: (RoomOrTable & { globalSiteName?: string })[];
 }
 
 // Types for Chat Functionality (Placeholders for now)
