@@ -14,12 +14,11 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem
 } from '@/components/ui/dropdown-menu';
 import {
-  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon, Settings2, ChevronsUpDown, MessageSquare, LayoutDashboard, UserCircle // Added LayoutDashboard, UserCircle
+  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon, Settings2, ChevronsUpDown, MessageSquare, LayoutDashboard, UserCircle
 } from 'lucide-react'; 
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -28,14 +27,14 @@ import { useToast } from '@/hooks/use-toast';
 
 
 const adminNavItems: NavItem[] = [
-  { label: 'Dashboard', href: '/admin/dashboard', icon: Home, allowedRoles: ['admin'] },
+  { label: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, allowedRoles: ['admin'] },
   { label: 'Manage Users', href: '/admin/users', icon: Users, allowedRoles: ['admin'] },
   { label: 'Manage Global Sites', href: '/admin/sites', icon: Building2, allowedRoles: ['admin'] },
   { label: 'Manage Hosts', href: '/admin/hosts', icon: UserCog, allowedRoles: ['admin'] },
 ];
 
 const hostNavItems: NavItem[] = [
-  { label: 'Dashboard', href: '/host/dashboard', icon: Home, allowedRoles: ['host'] },
+  { label: 'Dashboard', href: '/host/dashboard', icon: LayoutDashboard, allowedRoles: ['host'] },
   { label: 'Client Orders', href: '/host/orders', icon: ShoppingCart, allowedRoles: ['host'] },
   { label: 'Reservations', href: '/host/reservations', icon: CalendarCheck, allowedRoles: ['host'] }, 
   { label: 'Gestion Clients', href: '/host/clients', icon: Users, allowedRoles: ['host'] },
@@ -51,16 +50,14 @@ const hostNavItems: NavItem[] = [
       { label: 'Custom Forms', href: '/host/forms', icon: FileText, allowedRoles: ['host'] },
       { label: 'My Services', href: '/host/services', icon: ClipboardList, allowedRoles: ['host'] },
       { label: 'Paramètres & Fidélité', href: '/host/reservation-settings', icon: Settings2, allowedRoles: ['host'] },
-      { label: 'Mon Compte', href: '/settings', icon: UserCircle, allowedRoles: ['host'] }, // Moved here for host
     ]
   }
 ];
 
 const clientNavItems: NavItem[] = [
   { label: 'Tableau de Bord', href: '/client/dashboard', icon: LayoutDashboard, allowedRoles: ['client'] },
-  { label: 'Mes Réservations', href: '/client/my-reservations', icon: CalendarCheck, allowedRoles: ['client'] }, // Changed icon
-  // { label: 'Mes Commandes', href: '/client/my-orders', icon: ShoppingCart, allowedRoles: ['client'] }, // Future page
-  // { label: 'Mes Factures', href: '/client/my-invoices', icon: FileText, allowedRoles: ['client'] }, // Future page
+  { label: 'Mes Réservations', href: '/client/my-reservations', icon: CalendarCheck, allowedRoles: ['client'] },
+  { label: 'Mes Commandes', href: '/client/my-orders', icon: ShoppingCart, allowedRoles: ['client'] },
   { label: 'Mon Compte', href: '/settings', icon: UserCircle, allowedRoles: ['client'] },
 ];
 
@@ -109,7 +106,14 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             }
         };
         const newOpenMenus: Record<string, boolean> = {};
-        navItemsForCurrentUserRole().forEach(item => {
+        const allItems = [...navItemsForCurrentUserRole()];
+        if (user.role === 'host') { // Add host's "Mon Compte" which is not in a group
+            allItems.push({ label: 'Mon Compte', href: '/settings', icon: UserCircle, allowedRoles: ['host'] });
+        } else if (user.role === 'admin') {
+            allItems.push({ label: 'Mon Compte', href: '/settings', icon: UserCircle, allowedRoles: ['admin'] });
+        }
+
+        allItems.forEach(item => {
           if (item.children && item.children.some(child => pathname.startsWith(child.href) && child.href !== '#')) {
             newOpenMenus[item.label] = true;
           }
@@ -142,23 +146,26 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const userInitial = user.nom ? user.nom.charAt(0).toUpperCase() : '?';
   
   let currentNavItemsBasedOnRole: NavItem[] = [];
+  let accountSettingsItem: NavItem | null = null;
+
   switch (user.role) {
       case 'admin':
           currentNavItemsBasedOnRole = adminNavItems;
+          accountSettingsItem = { label: 'Mon Compte', href: '/settings', icon: UserCircle, allowedRoles: ['admin'] };
           break;
       case 'host':
           currentNavItemsBasedOnRole = hostNavItems;
+          // Host account settings is now under the "Configuration" group, so no separate top-level item needed here.
           break;
       case 'client':
           currentNavItemsBasedOnRole = clientNavItems;
+          // Client account settings is already part of clientNavItems.
           break;
   }
 
-  // General settings link only for admin, as it's now part of submenus for host and client
-  const settingsItemForAdmin: NavItem = { label: 'Mon Compte', href: '/settings', icon: UserCircle, allowedRoles: ['admin'] };
-  let allNavItemsForUser: NavItem[] = [...currentNavItemsBasedOnRole];
-  if (user.role === 'admin' && !allNavItemsForUser.some(item => item.href === '/settings')) {
-      allNavItemsForUser.push(settingsItemForAdmin);
+  const allNavItemsForUser: NavItem[] = [...currentNavItemsBasedOnRole];
+  if (accountSettingsItem && !allNavItemsForUser.some(item => item.href === '/settings')) {
+      allNavItemsForUser.push(accountSettingsItem);
   }
 
 
@@ -174,8 +181,6 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }
 
     let isActive;
-    
-    // More precise active state for dashboard links
     const isDashboardLikeLink = item.href.endsWith('/dashboard');
     
     if (isDashboardLikeLink) {
@@ -369,6 +374,12 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                    <DropdownMenuItem onClick={() => router.push('/client/my-reservations')}>
                      <CalendarCheck className="mr-2 h-4 w-4" />
                      <span>Mes Réservations</span>
+                   </DropdownMenuItem>
+                )}
+                 {user.role === 'client' && (
+                   <DropdownMenuItem onClick={() => router.push('/client/my-orders')}>
+                     <ShoppingCart className="mr-2 h-4 w-4" />
+                     <span>Mes Commandes</span>
                    </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />

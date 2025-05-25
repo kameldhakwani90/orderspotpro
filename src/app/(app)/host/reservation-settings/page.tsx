@@ -10,10 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, Image as ImageIcon, BedDouble, Utensils, Link as LinkIcon, Copy, Settings2, Gift } from 'lucide-react'; 
+import { AlertTriangle, Image as ImageIcon, BedDouble, Utensils, Link as LinkIcon, Copy, Settings2, Gift, Globe, Palette } from 'lucide-react'; 
 
 const defaultReservationSettings: ReservationPageSettings = {
   enableRoomReservations: true,
@@ -30,6 +31,21 @@ const defaultLoyaltySettings: LoyaltySettings = {
   pointsForNewClientSignup: 0,
 };
 
+const supportedCurrencies = [
+    { value: 'USD', label: 'USD - Dollar Américain' },
+    { value: 'EUR', label: 'EUR - Euro' },
+    { value: 'TND', label: 'TND - Dinar Tunisien' },
+    { value: 'GBP', label: 'GBP - Livre Sterling' },
+    // Add more as needed
+];
+
+const supportedLanguages = [
+    { value: 'fr', label: 'Français' },
+    { value: 'en', label: 'English' },
+    { value: 'ar', label: 'العربية (Arabe)' },
+    // Add more as needed
+];
+
 export default function HostReservationSettingsPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
@@ -41,6 +57,9 @@ export default function HostReservationSettingsPage() {
   const [managedGlobalSites, setManagedGlobalSites] = useState<GlobalSiteType[]>([]); 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedCurrency, setSelectedCurrency] = useState<string>('USD');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('fr');
+
 
   const fetchData = useCallback(async (hostId: string) => {
     setIsLoading(true);
@@ -54,6 +73,8 @@ export default function HostReservationSettingsPage() {
         setHostSettings(hostData.reservationPageSettings || defaultReservationSettings);
         setLoyaltySettings(hostData.loyaltySettings || defaultLoyaltySettings);
         setHostName(hostData.nom);
+        setSelectedCurrency(hostData.currency || 'USD');
+        setSelectedLanguage(hostData.language || 'fr');
       } else {
         toast({ title: "Erreur", description: "Informations de l'hôte non trouvées.", variant: "destructive" });
         router.replace('/host/dashboard');
@@ -133,6 +154,8 @@ export default function HostReservationSettingsPage() {
             : 'establishment banner',
         },
         loyaltySettings: loyaltySettings,
+        currency: selectedCurrency,
+        language: selectedLanguage,
       };
       await updateHost(user.hostId, updatedHostData);
       toast({ title: "Paramètres Enregistrés", description: "Vos paramètres ont été mis à jour." });
@@ -156,15 +179,10 @@ export default function HostReservationSettingsPage() {
       <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
         <Skeleton className="h-10 w-3/4 mb-2" />
         <Skeleton className="h-6 w-1/2 mb-8" />
-        <div className="grid lg:grid-cols-2 gap-8">
-            <Card className="shadow-lg">
-                <CardHeader><Skeleton className="h-8 w-1/3 mb-2" /><Skeleton className="h-5 w-2/3" /></CardHeader>
-                <CardContent className="space-y-6"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></CardContent>
-            </Card>
-            <Card className="shadow-lg">
-                <CardHeader><Skeleton className="h-8 w-1/3 mb-2" /><Skeleton className="h-5 w-2/3" /></CardHeader>
-                <CardContent className="space-y-6"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></CardContent>
-            </Card>
+        <div className="grid lg:grid-cols-3 gap-8">
+            <Card className="shadow-lg"><CardHeader><Skeleton className="h-8 w-1/3 mb-2" /><Skeleton className="h-5 w-2/3" /></CardHeader><CardContent className="space-y-6"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></CardContent></Card>
+            <Card className="shadow-lg"><CardHeader><Skeleton className="h-8 w-1/3 mb-2" /><Skeleton className="h-5 w-2/3" /></CardHeader><CardContent className="space-y-6"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></CardContent></Card>
+            <Card className="shadow-lg"><CardHeader><Skeleton className="h-8 w-1/3 mb-2" /><Skeleton className="h-5 w-2/3" /></CardHeader><CardContent className="space-y-6"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></CardContent></Card>
         </div>
         <Card className="shadow-lg mt-8"><CardHeader><Skeleton className="h-8 w-1/2 mb-2" /></CardHeader><CardContent><Skeleton className="h-20 w-full" /></CardContent></Card>
         <div className="mt-8 flex justify-start"><Skeleton className="h-10 w-32" /></div>
@@ -175,10 +193,10 @@ export default function HostReservationSettingsPage() {
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8 space-y-8">
       <div>
-        <h1 className="text-4xl font-bold tracking-tight text-foreground">Paramètres de Réservation & Fidélité</h1>
-        <p className="text-lg text-muted-foreground">Personnalisez la page de réservation publique et le programme de fidélité.</p>
+        <h1 className="text-4xl font-bold tracking-tight text-foreground">Paramètres Généraux & Réservation</h1>
+        <p className="text-lg text-muted-foreground">Personnalisez la page de réservation, la fidélité, la devise et la langue.</p>
       </div>
-    <div className="grid lg:grid-cols-2 gap-8 items-start">
+    <div className="grid lg:grid-cols-3 gap-8 items-start">
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center"><Settings2 className="mr-2 h-5 w-5 text-primary"/>Affichage & Fonctionnalités Réservation</CardTitle>
@@ -258,7 +276,7 @@ export default function HostReservationSettingsPage() {
                         <Input id="pointsForNewClientSignup" name="pointsForNewClientSignup" type="number" value={loyaltySettings.pointsForNewClientSignup || 0} onChange={(e) => handleInputChange(e, 'loyalty')} disabled={isSubmitting || !loyaltySettings.enabled} min="0" />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="pointsPerEuroSpent">Points gagnés par Euro dépensé (Commandes)</Label>
+                        <Label htmlFor="pointsPerEuroSpent">Points gagnés par Devise dépensée (Commandes)</Label>
                         <Input id="pointsPerEuroSpent" name="pointsPerEuroSpent" type="number" value={loyaltySettings.pointsPerEuroSpent || 0} onChange={(e) => handleInputChange(e, 'loyalty')} disabled={isSubmitting || !loyaltySettings.enabled} min="0" step="0.1"/>
                     </div>
                     <div className="space-y-2">
@@ -273,8 +291,39 @@ export default function HostReservationSettingsPage() {
             )}
         </CardContent>
       </Card>
+      
+      <Card className="shadow-lg">
+        <CardHeader>
+            <CardTitle className="flex items-center"><Palette className="mr-2 h-5 w-5 text-primary"/>Devise & Langue</CardTitle>
+            <CardDescription>Choisissez la devise et la langue principale pour votre établissement.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+            <div className="space-y-2">
+                <Label htmlFor="currency">Devise</Label>
+                <Select value={selectedCurrency} onValueChange={setSelectedCurrency} disabled={isSubmitting}>
+                    <SelectTrigger id="currency"><SelectValue placeholder="Choisir une devise" /></SelectTrigger>
+                    <SelectContent>
+                        {supportedCurrencies.map(curr => (
+                            <SelectItem key={curr.value} value={curr.value}>{curr.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="language">Langue Principale</Label>
+                <Select value={selectedLanguage} onValueChange={setSelectedLanguage} disabled={isSubmitting}>
+                    <SelectTrigger id="language"><SelectValue placeholder="Choisir une langue" /></SelectTrigger>
+                    <SelectContent>
+                         {supportedLanguages.map(lang => (
+                            <SelectItem key={lang.value} value={lang.value}>{lang.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Note: Le changement de langue affectera l'interface pour cet hôte. L'internationalisation complète est une fonctionnalité future.</p>
+            </div>
+        </CardContent>
+      </Card>
     </div>
-
 
       <Card className="shadow-lg max-w-4xl mx-auto">
         <CardHeader>
@@ -324,5 +373,3 @@ export default function HostReservationSettingsPage() {
     </div>
   );
 }
-
-    

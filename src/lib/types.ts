@@ -20,9 +20,9 @@ export interface ReservationPageSettings {
 
 export interface LoyaltySettings {
   enabled: boolean;
-  pointsPerEuroSpent: number; // Ex: 1 point pour 1 euro dépensé
-  pointsPerNightRoom: number; // Ex: 10 points par nuit de chambre
-  pointsPerTableBooking: number; // Ex: 5 points par réservation de table
+  pointsPerEuroSpent: number; 
+  pointsPerNightRoom: number; 
+  pointsPerTableBooking: number; 
   pointsForNewClientSignup?: number;
 }
 
@@ -32,6 +32,8 @@ export interface Host {
   email: string;
   reservationPageSettings?: ReservationPageSettings;
   loyaltySettings?: LoyaltySettings;
+  currency?: string; // e.g., "USD", "EUR", "TND"
+  language?: string; // e.g., "fr", "en", "ar"
 }
 
 export interface Site { // Represents a Global Site
@@ -144,6 +146,7 @@ export interface Order {
   soldeDu?: number;
   paiements?: Paiement[];
   pointsGagnes?: number;
+  currency?: string; // Added currency
 }
 
 export type ClientType = "heberge" | "passager";
@@ -186,7 +189,7 @@ export interface Reservation {
   clientId?: string; // Link to Client.id (host-specific client record) or directly to User.id
   clientName: string; // Name used for the reservation (can be guest name or registered user's name)
   dateArrivee: string; // YYYY-MM-DD
-  dateDepart?: string; // YYYY-MM-DD, optional for tables
+  dateDepart?: string | undefined; // YYYY-MM-DD, optional for tables
   nombrePersonnes: number;
   animauxDomestiques?: boolean;
   notes?: string;
@@ -201,6 +204,7 @@ export interface Reservation {
   onlineCheckinStatus?: OnlineCheckinStatus;
   clientInitiatedCheckoutTime?: string; // ISO string
   checkoutNotes?: string;
+  currency?: string; // Added currency
 }
 
 // For enriching reservation data with names
