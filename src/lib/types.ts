@@ -1,4 +1,5 @@
 // src/lib/types.ts
+import type { LucideIcon } from 'lucide-react';
 
 export type UserRole = "admin" | "host" | "client";
 
@@ -20,9 +21,9 @@ export interface ReservationPageSettings {
 
 export interface LoyaltySettings {
   enabled: boolean;
-  pointsPerEuroSpent: number; 
-  pointsPerNightRoom: number; 
-  pointsPerTableBooking: number; 
+  pointsPerEuroSpent: number;
+  pointsPerNightRoom: number;
+  pointsPerTableBooking: number;
   pointsForNewClientSignup?: number;
 }
 
@@ -78,6 +79,7 @@ export interface RoomOrTable {
   amenityIds?: string[];
   prixParNuit?: number; // For rooms
   prixFixeReservation?: number; // For tables
+  menuCardId?: string; // ID of the MenuCard associated with this location
 }
 
 export interface ServiceCategory {
@@ -146,7 +148,7 @@ export interface Order {
   soldeDu?: number;
   paiements?: Paiement[];
   pointsGagnes?: number;
-  currency?: string; // Added currency
+  currency?: string;
 }
 
 export type ClientType = "heberge" | "passager";
@@ -186,15 +188,15 @@ export interface Reservation {
   hostId: string;
   locationId: string;
   type?: 'Chambre' | 'Table';
-  clientId?: string; // Link to Client.id (host-specific client record) or directly to User.id
-  clientName: string; // Name used for the reservation (can be guest name or registered user's name)
+  clientId?: string;
+  clientName: string;
   dateArrivee: string; // YYYY-MM-DD
   dateDepart?: string | undefined; // YYYY-MM-DD, optional for tables
   nombrePersonnes: number;
   animauxDomestiques?: boolean;
   notes?: string;
   status?: ReservationStatus;
-  channel?: string; // e.g., "Booking.com", "Direct", "Phone"
+  channel?: string;
   prixTotal?: number;
   montantPaye?: number;
   soldeDu?: number;
@@ -204,7 +206,7 @@ export interface Reservation {
   onlineCheckinStatus?: OnlineCheckinStatus;
   clientInitiatedCheckoutTime?: string; // ISO string
   checkoutNotes?: string;
-  currency?: string; // Added currency
+  currency?: string;
 }
 
 // For enriching reservation data with names
@@ -217,10 +219,10 @@ export interface EnrichedReservation extends Reservation {
 export interface NavItem {
   label: string;
   href: string;
-  icon: React.ElementType;
+  icon: LucideIcon; // Using LucideIcon type
   allowedRoles: UserRole[];
   children?: NavItem[];
-  isChidren?: boolean;
+  isChidren?: boolean; // Typo? Should be isChildren?
   external?: boolean;
 }
 
@@ -245,3 +247,87 @@ export interface ChatConversation {
   clientAvatar?: string;
   hostAvatar?: string;
 }
+
+// Types for Menu Cards (Food & Beverage)
+export interface MenuCard {
+  id: string;
+  name: string;
+  hostId: string;
+  globalSiteId: string;
+  description?: string;
+  isActive: boolean;
+}
+
+export interface MenuCategory {
+  id: string;
+  name: string;
+  menuCardId: string;
+  hostId: string; // Added hostId for easier querying
+  description?: string;
+  displayOrder?: number;
+}
+
+export interface MenuItem {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  imageUrl?: string;
+  imageAiHint?: string;
+  menuCategoryId: string;
+  hostId: string; // Added hostId for easier querying
+  // For future configurable products:
+  // options?: MenuItemOptionGroup[];
+  // isConfigurable?: boolean;
+}
+
+// export interface MenuItemOptionGroup {
+//   id: string;
+//   name: string; // e.g., "Taille", "Type de Lait", "Supplément"
+//   selectionType: 'single' | 'multiple'; // ou 'required-single'
+//   options: MenuItemOption[];
+//   displayOrder?: number;
+// }
+
+// export interface MenuItemOption {
+//   id: string;
+//   name: string; // e.g., "Moyen", "Lait d'avoine", "Chantilly"
+//   priceAdjustment?: number; // e.g., 0.5 pour un supplément
+//   isDefault?: boolean;
+// }
+
+// For Language Context
+export type LanguageCode = 'fr' | 'en' | 'ar';
+export type TranslationKeys =
+  | 'welcomeTo' | 'servicesFor' | 'room' | 'table' | 'backToCategories' | 'noServicesInCategory'
+  | 'loginRequired' | 'loginToOrder' | 'orderNow' | 'viewDetails' | 'serviceNotFound' | 'establishmentNotFound'
+  | 'locationNotFound' | 'errorLoadingServiceDetails' | 'goBack' | 'loginToContinue' | 'orderFor'
+  | 'submitRequest' | 'submitting' | 'orderSuccessTitle' | 'orderSuccessDescription' | 'backToServices'
+  | 'cancelAndBackToServices' | 'searchType' | 'arrivalDate' | 'departureDate' | 'guests' | 'filter'
+  | 'search' | 'noAvailability' | 'noAvailabilityDescription' | 'availableLocations' | 'selectLocation'
+  | 'detailsOfYourSelection' | 'pricePerNight' | 'totalEstimatedPrice' | 'bookNow' | 'confirmReservation'
+  | 'bookingInProgress' | 'bookingSuccessTitle' | 'bookingSuccessDescription' | 'anotherSearch'
+  | 'errorLoadingLocationDetails' | 'locationDetailsNotFound' | 'whatThisPlaceOffers'
+  | 'adults' | 'children' | 'infants' | 'pets' | 'selectLanguage' | 'reserveYourStayAt'
+  | 'findYourIdealAccommodation' | 'when' | 'numTravelers' | 'numInfants' | 'numPets' | 'filterByTags'
+  | 'login' | 'logout' | 'myAccount' | 'footerText' | 'chatComingSoon' | 'orderService' | 'serviceDescription'
+  | 'servicePrice' | 'additionalInformation' | 'onlineCheckin' | 'welcomeUser' | 'prepareYourArrivalAt'
+  | 'forLocation' | 'from' | 'to' | 'persons' | 'startCheckin' | 'yourInformation' | 'checkAndComplete'
+  | 'fullName' | 'email' | 'birthDate' | 'phoneNumber' | 'travelReason' | 'additionalNotes'
+  | 'exampleHolidayBusiness' | 'exampleAllergiesRequests' | 'identityDocument' | 'idDocPlaceholder'
+  | 'digitalSignature' | 'signaturePlaceholder' | 'submitInformation' | 'submittingInProgress'
+  | 'checkinSubmittedTitle' | 'checkinSubmittedDescription' | 'youCanClosePage' | 'backToSiteHome'
+  | 'errorAccessingReservation' | 'errorLoadingReservationDetails' | 'reservationDetailsNotAvailable'
+  | 'checkoutConfirmation' | 'helloUser' | 'aboutToConfirmCheckout' | 'dates' | 'location'
+  | 'currentStatus' | 'billingSummaryExample' | 'estimatedTotal' | 'amountPaid' | 'balanceDue'
+  | 'pleaseSettleBalance' | 'departureNotesOptional' | 'exampleEverythingPerfect' | 'confirmAndCheckout'
+  | 'processingInProgress' | 'checkoutConfirmedTitle' | 'checkoutConfirmedDescription' | 'hopeToSeeYouSoon'
+  | 'errorCheckout' | 'errorConfirmingCheckout' | 'reservationAlreadyFinalized'
+  | 'reservationCancelledMessage' | 'checkoutProcessedOrCancelled'
+  ;
+
+export type Translations = {
+  [key in LanguageCode]: {
+    [key in TranslationKeys]?: string;
+  };
+};

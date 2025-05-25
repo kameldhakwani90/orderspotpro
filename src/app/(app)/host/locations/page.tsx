@@ -1,4 +1,4 @@
-
+// src/app/(app)/host/locations/page.tsx
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -10,9 +10,10 @@ import {
   updateRoomOrTable as updateLocationInData, 
   deleteRoomOrTable as deleteLocationInData, 
   getSites as fetchGlobalSitesForHost, 
-  getTags as fetchHostTags 
+  getTags as fetchHostTags,
+  getMenuCards // Added
 } from '@/lib/data';
-import type { RoomOrTable, Site as GlobalSiteType, Tag } from '@/lib/types';
+import type { RoomOrTable, Site as GlobalSiteType, Tag, AmenityOption, MenuCard } from '@/lib/types'; // Added MenuCard
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,7 +23,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   PlusCircle, Edit2, Trash2, QrCode, Copy, Landmark, Bed, Utensils, Building, Users, 
-  Tag as TagIconLucide, FileImage, Info, CopyPlus, DollarSign, ChevronRight, ChevronDown, FolderPlus
+  Tag as TagIconLucide, FileImage, Info, CopyPlus, DollarSign, ChevronRight, ChevronDown, FolderPlus, Utensils as MenuIcon
 } from 'lucide-react';
 import {
   Dialog,
@@ -47,15 +48,15 @@ import { PREDEFINED_AMENITIES, AmenityCategory } from '@/lib/amenities';
 import { cn } from '@/lib/utils';
 
 type AssignableParentOption = {
-  id: string; // This ID can be a GlobalSite.siteId or a RoomOrTable.id (if type is 'Site')
+  id: string; 
   name: string;
   isGlobalSite: boolean;
-  actualGlobalSiteId: string; // The ultimate GlobalSite this belongs to
-  actualParentLocationId?: string; // The direct RoomOrTable.id if not a GlobalSite
+  actualGlobalSiteId: string; 
+  actualParentLocationId?: string;
 };
 
 interface TreeNode {
-  id: string; // For GlobalSite, this is siteId. For RoomOrTable, this is id.
+  id: string; 
   name: string;
   type: 'GlobalSite' | RoomOrTable['type'];
   data: GlobalSiteType | RoomOrTable;
@@ -65,19 +66,22 @@ interface TreeNode {
 
 const buildLocationTree = (globalSites: GlobalSiteType[], locations: RoomOrTable[]): TreeNode[] => {
   const tree: TreeNode[] = [];
-  
-  // Helper to recursively find children for a RoomOrTable of type 'Site'
-  const findChildrenForSite = (parentId: string, allLocations: RoomOrTable[], currentDepth: number): TreeNode[] => {
-    return allLocations
+  const locationsMap = new Map(locations.map(loc => [loc.id, { ...loc, children: [] as TreeNode[] }]));
+
+  const findChildrenForSite = (parentId: string, currentDepth: number): TreeNode[] => {
+    return locations
       .filter(loc => loc.parentLocationId === parentId)
-      .map(loc => ({
-        id: loc.id,
-        name: loc.nom,
-        type: loc.type,
-        data: loc,
-        children: loc.type === 'Site' ? findChildrenForSite(loc.id, allLocations, currentDepth + 1) : [],
-        depth: currentDepth,
-      }))
+      .map(loc => {
+        const mappedLoc = locationsMap.get(loc.id)!;
+        return {
+          id: mappedLoc.id,
+          name: mappedLoc.nom,
+          type: mappedLoc.type,
+          data: mappedLoc,
+          children: mappedLoc.type === 'Site' ? findChildrenForSite(mappedLoc.id, currentDepth + 1) : [],
+          depth: currentDepth,
+        };
+      })
       .sort((a, b) => a.name.localeCompare(b.name));
   };
 
@@ -91,16 +95,16 @@ const buildLocationTree = (globalSites: GlobalSiteType[], locations: RoomOrTable
       depth: 0,
     };
     
-    // Find top-level 'Site' areas or Rooms/Tables directly under this Global Site
     locations
       .filter(loc => loc.globalSiteId === gs.siteId && !loc.parentLocationId)
       .forEach(topLevelLoc => {
+        const mappedTopLevelLoc = locationsMap.get(topLevelLoc.id)!;
         globalSiteNode.children.push({
-          id: topLevelLoc.id,
-          name: topLevelLoc.nom,
-          type: topLevelLoc.type,
-          data: topLevelLoc,
-          children: topLevelLoc.type === 'Site' ? findChildrenForSite(topLevelLoc.id, locations, 2) : [],
+          id: mappedTopLevelLoc.id,
+          name: mappedTopLevelLoc.nom,
+          type: mappedTopLevelLoc.type,
+          data: mappedTopLevelLoc,
+          children: mappedTopLevelLoc.type === 'Site' ? findChildrenForSite(mappedTopLevelLoc.id, 2) : [],
           depth: 1,
         });
       });
@@ -113,13 +117,14 @@ const buildLocationTree = (globalSites: GlobalSiteType[], locations: RoomOrTable
 
 
 export default function HostLocationsPage() {
-  const { user, isLoading: authLoading, selectedGlobalSite } = useAuth(); // Get selectedGlobalSite
+  const { user, isLoading: authLoading, selectedGlobalSite } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
   const [allLocations, setAllLocations] = useState<RoomOrTable[]>([]);
-  const [allGlobalSitesForHost, setAllGlobalSitesForHost] = useState<GlobalSiteType[]>([]); // All sites this host can manage
+  const [allGlobalSitesForHost, setAllGlobalSitesForHost] = useState<GlobalSiteType[]>([]);
   const [hostTags, setHostTags] = useState<Tag[]>([]);
+  const [hostMenuCards, setHostMenuCards] = useState<MenuCard[]>([]); // State for menu cards
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -139,6 +144,7 @@ export default function HostLocationsPage() {
     amenityIds?: string[];
     prixParNuit?: number;
     prixFixeReservation?: number;
+    menuCardId?: string; // Added menuCardId
   }>({
     nom: '',
     type: 'Chambre',
@@ -150,6 +156,7 @@ export default function HostLocationsPage() {
     amenityIds: [],
     prixParNuit: undefined,
     prixFixeReservation: undefined,
+    menuCardId: undefined, // Initialize menuCardId
   });
   
   const assignableParentOptions = useMemo((): AssignableParentOption[] => {
@@ -184,22 +191,22 @@ export default function HostLocationsPage() {
   const fetchData = useCallback(async (hostId: string) => {
     setIsLoading(true);
     try {
-      const [fetchedLocations, fetchedGlobalSites, fetchedTags] = await Promise.all([
+      const [fetchedLocations, fetchedGlobalSites, fetchedTags, fetchedMenuCards] = await Promise.all([ // Added fetchedMenuCards
         getRoomsOrTables(hostId),
         fetchGlobalSitesForHost(hostId),
-        fetchHostTags(hostId)
+        fetchHostTags(hostId),
+        getMenuCards(hostId) // Fetch all menu cards for the host
       ]);
       
       setAllLocations(fetchedLocations);
-      setAllGlobalSitesForHost(fetchedGlobalSites); // Store all sites the host manages
+      setAllGlobalSitesForHost(fetchedGlobalSites);
       setHostTags(fetchedTags);
+      setHostMenuCards(fetchedMenuCards); // Set menu cards state
 
-      // Build tree based on selectedGlobalSite or all sites if none selected
       const sitesForTree = selectedGlobalSite ? [selectedGlobalSite] : fetchedGlobalSites;
       const tree = buildLocationTree(sitesForTree, fetchedLocations);
       setLocationTree(tree);
       
-      // Auto-expand first level if it's a single global site view or if only one global site exists
       if (tree.length === 1) {
         setExpandedNodes(prev => ({...prev, [tree[0].id]: true}));
       }
@@ -211,7 +218,7 @@ export default function HostLocationsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast, selectedGlobalSite]); // selectedGlobalSite added as dependency
+  }, [toast, selectedGlobalSite]); 
 
   useEffect(() => {
     if (!authLoading) {
@@ -221,7 +228,7 @@ export default function HostLocationsPage() {
         fetchData(user.hostId);
       }
     }
-  }, [user, authLoading, router, fetchData]); // fetchData is stable due to useCallback
+  }, [user, authLoading, router, fetchData]);
 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { name: string, value: string | number }) => {
@@ -233,6 +240,12 @@ export default function HostLocationsPage() {
     const currentSetter = editingLocation ? setEditingLocation : setCurrentLocationData;
     currentSetter(prev => ({ ...prev, [name]: value }));
   };
+  
+  const handleSelectChange = (fieldName: string, value: string | undefined) => {
+    const currentSetter = editingLocation ? setEditingLocation : setCurrentLocationData;
+    currentSetter(prev => ({...prev, [fieldName]: value === '___NO_SELECTION___' ? undefined : value }));
+  };
+
 
   const handleTypeSelectChange = (value: RoomOrTable['type']) => {
     const currentSetter = editingLocation ? setEditingLocation : setCurrentLocationData;
@@ -318,7 +331,7 @@ export default function HostLocationsPage() {
       type: dataForSubmit.type!,
       hostId: user.hostId,
       globalSiteId: selectedParentOption.actualGlobalSiteId,
-      parentLocationId: selectedParentOption.isGlobalSite ? undefined : selectedParentOption.id, // Use .id for parent RoomOrTable
+      parentLocationId: selectedParentOption.isGlobalSite ? undefined : selectedParentOption.id,
       capacity: (dataForSubmit.type === 'Chambre' || dataForSubmit.type === 'Table') ? dataForSubmit.capacity : undefined,
       tagIds: dataForSubmit.tagIds || [],
       description: dataForSubmit.description || undefined,
@@ -327,6 +340,7 @@ export default function HostLocationsPage() {
       amenityIds: dataForSubmit.amenityIds || [],
       prixParNuit: dataForSubmit.type === 'Chambre' ? dataForSubmit.prixParNuit : undefined,
       prixFixeReservation: dataForSubmit.type === 'Table' ? dataForSubmit.prixFixeReservation : undefined,
+      menuCardId: dataForSubmit.menuCardId || undefined, // Save menuCardId
     };
     
     try {
@@ -344,7 +358,7 @@ export default function HostLocationsPage() {
     }
 
     setIsDialogOpen(false);
-    setCurrentLocationData({ nom: '', type: 'Chambre', selectedParentIdentifier: assignableParentOptions.length > 0 ? assignableParentOptions[0].id : '', capacity: undefined, tagIds: [], description: '', imageUrlsString: '', amenityIds: [], prixParNuit: undefined, prixFixeReservation: undefined });
+    setCurrentLocationData({ nom: '', type: 'Chambre', selectedParentIdentifier: assignableParentOptions.length > 0 ? assignableParentOptions[0].id : '', capacity: undefined, tagIds: [], description: '', imageUrlsString: '', amenityIds: [], prixParNuit: undefined, prixFixeReservation: undefined, menuCardId: undefined });
     setEditingLocation(null);
     setIsSubmitting(false);
   };
@@ -354,19 +368,18 @@ export default function HostLocationsPage() {
     const noAssignableParentsAvailable = assignableParentOptions.length === 0;
 
     if (noGlobalSiteContext || noAssignableParentsAvailable) {
-        toast({ title: "Cannot Add Location", description: "You must have at least one Global Site assigned and available for parenting. Contact an administrator if needed.", variant: "destructive"});
+        toast({ title: "Cannot Add Location", description: "You must have at least one Global Site assigned. Contact an administrator if needed.", variant: "destructive"});
         return;
     }
     setEditingLocation(null);
     let defaultParentIdentifier = '';
-    if (parentNode) { // If adding under a specific node in the tree
-        defaultParentIdentifier = parentNode.id; // This ID is GlobalSite.siteId or RoomOrTable.id
-    } else if (selectedGlobalSite) { // If a global site is selected in AppShell
+    if (parentNode) { 
+        defaultParentIdentifier = parentNode.id; 
+    } else if (selectedGlobalSite) { 
         defaultParentIdentifier = selectedGlobalSite.siteId;
-    } else if (assignableParentOptions.length > 0) { // Fallback to first available parent
+    } else if (assignableParentOptions.length > 0) { 
         defaultParentIdentifier = assignableParentOptions[0].id;
     }
-
 
     setCurrentLocationData({
         nom: '',
@@ -379,6 +392,7 @@ export default function HostLocationsPage() {
         amenityIds: [],
         prixParNuit: undefined,
         prixFixeReservation: undefined,
+        menuCardId: undefined,
     });
     setIsDialogOpen(true);
   };
@@ -403,6 +417,7 @@ export default function HostLocationsPage() {
         amenityIds: [...(locationToDuplicate.amenityIds || [])],
         prixParNuit: locationToDuplicate.prixParNuit,
         prixFixeReservation: locationToDuplicate.prixFixeReservation,
+        menuCardId: locationToDuplicate.menuCardId || undefined,
     });
     setIsDialogOpen(true);
   }
@@ -422,6 +437,7 @@ export default function HostLocationsPage() {
         amenityIds: locationToEdit.amenityIds || [],
         prixParNuit: locationToEdit.prixParNuit,
         prixFixeReservation: locationToEdit.prixFixeReservation,
+        menuCardId: locationToEdit.menuCardId || undefined,
     });
     setIsDialogOpen(true);
   };
@@ -463,7 +479,7 @@ export default function HostLocationsPage() {
 
     let IconComponent;
     let iconColor = "text-muted-foreground";
-    let canBeParent = false; // Can this node type be a parent (i.e. a folder)?
+    let canBeParent = false;
 
     switch (node.type) {
       case 'GlobalSite': IconComponent = Building; iconColor = "text-purple-500"; canBeParent = true; break;
@@ -474,22 +490,21 @@ export default function HostLocationsPage() {
     }
 
     const hasChildren = node.children && node.children.length > 0;
-    const showChevron = canBeParent; // Show chevron if it can be a parent, even if no children yet
+    const showChevron = canBeParent || hasChildren;
 
     return (
-      <div key={node.id} className="flex flex-col" style={{ paddingLeft: node.depth === 0 ? '0' : `${node.depth * 0.75}rem` }}> {/* Reduced base indent for root */}
+      <div key={node.id} className="flex flex-col" style={{ paddingLeft: node.depth === 0 ? '0' : `${node.depth * 0.75}rem` }}>
         <div className={cn(
           "flex items-center justify-between p-2.5 rounded-md hover:bg-accent/50 group border-b border-transparent group-hover:border-border/20",
           isSubmitting && "opacity-50 pointer-events-none"
         )}>
           <div 
-            className={cn("flex items-center gap-2 flex-grow", canBeParent || hasChildren ? "cursor-pointer" : "cursor-default")} 
-            onClick={canBeParent || hasChildren ? () => toggleNodeExpansion(node.id) : undefined}
+            className={cn("flex items-center gap-2 flex-grow", showChevron ? "cursor-pointer" : "cursor-default")} 
+            onClick={showChevron ? () => toggleNodeExpansion(node.id) : undefined}
           >
-            {showChevron && (
+            {showChevron ? (
               isExpanded ? <ChevronDown className="h-5 w-5 text-muted-foreground/70" /> : <ChevronRight className="h-5 w-5 text-muted-foreground/70" />
-            )}
-            {!showChevron && <div className="w-5 h-5"></div>} {/* Spacer for alignment */}
+            ) : <div className="w-5 h-5"></div> }
             <IconComponent className={cn("h-5 w-5", iconColor)} />
             <span className="font-medium text-sm truncate" title={node.name}>{node.name}</span>
             <Badge variant="outline" className="text-xs capitalize">{node.type === 'GlobalSite' ? 'Global Site' : node.type}</Badge>
@@ -521,7 +536,7 @@ export default function HostLocationsPage() {
           </div>
         </div>
         {isExpanded && hasChildren && (
-          <div className="mt-1 border-l-2 border-dashed border-muted/30 ml-[calc(0.625rem+7px)] pl-3"> {/* Visual indent for children */}
+          <div className="mt-1 border-l-2 border-dashed border-muted/30 ml-[calc(0.625rem+7px)] pl-3">
             {node.children.map(childNode => renderLocationNode(childNode))}
           </div>
         )}
@@ -547,6 +562,7 @@ export default function HostLocationsPage() {
   }
 
   const dataForDialog = editingLocation ? { ...editingLocation, ...currentLocationData } : currentLocationData;
+  const filteredMenuCardsForDialog = hostMenuCards.filter(mc => mc.globalSiteId === (assignableParentOptions.find(opt => opt.id === dataForDialog.selectedParentIdentifier)?.actualGlobalSiteId || selectedGlobalSite?.siteId));
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
@@ -577,7 +593,7 @@ export default function HostLocationsPage() {
               : "All locations for your managed establishments."}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-0.5"> {/* Reduced space-y for tighter list */}
+        <CardContent className="space-y-0.5"> 
           {locationTree.length === 0 && !isLoading && (allGlobalSitesForHost.length > 0) && 
             <p className="p-4 text-center text-muted-foreground">
               {selectedGlobalSite ? `No locations or areas added yet for ${selectedGlobalSite.nom}.` : `No locations or areas added yet.`} Click "Add New Location/Area" to start.
@@ -587,7 +603,6 @@ export default function HostLocationsPage() {
         </CardContent>
       </Card>
 
-      {/* Dialog for Add/Edit Location */}
       <Dialog open={isDialogOpen} onOpenChange={(open) => {if(!isSubmitting) setIsDialogOpen(open)}}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -598,14 +613,14 @@ export default function HostLocationsPage() {
           </DialogHeader>
           <ScrollArea className="max-h-[70vh] pr-2">
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="nom" className="text-right">Name*</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="nom">Name*</Label>
               <Input id="nom" name="nom" value={dataForDialog.nom || ''} onChange={handleInputChange} className="col-span-3" disabled={isSubmitting} />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="type" className="text-right">Type*</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="type">Type*</Label>
               <Select value={dataForDialog.type || 'Chambre'} onValueChange={handleTypeSelectChange} disabled={isSubmitting}>
-                <SelectTrigger className="col-span-3"> <SelectValue placeholder="Select type" /> </SelectTrigger>
+                <SelectTrigger> <SelectValue placeholder="Select type" /> </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Chambre">Chambre (Room)</SelectItem>
                   <SelectItem value="Table">Table</SelectItem>
@@ -614,31 +629,31 @@ export default function HostLocationsPage() {
               </Select>
             </div>
             {(dataForDialog.type === 'Chambre' || dataForDialog.type === 'Table') && (
-                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="capacity" className="text-right"><Users className="inline h-4 w-4 mr-1"/>Capacity*</Label>
-                    <Input id="capacity" name="capacity" type="number" value={dataForDialog.capacity ?? ''} onChange={handleInputChange} className="col-span-3" placeholder="e.g. 4" min="1" disabled={isSubmitting} />
+                 <div className="space-y-1.5">
+                    <Label htmlFor="capacity"><Users className="inline h-4 w-4 mr-1"/>Capacity*</Label>
+                    <Input id="capacity" name="capacity" type="number" value={dataForDialog.capacity ?? ''} onChange={handleInputChange} placeholder="e.g. 4" min="1" disabled={isSubmitting} />
                  </div>
             )}
             {dataForDialog.type === 'Chambre' && (
-                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="prixParNuit" className="text-right"><DollarSign className="inline h-4 w-4 mr-1"/>Price/Night</Label>
-                    <Input id="prixParNuit" name="prixParNuit" type="number" value={dataForDialog.prixParNuit ?? ''} onChange={handleInputChange} className="col-span-3" placeholder="e.g. 150" min="0" step="0.01" disabled={isSubmitting} />
+                 <div className="space-y-1.5">
+                    <Label htmlFor="prixParNuit"><DollarSign className="inline h-4 w-4 mr-1"/>Price/Night</Label>
+                    <Input id="prixParNuit" name="prixParNuit" type="number" value={dataForDialog.prixParNuit ?? ''} onChange={handleInputChange} placeholder="e.g. 150" min="0" step="0.01" disabled={isSubmitting} />
                  </div>
             )}
             {dataForDialog.type === 'Table' && (
-                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="prixFixeReservation" className="text-right"><DollarSign className="inline h-4 w-4 mr-1"/>Booking Price</Label>
-                    <Input id="prixFixeReservation" name="prixFixeReservation" type="number" value={dataForDialog.prixFixeReservation ?? ''} onChange={handleInputChange} className="col-span-3" placeholder="e.g. 20" min="0" step="0.01" disabled={isSubmitting} />
+                 <div className="space-y-1.5">
+                    <Label htmlFor="prixFixeReservation"><DollarSign className="inline h-4 w-4 mr-1"/>Booking Price</Label>
+                    <Input id="prixFixeReservation" name="prixFixeReservation" type="number" value={dataForDialog.prixFixeReservation ?? ''} onChange={handleInputChange} placeholder="e.g. 20" min="0" step="0.01" disabled={isSubmitting} />
                  </div>
             )}
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="selectedParentIdentifier" className="text-right">Assign To / Parent*</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="selectedParentIdentifier">Assign To / Parent*</Label>
               <Select
                 value={dataForDialog.selectedParentIdentifier || ''}
                 onValueChange={handleParentSelectChange}
                 disabled={isSubmitting || assignableParentOptions.length === 0}
               >
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger>
                   <SelectValue placeholder={assignableParentOptions.length > 0 ? "Select parent or global site" : "No options available"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -650,19 +665,19 @@ export default function HostLocationsPage() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-1 gap-2 pt-2">
+            <div className="space-y-1.5">
                 <Label htmlFor="description" className="flex items-center"><Info className="mr-2 h-4 w-4"/>Description</Label>
                 <Textarea id="description" name="description" value={dataForDialog.description || ''} onChange={handleInputChange} className="col-span-full" placeholder="Detailed description of the location..." disabled={isSubmitting} />
             </div>
 
-             <div className="grid grid-cols-1 gap-2 pt-2">
+             <div className="space-y-1.5">
                 <Label htmlFor="imageUrlsString" className="flex items-center"><FileImage className="mr-2 h-4 w-4"/>Image URLs</Label>
                 <Textarea id="imageUrlsString" name="imageUrlsString" value={dataForDialog.imageUrlsString || ''} onChange={handleInputChange} className="col-span-full" placeholder="https://.../img1.png, https://.../img2.png" disabled={isSubmitting} />
                 <p className="text-xs text-muted-foreground col-span-full px-1">Enter multiple image URLs separated by commas. Use `https://placehold.co/` for placeholders.</p>
             </div>
-
+            
             {hostTags.length > 0 && (
-                <div className="grid grid-cols-1 gap-2 pt-2">
+                <div className="space-y-1.5">
                     <Label className="font-semibold flex items-center"><TagIconLucide className="mr-2 h-4 w-4"/>Assign Tags</Label>
                     <ScrollArea className="h-32 border rounded-md p-2">
                         <div className="space-y-2">
@@ -683,7 +698,7 @@ export default function HostLocationsPage() {
             )}
             {hostTags.length === 0 && <p className="text-xs text-muted-foreground text-center">No tags created yet. You can create tags in 'Manage Tags'.</p>}
 
-            <div className="grid grid-cols-1 gap-2 pt-2">
+            <div className="space-y-1.5">
                 <Label className="font-semibold flex items-center"><Bed className="mr-2 h-4 w-4"/>Assign Amenities</Label>
                 <ScrollArea className="h-48 border rounded-md p-3">
                 {PREDEFINED_AMENITIES.map((category: AmenityCategory) => (
@@ -709,6 +724,25 @@ export default function HostLocationsPage() {
                 ))}
                 </ScrollArea>
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="menuCardId" className="flex items-center"><MenuIcon className="mr-2 h-4 w-4"/>Assign Menu Card (Optional)</Label>
+              <Select
+                value={dataForDialog.menuCardId || '___NO_SELECTION___'}
+                onValueChange={(val) => handleSelectChange('menuCardId', val)}
+                disabled={isSubmitting || filteredMenuCardsForDialog.length === 0}
+              >
+                <SelectTrigger id="menuCardId">
+                  <SelectValue placeholder={filteredMenuCardsForDialog.length > 0 ? "Select a menu card" : "No menu cards for this site"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={'___NO_SELECTION___'}>None</SelectItem>
+                  {filteredMenuCardsForDialog.map(card => (
+                    <SelectItem key={card.id} value={card.id}>{card.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {filteredMenuCardsForDialog.length === 0 && <p className="text-xs text-muted-foreground text-center">No menu cards available for the selected Global Site. Create one in 'Menu Cards'.</p>}
+            </div>
           </div>
           </ScrollArea>
           <DialogFooter className="mt-4 pt-4 border-t">
@@ -725,6 +759,3 @@ export default function HostLocationsPage() {
     </div>
   );
 }
-
-
-    

@@ -1,4 +1,4 @@
-
+// src/components/shared/AppShell.tsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -16,10 +16,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuTrigger // Added DropdownMenuTrigger
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import {
-  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon, Settings2, ChevronsUpDown, MessageSquare, LayoutDashboard, UserCircle
+  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon, Settings2, ChevronsUpDown, MessageSquare, LayoutDashboard, UserCircle, Utensils as MenuCardsIcon
 } from 'lucide-react'; 
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -47,10 +47,12 @@ const hostNavItems: NavItem[] = [
     children: [
       { label: 'My Locations', href: '/host/locations', icon: MapPin, allowedRoles: ['host'] },
       { label: 'Manage Tags', href: '/host/tags', icon: TagIcon, allowedRoles: ['host'] },
+      { label: 'Menu Cards', href: '/host/menu-cards', icon: MenuCardsIcon, allowedRoles: ['host'] },
       { label: 'Service Categories', href: '/host/service-categories', icon: ListChecks, allowedRoles: ['host'] },
       { label: 'Custom Forms', href: '/host/forms', icon: FileText, allowedRoles: ['host'] },
       { label: 'My Services', href: '/host/services', icon: ClipboardList, allowedRoles: ['host'] },
       { label: 'Paramètres & Fidélité', href: '/host/reservation-settings', icon: Settings2, allowedRoles: ['host'] },
+      { label: 'Account Settings', href: '/settings', icon: UserCircle, allowedRoles: ['host'] },
     ]
   }
 ];
@@ -81,12 +83,18 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const initialOpenMenus: Record<string, boolean> = {};
     const navItemsForCurrentUserRole = () => {
         if (!user) return [];
+        let items = [];
         switch (user.role) {
-            case 'admin': return adminNavItems;
-            case 'host': return hostNavItems;
-            case 'client': return clientNavItems;
-            default: return [];
+            case 'admin': items = adminNavItems; break;
+            case 'host': items = hostNavItems; break;
+            case 'client': items = clientNavItems; break;
+            default: items = [];
         }
+        if (user.role === 'admin' && !items.some(item => item.href === '/settings')) {
+           items.push({ label: 'Mon Compte', href: '/settings', icon: UserCircle, allowedRoles: ['admin'] });
+        }
+        // For host, Account Settings is now under "Configuration"
+        return items;
     };
     navItemsForCurrentUserRole().forEach(item => {
       if (item.children && item.children.some(child => pathname.startsWith(child.href) && child.href !== '#')) {
@@ -99,22 +107,20 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   useEffect(() => { 
     if (user) {
         const navItemsForCurrentUserRole = () => {
+            let items = [];
             switch (user.role) {
-                case 'admin': return adminNavItems;
-                case 'host': return hostNavItems;
-                case 'client': return clientNavItems; 
-                default: return [];
+                case 'admin': items = adminNavItems; break;
+                case 'host': items = hostNavItems; break;
+                case 'client': items = clientNavItems; break; 
+                default: items = [];
             }
+            if (user.role === 'admin' && !items.some(item => item.href === '/settings')) {
+               items.push({ label: 'Mon Compte', href: '/settings', icon: UserCircle, allowedRoles: ['admin'] });
+            }
+            return items;
         };
         const newOpenMenus: Record<string, boolean> = {};
-        const allItems = [...navItemsForCurrentUserRole()];
-        if (user.role === 'host') { 
-            allItems.push({ label: 'Mon Compte', href: '/settings', icon: UserCircle, allowedRoles: ['host'] });
-        } else if (user.role === 'admin') {
-            allItems.push({ label: 'Mon Compte', href: '/settings', icon: UserCircle, allowedRoles: ['admin'] });
-        }
-
-        allItems.forEach(item => {
+        navItemsForCurrentUserRole().forEach(item => {
           if (item.children && item.children.some(child => pathname.startsWith(child.href) && child.href !== '#')) {
             newOpenMenus[item.label] = true;
           }
@@ -147,26 +153,20 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const userInitial = user.nom ? user.nom.charAt(0).toUpperCase() : '?';
   
   let currentNavItemsBasedOnRole: NavItem[] = [];
-  let accountSettingsItem: NavItem | null = null;
-
+  
   switch (user.role) {
       case 'admin':
           currentNavItemsBasedOnRole = adminNavItems;
-          accountSettingsItem = { label: 'Mon Compte', href: '/settings', icon: UserCircle, allowedRoles: ['admin'] };
+          if (!currentNavItemsBasedOnRole.some(item => item.href === '/settings')) {
+              currentNavItemsBasedOnRole.push({ label: 'Mon Compte', href: '/settings', icon: UserCircle, allowedRoles: ['admin'] });
+          }
           break;
       case 'host':
           currentNavItemsBasedOnRole = hostNavItems;
-          // Host account settings is now under the "Configuration" group, so no separate top-level item needed here.
           break;
       case 'client':
           currentNavItemsBasedOnRole = clientNavItems;
-          // Client account settings is already part of clientNavItems.
           break;
-  }
-
-  const allNavItemsForUser: NavItem[] = [...currentNavItemsBasedOnRole];
-  if (accountSettingsItem && !allNavItemsForUser.some(item => item.href === '/settings')) {
-      allNavItemsForUser.push(accountSettingsItem);
   }
 
 
@@ -309,7 +309,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </Button>
         </div>
         <nav className="flex-grow p-4 space-y-1.5">
-          {allNavItemsForUser.map((item) => (
+          {currentNavItemsBasedOnRole.map((item) => ( // Changed from allNavItemsForUser
             isSidebarOpen ? (
               <NavLink key={item.label + item.href} item={item} />
             ) : (
@@ -367,10 +367,11 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push('/settings')}>
-                  <UserCircle className="mr-2 h-4 w-4" />
-                  <span>Mon Compte</span>
-                </DropdownMenuItem>
+                 {/* Common settings link for all roles */}
+                 <DropdownMenuItem onClick={() => router.push('/settings')}>
+                    <UserCircle className="mr-2 h-4 w-4" />
+                    <span>Mon Compte</span>
+                 </DropdownMenuItem>
                 {user.role === 'client' && (
                    <DropdownMenuItem onClick={() => router.push('/client/my-reservations')}>
                      <CalendarCheck className="mr-2 h-4 w-4" />
