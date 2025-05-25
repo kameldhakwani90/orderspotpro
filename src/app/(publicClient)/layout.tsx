@@ -4,17 +4,18 @@ import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
-import { LogIn, UserCircle, MessageCircle, ShoppingCart } from "lucide-react";
+import { LogIn, UserCircle, MessageCircle, ShoppingCart, X } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "@/components/ui/toaster"; // Keep Toaster if it's used by children of this layout
 import { useToast } from "@/hooks/use-toast";
 import { LanguageProvider, useLanguage } from "@/context/LanguageContext";
 import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 import { CartProvider, useCart } from "@/context/CartContext";
-import { CartSheet } from "@/components/client/CartSheet"; // Import CartSheet
+import { CartSheet } from "@/components/client/CartSheet";
 import { Badge } from "@/components/ui/badge";
 import React, { useState, useEffect } from 'react';
 
+// HeaderContent remains a separate component as it uses useLanguage and useCart
 function HeaderContent() {
   const { user, isLoading } = useAuth();
   const pathname = usePathname();
@@ -22,7 +23,7 @@ function HeaderContent() {
   const { getTotalItems } = useCart();
   const totalCartItems = getTotalItems();
   const [isMounted, setIsMounted] = useState(false);
-  const [isCartOpen, setIsCartOpen] = useState(false); // State for CartSheet visibility
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -43,7 +44,7 @@ function HeaderContent() {
               variant="ghost" 
               size="icon" 
               className="relative" 
-              onClick={() => setIsCartOpen(true)} // Open CartSheet
+              onClick={() => setIsCartOpen(true)}
               title={t('viewCart') || "View Cart"}
             >
               <ShoppingCart className="h-5 w-5" />
@@ -86,38 +87,45 @@ function HeaderContent() {
   );
 }
 
+// New component to render the actual page structure, ensuring it's a child of providers
+function PageLayoutContent({ children }: { children: React.ReactNode }) {
+  const { t } = useLanguage(); // Safe to call here
+  const { toast } = useToast(); // toast is also safe here if needed, or can be in HeaderContent
+
+  return (
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background to-secondary/30">
+      <HeaderContent /> {/* HeaderContent will correctly use useLanguage from its parent provider */}
+      <main className="flex-grow container mx-auto py-8 px-4 md:px-6 lg:px-8">
+        {children}
+      </main>
+      
+      <Button
+        variant="default"
+        size="icon"
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-xl z-40 bg-primary hover:bg-primary/90"
+        title={t('chatComingSoon') || "Chat with us (Coming Soon)"}
+        onClick={() => toast({ title: t('chatFeatureTitle') || "Chat Feature", description: t('chatComingSoon') || "Live chat with the establishment is coming soon!"})}
+      >
+        <MessageCircle className="h-7 w-7 text-primary-foreground" />
+      </Button>
+
+      <footer className="p-6 text-center text-sm text-muted-foreground border-t bg-card/80">
+        {t('footerText', { year: new Date().getFullYear().toString() }) || `ConnectHost © ${new Date().getFullYear()} - Seamlessly connecting you to services.`}
+      </footer>
+    </div>
+  );
+}
 
 export default function PublicClientLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { toast } = useToast(); // Keep this if used by LanguageSwitcher or other children indirectly
-  const { t } = useLanguage(); // Get t function for the title
-
+  // PublicClientLayout now only sets up the providers
   return (
     <LanguageProvider>
       <CartProvider>
-        <div className="min-h-screen flex flex-col bg-gradient-to-br from-background to-secondary/30">
-          <HeaderContent />
-          <main className="flex-grow container mx-auto py-8 px-4 md:px-6 lg:px-8">
-            {children}
-          </main>
-          
-          <Button
-            variant="default"
-            size="icon"
-            className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-xl z-40 bg-primary hover:bg-primary/90"
-            title={t('chatComingSoon') || "Chat with us (Coming Soon)"} // Translate title
-            onClick={() => toast({ title: t('chatFeatureTitle') || "Chat Feature", description: t('chatComingSoon') || "Live chat with the establishment is coming soon!"})}
-          >
-            <MessageCircle className="h-7 w-7 text-primary-foreground" />
-          </Button>
-
-          <footer className="p-6 text-center text-sm text-muted-foreground border-t bg-card/80">
-            {t('footerText', { year: new Date().getFullYear().toString() }) || `ConnectHost © ${new Date().getFullYear()} - Seamlessly connecting you to services.`}
-          </footer>
-        </div>
+        <PageLayoutContent>{children}</PageLayoutContent>
       </CartProvider>
     </LanguageProvider>
   );
