@@ -16,7 +16,7 @@ let usersInMemory: User[] = [
   { id: 'user-host-le-phare', email: 'info@lepharebistro.com', nom: 'Le Phare Bistro', role: 'host', hostId: 'host-le-phare', motDePasse: '1234' },
   { id: 'user-client-alice', email: 'alice@example.com', nom: 'Alice Wonderland', role: 'client', motDePasse: '1234' },
   { id: 'user-client-bob', email: 'bob@example.com', nom: 'Bob The Builder', role: 'client', motDePasse: '1234' },
-  { id: 'user-dynamic-host', email: 'dynamic@host.com', nom: 'Dynamic Host User', role: 'host', hostId: 'host-1747669860022', motDePasse: '1234' },
+  { id: 'user-dynamic-host', email: 'dynamic@host.com', nom: 'Dynamic Test Client User', role: 'host', hostId: 'host-1747669860022', motDePasse: '1234' },
 ];
 
 const defaultLoyaltySettings: LoyaltySettings = {
@@ -64,8 +64,8 @@ let tagsInMemory: Tag[] = [
 
 let roomsOrTablesInMemory: RoomOrTable[] = [
   // Salty Pelican
-  { id: 'sp-room-ocean-double', nom: 'Ocean Double', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-ocean-double`, capacity: 2, prixParNuit: 150, description: "Chambre double avec vue imprenable sur l'océan.", imageUrls: ["https://placehold.co/600x400.png?text=Ocean+View+Double", "https://placehold.co/600x400.png?text=Ocean+Room+Balcony"], imageAiHint: "ocean view room", tagIds: ['tag-vue-mer'], amenityIds: ['wifi', 'salle-de-bain', 'tv', 'terrasse-balcon', 'climatisation'], menuCardId: 'mc-salty-main' },
-  { id: 'sp-room-garden-bungalow', nom: 'Garden Bungalow', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-garden-bungalow`, capacity: 4, prixParNuit: 180, description: "Bungalow spacieux avec accès direct au jardin, idéal pour les familles.", imageUrls: ["https://placehold.co/600x400.png?text=Garden+Bungalow", "https://placehold.co/600x400.png?text=Bungalow+Interior"], imageAiHint: "garden bungalow family", tagIds: ['tag-famille', 'tag-animaux'], amenityIds: ['wifi', 'salle-de-bain', 'cuisine', 'animaux-acceptes'], menuCardId: 'mc-salty-main' },
+  { id: 'sp-room-ocean-double', nom: 'Ocean Double', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-ocean-double`, capacity: 2, prixParNuit: 150, pricingModel: 'perRoom', description: "Chambre double avec vue imprenable sur l'océan.", imageUrls: ["https://placehold.co/600x400.png?text=Ocean+View+Double", "https://placehold.co/600x400.png?text=Ocean+Room+Balcony"], imageAiHint: "ocean view room", tagIds: ['tag-vue-mer'], amenityIds: ['wifi', 'salle-de-bain', 'tv', 'terrasse-balcon', 'climatisation'], menuCardId: 'mc-salty-main' },
+  { id: 'sp-room-garden-bungalow', nom: 'Garden Bungalow', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-garden-bungalow`, capacity: 4, prixParNuit: 180, pricingModel: 'perRoom', description: "Bungalow spacieux avec accès direct au jardin, idéal pour les familles.", imageUrls: ["https://placehold.co/600x400.png?text=Garden+Bungalow", "https://placehold.co/600x400.png?text=Bungalow+Interior"], imageAiHint: "garden bungalow family", tagIds: ['tag-famille', 'tag-animaux'], amenityIds: ['wifi', 'salle-de-bain', 'cuisine', 'animaux-acceptes'], menuCardId: 'mc-salty-main' },
   { id: 'sp-zone-terrasse', nom: 'Terrasse Plage', type: 'Site', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-zone-terrasse`, description: "Terrasse ensoleillée face à la mer.", amenityIds: ['wifi'], menuCardId: 'mc-salty-main' },
   { id: 'sp-table-terrasse-1', nom: 'Table Terrasse Vue Mer 1', type: 'Table', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', parentLocationId: 'sp-zone-terrasse', urlPersonnalise: `/client/host-salty-pelican/sp-table-terrasse-1`, capacity: 4, prixFixeReservation: 10, description: "Table avec la meilleure vue.", menuCardId: 'mc-salty-main' },
 
@@ -76,8 +76,8 @@ let roomsOrTablesInMemory: RoomOrTable[] = [
 
   // Paradise Beach Resort
   { id: 'pbr-lobby', nom: 'Lobby Principal Paradise', type: 'Site', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', urlPersonnalise: `/client/host-paradise-resort/pbr-lobby`, amenityIds: ['wifi', 'climatisation'] },
-  { id: 'pbr-room-deluxe-king', nom: 'Deluxe King Suite', type: 'Chambre', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-lobby', urlPersonnalise: `/client/host-paradise-resort/pbr-room-deluxe-king`, capacity: 2, prixParNuit: 250, description: "Suite luxueuse avec lit King Size et vue mer.", imageUrls: ["https://placehold.co/600x400.png?text=Deluxe+King", "https://placehold.co/600x400.png?text=Suite+Bathroom"], imageAiHint: "luxury suite king", tagIds: ['tag-vue-mer-paradise', 'tag-luxe'], amenityIds: ['wifi', 'salle-de-bain', 'tv', 'climatisation', 'terrasse-balcon', 'petit-dejeuner-inclus'], menuCardId: "mc-paradise-roomservice" },
-  { id: 'pbr-room-standard-twin', nom: 'Standard Twin Vue Jardin', type: 'Chambre', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-lobby', urlPersonnalise: `/client/host-paradise-resort/pbr-room-standard-twin`, capacity: 2, prixParNuit: 120, description: "Chambre confortable avec deux lits jumeaux et vue sur les jardins.", imageUrls: ["https://placehold.co/600x400.png?text=Standard+Twin", "https://placehold.co/600x400.png?text=Twin+Room+View"], imageAiHint: "twin room garden", tagIds: ['tag-calme', 'tag-famille-paradise'], amenityIds: ['wifi', 'salle-de-bain', 'tv'], menuCardId: "mc-paradise-roomservice" },
+  { id: 'pbr-room-deluxe-king', nom: 'Deluxe King Suite', type: 'Chambre', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-lobby', urlPersonnalise: `/client/host-paradise-resort/pbr-room-deluxe-king`, capacity: 2, prixParNuit: 250, pricingModel: 'perRoom', description: "Suite luxueuse avec lit King Size et vue mer.", imageUrls: ["https://placehold.co/600x400.png?text=Deluxe+King", "https://placehold.co/600x400.png?text=Suite+Bathroom"], imageAiHint: "luxury suite king", tagIds: ['tag-vue-mer-paradise', 'tag-luxe'], amenityIds: ['wifi', 'salle-de-bain', 'tv', 'climatisation', 'terrasse-balcon', 'petit-dejeuner-inclus'], menuCardId: "mc-paradise-roomservice" },
+  { id: 'pbr-room-standard-twin', nom: 'Standard Twin Vue Jardin', type: 'Chambre', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-lobby', urlPersonnalise: `/client/host-paradise-resort/pbr-room-standard-twin`, capacity: 2, prixParNuit: 65, pricingModel: 'perPerson', description: "Chambre confortable avec deux lits jumeaux et vue sur les jardins. Prix par personne.", imageUrls: ["https://placehold.co/600x400.png?text=Standard+Twin", "https://placehold.co/600x400.png?text=Twin+Room+View"], imageAiHint: "twin room garden", tagIds: ['tag-calme', 'tag-famille-paradise'], amenityIds: ['wifi', 'salle-de-bain', 'tv'], menuCardId: "mc-paradise-roomservice" },
   { id: 'pbr-zone-piscine', nom: 'Espace Piscine Paradise', type: 'Site', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', urlPersonnalise: `/client/host-paradise-resort/pbr-zone-piscine`, amenityIds: ['piscine', 'jacuzzi'], menuCardId: "mc-paradise-pool" },
   { id: 'pbr-table-piscine-A', nom: 'Table Cabana Piscine A', type: 'Table', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-zone-piscine', urlPersonnalise: `/client/host-paradise-resort/pbr-table-piscine-A`, capacity: 6, prixFixeReservation: 25, description: "Cabana privée près de la piscine.", menuCardId: "mc-paradise-pool" },
 
@@ -87,7 +87,7 @@ let roomsOrTablesInMemory: RoomOrTable[] = [
 
   // Dynamic Test Establishment
   { id: 'rt-dynamic-lobby', nom: 'Dynamic Lobby', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-lobby`, description: "Lobby for the dynamic establishment.", amenityIds: ['wifi'], menuCardId: 'mc-dyn-main' },
-  { id: 'rt-dynamic-room1', nom: 'Dynamic Room 101', type: 'Chambre', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-room1`, capacity: 2, prixParNuit: 100, description: "A standard room in the dynamic establishment.", imageUrls: ["https://placehold.co/600x400.png?text=Dynamic+Room+101"], imageAiHint: "dynamic room hotel", amenityIds: ['wifi', 'salle-de-bain', 'tv'], menuCardId: 'mc-dyn-main' },
+  { id: 'rt-dynamic-room1', nom: 'Dynamic Room 101', type: 'Chambre', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-room1`, capacity: 2, prixParNuit: 100, pricingModel: 'perRoom', description: "A standard room in the dynamic establishment.", imageUrls: ["https://placehold.co/600x400.png?text=Dynamic+Room+101"], imageAiHint: "dynamic room hotel", amenityIds: ['wifi', 'salle-de-bain', 'tv'], menuCardId: 'mc-dyn-main' },
   { id: 'rt-dynamic-table5', nom: 'Dynamic Table 5', type: 'Table', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-table5`, capacity: 4, prixFixeReservation: 5, description: "A table in the dynamic lobby.", amenityIds: ['wifi'], menuCardId: 'mc-dyn-main' },
 ];
 
@@ -187,6 +187,7 @@ let menuCategoriesInMemory: MenuCategory[] = [
   { id: 'mcat-pbr-roomservice-main', name: 'Plats Principaux (Room Svc)', menuCardId: 'mc-paradise-roomservice', hostId: 'host-paradise-resort', displayOrder: 1 },
   { id: 'mcat-delice-dinner-main', name: 'Plats Principaux (Dîner)', menuCardId: 'mc-delice-dinner', hostId: 'host-le-delice', displayOrder: 1},
   { id: 'mcat-dyn-starters', name: 'Starters (Dynamic)', menuCardId: 'mc-dyn-main', hostId: 'host-1747669860022', displayOrder: 1},
+  { id: 'mcat-lephare-pizzas', name: 'Pizzas Le Phare', menuCardId: 'mc-lephare-jour', hostId: 'host-le-phare', displayOrder: 3 }, // Pizza category for Le Phare
 ];
 
 let menuItemsInMemory: MenuItem[] = [
@@ -203,7 +204,7 @@ let menuItemsInMemory: MenuItem[] = [
     imageAiHint: 'custom pizza', 
     isAvailable: true, 
     isConfigurable: true,
-    stock: 20, // Stock pour les bases de pizza
+    stock: 20, 
     optionGroups: [
       { 
         id: 'og-saltypizza-taille', 
@@ -236,7 +237,7 @@ let menuItemsInMemory: MenuItem[] = [
         menuItemId: 'mi-salty-pizza', 
         name: 'Boisson Accompagnement', 
         selectionType: 'single', 
-        isRequired: false, // Optionnel
+        isRequired: false, 
         displayOrder: 3, 
         options: [
           { id: 'opt-saltyboisson-eau', name: 'Eau Plate 50cl', priceAdjustment: 1.5 },
@@ -248,7 +249,7 @@ let menuItemsInMemory: MenuItem[] = [
   { id: 'mi-lephare-salade', name: 'Salade César', description: 'Poulet grillé, Grana Padano, croûtons à l\'ail.', price: 14, menuCategoryId: 'mcat-lephare-entrees', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Salade+Cesar', imageAiHint: 'caesar salad', isAvailable: true },
   { id: 'mi-lephare-poisson', name: 'Poisson du Jour Grillé', description: 'Selon arrivage, légumes de saison.', price: 22, menuCategoryId: 'mcat-lephare-plats', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Poisson+Grille', imageAiHint: 'grilled fish', isAvailable: false, stock: 10 }, // Non disponible
   {
-    id: 'mi-lephare-pizza-config', name: 'Pizza Personnalisée (Le Phare)', description: 'Composez votre pizza idéale !', price: 10, menuCategoryId: 'mcat-lephare-plats', hostId: 'host-le-phare', isConfigurable: true, isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Custom+Pizza', imageAiHint: 'custom pizza', stock: 20,
+    id: 'mi-lephare-pizza-config', name: 'Pizza Personnalisée (Le Phare)', description: 'Composez votre pizza idéale ! Base tomate et mozzarella incluse.', price: 10, menuCategoryId: 'mcat-lephare-pizzas', hostId: 'host-le-phare', isConfigurable: true, isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Custom+Pizza', imageAiHint: 'custom pizza', stock: 20,
     optionGroups: [
       { id: 'og-pizza-taille-lp', menuItemId: 'mi-lephare-pizza-config', name: 'Choisissez votre taille', selectionType: 'single', isRequired: true, displayOrder: 1, options: [
         { id: 'opt-taille-moyenne-lp', name: 'Moyenne', priceAdjustment: 0 },
@@ -304,9 +305,16 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
     const user = usersInMemory.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (user) {
       const normalizedUser = normalizeUserPassword(user);
-      // For debugging password issues:
-      // log('Stored password for ' + email + ' (raw): ' + user.motDePasse);
-      // log('Normalized password for ' + email + ': ' + normalizedUser.motDePasse);
+       if (normalizedUser.motDePasse === undefined && (user as any).password !== undefined) {
+        normalizedUser.motDePasse = String((user as any).password);
+      } else if (normalizedUser.motDePasse === undefined) {
+        normalizedUser.motDePasse = "";
+      }
+      if (normalizedUser.nom === undefined && normalizedUser.email) {
+        normalizedUser.nom = normalizedUser.email.split('@')[0];
+      } else if (normalizedUser.nom === undefined) {
+        normalizedUser.nom = "Unnamed User";
+      }
       return normalizedUser;
     }
     return undefined;
@@ -320,7 +328,21 @@ export const getUserById = async (id: string): Promise<User | undefined> => {
   log(`getUserById called for: ${id} (in-memory)`);
   try {
     const user = usersInMemory.find(u => u.id === id);
-    return user ? normalizeUserPassword(user) : undefined;
+    if (user) {
+       const normalizedUser = normalizeUserPassword(user);
+       if (normalizedUser.motDePasse === undefined && (user as any).password !== undefined) {
+        normalizedUser.motDePasse = String((user as any).password);
+      } else if (normalizedUser.motDePasse === undefined) {
+        normalizedUser.motDePasse = "";
+      }
+      if (normalizedUser.nom === undefined && normalizedUser.email) {
+        normalizedUser.nom = normalizedUser.email.split('@')[0];
+      } else if (normalizedUser.nom === undefined) {
+        normalizedUser.nom = "Unnamed User";
+      }
+      return normalizedUser;
+    }
+    return undefined;
   } catch (e) {
     console.error("Error in getUserById (in-memory):", e);
     return undefined;
@@ -330,7 +352,20 @@ export const getUserById = async (id: string): Promise<User | undefined> => {
 export const getUsers = async (): Promise<User[]> => {
   log(`getUsers called (in-memory). Returning ${usersInMemory.length} users.`);
    try {
-    return [...usersInMemory].map(normalizeUserPassword).sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
+    return [...usersInMemory].map(user => {
+      const normalizedUser = normalizeUserPassword(user);
+       if (normalizedUser.motDePasse === undefined && (user as any).password !== undefined) {
+        normalizedUser.motDePasse = String((user as any).password);
+      } else if (normalizedUser.motDePasse === undefined) {
+        normalizedUser.motDePasse = "";
+      }
+      if (normalizedUser.nom === undefined && normalizedUser.email) {
+        normalizedUser.nom = normalizedUser.email.split('@')[0];
+      } else if (normalizedUser.nom === undefined) {
+        normalizedUser.nom = "Unnamed User";
+      }
+      return normalizedUser;
+    }).sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
   } catch (e) {
     console.error("Error in getUsers (in-memory):", e);
     return [];
@@ -697,6 +732,7 @@ export const addRoomOrTable = async (data: Omit<RoomOrTable, 'id' | 'urlPersonna
       imageUrls: data.imageUrls || [],
       imageAiHint: data.imageUrls && data.imageUrls.length > 0 && data.nom ? data.nom.toLowerCase().split(' ').slice(0,2).join(' ') : undefined,
       amenityIds: data.amenityIds || [],
+      pricingModel: data.type === 'Chambre' ? (data.pricingModel || 'perRoom') : undefined,
       prixParNuit: data.type === 'Chambre' ? data.prixParNuit : undefined,
       prixFixeReservation: data.type === 'Table' ? data.prixFixeReservation : undefined,
       menuCardId: data.menuCardId || undefined,
@@ -715,21 +751,23 @@ export const updateRoomOrTable = async (id: string, data: Partial<Omit<RoomOrTab
     const itemIndex = roomsOrTablesInMemory.findIndex(rt => rt.id === id);
     if (itemIndex > -1) {
       const currentItem = roomsOrTablesInMemory[itemIndex];
+      const newType = data.type !== undefined ? data.type : currentItem.type;
       roomsOrTablesInMemory[itemIndex] = {
           ...currentItem,
           ...data,
           nom: data.nom !== undefined ? data.nom : currentItem.nom,
-          type: data.type !== undefined ? data.type : currentItem.type,
+          type: newType,
           globalSiteId: data.globalSiteId !== undefined ? data.globalSiteId : currentItem.globalSiteId,
           parentLocationId: data.hasOwnProperty('parentLocationId') ? data.parentLocationId : currentItem.parentLocationId,
           capacity: data.capacity !== undefined ? data.capacity : currentItem.capacity,
           tagIds: data.tagIds !== undefined ? data.tagIds : currentItem.tagIds,
           description: data.description !== undefined ? data.description : currentItem.description,
           imageUrls: data.imageUrls !== undefined ? data.imageUrls : currentItem.imageUrls,
-          imageAiHint: data.imageUrls && data.imageUrls.length > 0 && data.nom ? data.nom.toLowerCase().split(' ').slice(0,2).join(' ') : currentItem.imageAiHint,
+          imageAiHint: data.imageUrls && data.imageUrls.length > 0 && (data.nom || currentItem.nom) ? (data.nom || currentItem.nom).toLowerCase().split(' ').slice(0,2).join(' ') : currentItem.imageAiHint,
           amenityIds: data.amenityIds !== undefined ? data.amenityIds : currentItem.amenityIds,
-          prixParNuit: data.type === 'Chambre' ? (data.prixParNuit !== undefined ? data.prixParNuit : currentItem.prixParNuit) : undefined,
-          prixFixeReservation: data.type === 'Table' ? (data.prixFixeReservation !== undefined ? data.prixFixeReservation : currentItem.prixFixeReservation) : undefined,
+          pricingModel: newType === 'Chambre' ? (data.pricingModel !== undefined ? data.pricingModel : currentItem.pricingModel) : undefined,
+          prixParNuit: newType === 'Chambre' ? (data.prixParNuit !== undefined ? data.prixParNuit : currentItem.prixParNuit) : undefined,
+          prixFixeReservation: newType === 'Table' ? (data.prixFixeReservation !== undefined ? data.prixFixeReservation : currentItem.prixFixeReservation) : undefined,
           menuCardId: data.hasOwnProperty('menuCardId') ? data.menuCardId : currentItem.menuCardId,
       };
       return { ...roomsOrTablesInMemory[itemIndex] };
@@ -1017,7 +1055,6 @@ export const deleteFormField = async (id: string): Promise<boolean> => {
 };
 
 // --- Service Management ---
-// Updated getServiceById to also look in menuItemsInMemory
 export const getServiceById = async (itemId: string): Promise<Service | MenuItem | undefined> => {
   log(`getServiceById (or MenuItem) called for: ${itemId} (in-memory)`);
   try {
@@ -1066,6 +1103,9 @@ export const getServices = async (
         } else {
           parentId = undefined;
         }
+      }
+      if (currentScannedLocation.globalSiteId) { // Also consider services targeted to the global site
+        relevantLocationIds.push(currentScannedLocation.globalSiteId);
       }
       
       hostServices = hostServices.filter(service => {
@@ -1213,7 +1253,7 @@ export const getOrdersByUserId = async (userId: string): Promise<Order[]> => {
 export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status' | 'montantPaye' | 'soldeDu' | 'paiements' | 'pointsGagnes' | 'currency'> & { prixTotal?: number }): Promise<Order> => {
   log(`addOrder called. Data: ${JSON.stringify(data)}. Using in-memory data.`);
   try {
-    const itemDetails = await getServiceById(data.serviceId); // This now gets Service or MenuItem
+    const itemDetails = await getServiceById(data.serviceId); 
     const hostDetails = await getHostById(data.hostId);
 
     let basePrice = 0;
@@ -1505,11 +1545,15 @@ export const addReservationToData = async (data: Omit<Reservation, 'id' | 'prixT
     const host = await getHostById(data.hostId);
     let prixTotalReservation: number | undefined = undefined;
 
-    if (location?.type === 'Chambre' && location.prixParNuit && data.dateDepart) {
+    if (location?.type === 'Chambre' && location.prixParNuit !== undefined && data.dateDepart) {
         const arrival = new Date(data.dateArrivee);
         const departure = new Date(data.dateDepart);
         const nights = Math.max(1, Math.ceil((departure.getTime() - arrival.getTime()) / (1000 * 3600 * 24)));
-        prixTotalReservation = nights * location.prixParNuit;
+        if (location.pricingModel === 'perPerson') {
+            prixTotalReservation = nights * location.prixParNuit * (data.nombrePersonnes || 1);
+        } else { // perRoom or undefined
+            prixTotalReservation = nights * location.prixParNuit;
+        }
     } else if (location?.type === 'Table' && location.prixFixeReservation !== undefined) {
         prixTotalReservation = location.prixFixeReservation;
     }
@@ -1543,16 +1587,21 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
       const location = data.locationId ? await getRoomOrTableById(data.locationId) : await getRoomOrTableById(existingReservation.locationId);
       let prixTotalReservation = existingReservation.prixTotal;
 
-      if(data.dateArrivee || data.dateDepart || data.locationId) {
+      if(data.dateArrivee || data.dateDepart || data.locationId || data.nombrePersonnes) {
         const arrivalDate = data.dateArrivee || existingReservation.dateArrivee;
         const departureDate = data.dateDepart === null ? undefined : (data.dateDepart || existingReservation.dateDepart);
         const currentType = location?.type || existingReservation.type;
+        const currentPersons = data.nombrePersonnes || existingReservation.nombrePersonnes;
 
         if (currentType === 'Chambre' && location?.prixParNuit !== undefined && departureDate) {
             const arrival = new Date(arrivalDate);
             const departure = new Date(departureDate);
             const nights = Math.max(1, Math.ceil((departure.getTime() - arrival.getTime()) / (1000 * 3600 * 24)));
-            prixTotalReservation = nights * location.prixParNuit;
+            if (location.pricingModel === 'perPerson') {
+                prixTotalReservation = nights * location.prixParNuit * currentPersons;
+            } else { // perRoom or undefined
+                prixTotalReservation = nights * location.prixParNuit;
+            }
         } else if (currentType === 'Table' && location?.prixFixeReservation !== undefined) {
             prixTotalReservation = location.prixFixeReservation;
         }
@@ -1581,9 +1630,11 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
           if (pointsToAward > 0) {
              let clientToAwardPoints: Client | undefined = undefined;
              if (updatedReservation.clientId) {
-                clientToAwardPoints = clientsInMemory.find(c => (c.id === updatedReservation.clientId || c.userId === updatedReservation.clientId) && c.hostId === updatedReservation.hostId);
+                // Try matching by Client.id first, then by User.id if Client.userId exists
+                clientToAwardPoints = clientsInMemory.find(c => c.id === updatedReservation.clientId && c.hostId === updatedReservation.hostId) || 
+                                      clientsInMemory.find(c => c.userId === updatedReservation.clientId && c.hostId === updatedReservation.hostId);
              }
-             if (!clientToAwardPoints && updatedReservation.clientName) {
+             if (!clientToAwardPoints && updatedReservation.clientName) { // Fallback to name if no ID match
                 clientToAwardPoints = clientsInMemory.find(c => c.nom === updatedReservation.clientName && c.hostId === updatedReservation.hostId);
              }
              if (clientToAwardPoints) {
@@ -1623,7 +1674,7 @@ export const getReservationsByUserId = async (userId: string): Promise<Reservati
     const clientRecordIds = userClientRecords.map(cr => cr.id);
 
     return [...reservationsInMemory].filter(r => 
-      (r.clientId && clientRecordIds.includes(r.clientId)) || r.clientId === userId
+      (r.clientId && clientRecordIds.includes(r.clientId)) || r.clientId === userId 
     )
       .sort((a, b) => new Date(b.dateArrivee).getTime() - new Date(a.dateArrivee).getTime());
   } catch (e) {
