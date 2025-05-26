@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Edit2, Trash2, Users, CalendarDays as CalendarLucideIcon, DollarSign, Link2 } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, Users, CalendarDays as CalendarLucideIcon, DollarSign, Link2, FileArchive } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -30,8 +30,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+import { Calendar } from "@/components/ui/calendar"; // Corrected import name
 import { format, parseISO, isValid, isBefore } from 'date-fns';
+import { fr } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -67,6 +68,7 @@ export default function HostClientsPage() {
     notes?: string;
     credit?: number;
     pointsFidelite?: number;
+    userId?: string;
   }>({
     nom: '',
     type: 'passager',
@@ -75,6 +77,7 @@ export default function HostClientsPage() {
     locationId: DEFAULT_NO_LOCATION_ID,
     credit: 0,
     pointsFidelite: 0,
+    userId: undefined,
   });
 
   const fetchData = useCallback(async (hostId: string) => {
@@ -127,9 +130,9 @@ export default function HostClientsPage() {
 
   const handleDateChange = (field: '_dateArrivee' | '_dateDepart', date?: Date) => {
     setCurrentClientData(prev => {
-      const newState = { ...prev, [field]: date };
-      if (field === '_dateArrivee' && date && newState._dateDepart && isBefore(newState._dateDepart, date)) {
-        newState._dateDepart = undefined; // Reset departure if it's before new arrival
+      const newState = { ...prev, [field]: date ? startOfDay(date) : undefined };
+      if (field === '_dateArrivee' && newState._dateArrivee && newState._dateDepart && isBefore(newState._dateDepart, newState._dateArrivee)) {
+        newState._dateDepart = undefined; 
       }
       return newState;
     });
@@ -143,6 +146,11 @@ export default function HostClientsPage() {
     }
 
     if (currentClientData.type === 'heberge') {
+        // Optional: Allow adding heberge without dates
+        // if (!currentClientData._dateArrivee) {
+        //     toast({ title: "Validation Error", description: "Arrival date is required for 'Hébergé' clients.", variant: "destructive"});
+        //     return;
+        // }
         if (currentClientData._dateArrivee && currentClientData._dateDepart && isBefore(currentClientData._dateDepart, currentClientData._dateArrivee)) {
             toast({ title: "Validation Error", description: "Departure date cannot be before arrival date.", variant: "destructive"});
             return;
@@ -159,15 +167,21 @@ export default function HostClientsPage() {
       dateDepart: currentClientData.type === 'heberge' && currentClientData._dateDepart ? format(currentClientData._dateDepart, 'yyyy-MM-dd') : undefined,
       locationId: currentClientData.type === 'heberge' && currentClientData.locationId !== DEFAULT_NO_LOCATION_ID ? currentClientData.locationId : undefined,
       notes: currentClientData.notes?.trim() || undefined,
+      userId: currentClientData.userId || undefined,
     };
 
-    // Retain existing credit and pointsFidelite if editing
+    const host = await getHostById(user.hostId);
+    let initialPoints = 0;
+    if (host?.loyaltySettings?.enabled && host.loyaltySettings.pointsForNewClientSignup && host.loyaltySettings.pointsForNewClientSignup > 0 && !editingClient) {
+      initialPoints = host.loyaltySettings.pointsForNewClientSignup;
+    }
+
     if (editingClient) {
       dataToSubmit.credit = currentClientData.credit;
       dataToSubmit.pointsFidelite = currentClientData.pointsFidelite;
     } else {
-      dataToSubmit.credit = 0; // Default for new client
-      // pointsFidelite will be handled by addClientData based on host settings
+      dataToSubmit.credit = 0;
+      dataToSubmit.pointsFidelite = initialPoints;
     }
 
 
@@ -186,7 +200,7 @@ export default function HostClientsPage() {
     } finally {
       setIsDialogOpen(false);
       setEditingClient(null);
-      setCurrentClientData({ nom: '', type: 'passager', _dateArrivee: undefined, _dateDepart: undefined, locationId: DEFAULT_NO_LOCATION_ID, email: '', telephone: '', notes: '', credit: 0, pointsFidelite: 0 });
+      setCurrentClientData({ nom: '', type: 'passager', _dateArrivee: undefined, _dateDepart: undefined, locationId: DEFAULT_NO_LOCATION_ID, email: '', telephone: '', notes: '', credit: 0, pointsFidelite: 0, userId: undefined });
       setIsSubmitting(false);
     }
   };
@@ -204,6 +218,7 @@ export default function HostClientsPage() {
       notes: '',
       credit: 0,
       pointsFidelite: 0,
+      userId: undefined,
     });
     setIsDialogOpen(true);
   };
@@ -229,6 +244,7 @@ export default function HostClientsPage() {
       notes: client.notes || '',
       credit: client.credit || 0,
       pointsFidelite: client.pointsFidelite || 0,
+      userId: client.userId || undefined,
     });
     setIsDialogOpen(true);
   };
@@ -266,8 +282,8 @@ export default function HostClientsPage() {
         toast({title: "Credit Added", description: `${creditAmount.toFixed(2)}€ added to ${clientForCredit.nom}. New balance: ${updatedClient.credit?.toFixed(2)}€`});
         if (user.hostId) fetchData(user.hostId);
         if (editingClient && editingClient.id === updatedClient.id) {
-          setEditingClient(updatedClient); // Update editing client if it's the one being modified
-          setCurrentClientData(prev => ({...prev, credit: updatedClient.credit}));
+          // If editing the same client, update the dialog form's credit value
+           setCurrentClientData(prev => ({...prev, credit: updatedClient.credit}));
         }
       } else {
         toast({title: "Error", description: "Failed to add credit.", variant: "destructive"});
@@ -333,8 +349,8 @@ export default function HostClientsPage() {
               {clients.map((client) => (
                 <TableRow key={client.id}>
                   <TableCell className="font-medium">
-                    <Link href={`/host/clients/${encodeURIComponent(client.nom)}`} className="hover:underline text-primary flex items-center gap-1">
-                        {client.nom} <Link2 className="h-3 w-3 opacity-70"/>
+                    <Link href={`/host/clients/file/${client.id}`} className="hover:underline text-primary flex items-center gap-1">
+                        {client.nom} <FileArchive className="h-3 w-3 opacity-70"/>
                     </Link>
                   </TableCell>
                   <TableCell>
@@ -345,6 +361,7 @@ export default function HostClientsPage() {
                   <TableCell>
                     {client.email && <div>{client.email}</div>}
                     {client.telephone && <div className="text-xs text-muted-foreground">{client.telephone}</div>}
+                    {client.userId && <div className="text-xs text-muted-foreground italic">(User ID: {client.userId.slice(-5)})</div>}
                   </TableCell>
                   <TableCell>
                     {client.type === 'heberge' && client.locationId ?
@@ -396,6 +413,10 @@ export default function HostClientsPage() {
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="telephone" className="text-right">Phone</Label>
               <Input id="telephone" name="telephone" type="tel" value={currentClientData.telephone || ''} onChange={handleInputChange} className="col-span-3" disabled={isSubmitting} placeholder="e.g., +1234567890"/>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="userId" className="text-right">User ID (Optional)</Label>
+              <Input id="userId" name="userId" value={currentClientData.userId || ''} onChange={handleInputChange} className="col-span-3" disabled={isSubmitting} placeholder="Link to a global user account"/>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="type" className="text-right">Type*</Label>
@@ -545,3 +566,4 @@ export default function HostClientsPage() {
     </div>
   );
 }
+
