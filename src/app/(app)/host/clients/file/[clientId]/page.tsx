@@ -1,22 +1,22 @@
 
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from 'react';
+import { useEffect, useState, useCallback, useMemo, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import {
-  getOrdersByUserId, // Assuming orders are primarily linked by User.id
-  getOrdersByClientName, // Fallback if no User.id
+  getOrdersByUserId,
+  getOrdersByClientName,
   getRoomOrTableById,
   getServiceById,
   getClientById, 
-  getReservationsByUserId, // Assuming reservations are primarily linked by User.id
-  getReservationsByClientName, // Fallback
+  getReservationsByUserId,
+  getReservationsByClientName,
   getHostById
 } from '@/lib/data';
 import type { Order, RoomOrTable, Service, Client, Reservation, Host } from '@/lib/types'; 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { User, ShoppingBag, MapPin, CalendarDays, Phone, Mail, DollarSign, AlertTriangle, Info, ListOrdered, Building, BedDouble, Utensils, FileCheck as FileCheckIcon, ArrowLeft, Edit3, Users as UsersIcon } from 'lucide-react';
@@ -77,19 +77,18 @@ function ClientFilePageContent() {
       let ordersData: Order[] = [];
       let reservationsData: Reservation[] = [];
 
+      // Prioritize userId for fetching orders and reservations if available
       if (clientData.userId) {
         ordersData = await getOrdersByUserId(clientData.userId);
         reservationsData = await getReservationsByUserId(clientData.userId);
-        // Filter orders/reservations to only those pertaining to the current host if needed
+        
+        // Filter down to only items relevant to the current host
         ordersData = ordersData.filter(o => o.hostId === clientData.hostId);
         reservationsData = reservationsData.filter(r => r.hostId === clientData.hostId);
-      } else if (clientData.nom) {
-        // Fallback for clients not linked to a global user, or to get orders made before linking
-        const nameBasedOrders = await getOrdersByClientName(clientData.hostId, clientData.nom);
-        ordersData = [...ordersData, ...nameBasedOrders.filter(nbo => !ordersData.find(o => o.id === nbo.id))]; // Merge and deduplicate
-        
-        const nameBasedReservations = await getReservationsByClientName(clientData.hostId, clientData.nom);
-        reservationsData = [...reservationsData, ...nameBasedReservations.filter(nbr => !reservationsData.find(r => r.id === nbr.id))];
+      } else if (clientData.nom) { 
+        // Fallback to name if no userId, only get items for the current host
+        ordersData = await getOrdersByClientName(clientData.hostId, clientData.nom);
+        reservationsData = await getReservationsByClientName(clientData.hostId, clientData.nom);
       }
 
 
@@ -97,10 +96,9 @@ function ClientFilePageContent() {
         ordersData.map(async (order) => {
           const service = await getServiceById(order.serviceId);
           const location = await getRoomOrTableById(order.chambreTableId);
-          // Host name is already known via clientData.hostId -> hostData
           return {
             ...order,
-            serviceName: service?.titre || 'Service Inconnu',
+            serviceName: service?.titre || (service as any)?.name || 'Service Inconnu',
             locationName: location ? `${location.type} ${location.nom}` : 'Lieu Inconnu',
             hostName: hostData?.nom || 'Établissement Inconnu',
           };
@@ -198,8 +196,8 @@ function ClientFilePageContent() {
       <Tabs defaultValue="general" className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
           <TabsTrigger value="general">Infos Générales</TabsTrigger>
-          <TabsTrigger value="orders">Commandes</TabsTrigger>
-          <TabsTrigger value="reservations">Réservations</TabsTrigger>
+          <TabsTrigger value="orders">Commandes ({clientOrders.length})</TabsTrigger>
+          <TabsTrigger value="reservations">Réservations ({clientReservations.length})</TabsTrigger>
           <TabsTrigger value="checkins">Enreg. en Ligne</TabsTrigger>
         </TabsList>
 
@@ -217,14 +215,14 @@ function ClientFilePageContent() {
                 <>
                   <p><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Arrivée: {clientDetails.dateArrivee && isValid(parseISO(clientDetails.dateArrivee)) ? format(parseISO(clientDetails.dateArrivee), 'PPP', {locale: fr}) : 'N/A'}</p>
                   <p><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Départ: {clientDetails.dateDepart && isValid(parseISO(clientDetails.dateDepart)) ? format(parseISO(clientDetails.dateDepart), 'PPP', {locale: fr}) : 'N/A'}</p>
-                  {clientDetails.locationId && <p><MapPin className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Lieu: {clientDetails.locationId}</p>} {/* TODO: Fetch location name */}
+                  {clientDetails.locationId && <p><MapPin className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Lieu Actuel: {clientDetails.locationId}</p>} {/* TODO: Fetch location name */}
                 </>
               )}
               <p className="text-green-600"><DollarSign className="inline mr-1.5 h-4 w-4"/> Crédit: <span className="font-semibold">${(clientDetails.credit || 0).toFixed(2)}</span></p>
               <p className="text-amber-600"><ListOrdered className="inline mr-1.5 h-4 w-4"/> Points Fidélité: <span className="font-semibold">{clientDetails.pointsFidelite || 0} pts</span></p>
               <p><DollarSign className="inline mr-1.5 h-4 w-4 text-blue-500" /> Total Dépensé (Commandes): <span className="font-semibold">${totalSpentOverall.toFixed(2)}</span></p>
               <div className="mt-2"><strong className="text-primary">Notes:</strong> <p className="text-muted-foreground whitespace-pre-wrap">{clientDetails.notes || "(Aucune note pour cette fiche)"}</p></div>
-               {clientDetails.userId && <p className="text-xs text-muted-foreground italic pt-2">(Lié à l'utilisateur global ID: {clientDetails.userId.slice(-6)})</p>}
+               {clientDetails.userId && <p className="text-xs text-muted-foreground italic pt-2">(Lié à l'utilisateur global ID: #{clientDetails.userId.slice(-6)})</p>}
             </CardContent>
              <CardFooter>
                 <Button onClick={() => router.push(`/host/clients?edit=${clientDetails.id}`)} variant="outline"><Edit3 className="mr-2 h-4 w-4"/> Modifier cette Fiche Client</Button>
@@ -337,3 +335,4 @@ export default function ClientFilePage() {
     </Suspense>
   )
 }
+
