@@ -10,12 +10,12 @@ import {
   getOrdersByClientName,
   getRoomOrTableById,
   getServiceById,
-  getClientById, 
+  getClientById,
   getReservationsByUserId,
   getReservationsByClientName,
   getHostById
 } from '@/lib/data';
-import type { Order, RoomOrTable, Service, Client, Reservation, Host } from '@/lib/types'; 
+import type { Order, RoomOrTable, Service, Client, Reservation, Host } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -77,16 +77,13 @@ function ClientFilePageContent() {
       let ordersData: Order[] = [];
       let reservationsData: Reservation[] = [];
 
-      // Prioritize userId for fetching orders and reservations if available
       if (clientData.userId) {
         ordersData = await getOrdersByUserId(clientData.userId);
         reservationsData = await getReservationsByUserId(clientData.userId);
         
-        // Filter down to only items relevant to the current host
         ordersData = ordersData.filter(o => o.hostId === clientData.hostId);
         reservationsData = reservationsData.filter(r => r.hostId === clientData.hostId);
-      } else if (clientData.nom) { 
-        // Fallback to name if no userId, only get items for the current host
+      } else if (clientData.nom) {
         ordersData = await getOrdersByClientName(clientData.hostId, clientData.nom);
         reservationsData = await getReservationsByClientName(clientData.hostId, clientData.nom);
       }
@@ -98,7 +95,7 @@ function ClientFilePageContent() {
           const location = await getRoomOrTableById(order.chambreTableId);
           return {
             ...order,
-            serviceName: service?.titre || (service as any)?.name || 'Service Inconnu',
+            serviceName: service && 'titre' in service ? service.titre : (service && 'name' in service ? service.name : 'Service Inconnu'),
             locationName: location ? `${location.type} ${location.nom}` : 'Lieu Inconnu',
             hostName: hostData?.nom || 'Établissement Inconnu',
           };
@@ -207,20 +204,20 @@ function ClientFilePageContent() {
                 <CardTitle className="text-xl flex items-center"><Info className="mr-2 h-5 w-5 text-primary"/>Détails de la Fiche Client</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <p><strong className="text-muted-foreground">ID Fiche Client:</strong> #{clientDetails.id.slice(-6)}</p>
-              <p><Mail className="inline mr-1.5 h-4 w-4 text-muted-foreground" /> Email: <span className="font-medium">{clientDetails.email || "(Non renseigné)"}</span></p>
-              <p><Phone className="inline mr-1.5 h-4 w-4 text-muted-foreground" /> Téléphone: <span className="font-medium">{clientDetails.telephone || "(Non renseigné)"}</span></p>
-              <p><UsersIcon className="inline mr-1.5 h-4 w-4 text-muted-foreground" /> Type: <Badge variant={clientDetails.type === 'heberge' ? 'default' : 'secondary'} className="capitalize">{clientDetails.type}</Badge></p>
+              <div><strong className="text-muted-foreground">ID Fiche Client:</strong> #{clientDetails.id.slice(-6)}</div>
+              <div><Mail className="inline mr-1.5 h-4 w-4 text-muted-foreground" /> Email: <span className="font-medium">{clientDetails.email || "(Non renseigné)"}</span></div>
+              <div><Phone className="inline mr-1.5 h-4 w-4 text-muted-foreground" /> Téléphone: <span className="font-medium">{clientDetails.telephone || "(Non renseigné)"}</span></div>
+              <div className="flex items-center"><UsersIcon className="inline mr-1.5 h-4 w-4 text-muted-foreground" /> Type: <Badge variant={clientDetails.type === 'heberge' ? 'default' : 'secondary'} className="capitalize ml-1">{clientDetails.type}</Badge></div>
               {clientDetails.type === 'heberge' && (
                 <>
-                  <p><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Arrivée: {clientDetails.dateArrivee && isValid(parseISO(clientDetails.dateArrivee)) ? format(parseISO(clientDetails.dateArrivee), 'PPP', {locale: fr}) : 'N/A'}</p>
-                  <p><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Départ: {clientDetails.dateDepart && isValid(parseISO(clientDetails.dateDepart)) ? format(parseISO(clientDetails.dateDepart), 'PPP', {locale: fr}) : 'N/A'}</p>
-                  {clientDetails.locationId && <p><MapPin className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Lieu Actuel: {clientDetails.locationId}</p>} {/* TODO: Fetch location name */}
+                  <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Arrivée: {clientDetails.dateArrivee && isValid(parseISO(clientDetails.dateArrivee)) ? format(parseISO(clientDetails.dateArrivee), 'PPP', {locale: fr}) : 'N/A'}</div>
+                  <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Départ: {clientDetails.dateDepart && isValid(parseISO(clientDetails.dateDepart)) ? format(parseISO(clientDetails.dateDepart), 'PPP', {locale: fr}) : 'N/A'}</div>
+                  {clientDetails.locationId && <div><MapPin className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Lieu Actuel: {clientDetails.locationId}</div>} {/* TODO: Fetch location name */}
                 </>
               )}
-              <p className="text-green-600"><DollarSign className="inline mr-1.5 h-4 w-4"/> Crédit: <span className="font-semibold">${(clientDetails.credit || 0).toFixed(2)}</span></p>
-              <p className="text-amber-600"><ListOrdered className="inline mr-1.5 h-4 w-4"/> Points Fidélité: <span className="font-semibold">{clientDetails.pointsFidelite || 0} pts</span></p>
-              <p><DollarSign className="inline mr-1.5 h-4 w-4 text-blue-500" /> Total Dépensé (Commandes): <span className="font-semibold">${totalSpentOverall.toFixed(2)}</span></p>
+              <div className="text-green-600"><DollarSign className="inline mr-1.5 h-4 w-4"/> Crédit: <span className="font-semibold">${(clientDetails.credit || 0).toFixed(2)}</span></div>
+              <div className="text-amber-600"><ListOrdered className="inline mr-1.5 h-4 w-4"/> Points Fidélité: <span className="font-semibold">{clientDetails.pointsFidelite || 0} pts</span></div>
+              <div><DollarSign className="inline mr-1.5 h-4 w-4 text-blue-500" /> Total Dépensé (Commandes): <span className="font-semibold">${totalSpentOverall.toFixed(2)}</span></div>
               <div className="mt-2"><strong className="text-primary">Notes:</strong> <p className="text-muted-foreground whitespace-pre-wrap">{clientDetails.notes || "(Aucune note pour cette fiche)"}</p></div>
                {clientDetails.userId && <p className="text-xs text-muted-foreground italic pt-2">(Lié à l'utilisateur global ID: #{clientDetails.userId.slice(-6)})</p>}
             </CardContent>
@@ -314,7 +311,7 @@ function ClientFilePageContent() {
                       <p><strong>Téléphone:</strong> {res.onlineCheckinData!.phoneNumber || 'N/A'}</p>
                       {res.onlineCheckinData!.travelReason && <p><strong>Motif du voyage:</strong> {res.onlineCheckinData!.travelReason}</p>}
                       {res.onlineCheckinData!.additionalNotes && <p><strong>Notes additionnelles:</strong> {res.onlineCheckinData!.additionalNotes}</p>}
-                      <div><strong>Statut Enreg. Ligne:</strong> <Badge variant={res.onlineCheckinStatus === 'completed' ? 'default' : res.onlineCheckinStatus === 'pending-review' ? 'secondary' : 'outline'} className="capitalize text-xs">{res.onlineCheckinStatus?.replace('-', ' ') || 'Non démarré'}</Badge></div>
+                      <div className="flex items-center"><strong>Statut Enreg. Ligne:</strong> <Badge variant={res.onlineCheckinStatus === 'completed' ? 'default' : res.onlineCheckinStatus === 'pending-review' ? 'secondary' : 'outline'} className="capitalize text-xs ml-1">{res.onlineCheckinStatus?.replace('-', ' ') || 'Non démarré'}</Badge></div>
                     </CardContent>
                   </Card>
                 ))
