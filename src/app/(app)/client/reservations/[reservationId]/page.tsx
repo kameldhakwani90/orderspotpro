@@ -3,8 +3,8 @@
 
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getReservationById, getHostById, getRoomOrTableById, getOrdersByUserId, getServiceById } from '@/lib/data'; 
-import type { Reservation, Host, RoomOrTable, Order, Service } from '@/lib/types';
+import { getReservationById, getHostById, getRoomOrTableById, getOrdersByUserId, getServiceById, getSiteById } from '@/lib/data'; // Added getSiteById
+import type { Reservation, Host, RoomOrTable, Order, Service, Site as GlobalSiteType } from '@/lib/types'; // Added GlobalSiteType
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,20 +16,23 @@ import { fr } from 'date-fns/locale';
 import { ArrowLeft, Building, CalendarDays, Users, Hash, Info, BedDouble, Utensils, ShoppingBag, CreditCard, FileText as InvoiceIcon } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface EnrichedOrder extends Order {
   serviceName?: string;
-  locationName?: string; // Not strictly needed here as orders are tied to reservation's host
+  locationName?: string; 
 }
 
 function ReservationDetailPageContent() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const reservationId = params.reservationId as string;
 
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [host, setHost] = useState<Host | null>(null);
+  const [globalSite, setGlobalSite] = useState<GlobalSiteType | null>(null); // For establishment details
   const [location, setLocation] = useState<RoomOrTable | null>(null);
   const [relatedOrders, setRelatedOrders] = useState<EnrichedOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,7 +40,7 @@ function ReservationDetailPageContent() {
 
   const fetchReservationDetails = useCallback(async () => {
     if (!reservationId) {
-      setError("ID de réservation manquant.");
+      setError(t('errorAccessingReservation'));
       setIsLoading(false);
       return;
     }
@@ -46,30 +49,45 @@ function ReservationDetailPageContent() {
     try {
       const resData = await getReservationById(reservationId);
       if (!resData) {
-        setError("Réservation non trouvée.");
+        setError(t('reservationDetailsNotAvailable'));
         setReservation(null);
         setIsLoading(false);
         return;
       }
       setReservation(resData);
 
-      const [hostData, locationData] = await Promise.all([
-        resData.hostId ? getHostById(resData.hostId) : Promise.resolve(null),
-        resData.locationId ? getRoomOrTableById(resData.locationId) : Promise.resolve(null),
-      ]);
-      setHost(hostData);
-      setLocation(locationData || null);
+      let hostData: Host | undefined;
+      let globalSiteData: GlobalSiteType | undefined;
 
-      // Fetch orders made by this client at this host around the reservation dates
-      if (resData.clientId && resData.hostId) {
+      if (resData.hostId) {
+        hostData = await getHostById(resData.hostId);
+        setHost(hostData || null);
+        if (hostData) {
+          const loc = resData.locationId ? await getRoomOrTableById(resData.locationId) : null;
+          if (loc?.globalSiteId) {
+            globalSiteData = await getSiteById(loc.globalSiteId);
+          } else {
+            // Fallback to host's first global site if location's globalSiteId is not directly on reservation or loc
+            const hostSites = await getSites(resData.hostId);
+            if (hostSites.length > 0) globalSiteData = hostSites[0];
+          }
+          setGlobalSite(globalSiteData || null);
+        }
+      }
+      
+      if (resData.locationId) {
+        const locationDataResult = await getRoomOrTableById(resData.locationId);
+        setLocation(locationDataResult || null);
+      }
+
+
+      if (resData.clientId && resData.hostId) { // Assuming clientId on reservation is User.id for client's own orders
         const allClientOrders = await getOrdersByUserId(resData.clientId);
         const filteredOrders = allClientOrders.filter(order => {
           if (order.hostId !== resData.hostId) return false;
           try {
             const orderDate = startOfDay(parseISO(order.dateHeure));
             const resStartDate = startOfDay(parseISO(resData.dateArrivee));
-            // For tables, departure might not exist or be same as arrival. Use end of arrival day.
-            // For rooms, use actual departure date.
             const resEndDate = resData.type === 'Table' || !resData.dateDepart
                 ? endOfDay(parseISO(resData.dateArrivee))
                 : endOfDay(parseISO(resData.dateDepart));
@@ -82,18 +100,18 @@ function ReservationDetailPageContent() {
         
         const enriched = await Promise.all(filteredOrders.map(async o => {
             const serviceDetails = await getServiceById(o.serviceId);
-            return {...o, serviceName: serviceDetails?.titre || 'Service inconnu'};
+            return {...o, serviceName: serviceDetails ? ('titre' in serviceDetails ? serviceDetails.titre : serviceDetails.name) : 'Service inconnu'};
         }));
         setRelatedOrders(enriched);
       }
 
     } catch (e: any) {
       console.error("Erreur lors de la récupération des détails de la réservation:", e);
-      setError("Impossible de charger les détails de la réservation. " + e.message);
+      setError(t('errorLoadingReservationDetails') + ` (${e.message})`);
     } finally {
       setIsLoading(false);
     }
-  }, [reservationId]);
+  }, [reservationId, t]);
 
   useEffect(() => {
     fetchReservationDetails();
@@ -103,14 +121,7 @@ function ReservationDetailPageContent() {
     return (
       <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
         <Skeleton className="h-10 w-1/4 mb-6" />
-        <Card className="shadow-lg">
-          <CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader>
-          <CardContent className="space-y-4">
-            <Skeleton className="h-6 w-3/4" />
-            <Skeleton className="h-20 w-full" />
-            <Skeleton className="h-40 w-full" />
-          </CardContent>
-        </Card>
+        <Card className="shadow-lg"><CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader><CardContent className="space-y-4"><Skeleton className="h-6 w-3/4" /><Skeleton className="h-20 w-full" /><Skeleton className="h-40 w-full" /></CardContent></Card>
       </div>
     );
   }
@@ -119,21 +130,22 @@ function ReservationDetailPageContent() {
     return (
       <div className="container mx-auto py-10 px-4 text-center">
         <Info className="mx-auto h-12 w-12 text-destructive mb-4" />
-        <h2 className="text-2xl font-semibold text-destructive mb-2">Erreur de Réservation</h2>
-        <p className="text-muted-foreground">{error || "Détails de la réservation non disponibles."}</p>
+        <h2 className="text-2xl font-semibold text-destructive mb-2">{error || t('errorAccessingReservation')}</h2>
+        <p className="text-muted-foreground">{t('reservationDetailsNotAvailable')}</p>
         <Button onClick={() => router.push('/client/my-reservations')} className="mt-6">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Voir mes réservations
+          <ArrowLeft className="mr-2 h-4 w-4" /> Voir Toutes Mes Réservations
         </Button>
       </div>
     );
   }
   
   const LocationIcon = reservation.type === 'Chambre' ? BedDouble : Utensils;
+  const establishmentDisplayName = globalSite?.nom || host?.nom || 'Établissement inconnu';
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
       <Button variant="outline" onClick={() => router.push('/client/my-reservations')} className="mb-6">
-        <ArrowLeft className="mr-2 h-4 w-4" /> Voir mes réservations
+        <ArrowLeft className="mr-2 h-4 w-4" /> Voir Toutes Mes Réservations
       </Button>
 
       <Card className="shadow-xl">
@@ -144,7 +156,7 @@ function ReservationDetailPageContent() {
                 Réservation #{reservation.id.slice(-6).toUpperCase()}
               </CardTitle>
               <CardDescription className="text-md">
-                {host?.nom || 'Établissement inconnu'}
+                {establishmentDisplayName}
               </CardDescription>
             </div>
             <Badge variant={reservation.status === 'cancelled' ? 'destructive' : reservation.status === 'checked-out' ? 'secondary' : 'default'} className="text-lg capitalize h-fit">
@@ -209,7 +221,7 @@ function ReservationDetailPageContent() {
                               <TableCell>{order.serviceName}</TableCell>
                               <TableCell>{isValid(parseISO(order.dateHeure)) ? format(parseISO(order.dateHeure), 'Pp', {locale: fr}) : 'Date invalide'}</TableCell>
                               <TableCell><Badge variant={order.status === 'completed' ? 'default' : order.status === 'cancelled' ? 'destructive' : 'secondary'} className="capitalize text-xs">{order.status}</Badge></TableCell>
-                              <TableCell className="text-right">{order.prixTotal !== undefined ? `$${order.prixTotal.toFixed(2)}` : 'N/A'}</TableCell>
+                              <TableCell className="text-right">{(order.currency || '$')}{order.prixTotal !== undefined ? order.prixTotal.toFixed(2) : 'N/A'}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -231,31 +243,29 @@ function ReservationDetailPageContent() {
                     </div>
                     <div className="flex justify-between border-b pb-1">
                         <span>Séjour {reservation.type} ({isValid(parseISO(reservation.dateArrivee)) ? format(parseISO(reservation.dateArrivee), 'dd/MM') : ''} {reservation.dateDepart && reservation.type === 'Chambre' && isValid(parseISO(reservation.dateDepart)) ? `- ${format(parseISO(reservation.dateDepart), 'dd/MM')}` : ''})</span>
-                        <span>{reservation.prixTotal !== undefined ? `$${reservation.prixTotal.toFixed(2)}` : 'N/A'}</span>
+                        <span>{(reservation.currency || '$')}{reservation.prixTotal !== undefined ? reservation.prixTotal.toFixed(2) : 'N/A'}</span>
                     </div>
                     
-                    {/* Future: Add lines for each related order if we implement order bundling into reservation billing */}
-
                     <div className="flex justify-between font-bold text-lg border-t pt-2">
                         <span>TOTAL</span>
-                        <span>{reservation.prixTotal !== undefined ? `$${reservation.prixTotal.toFixed(2)}` : 'N/A'}</span>
+                        <span>{(reservation.currency || '$')}{reservation.prixTotal !== undefined ? reservation.prixTotal.toFixed(2) : 'N/A'}</span>
                     </div>
                      <div className="flex justify-between">
                         <span className="text-muted-foreground">Montant Payé</span>
-                        <span className="text-green-600">${(reservation.montantPaye || 0).toFixed(2)}</span>
+                        <span className="text-green-600">{(reservation.currency || '$')}{(reservation.montantPaye || 0).toFixed(2)}</span>
                     </div>
                      <div className="flex justify-between font-semibold">
                         <span className="text-muted-foreground">Solde Dû</span>
-                        <span className={`${(reservation.soldeDu || 0) > 0 ? 'text-red-600' : 'text-foreground'}`}>${(reservation.soldeDu || 0).toFixed(2)}</span>
+                        <span className={`${(reservation.soldeDu || 0) > 0 ? 'text-red-600' : 'text-foreground'}`}>{(reservation.currency || '$')}{(reservation.soldeDu || 0).toFixed(2)}</span>
                     </div>
                      {reservation.status === 'checked-out' && (reservation.soldeDu || 0) > 0 && (
                          <p className="text-destructive text-xs text-center pt-2">Veuillez régler le solde dû auprès de l'établissement.</p>
                      )}
                 </CardContent>
                  <CardFooter className="border-t pt-4">
-                    <Link href={`/invoice/order/res_${reservation.id}`} target="_blank" passHref>
+                    <Link href={`/invoice/reservation/${reservation.id}`} target="_blank" passHref>
                       <Button variant="outline" className="w-full">
-                        <InvoiceIcon className="mr-2 h-4 w-4" /> Voir la Facture détaillée du séjour
+                        <InvoiceIcon className="mr-2 h-4 w-4" /> Voir la Facture du Séjour
                       </Button>
                     </Link>
                   </CardFooter>
@@ -268,12 +278,10 @@ function ReservationDetailPageContent() {
   );
 }
 
-export default function ReservationDetailPage() {
+export default function ClientReservationDetailPage() { // Changed name for clarity
   return (
     <Suspense fallback={<div className="flex justify-center items-center min-h-screen"><p>Chargement des détails de la réservation...</p></div>}>
       <ReservationDetailPageContent />
     </Suspense>
   )
 }
-
-    

@@ -12,9 +12,10 @@ import {
   getClients,
   getRoomOrTableById,
   getHostById,
+  getSiteById, // Ensured getSiteById is imported
   getReservations as fetchAllHostReservations,
 } from '@/lib/data';
-import type { Reservation, RoomOrTable, Client, ReservationStatus, Host, OnlineCheckinStatus } from '@/lib/types';
+import type { Reservation, RoomOrTable, Client, ReservationStatus, Host, OnlineCheckinStatus, Site as GlobalSiteType } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,9 +30,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { format, parseISO, isValid, isBefore, addDays, startOfDay, isSameDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ArrowLeft, CalendarDays as CalendarIcon, Users as UsersIcon, Dog, FileText, BedDouble, Utensils, Save, Trash2, AlertTriangle, Copy, FileCheck } from 'lucide-react';
+import { ArrowLeft, CalendarDays as CalendarIcon, Users as UsersIcon, Dog, FileText, BedDouble, Utensils, Save, Trash2, AlertTriangle, Copy, FileCheck, FileText as InvoiceIcon } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge'; // Added Badge import
+import { Badge } from '@/components/ui/badge';
 
 const NO_CLIENT_SELECTED = "___NO_CLIENT_SELECTED___";
 const reservationStatuses: ReservationStatus[] = ["pending", "confirmed", "checked-in", "checked-out", "cancelled"];
@@ -48,6 +49,7 @@ function HostReservationDetailPageContent() {
 
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [hostDetails, setHostDetails] = useState<Host | null>(null);
+  const [globalSiteDetails, setGlobalSiteDetails] = useState<GlobalSiteType | null>(null);
   const [originalLocation, setOriginalLocation] = useState<RoomOrTable | null>(null);
   const [allHostLocations, setAllHostLocations] = useState<RoomOrTable[]>([]);
   const [allHostClients, setAllHostClients] = useState<Client[]>([]);
@@ -112,12 +114,17 @@ function HostReservationDetailPageContent() {
       setAllHostClients(hostClientsData);
       setAllReservationsForHost(allReservationsData);
 
+      const originalLoc = hostLocationsData.find(loc => loc.id === resData.locationId);
+      setOriginalLocation(originalLoc || null);
+      
+      if (originalLoc?.globalSiteId) {
+        const siteData = await getSiteById(originalLoc.globalSiteId);
+        setGlobalSiteDetails(siteData || null);
+      }
+
 
       // Initialize form state
       setSelectedLocationId(resData.locationId);
-      const originalLoc = hostLocationsData.find(loc => loc.id === resData.locationId);
-      setOriginalLocation(originalLoc || null);
-
       setSelectedClientId(resData.clientId || NO_CLIENT_SELECTED);
       setManualClientName(resData.clientId ? "" : resData.clientName || "");
       
@@ -266,13 +273,13 @@ function HostReservationDetailPageContent() {
       status: currentStatus,
       channel: channel,
       onlineCheckinStatus: currentOnlineCheckinStatus,
-      // onlineCheckinData is updated through its own flow
+      currency: location?.currency || hostDetails?.currency || 'USD'
     };
 
     try {
       await updateReservationInData(reservation.id, reservationPayload);
       toast({ title: "Reservation Updated", description: "Changes saved successfully." });
-      fetchReservationData(); // Re-fetch to show updated data
+      fetchReservationData(); 
     } catch (error) {
       console.error("Failed to update reservation:", error);
       toast({ title: "Error Saving Reservation", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
@@ -359,12 +366,14 @@ function HostReservationDetailPageContent() {
   }
   
   const LocationSpecificIcon = currentSelectedLocationType === 'Chambre' ? BedDouble : Utensils;
+  const establishmentDisplayName = globalSiteDetails?.nom || hostDetails?.nom || 'Establishment Unknown';
+
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
-          Reservation Details: #{reservation.id.slice(-6)}
+          Reservation #{reservation.id.slice(-6)}
         </h1>
         <Link href="/host/reservations">
           <Button variant="outline"><ArrowLeft className="mr-2 h-4 w-4" /> Back to Reservations</Button>
@@ -375,13 +384,14 @@ function HostReservationDetailPageContent() {
         <CardHeader>
           <CardTitle className="flex items-center">
             <LocationSpecificIcon className="mr-2 h-6 w-6 text-primary" />
-            Edit Reservation for: {originalLocation?.nom} ({originalLocation?.type})
+            {establishmentDisplayName} - {originalLocation?.nom} ({originalLocation?.type})
           </CardTitle>
           <CardDescription>Modify the details of this reservation. Current Status: <Badge variant="outline" className="capitalize">{currentStatus}</Badge></CardDescription>
         </CardHeader>
         <CardContent>
           <ScrollArea className="max-h-[70vh] pr-4 -mr-2">
             <div className="grid gap-6 py-4 ">
+              {/* Form fields similar to the dialog */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="arrivalDateDialog">Arrival Date*</Label>
@@ -512,22 +522,31 @@ function HostReservationDetailPageContent() {
             </div>
           </ScrollArea>
         </CardContent>
-        <CardFooter className="flex justify-between border-t pt-6">
-          <Button variant="destructive" onClick={handleDelete} disabled={isSubmitting}>
-            <Trash2 className="mr-2 h-4 w-4" /> Delete Reservation
-          </Button>
-          <Button 
-            onClick={handleSaveChanges} 
-            disabled={
-              isSubmitting || 
-              !selectedLocationId || 
-              (!manualClientName.trim() && selectedClientId === NO_CLIENT_SELECTED) || 
-              !arrivalDate || 
-              (currentSelectedLocationType === 'Chambre' && (!departureDate || isBefore(startOfDay(departureDate), startOfDay(addDays(arrivalDate,1))) || isSameDay(startOfDay(departureDate), startOfDay(arrivalDate)) ))
-            }
-          >
-            <Save className="mr-2 h-4 w-4" /> {isSubmitting ? "Saving..." : "Save Changes"}
-          </Button>
+        <CardFooter className="flex justify-between items-center border-t pt-6">
+         <div>
+            <Link href={`/invoice/reservation/${reservation.id}`} target="_blank" passHref>
+                <Button variant="outline" disabled={isSubmitting}>
+                    <InvoiceIcon className="mr-2 h-4 w-4" /> View Invoice
+                </Button>
+            </Link>
+         </div>
+         <div className="flex gap-2">
+            <Button variant="destructive" onClick={handleDelete} disabled={isSubmitting}>
+                <Trash2 className="mr-2 h-4 w-4" /> Delete Reservation
+            </Button>
+            <Button 
+                onClick={handleSaveChanges} 
+                disabled={
+                isSubmitting || 
+                !selectedLocationId || 
+                (!manualClientName.trim() && selectedClientId === NO_CLIENT_SELECTED) || 
+                !arrivalDate || 
+                (currentSelectedLocationType === 'Chambre' && (!departureDate || isBefore(startOfDay(departureDate), startOfDay(addDays(arrivalDate,1))) || isSameDay(startOfDay(departureDate), startOfDay(arrivalDate)) ))
+                }
+            >
+                <Save className="mr-2 h-4 w-4" /> {isSubmitting ? "Saving..." : "Save Changes"}
+            </Button>
+         </div>
         </CardFooter>
       </Card>
     </div>
