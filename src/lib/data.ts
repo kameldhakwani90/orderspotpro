@@ -1,11 +1,15 @@
-
 // src/lib/data.ts
 import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus, Tag, LoyaltySettings, ReservationPageSettings, OnlineCheckinData, OnlineCheckinStatus, Paiement, MenuCard, MenuCategory, MenuItem, MenuItemOption, MenuItemOptionGroup } from './types';
 
+// Comment out Firebase imports if reverting to full in-memory
+// import { db } from './firebase';
+// import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp, DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
+
 const log = (message: string, data?: any) => {
-  // console.log(`[Data Layer Memory] ${new Date().toISOString()}: ${message}`, data !== undefined ? data : '');
+  console.log(`[Data Layer] ${new Date().toISOString()}: ${message}`, data !== undefined ? data : '');
 }
 log("Data layer initialized. Using IN-MEMORY DATA for all entities.");
+
 
 // --- In-memory data store ---
 let usersInMemory: User[] = [
@@ -16,7 +20,7 @@ let usersInMemory: User[] = [
   { id: 'user-host-le-phare', email: 'info@lepharebistro.com', nom: 'Le Phare Bistro', role: 'host', hostId: 'host-le-phare', motDePasse: '1234' },
   { id: 'user-client-alice', email: 'alice@example.com', nom: 'Alice Wonderland', role: 'client', motDePasse: '1234' },
   { id: 'user-client-bob', email: 'bob@example.com', nom: 'Bob The Builder', role: 'client', motDePasse: '1234' },
-  { id: 'user-dynamic-host', email: 'dynamic@host.com', nom: 'Dynamic Test Client User', role: 'host', hostId: 'host-1747669860022', motDePasse: '1234' },
+  { id: 'user-dynamic-host', email: 'dynamic@host.com', nom: 'Dynamic Test User', role: 'host', hostId: 'host-1747669860022', motDePasse: '1234' },
 ];
 
 const defaultLoyaltySettings: LoyaltySettings = {
@@ -64,8 +68,8 @@ let tagsInMemory: Tag[] = [
 
 let roomsOrTablesInMemory: RoomOrTable[] = [
   // Salty Pelican
-  { id: 'sp-room-ocean-double', nom: 'Ocean Double', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-ocean-double`, capacity: 2, prixParNuit: 150, pricingModel: 'perRoom', description: "Chambre double avec vue imprenable sur l'océan.", imageUrls: ["https://placehold.co/600x400.png?text=Ocean+View+Double", "https://placehold.co/600x400.png?text=Ocean+Room+Balcony"], imageAiHint: "ocean view room", tagIds: ['tag-vue-mer'], amenityIds: ['wifi', 'salle-de-bain', 'tv', 'terrasse-balcon', 'climatisation'], menuCardId: 'mc-salty-main' },
-  { id: 'sp-room-garden-bungalow', nom: 'Garden Bungalow', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-garden-bungalow`, capacity: 4, prixParNuit: 180, pricingModel: 'perRoom', description: "Bungalow spacieux avec accès direct au jardin, idéal pour les familles.", imageUrls: ["https://placehold.co/600x400.png?text=Garden+Bungalow", "https://placehold.co/600x400.png?text=Bungalow+Interior"], imageAiHint: "garden bungalow family", tagIds: ['tag-famille', 'tag-animaux'], amenityIds: ['wifi', 'salle-de-bain', 'cuisine', 'animaux-acceptes'], menuCardId: 'mc-salty-main' },
+  { id: 'sp-room-ocean-double', nom: 'Ocean Double', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-ocean-double`, capacity: 2, pricingModel: 'perRoom', prixParNuit: 150, description: "Chambre double avec vue imprenable sur l'océan.", imageUrls: ["https://placehold.co/600x400.png?text=Ocean+View+Double", "https://placehold.co/600x400.png?text=Ocean+Room+Balcony"], imageAiHint: "ocean view room", tagIds: ['tag-vue-mer'], amenityIds: ['wifi', 'salle-de-bain', 'tv', 'terrasse-balcon', 'climatisation'], menuCardId: 'mc-salty-main' },
+  { id: 'sp-room-garden-bungalow', nom: 'Garden Bungalow', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-garden-bungalow`, capacity: 4, pricingModel: 'perRoom', prixParNuit: 180, description: "Bungalow spacieux avec accès direct au jardin, idéal pour les familles.", imageUrls: ["https://placehold.co/600x400.png?text=Garden+Bungalow", "https://placehold.co/600x400.png?text=Bungalow+Interior"], imageAiHint: "garden bungalow family", tagIds: ['tag-famille', 'tag-animaux'], amenityIds: ['wifi', 'salle-de-bain', 'cuisine', 'animaux-acceptes'], menuCardId: 'mc-salty-main' },
   { id: 'sp-zone-terrasse', nom: 'Terrasse Plage', type: 'Site', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-zone-terrasse`, description: "Terrasse ensoleillée face à la mer.", amenityIds: ['wifi'], menuCardId: 'mc-salty-main' },
   { id: 'sp-table-terrasse-1', nom: 'Table Terrasse Vue Mer 1', type: 'Table', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', parentLocationId: 'sp-zone-terrasse', urlPersonnalise: `/client/host-salty-pelican/sp-table-terrasse-1`, capacity: 4, prixFixeReservation: 10, description: "Table avec la meilleure vue.", menuCardId: 'mc-salty-main' },
 
@@ -76,8 +80,8 @@ let roomsOrTablesInMemory: RoomOrTable[] = [
 
   // Paradise Beach Resort
   { id: 'pbr-lobby', nom: 'Lobby Principal Paradise', type: 'Site', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', urlPersonnalise: `/client/host-paradise-resort/pbr-lobby`, amenityIds: ['wifi', 'climatisation'] },
-  { id: 'pbr-room-deluxe-king', nom: 'Deluxe King Suite', type: 'Chambre', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-lobby', urlPersonnalise: `/client/host-paradise-resort/pbr-room-deluxe-king`, capacity: 2, prixParNuit: 250, pricingModel: 'perRoom', description: "Suite luxueuse avec lit King Size et vue mer.", imageUrls: ["https://placehold.co/600x400.png?text=Deluxe+King", "https://placehold.co/600x400.png?text=Suite+Bathroom"], imageAiHint: "luxury suite king", tagIds: ['tag-vue-mer-paradise', 'tag-luxe'], amenityIds: ['wifi', 'salle-de-bain', 'tv', 'climatisation', 'terrasse-balcon', 'petit-dejeuner-inclus'], menuCardId: "mc-paradise-roomservice" },
-  { id: 'pbr-room-standard-twin', nom: 'Standard Twin Vue Jardin', type: 'Chambre', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-lobby', urlPersonnalise: `/client/host-paradise-resort/pbr-room-standard-twin`, capacity: 2, prixParNuit: 65, pricingModel: 'perPerson', description: "Chambre confortable avec deux lits jumeaux et vue sur les jardins. Prix par personne.", imageUrls: ["https://placehold.co/600x400.png?text=Standard+Twin", "https://placehold.co/600x400.png?text=Twin+Room+View"], imageAiHint: "twin room garden", tagIds: ['tag-calme', 'tag-famille-paradise'], amenityIds: ['wifi', 'salle-de-bain', 'tv'], menuCardId: "mc-paradise-roomservice" },
+  { id: 'pbr-room-deluxe-king', nom: 'Deluxe King Suite', type: 'Chambre', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-lobby', urlPersonnalise: `/client/host-paradise-resort/pbr-room-deluxe-king`, capacity: 2, pricingModel: 'perRoom', prixParNuit: 250, description: "Suite luxueuse avec lit King Size et vue mer.", imageUrls: ["https://placehold.co/600x400.png?text=Deluxe+King", "https://placehold.co/600x400.png?text=Suite+Bathroom"], imageAiHint: "luxury suite king", tagIds: ['tag-vue-mer-paradise', 'tag-luxe'], amenityIds: ['wifi', 'salle-de-bain', 'tv', 'climatisation', 'terrasse-balcon', 'petit-dejeuner-inclus'], menuCardId: "mc-paradise-roomservice" },
+  { id: 'pbr-room-standard-twin', nom: 'Standard Twin Vue Jardin', type: 'Chambre', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-lobby', urlPersonnalise: `/client/host-paradise-resort/pbr-room-standard-twin`, capacity: 2, pricingModel: 'perPerson', prixParNuit: 65, description: "Chambre confortable avec deux lits jumeaux et vue sur les jardins. Prix par personne.", imageUrls: ["https://placehold.co/600x400.png?text=Standard+Twin", "https://placehold.co/600x400.png?text=Twin+Room+View"], imageAiHint: "twin room garden", tagIds: ['tag-calme', 'tag-famille-paradise'], amenityIds: ['wifi', 'salle-de-bain', 'tv'], menuCardId: "mc-paradise-roomservice" },
   { id: 'pbr-zone-piscine', nom: 'Espace Piscine Paradise', type: 'Site', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', urlPersonnalise: `/client/host-paradise-resort/pbr-zone-piscine`, amenityIds: ['piscine', 'jacuzzi'], menuCardId: "mc-paradise-pool" },
   { id: 'pbr-table-piscine-A', nom: 'Table Cabana Piscine A', type: 'Table', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-zone-piscine', urlPersonnalise: `/client/host-paradise-resort/pbr-table-piscine-A`, capacity: 6, prixFixeReservation: 25, description: "Cabana privée près de la piscine.", menuCardId: "mc-paradise-pool" },
 
@@ -87,7 +91,7 @@ let roomsOrTablesInMemory: RoomOrTable[] = [
 
   // Dynamic Test Establishment
   { id: 'rt-dynamic-lobby', nom: 'Dynamic Lobby', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-lobby`, description: "Lobby for the dynamic establishment.", amenityIds: ['wifi'], menuCardId: 'mc-dyn-main' },
-  { id: 'rt-dynamic-room1', nom: 'Dynamic Room 101', type: 'Chambre', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-room1`, capacity: 2, prixParNuit: 100, pricingModel: 'perRoom', description: "A standard room in the dynamic establishment.", imageUrls: ["https://placehold.co/600x400.png?text=Dynamic+Room+101"], imageAiHint: "dynamic room hotel", amenityIds: ['wifi', 'salle-de-bain', 'tv'], menuCardId: 'mc-dyn-main' },
+  { id: 'rt-dynamic-room1', nom: 'Dynamic Room 101', type: 'Chambre', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-room1`, capacity: 2, pricingModel: 'perRoom', prixParNuit: 100, description: "A standard room in the dynamic establishment.", imageUrls: ["https://placehold.co/600x400.png?text=Dynamic+Room+101"], imageAiHint: "dynamic room hotel", amenityIds: ['wifi', 'salle-de-bain', 'tv'], menuCardId: 'mc-dyn-main' },
   { id: 'rt-dynamic-table5', nom: 'Dynamic Table 5', type: 'Table', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-table5`, capacity: 4, prixFixeReservation: 5, description: "A table in the dynamic lobby.", amenityIds: ['wifi'], menuCardId: 'mc-dyn-main' },
 ];
 
@@ -121,26 +125,26 @@ let formFieldsInMemory: FormField[] = [
 
 let servicesInMemory: Service[] = [
   // Salty Pelican Services
-  { id: 'svc-sp-breakfast', titre: 'Petit Déjeuner Continental', description: 'Café, thé, jus, viennoiseries, fruits frais.', image: 'https://placehold.co/600x400.png?text=Continental+Breakfast', "data-ai-hint": "breakfast continental", categorieId: 'cat-sp-breakfast', hostId: 'host-salty-pelican', prix: 15, targetLocationIds: ['sp-room-ocean-double', 'sp-room-garden-bungalow'], loginRequired: false },
-  { id: 'svc-sp-kayak', titre: 'Location de Kayak (1h)', description: 'Explorez la côte en kayak.', image: 'https://placehold.co/600x400.png?text=Kayak+Rental', "data-ai-hint": "kayak beach", categorieId: 'cat-sp-activities', hostId: 'host-salty-pelican', formulaireId: 'form-sp-activity-booking', prix: 20, targetLocationIds: ['sp-zone-terrasse'], loginRequired: true },
-  { id: 'svc-sp-yoga', titre: 'Cours de Yoga au Lever du Soleil', description: 'Session de yoga revitalisante sur la plage.', image: 'https://placehold.co/600x400.png?text=Sunrise+Yoga', "data-ai-hint": "yoga sunrise beach", categorieId: 'cat-sp-activities', hostId: 'host-salty-pelican', prix: 25, targetLocationIds: [], loginRequired: true, pointsRequis: 100 },
+  { id: 'svc-sp-breakfast', titre: 'Petit Déjeuner Continental', description: 'Café, thé, jus, viennoiseries, fruits frais.', image: 'https://placehold.co/600x400.png?text=Continental+Breakfast', "data-ai-hint": "breakfast continental", categorieId: 'cat-sp-breakfast', hostId: 'host-salty-pelican', prix: 15, targetLocationIds: ['sp-room-ocean-double', 'sp-room-garden-bungalow'], loginRequired: false, currency: 'USD' },
+  { id: 'svc-sp-kayak', titre: 'Location de Kayak (1h)', description: 'Explorez la côte en kayak.', image: 'https://placehold.co/600x400.png?text=Kayak+Rental', "data-ai-hint": "kayak beach", categorieId: 'cat-sp-activities', hostId: 'host-salty-pelican', formulaireId: 'form-sp-activity-booking', prix: 20, targetLocationIds: ['sp-zone-terrasse'], loginRequired: true, currency: 'USD' },
+  { id: 'svc-sp-yoga', titre: 'Cours de Yoga au Lever du Soleil', description: 'Session de yoga revitalisante sur la plage.', image: 'https://placehold.co/600x400.png?text=Sunrise+Yoga', "data-ai-hint": "yoga sunrise beach", categorieId: 'cat-sp-activities', hostId: 'host-salty-pelican', prix: 25, targetLocationIds: [], loginRequired: true, pointsRequis: 100, currency: 'USD' },
 
   // Le Phare Bistro Services
-  { id: 'svc-lp-espresso', titre: 'Espresso Intense', description: 'Un shot de pur café italien.', image: 'https://placehold.co/600x400.png?text=Espresso', "data-ai-hint": "espresso coffee", categorieId: 'cat-lp-drinks', hostId: 'host-le-phare', prix: 2.5, targetLocationIds: [], loginRequired: false },
-  { id: 'svc-lp-croissant', titre: 'Croissant Beurre Frais', description: 'Viennoiserie parisienne classique.', image: 'https://placehold.co/600x400.png?text=Croissant', "data-ai-hint": "croissant pastry", categorieId: 'cat-lp-menu', hostId: 'host-le-phare', prix: 3, targetLocationIds: [], loginRequired: false },
-  { id: 'svc-lp-soupe-jour', titre: 'Soupe du Jour Maison', description: 'Servie avec pain croustillant.', image: 'https://placehold.co/600x400.png?text=Daily+Soup', "data-ai-hint": "soup daily", categorieId: 'cat-lp-menu', hostId: 'host-le-phare', prix: 7, targetLocationIds: [], loginRequired: false },
+  { id: 'svc-lp-espresso', titre: 'Espresso Intense', description: 'Un shot de pur café italien.', image: 'https://placehold.co/600x400.png?text=Espresso', "data-ai-hint": "espresso coffee", categorieId: 'cat-lp-drinks', hostId: 'host-le-phare', prix: 2.5, targetLocationIds: [], loginRequired: false, currency: 'EUR' },
+  { id: 'svc-lp-croissant', titre: 'Croissant Beurre Frais', description: 'Viennoiserie parisienne classique.', image: 'https://placehold.co/600x400.png?text=Croissant', "data-ai-hint": "croissant pastry", categorieId: 'cat-lp-menu', hostId: 'host-le-phare', prix: 3, targetLocationIds: [], loginRequired: false, currency: 'EUR' },
+  { id: 'svc-lp-soupe-jour', titre: 'Soupe du Jour Maison', description: 'Servie avec pain croustillant.', image: 'https://placehold.co/600x400.png?text=Daily+Soup', "data-ai-hint": "soup daily", categorieId: 'cat-lp-menu', hostId: 'host-le-phare', prix: 7, targetLocationIds: [], loginRequired: false, currency: 'EUR' },
 
   // Paradise Beach Resort Services
-  { id: 'svc-pbr-dinner', titre: 'Dîner Gastronomique 3 Plats', description: 'Menu dégustation par notre chef étoilé.', image: 'https://placehold.co/600x400.png?text=3-Course+Dinner', "data-ai-hint": "gourmet dinner food", categorieId: 'cat-pbr-dining', hostId: 'host-paradise-resort', prix: 75, targetLocationIds: [], loginRequired: true, pointsRequis: 300 },
-  { id: 'svc-pbr-massage', titre: 'Massage Tissus Profonds (60 min)', description: 'Relâchez toutes vos tensions.', image: 'https://placehold.co/600x400.png?text=Deep+Tissue+Massage', "data-ai-hint": "massage spa", categorieId: 'cat-pbr-spa', hostId: 'host-paradise-resort', formulaireId: 'form-pbr-spa-treatment', prix: 90, targetLocationIds: [], loginRequired: true },
-  { id: 'svc-pbr-mojito', titre: 'Mojito Classique Piscine', description: 'Rhum, menthe, citron vert, sucre, eau gazeuse.', image: 'https://placehold.co/600x400.png?text=Mojito', "data-ai-hint": "mojito cocktail", categorieId: 'cat-pbr-roomservice', hostId: 'host-paradise-resort', prix: 12, targetLocationIds: ['pbr-zone-piscine', 'pbr-room-deluxe-king'], loginRequired: false },
+  { id: 'svc-pbr-dinner', titre: 'Dîner Gastronomique 3 Plats', description: 'Menu dégustation par notre chef étoilé.', image: 'https://placehold.co/600x400.png?text=3-Course+Dinner', "data-ai-hint": "gourmet dinner food", categorieId: 'cat-pbr-dining', hostId: 'host-paradise-resort', prix: 75, targetLocationIds: [], loginRequired: true, pointsRequis: 300, currency: 'USD' },
+  { id: 'svc-pbr-massage', titre: 'Massage Tissus Profonds (60 min)', description: 'Relâchez toutes vos tensions.', image: 'https://placehold.co/600x400.png?text=Deep+Tissue+Massage', "data-ai-hint": "massage spa", categorieId: 'cat-pbr-spa', hostId: 'host-paradise-resort', formulaireId: 'form-pbr-spa-treatment', prix: 90, targetLocationIds: [], loginRequired: true, currency: 'USD' },
+  { id: 'svc-pbr-mojito', titre: 'Mojito Classique Piscine', description: 'Rhum, menthe, citron vert, sucre, eau gazeuse.', image: 'https://placehold.co/600x400.png?text=Mojito', "data-ai-hint": "mojito cocktail", categorieId: 'cat-pbr-roomservice', hostId: 'host-paradise-resort', prix: 12, targetLocationIds: ['pbr-zone-piscine', 'pbr-room-deluxe-king'], loginRequired: false, currency: 'USD' },
 
   // Le Delice Downtown Services
-  { id: 'svc-ldd-boeuf', titre: 'Filet de Boeuf Rossini', description: 'Tournedos de bœuf, foie gras poêlé, sauce Périgueux.', image: 'https://placehold.co/600x400.png?text=Filet+Rossini', "data-ai-hint": "beef steak food", categorieId: 'cat-ldd-plats', hostId: 'host-le-delice', prix: 35, targetLocationIds: [], loginRequired: false },
+  { id: 'svc-ldd-boeuf', titre: 'Filet de Boeuf Rossini', description: 'Tournedos de bœuf, foie gras poêlé, sauce Périgueux.', image: 'https://placehold.co/600x400.png?text=Filet+Rossini', "data-ai-hint": "beef steak food", categorieId: 'cat-ldd-plats', hostId: 'host-le-delice', prix: 35, targetLocationIds: [], loginRequired: false, currency: 'EUR' },
 
   // Dynamic Test Establishment Services
-  { id: 'svc-dyn-water', titre: 'Bottled Water', description: 'Refreshing spring water.', image: 'https://placehold.co/600x400.png?text=Water+Bottle', "data-ai-hint": "water bottle", categorieId: 'cat-dyn-main', hostId: 'host-1747669860022', prix: 2, targetLocationIds: ['rt-dynamic-room1', 'rt-dynamic-table5'], loginRequired: false },
-  { id: 'svc-dyn-concierge', titre: 'Concierge Request', description: 'Submit a request to our concierge.', image: 'https://placehold.co/600x400.png?text=Concierge', "data-ai-hint": "concierge service hotel", categorieId: 'cat-dyn-main', hostId: 'host-1747669860022', formulaireId: 'form-dyn-generic', targetLocationIds: ['rt-dynamic-lobby'], loginRequired: true },
+  { id: 'svc-dyn-water', titre: 'Bottled Water', description: 'Refreshing spring water.', image: 'https://placehold.co/600x400.png?text=Water+Bottle', "data-ai-hint": "water bottle", categorieId: 'cat-dyn-main', hostId: 'host-1747669860022', prix: 2, targetLocationIds: ['rt-dynamic-room1', 'rt-dynamic-table5'], loginRequired: false, currency: 'EUR' },
+  { id: 'svc-dyn-concierge', titre: 'Concierge Request', description: 'Submit a request to our concierge.', image: 'https://placehold.co/600x400.png?text=Concierge', "data-ai-hint": "concierge service hotel", categorieId: 'cat-dyn-main', hostId: 'host-1747669860022', formulaireId: 'form-dyn-generic', targetLocationIds: ['rt-dynamic-lobby'], loginRequired: true, currency: 'EUR' },
 ];
 
 let ordersInMemory: Order[] = [
@@ -193,38 +197,38 @@ let menuCategoriesInMemory: MenuCategory[] = [
 let menuItemsInMemory: MenuItem[] = [
   { id: 'mi-salty-coca', name: 'Coca-Cola', description: '33cl, bien frais.', price: 3, menuCategoryId: 'mcat-salty-boissons', hostId: 'host-salty-pelican', imageUrl: 'https://placehold.co/300x200.png?text=Coca-Cola', imageAiHint: 'soda can', isAvailable: true, stock: 50 },
   { id: 'mi-salty-frites', name: 'Cornet de Frites Maison', description: 'Avec sauce au choix.', price: 5, menuCategoryId: 'mcat-salty-snacks', hostId: 'host-salty-pelican', imageUrl: 'https://placehold.co/300x200.png?text=Frites', imageAiHint: 'fries food', isAvailable: true, stock: 0 }, // Rupture de stock
-  { 
-    id: 'mi-salty-pizza', 
-    name: 'Pizza du Pélican Personnalisable', 
-    description: 'Composez votre pizza de plage idéale ! Base tomate et mozzarella incluse.', 
+  {
+    id: 'mi-salty-pizza',
+    name: 'Pizza du Pélican Personnalisable',
+    description: 'Composez votre pizza de plage idéale ! Base tomate et mozzarella incluse.',
     price: 12, // Prix de base
-    menuCategoryId: 'mcat-salty-snacks', 
-    hostId: 'host-salty-pelican', 
-    imageUrl: 'https://placehold.co/300x200.png?text=Custom+Pizza', 
-    imageAiHint: 'custom pizza', 
-    isAvailable: true, 
+    menuCategoryId: 'mcat-salty-snacks',
+    hostId: 'host-salty-pelican',
+    imageUrl: 'https://placehold.co/300x200.png?text=Custom+Pizza',
+    imageAiHint: 'custom pizza',
+    isAvailable: true,
     isConfigurable: true,
-    stock: 20, 
+    stock: 20,
     optionGroups: [
-      { 
-        id: 'og-saltypizza-taille', 
-        menuItemId: 'mi-salty-pizza', 
-        name: 'Taille de la Pizza', 
-        selectionType: 'single', 
-        isRequired: true, 
-        displayOrder: 1, 
+      {
+        id: 'og-saltypizza-taille',
+        menuItemId: 'mi-salty-pizza',
+        name: 'Taille de la Pizza',
+        selectionType: 'single',
+        isRequired: true,
+        displayOrder: 1,
         options: [
           { id: 'opt-saltytaille-moy', name: 'Moyenne (2 pers.)', priceAdjustment: 0 },
           { id: 'opt-saltytaille-grd', name: 'Grande (3-4 pers.)', priceAdjustment: 4 },
         ]
       },
-      { 
-        id: 'og-saltypizza-garnitures', 
-        menuItemId: 'mi-salty-pizza', 
-        name: 'Garnitures Supplémentaires', 
-        selectionType: 'multiple', 
-        isRequired: false, 
-        displayOrder: 2, 
+      {
+        id: 'og-saltypizza-garnitures',
+        menuItemId: 'mi-salty-pizza',
+        name: 'Garnitures Supplémentaires',
+        selectionType: 'multiple',
+        isRequired: false,
+        displayOrder: 2,
         options: [
           { id: 'opt-saltygarn-anchois', name: 'Anchois de la Méditerranée', priceAdjustment: 2.5 },
           { id: 'opt-saltygarn-olives', name: 'Olives Kalamata', priceAdjustment: 1.5 },
@@ -232,13 +236,13 @@ let menuItemsInMemory: MenuItem[] = [
           { id: 'opt-saltygarn-chorizo', name: 'Chorizo Piquant', priceAdjustment: 3 },
         ]
       },
-      { 
-        id: 'og-saltypizza-boisson', 
-        menuItemId: 'mi-salty-pizza', 
-        name: 'Boisson Accompagnement', 
-        selectionType: 'single', 
-        isRequired: false, 
-        displayOrder: 3, 
+      {
+        id: 'og-saltypizza-boisson',
+        menuItemId: 'mi-salty-pizza',
+        name: 'Boisson Accompagnement',
+        selectionType: 'single',
+        isRequired: false,
+        displayOrder: 3,
         options: [
           { id: 'opt-saltyboisson-eau', name: 'Eau Plate 50cl', priceAdjustment: 1.5 },
           { id: 'opt-saltyboisson-soda', name: 'Soda Local 33cl', priceAdjustment: 2.5 },
@@ -246,7 +250,7 @@ let menuItemsInMemory: MenuItem[] = [
       }
     ]
   },
-  { id: 'mi-lephare-salade', name: 'Salade César', description: 'Poulet grillé, Grana Padano, croûtons à l\'ail.', price: 14, menuCategoryId: 'mcat-lephare-entrees', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Salade+Cesar', imageAiHint: 'caesar salad', isAvailable: true },
+  { id: 'mi-lephare-salade', name: 'Salade César', description: 'Poulet grillé, Grana Padano, croûtons à l\'ail.', price: 14, menuCategoryId: 'mcat-lephare-entrees', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Salade+Cesar', imageAiHint: 'caesar salad', isAvailable: true, stock: 10 },
   { id: 'mi-lephare-poisson', name: 'Poisson du Jour Grillé', description: 'Selon arrivage, légumes de saison.', price: 22, menuCategoryId: 'mcat-lephare-plats', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Poisson+Grille', imageAiHint: 'grilled fish', isAvailable: false, stock: 10 }, // Non disponible
   {
     id: 'mi-lephare-pizza-config', name: 'Pizza Personnalisée (Le Phare)', description: 'Composez votre pizza idéale ! Base tomate et mozzarella incluse.', price: 10, menuCategoryId: 'mcat-lephare-pizzas', hostId: 'host-le-phare', isConfigurable: true, isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Custom+Pizza', imageAiHint: 'custom pizza', stock: 20,
@@ -300,21 +304,11 @@ const normalizeUserPassword = (user: any): User => {
 
 // --- User Management ---
 export const getUserByEmail = async (email: string): Promise<User | undefined> => {
-  log(`getUserByEmail called for: ${email} (in-memory)`);
+  log(`getUserByEmail called for: ${email}`);
   try {
     const user = usersInMemory.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (user) {
       const normalizedUser = normalizeUserPassword(user);
-       if (normalizedUser.motDePasse === undefined && (user as any).password !== undefined) {
-        normalizedUser.motDePasse = String((user as any).password);
-      } else if (normalizedUser.motDePasse === undefined) {
-        normalizedUser.motDePasse = "";
-      }
-      if (normalizedUser.nom === undefined && normalizedUser.email) {
-        normalizedUser.nom = normalizedUser.email.split('@')[0];
-      } else if (normalizedUser.nom === undefined) {
-        normalizedUser.nom = "Unnamed User";
-      }
       return normalizedUser;
     }
     return undefined;
@@ -325,22 +319,11 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
 };
 
 export const getUserById = async (id: string): Promise<User | undefined> => {
-  log(`getUserById called for: ${id} (in-memory)`);
+  log(`getUserById called for: ${id}`);
   try {
     const user = usersInMemory.find(u => u.id === id);
     if (user) {
-       const normalizedUser = normalizeUserPassword(user);
-       if (normalizedUser.motDePasse === undefined && (user as any).password !== undefined) {
-        normalizedUser.motDePasse = String((user as any).password);
-      } else if (normalizedUser.motDePasse === undefined) {
-        normalizedUser.motDePasse = "";
-      }
-      if (normalizedUser.nom === undefined && normalizedUser.email) {
-        normalizedUser.nom = normalizedUser.email.split('@')[0];
-      } else if (normalizedUser.nom === undefined) {
-        normalizedUser.nom = "Unnamed User";
-      }
-      return normalizedUser;
+      return normalizeUserPassword(user);
     }
     return undefined;
   } catch (e) {
@@ -350,22 +333,9 @@ export const getUserById = async (id: string): Promise<User | undefined> => {
 };
 
 export const getUsers = async (): Promise<User[]> => {
-  log(`getUsers called (in-memory). Returning ${usersInMemory.length} users.`);
+  log(`getUsers called. Returning ${usersInMemory.length} users.`);
    try {
-    return [...usersInMemory].map(user => {
-      const normalizedUser = normalizeUserPassword(user);
-       if (normalizedUser.motDePasse === undefined && (user as any).password !== undefined) {
-        normalizedUser.motDePasse = String((user as any).password);
-      } else if (normalizedUser.motDePasse === undefined) {
-        normalizedUser.motDePasse = "";
-      }
-      if (normalizedUser.nom === undefined && normalizedUser.email) {
-        normalizedUser.nom = normalizedUser.email.split('@')[0];
-      } else if (normalizedUser.nom === undefined) {
-        normalizedUser.nom = "Unnamed User";
-      }
-      return normalizedUser;
-    }).sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
+    return [...usersInMemory].map(normalizeUserPassword).sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
   } catch (e) {
     console.error("Error in getUsers (in-memory):", e);
     return [];
@@ -373,11 +343,11 @@ export const getUsers = async (): Promise<User[]> => {
 };
 
 export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
-  log(`addUser called for: ${userData.email} (in-memory)`);
+  log(`addUser called for: ${userData.email}`);
   try {
     const existingUser = usersInMemory.find(u => u.email.toLowerCase() === userData.email.toLowerCase());
     if (existingUser) {
-      log(`User with email ${userData.email} already exists. Updating existing user (in-memory).`);
+      log(`User with email ${userData.email} already exists. Updating existing user.`);
       existingUser.nom = userData.nom || existingUser.email.split('@')[0];
       existingUser.role = userData.role;
       existingUser.hostId = userData.hostId || undefined;
@@ -394,7 +364,7 @@ export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
       ...userData,
     };
     usersInMemory.push(newUser);
-    log(`User ${newUser.email} added (in-memory) with ID ${newUser.id}.`);
+    log(`User ${newUser.email} added with ID ${newUser.id}.`);
     return normalizeUserPassword({ ...newUser });
   } catch (e) {
     console.error("Error in addUser (in-memory):", e);
@@ -403,7 +373,7 @@ export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
 };
 
 export const updateUser = async (userId: string, userData: Partial<Omit<User, 'id' | 'motDePasse'>> & { motDePasse?: string }): Promise<User | undefined> => {
-  log(`updateUser called for ID: ${userId} (in-memory) with data:`, userData);
+  log(`updateUser called for ID: ${userId} with data:`, userData);
   try {
     const userIndex = usersInMemory.findIndex(u => u.id === userId);
     if (userIndex > -1) {
@@ -415,10 +385,10 @@ export const updateUser = async (userId: string, userData: Partial<Omit<User, 'i
         updatedUser.hostId = userData.hostId || undefined;
       }
       usersInMemory[userIndex] = normalizeUserPassword(updatedUser);
-      log(`User ${userId} updated (in-memory).`);
+      log(`User ${userId} updated.`);
       return { ...usersInMemory[userIndex] };
     }
-    log(`User ${userId} not found for update (in-memory).`);
+    log(`User ${userId} not found for update.`);
     return undefined;
   } catch (e) {
     console.error("Error in updateUser (in-memory):", e);
@@ -427,18 +397,18 @@ export const updateUser = async (userId: string, userData: Partial<Omit<User, 'i
 };
 
 export const deleteUser = async (userId: string): Promise<boolean> => {
-  log(`deleteUser called for ID: ${userId} (in-memory)`);
+  log(`deleteUser called for ID: ${userId}`);
   try {
     const initialLength = usersInMemory.length;
     usersInMemory = usersInMemory.filter(u => u.id !== userId);
     if (usersInMemory.length < initialLength) {
-      log(`User ${userId} deleted (in-memory). Cascading updates to related client records.`);
+      log(`User ${userId} deleted. Cascading updates to related client records.`);
       clientsInMemory = clientsInMemory.map(c => c.userId === userId ? {...c, userId: undefined} : c);
       ordersInMemory = ordersInMemory.map(o => o.userId === userId ? {...o, userId: undefined} : o);
       reservationsInMemory = reservationsInMemory.map(r => r.clientId === userId ? {...r, clientId: undefined} : r);
       return true;
     }
-    log(`User ${userId} not found for deletion (in-memory).`);
+    log(`User ${userId} not found for deletion.`);
     return false;
   } catch (e) {
     console.error("Error in deleteUser (in-memory):", e);
@@ -448,7 +418,7 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
 
 // --- Host Management (In-memory) ---
 export const getHosts = async (): Promise<Host[]> => {
-  log(`getHosts called (in-memory). Returning ${hostsInMemory.length} hosts.`);
+  log(`getHosts called. Returning ${hostsInMemory.length} hosts.`);
   try {
     return [...hostsInMemory].sort((a,b) => a.nom.localeCompare(b.nom));
   } catch (e) {
@@ -458,7 +428,7 @@ export const getHosts = async (): Promise<Host[]> => {
 };
 
 export const getHostById = async (hostId: string): Promise<Host | undefined> => {
-  log(`getHostById called for: ${hostId} (in-memory)`);
+  log(`getHostById called for: ${hostId}`);
   try {
     return hostsInMemory.find(h => h.hostId === hostId);
   } catch (e) {
@@ -468,7 +438,7 @@ export const getHostById = async (hostId: string): Promise<Host | undefined> => 
 };
 
 export const addHost = async (hostData: Omit<Host, 'hostId' | 'loyaltySettings' | 'reservationPageSettings' | 'currency' | 'language'> & { loyaltySettings?: Partial<LoyaltySettings>; reservationPageSettings?: Partial<ReservationPageSettings>; currency?:string; language?:string; }): Promise<Host> => {
-  log(`addHost called for: ${hostData.email} (in-memory)`);
+  log(`addHost called for: ${hostData.email}`);
   try {
     const existingHostByEmail = hostsInMemory.find(h => h.email.toLowerCase() === hostData.email.toLowerCase());
     if (existingHostByEmail) {
@@ -500,7 +470,7 @@ export const addHost = async (hostData: Omit<Host, 'hostId' | 'loyaltySettings' 
       language: hostData.language || 'fr',
     };
     hostsInMemory.push(newHost);
-    log(`Host ${newHost.email} added (in-memory) with ID ${newHost.hostId}.`);
+    log(`Host ${newHost.email} added with ID ${newHost.hostId}.`);
     await addUser({
       email: newHost.email,
       nom: newHost.nom,
@@ -516,7 +486,7 @@ export const addHost = async (hostData: Omit<Host, 'hostId' | 'loyaltySettings' 
 };
 
 export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'hostId'>>): Promise<Host | undefined> => {
-  log(`updateHost called for ID: ${hostId} (in-memory) with data:`, hostData);
+  log(`updateHost called for ID: ${hostId} with data:`, hostData);
   try {
     const hostIndex = hostsInMemory.findIndex(h => h.hostId === hostId);
     if (hostIndex > -1) {
@@ -546,7 +516,7 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
         currency: hostData.currency !== undefined ? hostData.currency : originalHostData.currency,
         language: hostData.language !== undefined ? hostData.language : originalHostData.language,
       };
-      log(`Host ${hostId} updated (in-memory).`);
+      log(`Host ${hostId} updated.`);
 
       const updatedHost = hostsInMemory[hostIndex];
       if ((hostData.email && hostData.email !== originalHostData.email) || (hostData.nom && hostData.nom !== originalHostData.nom)) {
@@ -554,12 +524,12 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
           if (!userToUpdate) userToUpdate = usersInMemory.find(u => u.email.toLowerCase() === originalHostData.email.toLowerCase() && u.role === 'host');
           if (userToUpdate) {
               await updateUser(userToUpdate.id, { email: updatedHost.email, nom: updatedHost.nom });
-              log(`Associated user for host ${hostId} also updated (in-memory).`);
+              log(`Associated user for host ${hostId} also updated.`);
           }
       }
       return { ...hostsInMemory[hostIndex] };
     }
-    log(`Host ${hostId} not found for update (in-memory).`);
+    log(`Host ${hostId} not found for update.`);
     return undefined;
   } catch (e) {
     console.error("Error in updateHost (in-memory):", e);
@@ -568,17 +538,17 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
 };
 
 export const deleteHost = async (hostId: string): Promise<boolean> => {
-  log(`deleteHost called for ID: ${hostId} (in-memory)`);
+  log(`deleteHost called for ID: ${hostId}`);
   try {
     const hostToDelete = hostsInMemory.find(h => h.hostId === hostId);
     if (!hostToDelete) {
-      log(`Host ${hostId} not found for deletion (in-memory).`);
+      log(`Host ${hostId} not found for deletion.`);
       return false;
     }
     const userToDelete = usersInMemory.find(u => u.hostId === hostId && u.email.toLowerCase() === hostToDelete.email.toLowerCase());
     if (userToDelete) {
       await deleteUser(userToDelete.id);
-      log(`Associated user ${userToDelete.email} deleted (in-memory).`);
+      log(`Associated user ${userToDelete.email} deleted.`);
     } else {
       log(`No user directly associated with hostId ${hostId} and matching email found for deletion.`);
     }
@@ -586,7 +556,7 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
     hostsInMemory = hostsInMemory.filter(h => h.hostId !== hostId);
     const hostDeleted = hostsInMemory.length < initialLength;
     if (hostDeleted) {
-      log(`Host ${hostId} deleted (in-memory). Cascading deletes to related in-memory data.`);
+      log(`Host ${hostId} deleted. Cascading deletes to related in-memory data.`);
       sitesInMemory = sitesInMemory.filter(s => s.hostId !== hostId);
       roomsOrTablesInMemory = roomsOrTablesInMemory.filter(rt => rt.hostId !== hostId);
       serviceCategoriesInMemory = serviceCategoriesInMemory.filter(sc => sc.hostId !== hostId);
@@ -612,7 +582,7 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
 
 // --- Site Management (Global Sites for Admin) ---
 export const getSites = async (hostIdParam?: string): Promise<Site[]> => {
-  log(`getSites called. HostIdParam: ${hostIdParam}. Using in-memory data.`);
+  log(`getSites called. HostIdParam: ${hostIdParam}.`);
   try {
     let resultSites = [...sitesInMemory];
     if (hostIdParam) {
@@ -626,7 +596,7 @@ export const getSites = async (hostIdParam?: string): Promise<Site[]> => {
 };
 
 export const getSiteById = async (siteId: string): Promise<Site | undefined> => {
-  log(`getSiteById called for: ${siteId}. Using in-memory data.`);
+  log(`getSiteById called for: ${siteId}.`);
   try {
     return sitesInMemory.find(s => s.siteId === siteId);
   } catch (e) {
@@ -636,7 +606,7 @@ export const getSiteById = async (siteId: string): Promise<Site | undefined> => 
 };
 
 export const addSiteToData = async (siteData: Omit<Site, 'siteId' | 'logoAiHint'>): Promise<Site> => {
-  log(`addSiteToData called. Data: ${JSON.stringify(siteData)}. Using in-memory data.`);
+  log(`addSiteToData called. Data: ${JSON.stringify(siteData)}.`);
   try {
     const newSite: Site = {
       ...siteData,
@@ -654,7 +624,7 @@ export const addSiteToData = async (siteData: Omit<Site, 'siteId' | 'logoAiHint'
 };
 
 export const updateSiteInData = async (siteId: string, siteData: Partial<Omit<Site, 'siteId' | 'logoAiHint'>>): Promise<Site | undefined> => {
-  log(`updateSiteInData called for ID: ${siteId}. Using in-memory data.`);
+  log(`updateSiteInData called for ID: ${siteId}.`);
   try {
     const siteIndex = sitesInMemory.findIndex(s => s.siteId === siteId);
     if (siteIndex > -1) {
@@ -675,7 +645,7 @@ export const updateSiteInData = async (siteId: string, siteData: Partial<Omit<Si
 };
 
 export const deleteSiteInData = async (siteId: string): Promise<boolean> => {
-    log(`deleteSiteInData called for: ${siteId}. Using in-memory data.`);
+    log(`deleteSiteInData called for: ${siteId}.`);
     try {
       const initialLength = sitesInMemory.length;
       sitesInMemory = sitesInMemory.filter(s => s.siteId !== siteId);
@@ -690,7 +660,7 @@ export const deleteSiteInData = async (siteId: string): Promise<boolean> => {
 
 // --- RoomOrTable Management (Host Locations) ---
 export const getRoomsOrTables = async (hostId: string, globalSiteIdParam?: string): Promise<RoomOrTable[]> => {
-  log(`getRoomsOrTables called for host: ${hostId}, globalSiteId: ${globalSiteIdParam}. Using in-memory data.`);
+  log(`getRoomsOrTables called for host: ${hostId}, globalSiteId: ${globalSiteIdParam}.`);
   try {
     let filtered = roomsOrTablesInMemory.filter(rt => rt.hostId === hostId);
     if (globalSiteIdParam) {
@@ -709,7 +679,7 @@ export const getRoomsOrTables = async (hostId: string, globalSiteIdParam?: strin
 };
 
 export const getRoomOrTableById = async (id: string): Promise<RoomOrTable | undefined> => {
-  log(`getRoomOrTableById called for: ${id}. Using in-memory data.`);
+  log(`getRoomOrTableById called for: ${id}.`);
   try {
     return roomsOrTablesInMemory.find(rt => rt.id === id);
   } catch (e) {
@@ -719,7 +689,7 @@ export const getRoomOrTableById = async (id: string): Promise<RoomOrTable | unde
 };
 
 export const addRoomOrTable = async (data: Omit<RoomOrTable, 'id' | 'urlPersonnalise'>): Promise<RoomOrTable> => {
-  log(`addRoomOrTable called. Data: ${JSON.stringify(data)}. Using in-memory data.`);
+  log(`addRoomOrTable called. Data: ${JSON.stringify(data)}.`);
   try {
     const newId = `rt-${data.type.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
     const newRoomOrTable: RoomOrTable = {
@@ -746,7 +716,7 @@ export const addRoomOrTable = async (data: Omit<RoomOrTable, 'id' | 'urlPersonna
 };
 
 export const updateRoomOrTable = async (id: string, data: Partial<Omit<RoomOrTable, 'id' | 'urlPersonnalise' | 'hostId'>>): Promise<RoomOrTable | undefined> => {
-  log(`updateRoomOrTable called for ID: ${id}. Data: ${JSON.stringify(data)}. Using in-memory data.`);
+  log(`updateRoomOrTable called for ID: ${id}. Data: ${JSON.stringify(data)}.`);
   try {
     const itemIndex = roomsOrTablesInMemory.findIndex(rt => rt.id === id);
     if (itemIndex > -1) {
@@ -780,7 +750,7 @@ export const updateRoomOrTable = async (id: string, data: Partial<Omit<RoomOrTab
 };
 
 export const deleteRoomOrTable = async (id: string): Promise<boolean> => {
-    log(`deleteRoomOrTable called for: ${id}. Using in-memory data.`);
+    log(`deleteRoomOrTable called for: ${id}.`);
     try {
       const initialLength = roomsOrTablesInMemory.length;
       const locationToDelete = roomsOrTablesInMemory.find(rt => rt.id === id);
@@ -819,7 +789,7 @@ export const deleteRoomOrTable = async (id: string): Promise<boolean> => {
 
 // --- Tag Management ---
 export const getTags = async (hostId: string): Promise<Tag[]> => {
-  log(`getTags called for host: ${hostId}. Using in-memory data.`);
+  log(`getTags called for host: ${hostId}.`);
   try {
     return [...tagsInMemory].filter(tag => tag.hostId === hostId).sort((a, b) => a.name.localeCompare(b.name));
   } catch (e) {
@@ -829,7 +799,7 @@ export const getTags = async (hostId: string): Promise<Tag[]> => {
 };
 
 export const addTag = async (tagData: Omit<Tag, 'id'>): Promise<Tag> => {
-  log(`addTag called. Data: ${JSON.stringify(tagData)}. Using in-memory data.`);
+  log(`addTag called. Data: ${JSON.stringify(tagData)}.`);
   try {
     const newTag: Tag = { ...tagData, id: `tag-${Date.now()}-${Math.random().toString(36).substring(2, 7)}` };
     tagsInMemory.push(newTag);
@@ -841,7 +811,7 @@ export const addTag = async (tagData: Omit<Tag, 'id'>): Promise<Tag> => {
 };
 
 export const updateTag = async (tagId: string, tagData: Partial<Omit<Tag, 'id' | 'hostId'>>): Promise<Tag | undefined> => {
-  log(`updateTag called for ID: ${tagId}. Data: ${JSON.stringify(tagData)}. Using in-memory data.`);
+  log(`updateTag called for ID: ${tagId}. Data: ${JSON.stringify(tagData)}.`);
   try {
     const tagIndex = tagsInMemory.findIndex(tag => tag.id === tagId);
     if (tagIndex > -1) {
@@ -856,7 +826,7 @@ export const updateTag = async (tagId: string, tagData: Partial<Omit<Tag, 'id' |
 };
 
 export const deleteTag = async (tagId: string): Promise<boolean> => {
-  log(`deleteTag called for: ${tagId}. Using in-memory data.`);
+  log(`deleteTag called for: ${tagId}.`);
   try {
     const initialLength = tagsInMemory.length;
     tagsInMemory = tagsInMemory.filter(tag => tag.id !== tagId);
@@ -867,7 +837,7 @@ export const deleteTag = async (tagId: string): Promise<boolean> => {
         }
         return loc;
       });
-      log(`Tag ${tagId} deleted and removed from locations (in-memory).`);
+      log(`Tag ${tagId} deleted and removed from locations.`);
       return true;
     }
     return false;
@@ -879,7 +849,7 @@ export const deleteTag = async (tagId: string): Promise<boolean> => {
 
 // --- ServiceCategory Management ---
 export const getServiceCategories = async (hostId: string): Promise<ServiceCategory[]> => {
-  log(`getServiceCategories called for host: ${hostId}. Using in-memory data.`);
+  log(`getServiceCategories called for host: ${hostId}.`);
   try {
     return [...serviceCategoriesInMemory].filter(sc => sc.hostId === hostId).sort((a,b) => a.nom.localeCompare(b.nom));
   } catch (e) {
@@ -889,7 +859,7 @@ export const getServiceCategories = async (hostId: string): Promise<ServiceCateg
 };
 
 export const addServiceCategory = async (data: Omit<ServiceCategory, 'id' | 'data-ai-hint'>): Promise<ServiceCategory> => {
-  log(`addServiceCategory called. Data: ${JSON.stringify(data)}. Using in-memory data.`);
+  log(`addServiceCategory called. Data: ${JSON.stringify(data)}.`);
   try {
     const newCategory: ServiceCategory = { ...data, id: `cat-${Date.now()}`, "data-ai-hint": data.image && data.nom ? data.nom.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : undefined };
     serviceCategoriesInMemory.push(newCategory);
@@ -901,7 +871,7 @@ export const addServiceCategory = async (data: Omit<ServiceCategory, 'id' | 'dat
 };
 
 export const updateServiceCategory = async (id: string, data: Partial<Omit<ServiceCategory, 'id' | 'hostId' | 'data-ai-hint'>>): Promise<ServiceCategory | undefined> => {
-  log(`updateServiceCategory called for ID: ${id}. Data: ${JSON.stringify(data)}. Using in-memory data.`);
+  log(`updateServiceCategory called for ID: ${id}. Data: ${JSON.stringify(data)}.`);
   try {
     const catIndex = serviceCategoriesInMemory.findIndex(sc => sc.id === id);
     if (catIndex > -1) {
@@ -920,7 +890,7 @@ export const updateServiceCategory = async (id: string, data: Partial<Omit<Servi
 };
 
 export const deleteServiceCategory = async (id: string): Promise<boolean> => {
-    log(`deleteServiceCategory called for: ${id}. Using in-memory data.`);
+    log(`deleteServiceCategory called for: ${id}.`);
     try {
       const initialLength = serviceCategoriesInMemory.length;
       serviceCategoriesInMemory = serviceCategoriesInMemory.filter(sc => sc.id !== id);
@@ -933,7 +903,7 @@ export const deleteServiceCategory = async (id: string): Promise<boolean> => {
 };
 
 export const getServiceCategoryById = async (id: string): Promise<ServiceCategory | undefined> => {
-  log(`getServiceCategoryById called for: ${id}. Using in-memory data.`);
+  log(`getServiceCategoryById called for: ${id}.`);
   try {
     return serviceCategoriesInMemory.find(sc => sc.id === id);
   } catch (e) {
@@ -944,7 +914,7 @@ export const getServiceCategoryById = async (id: string): Promise<ServiceCategor
 
 // --- CustomForm Management ---
 export const getCustomForms = async (hostId: string): Promise<CustomForm[]> => {
-  log(`getCustomForms called for host: ${hostId}. Using in-memory data.`);
+  log(`getCustomForms called for host: ${hostId}.`);
   try {
     return [...customFormsInMemory].filter(cf => cf.hostId === hostId).sort((a,b) => a.nom.localeCompare(b.nom));
   } catch (e) {
@@ -954,7 +924,7 @@ export const getCustomForms = async (hostId: string): Promise<CustomForm[]> => {
 };
 
 export const addCustomForm = async (data: Omit<CustomForm, 'id'>): Promise<CustomForm> => {
-  log(`addCustomForm called. Data: ${JSON.stringify(data)}. Using in-memory data.`);
+  log(`addCustomForm called. Data: ${JSON.stringify(data)}.`);
   try {
     const newForm: CustomForm = { ...data, id: `form-${Date.now()}` };
     customFormsInMemory.push(newForm);
@@ -966,7 +936,7 @@ export const addCustomForm = async (data: Omit<CustomForm, 'id'>): Promise<Custo
 };
 
 export const getFormById = async (formId: string): Promise<CustomForm | undefined> => {
-  log(`getFormById called for: ${formId}. Using in-memory data.`);
+  log(`getFormById called for: ${formId}.`);
   try {
     return customFormsInMemory.find(f => f.id === formId);
   } catch (e) {
@@ -976,7 +946,7 @@ export const getFormById = async (formId: string): Promise<CustomForm | undefine
 };
 
 export const updateCustomForm = async (id: string, data: Partial<Omit<CustomForm, 'id' | 'hostId'>>): Promise<CustomForm | undefined> => {
-  log(`updateCustomForm called for ID: ${id}. Data: ${JSON.stringify(data)}. Using in-memory data.`);
+  log(`updateCustomForm called for ID: ${id}. Data: ${JSON.stringify(data)}.`);
   try {
     const formIndex = customFormsInMemory.findIndex(cf => cf.id === id);
     if (formIndex > -1) {
@@ -991,7 +961,7 @@ export const updateCustomForm = async (id: string, data: Partial<Omit<CustomForm
 };
 
 export const deleteCustomForm = async (id: string): Promise<boolean> => {
-    log(`deleteCustomForm called for: ${id}. Using in-memory data.`);
+    log(`deleteCustomForm called for: ${id}.`);
     try {
       const initialLength = customFormsInMemory.length;
       customFormsInMemory = customFormsInMemory.filter(cf => cf.id !== id);
@@ -1006,7 +976,7 @@ export const deleteCustomForm = async (id: string): Promise<boolean> => {
 
 // --- FormField Management ---
 export const getFormFields = async (formulaireId: string): Promise<FormField[]> => {
-  log(`getFormFields called for formulaireId: ${formulaireId}. Using in-memory data.`);
+  log(`getFormFields called for formulaireId: ${formulaireId}.`);
   try {
     return [...formFieldsInMemory].filter(ff => ff.formulaireId === formulaireId).sort((a, b) => a.ordre - b.ordre);
   } catch (e) {
@@ -1016,7 +986,7 @@ export const getFormFields = async (formulaireId: string): Promise<FormField[]> 
 };
 
 export const addFormField = async (data: Omit<FormField, 'id'>): Promise<FormField> => {
-  log(`addFormField called. Data: ${JSON.stringify(data)}. Using in-memory data.`);
+  log(`addFormField called. Data: ${JSON.stringify(data)}.`);
   try {
     const newField: FormField = { ...data, id: `field-${Date.now()}` };
     formFieldsInMemory.push(newField);
@@ -1028,7 +998,7 @@ export const addFormField = async (data: Omit<FormField, 'id'>): Promise<FormFie
 };
 
 export const updateFormField = async (id: string, data: Partial<Omit<FormField, 'id' | 'formulaireId'>>): Promise<FormField | undefined> => {
-  log(`updateFormField called for ID: ${id}. Data: ${JSON.stringify(data)}. Using in-memory data.`);
+  log(`updateFormField called for ID: ${id}. Data: ${JSON.stringify(data)}.`);
   try {
     const fieldIndex = formFieldsInMemory.findIndex(ff => ff.id === id);
     if (fieldIndex > -1) {
@@ -1043,7 +1013,7 @@ export const updateFormField = async (id: string, data: Partial<Omit<FormField, 
 };
 
 export const deleteFormField = async (id: string): Promise<boolean> => {
-    log(`deleteFormField called for: ${id}. Using in-memory data.`);
+    log(`deleteFormField called for: ${id}.`);
     try {
       const initialLength = formFieldsInMemory.length;
       formFieldsInMemory = formFieldsInMemory.filter(ff => ff.id !== id);
@@ -1056,7 +1026,7 @@ export const deleteFormField = async (id: string): Promise<boolean> => {
 
 // --- Service Management ---
 export const getServiceById = async (itemId: string): Promise<Service | MenuItem | undefined> => {
-  log(`getServiceById (or MenuItem) called for: ${itemId} (in-memory)`);
+  log(`getServiceById (or MenuItem) called for: ${itemId}`);
   try {
     const service = servicesInMemory.find(s => s.id === itemId);
     if (service) {
@@ -1083,7 +1053,7 @@ export const getServices = async (
   clientCurrentLocationId?: string,
   categoryId?: string
 ): Promise<Service[]> => {
-  log(`getServices called for host: ${hostId}, location: ${clientCurrentLocationId}, category: ${categoryId}. Using in-memory data.`);
+  log(`getServices called for host: ${hostId}, location: ${clientCurrentLocationId}, category: ${categoryId}.`);
   try {
     let hostServices = [...servicesInMemory].filter(s => s.hostId === hostId);
 
@@ -1094,15 +1064,8 @@ export const getServices = async (
         return [];
       }
       const relevantLocationIds: string[] = [currentScannedLocation.id];
-      let parentId = currentScannedLocation.parentLocationId;
-      while (parentId) {
-        const parentLocation = await getRoomOrTableById(parentId);
-        if (parentLocation) {
-          relevantLocationIds.push(parentId);
-          parentId = parentLocation.parentLocationId;
-        } else {
-          parentId = undefined;
-        }
+      if (currentScannedLocation.parentLocationId) { // Add immediate parent if exists
+        relevantLocationIds.push(currentScannedLocation.parentLocationId);
       }
       if (currentScannedLocation.globalSiteId) { // Also consider services targeted to the global site
         relevantLocationIds.push(currentScannedLocation.globalSiteId);
@@ -1128,7 +1091,7 @@ export const getServices = async (
 };
 
 export const addService = async (data: Omit<Service, 'id' | 'data-ai-hint'>): Promise<Service> => {
-  log(`addService called. Data: ${JSON.stringify(data)}. Using in-memory data.`);
+  log(`addService called. Data: ${JSON.stringify(data)}.`);
   try {
     const newService: Service = {
       ...data,
@@ -1145,7 +1108,7 @@ export const addService = async (data: Omit<Service, 'id' | 'data-ai-hint'>): Pr
 };
 
 export const updateService = async (id: string, data: Partial<Omit<Service, 'id' | 'hostId' | 'data-ai-hint'>>): Promise<Service | undefined> => {
-  log(`updateService called for ID: ${id}. Data: ${JSON.stringify(data)}. Using in-memory data.`);
+  log(`updateService called for ID: ${id}. Data: ${JSON.stringify(data)}.`);
   try {
     const serviceIndex = servicesInMemory.findIndex(s => s.id === id);
     if (serviceIndex > -1) {
@@ -1165,7 +1128,7 @@ export const updateService = async (id: string, data: Partial<Omit<Service, 'id'
 };
 
 export const deleteService = async (id: string): Promise<boolean> => {
-    log(`deleteService called for: ${id}. Using in-memory data.`);
+    log(`deleteService called for: ${id}.`);
     try {
       const initialLength = servicesInMemory.length;
       servicesInMemory = servicesInMemory.filter(s => s.id !== id);
@@ -1187,7 +1150,7 @@ export const getOrders = async (
     clientName?: string;
   }
 ): Promise<Order[]> => {
-  log(`getOrders called for host: ${hostId}, filters: ${JSON.stringify(filters)}. Using in-memory data.`);
+  log(`getOrders called for host: ${hostId}, filters: ${JSON.stringify(filters)}.`);
   try {
     let filteredOrders = [...ordersInMemory].filter(o => o.hostId === hostId);
 
@@ -1214,7 +1177,7 @@ export const getOrders = async (
 };
 
 export const getOrderById = async (orderId: string): Promise<Order | undefined> => {
-  log(`getOrderById called for: ${orderId}. Using in-memory data.`);
+  log(`getOrderById called for: ${orderId}.`);
   try {
     return ordersInMemory.find(o => o.id === orderId);
   } catch (e) {
@@ -1224,7 +1187,7 @@ export const getOrderById = async (orderId: string): Promise<Order | undefined> 
 };
 
 export const getOrdersByClientName = async (hostId: string, clientName: string): Promise<Order[]> => {
-  log(`getOrdersByClientName called for host: ${hostId}, clientName: ${clientName}. Using in-memory data.`);
+  log(`getOrdersByClientName called for host: ${hostId}, clientName: ${clientName}.`);
   try {
     if (!clientName) return [];
     const clientOrders = [...ordersInMemory].filter(o =>
@@ -1240,7 +1203,7 @@ export const getOrdersByClientName = async (hostId: string, clientName: string):
 };
 
 export const getOrdersByUserId = async (userId: string): Promise<Order[]> => {
-  log(`getOrdersByUserId called for userId: ${userId}. Using in-memory data.`);
+  log(`getOrdersByUserId called for userId: ${userId}.`);
   try {
     return [...ordersInMemory].filter(o => o.userId === userId)
                  .sort((a,b) => new Date(b.dateHeure).getTime() - new Date(a.dateHeure).getTime());
@@ -1251,9 +1214,9 @@ export const getOrdersByUserId = async (userId: string): Promise<Order[]> => {
 };
 
 export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status' | 'montantPaye' | 'soldeDu' | 'paiements' | 'pointsGagnes' | 'currency'> & { prixTotal?: number }): Promise<Order> => {
-  log(`addOrder called. Data: ${JSON.stringify(data)}. Using in-memory data.`);
+  log(`addOrder called. Data: ${JSON.stringify(data)}.`);
   try {
-    const itemDetails = await getServiceById(data.serviceId); 
+    const itemDetails = await getServiceById(data.serviceId);
     const hostDetails = await getHostById(data.hostId);
 
     let basePrice = 0;
@@ -1285,7 +1248,7 @@ export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status' |
 };
 
 export const updateOrderStatus = async (orderId: string, status: OrderStatus): Promise<Order | undefined> => {
-  log(`updateOrderStatus called for orderId: ${orderId}, status: ${status}. Using in-memory data.`);
+  log(`updateOrderStatus called for orderId: ${orderId}, status: ${status}.`);
   try {
     const orderIndex = ordersInMemory.findIndex(o => o.id === orderId);
     if (orderIndex > -1) {
@@ -1325,7 +1288,7 @@ export const updateOrderStatus = async (orderId: string, status: OrderStatus): P
 
 // --- Client Management (Host Side) ---
 export const getClients = async (hostId: string): Promise<Client[]> => {
-  log(`getClients called for host: ${hostId}. Using in-memory data.`);
+  log(`getClients called for host: ${hostId}.`);
   try {
     return [...clientsInMemory].filter(c => c.hostId === hostId).sort((a,b) => a.nom.localeCompare(b.nom));
   } catch (e) {
@@ -1335,7 +1298,7 @@ export const getClients = async (hostId: string): Promise<Client[]> => {
 };
 
 export const getClientById = async (clientId: string): Promise<Client | undefined> => {
-  log(`getClientById called for: ${clientId}. Using in-memory data.`);
+  log(`getClientById called for: ${clientId}.`);
   try {
     return clientsInMemory.find(c => c.id === clientId);
   } catch (e) {
@@ -1345,7 +1308,7 @@ export const getClientById = async (clientId: string): Promise<Client | undefine
 };
 
 export const getClientsByHostAndName = async (hostId: string, clientName: string): Promise<Client[]> => {
-  log(`getClientsByHostAndName called for host: ${hostId}, clientName: ${clientName}. Using in-memory data.`);
+  log(`getClientsByHostAndName called for host: ${hostId}, clientName: ${clientName}.`);
   try {
     if (!clientName) return [];
     const lowerCaseClientName = clientName.toLowerCase();
@@ -1360,7 +1323,7 @@ export const getClientsByHostAndName = async (hostId: string, clientName: string
 };
 
 export const getClientRecordsByEmail = async (email: string): Promise<Client[]> => {
-  log(`getClientRecordsByEmail called for email: ${email}. Using in-memory data.`);
+  log(`getClientRecordsByEmail called for email: ${email}.`);
   try {
     return [...clientsInMemory].filter(c => c.email?.toLowerCase() === email.toLowerCase())
                   .sort((a,b) => (a.hostId || '').localeCompare(b.hostId || ''));
@@ -1371,7 +1334,7 @@ export const getClientRecordsByEmail = async (email: string): Promise<Client[]> 
 };
 
 export const getClientRecordsByUserId = async (userId: string): Promise<Client[]> => {
-  log(`getClientRecordsByUserId called for userId: ${userId}. Using in-memory data.`);
+  log(`getClientRecordsByUserId called for userId: ${userId}.`);
   try {
     return [...clientsInMemory].filter(c => c.userId === userId)
                   .sort((a,b) => (a.hostId || '').localeCompare(b.hostId || ''));
@@ -1382,7 +1345,7 @@ export const getClientRecordsByUserId = async (userId: string): Promise<Client[]
 };
 
 export const addClientData = async (clientData: Omit<Client, 'id' | 'documents' | 'credit' | 'pointsFidelite'> & { hostId: string }): Promise<Client> => {
-  log(`addClientData called. Data: ${JSON.stringify(clientData)}. Using in-memory data.`);
+  log(`addClientData called. Data: ${JSON.stringify(clientData)}.`);
   try {
     let initialPoints = 0;
     const host = await getHostById(clientData.hostId);
@@ -1406,7 +1369,7 @@ export const addClientData = async (clientData: Omit<Client, 'id' | 'documents' 
 };
 
 export const updateClientData = async (clientId: string, clientData: Partial<Omit<Client, 'id' | 'hostId' | 'documents'>>): Promise<Client | undefined> => {
-  log(`updateClientData called for ID: ${clientId}. Data: ${JSON.stringify(clientData)}. Using in-memory data.`);
+  log(`updateClientData called for ID: ${clientId}. Data: ${JSON.stringify(clientData)}.`);
   try {
     const clientIndex = clientsInMemory.findIndex(c => c.id === clientId);
     if (clientIndex > -1) {
@@ -1421,7 +1384,7 @@ export const updateClientData = async (clientId: string, clientData: Partial<Omi
 };
 
 export const deleteClientData = async (clientId: string): Promise<boolean> => {
-  log(`deleteClientData called for: ${clientId}. Using in-memory data.`);
+  log(`deleteClientData called for: ${clientId}.`);
   try {
     const initialLength = clientsInMemory.length;
     clientsInMemory = clientsInMemory.filter(c => c.id !== clientId);
@@ -1441,7 +1404,7 @@ export const deleteClientData = async (clientId: string): Promise<boolean> => {
 };
 
 export const addCreditToClient = async (clientId: string, amount: number, hostId: string): Promise<Client | undefined> => {
-  log(`addCreditToClient called for client: ${clientId}, amount: ${amount}, host: ${hostId}. Using in-memory data.`);
+  log(`addCreditToClient called for client: ${clientId}, amount: ${amount}, host: ${hostId}.`);
   try {
     const clientIndex = clientsInMemory.findIndex(c => c.id === clientId && c.hostId === hostId);
     if (clientIndex > -1) {
@@ -1458,7 +1421,7 @@ export const addCreditToClient = async (clientId: string, amount: number, hostId
 }
 
 export const addPointsToClient = async (clientId: string, pointsToAdd: number, hostId: string): Promise<Client | undefined> => {
-  log(`addPointsToClient called for client: ${clientId}, points: ${pointsToAdd}, host: ${hostId}. Using in-memory data.`);
+  log(`addPointsToClient called for client: ${clientId}, points: ${pointsToAdd}, host: ${hostId}.`);
   try {
     const clientIndex = clientsInMemory.findIndex(c => c.id === clientId && c.hostId === hostId);
     if (clientIndex > -1) {
@@ -1485,7 +1448,7 @@ export const getReservations = async (
     endDate?: Date;
   }
 ): Promise<Reservation[]> => {
-  log(`getReservations called for host: ${hostId}, filters: ${JSON.stringify(filters)}. Using in-memory data.`);
+  log(`getReservations called for host: ${hostId}, filters: ${JSON.stringify(filters)}.`);
   try {
     let hostReservations = reservationsInMemory.filter(r => r.hostId === hostId);
     if (filters?.locationId) {
@@ -1529,7 +1492,7 @@ export const getReservations = async (
 };
 
 export const getReservationById = async (reservationId: string): Promise<Reservation | undefined> => {
-  log(`getReservationById called for: ${reservationId}. Using in-memory data.`);
+  log(`getReservationById called for: ${reservationId}.`);
   try {
     return reservationsInMemory.find(r => r.id === reservationId);
   } catch (e) {
@@ -1539,7 +1502,7 @@ export const getReservationById = async (reservationId: string): Promise<Reserva
 };
 
 export const addReservationToData = async (data: Omit<Reservation, 'id' | 'prixTotal' | 'montantPaye' | 'soldeDu' | 'paiements' | 'pointsGagnes' | 'onlineCheckinStatus' | 'onlineCheckinData' | 'clientInitiatedCheckoutTime' | 'checkoutNotes' | 'currency'>): Promise<Reservation> => {
-  log(`addReservationToData called. Data: ${JSON.stringify(data)}. Using in-memory data.`);
+  log(`addReservationToData called. Data: ${JSON.stringify(data)}.`);
   try {
     const location = await getRoomOrTableById(data.locationId);
     const host = await getHostById(data.hostId);
@@ -1579,7 +1542,7 @@ export const addReservationToData = async (data: Omit<Reservation, 'id' | 'prixT
 };
 
 export const updateReservationInData = async (id: string, data: Partial<Omit<Reservation, 'id' | 'hostId' | 'prixTotal' | 'montantPaye' | 'soldeDu' | 'paiements' | 'pointsGagnes' | 'currency'>>): Promise<Reservation | undefined> => {
-  log(`updateReservationInData called for ID: ${id}. Data: ${JSON.stringify(data)}. Using in-memory data.`);
+  log(`updateReservationInData called for ID: ${id}. Data: ${JSON.stringify(data)}.`);
   try {
     const resIndex = reservationsInMemory.findIndex(r => r.id === id);
     if (resIndex > -1) {
@@ -1630,11 +1593,9 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
           if (pointsToAward > 0) {
              let clientToAwardPoints: Client | undefined = undefined;
              if (updatedReservation.clientId) {
-                // Try matching by Client.id first, then by User.id if Client.userId exists
-                clientToAwardPoints = clientsInMemory.find(c => c.id === updatedReservation.clientId && c.hostId === updatedReservation.hostId) || 
-                                      clientsInMemory.find(c => c.userId === updatedReservation.clientId && c.hostId === updatedReservation.hostId);
+                clientToAwardPoints = clientsInMemory.find(c => c.userId === updatedReservation.clientId && c.hostId === updatedReservation.hostId);
              }
-             if (!clientToAwardPoints && updatedReservation.clientName) { // Fallback to name if no ID match
+             if (!clientToAwardPoints && updatedReservation.clientName) {
                 clientToAwardPoints = clientsInMemory.find(c => c.nom === updatedReservation.clientName && c.hostId === updatedReservation.hostId);
              }
              if (clientToAwardPoints) {
@@ -1656,7 +1617,7 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
 };
 
 export const deleteReservationInData = async (id: string): Promise<boolean> => {
-  log(`deleteReservationInData called for: ${id}. Using in-memory data.`);
+  log(`deleteReservationInData called for: ${id}.`);
   try {
     const initialLength = reservationsInMemory.length;
     reservationsInMemory = reservationsInMemory.filter(r => r.id !== id);
@@ -1668,13 +1629,17 @@ export const deleteReservationInData = async (id: string): Promise<boolean> => {
 };
 
 export const getReservationsByUserId = async (userId: string): Promise<Reservation[]> => {
-  log(`getReservationsByUserId called for userId: ${userId}. Using in-memory data.`);
+  log(`getReservationsByUserId called for userId: ${userId}.`);
   try {
+    // Find client records linked to this user ID
     const userClientRecords = clientsInMemory.filter(c => c.userId === userId);
     const clientRecordIds = userClientRecords.map(cr => cr.id);
 
-    return [...reservationsInMemory].filter(r => 
-      (r.clientId && clientRecordIds.includes(r.clientId)) || r.clientId === userId 
+    // Find reservations linked either directly by userId (if we ever store it on reservation)
+    // or by matching one of the clientRecordIds to reservation.clientId
+    return [...reservationsInMemory].filter(r =>
+      r.clientId === userId || // Direct link (if user.id was stored in reservation.clientId)
+      (r.clientId && clientRecordIds.includes(r.clientId)) // Link via client record
     )
       .sort((a, b) => new Date(b.dateArrivee).getTime() - new Date(a.dateArrivee).getTime());
   } catch (e) {
@@ -1684,7 +1649,7 @@ export const getReservationsByUserId = async (userId: string): Promise<Reservati
 };
 
 export const getReservationsByClientName = async (hostId: string, clientName: string): Promise<Reservation[]> => {
-  log(`getReservationsByClientName called for host: ${hostId}, clientName: ${clientName}. Using in-memory data.`);
+  log(`getReservationsByClientName called for host: ${hostId}, clientName: ${clientName}.`);
   try {
     if (!clientName) return [];
     const lowerCaseClientName = clientName.toLowerCase();
@@ -1768,7 +1733,7 @@ export const deleteMenuCard = async (id: string): Promise<boolean> => {
 };
 
 export const duplicateMenuCard = async (menuCardId: string): Promise<MenuCard | undefined> => {
-  log(`duplicateMenuCard called for: ${menuCardId}. Using in-memory data.`);
+  log(`duplicateMenuCard called for: ${menuCardId}.`);
   try {
     const originalCard = menuCardsInMemory.find(mc => mc.id === menuCardId);
     if (!originalCard) {
@@ -1792,6 +1757,7 @@ export const duplicateMenuCard = async (menuCardId: string): Promise<MenuCard | 
         ...originalCategory,
         id: newMenuCategoryId,
         menuCardId: newMenuCardId,
+        hostId: originalCategory.hostId, // Ensure hostId is copied
       };
       menuCategoriesInMemory.push(newMenuCategory);
       log(`Duplicated MenuCategory: ${newMenuCategory.name} (ID: ${newMenuCategoryId}) for card ${newMenuCardId}`);
@@ -1819,6 +1785,7 @@ export const duplicateMenuCard = async (menuCardId: string): Promise<MenuCard | 
           ...originalItem,
           id: newMenuItemId,
           menuCategoryId: newMenuCategoryId,
+          hostId: originalItem.hostId, // Ensure hostId is copied
           optionGroups: newOptionGroups,
         };
         menuItemsInMemory.push(newMenuItem);
@@ -1841,7 +1808,7 @@ export const getMenuCategories = async (menuCardId: string, hostId: string): Pro
   }
 };
 
-export const addMenuCategory = async (data: Omit<MenuCategory, 'id' | 'hostId'> & { hostId: string }): Promise<MenuCategory> => {
+export const addMenuCategory = async (data: Omit<MenuCategory, 'id'>): Promise<MenuCategory> => {
   try {
     const newCategory: MenuCategory = { ...data, id: `menucat-${Date.now()}` };
     menuCategoriesInMemory.push(newCategory);
@@ -1939,5 +1906,4 @@ export const deleteMenuItem = async (id: string): Promise<boolean> => {
   }
 };
 
-log("Initial in-memory data loaded/defined.");
-    
+log("Initial in-memory data (reverted) loaded/defined.");

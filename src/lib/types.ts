@@ -77,13 +77,15 @@ export interface RoomOrTable {
   imageAiHint?: string;
   tagIds?: string[];
   amenityIds?: string[];
-  pricingModel?: 'perRoom' | 'perPerson'; // Added
+  pricingModel?: 'perRoom' | 'perPerson'; // For rooms
   prixParNuit?: number; // For rooms: per night (per room or per person based on pricingModel)
   prixFixeReservation?: number; // For tables
-  menuCardId?: string; 
+  menuCardId?: string;
+  allowOnlineCheckin?: boolean; // New: For zones to allow check-in/out
+  allowOnlineCheckout?: boolean; // New: For zones to allow check-in/out
 }
 
-export interface ServiceCategory { 
+export interface ServiceCategory {
   id: string;
   nom: string;
   hostId: string;
@@ -110,19 +112,20 @@ export interface FormField {
   options?: string[];
 }
 
-export interface Service { 
+export interface Service {
   id: string;
   titre: string;
   description: string;
   image?: string;
   "data-ai-hint"?: string;
-  categorieId: string; 
+  categorieId: string;
   hostId: string;
   formulaireId?: string;
   prix?: number;
   targetLocationIds?: string[];
   loginRequired?: boolean;
   pointsRequis?: number;
+  currency?: string;
 }
 
 export type OrderStatus = "pending" | "confirmed" | "completed" | "cancelled";
@@ -136,12 +139,12 @@ export interface Paiement {
 
 export interface Order {
   id: string;
-  serviceId: string; 
+  serviceId: string;
   hostId: string;
-  chambreTableId: string; 
+  chambreTableId: string;
   clientNom?: string;
   userId?: string;
-  donneesFormulaire: string; 
+  donneesFormulaire: string;
   dateHeure: string; // ISO string
   status: OrderStatus;
   prixTotal?: number;
@@ -161,14 +164,14 @@ export interface Client {
     email?: string;
     telephone?: string;
     type: ClientType;
-    dateArrivee?: string; 
-    dateDepart?: string;  
-    locationId?: string; 
+    dateArrivee?: string;
+    dateDepart?: string;
+    locationId?: string;
     notes?: string;
     documents?: Array<{ name: string; url: string; uploadedAt: string }>;
     credit?: number;
     pointsFidelite?: number;
-    userId?: string; 
+    userId?: string;
 }
 
 export type ReservationStatus = "pending" | "confirmed" | "cancelled" | "checked-in" | "checked-out";
@@ -177,7 +180,7 @@ export type OnlineCheckinStatus = 'not-started' | 'pending-review' | 'completed'
 export interface OnlineCheckinData {
   fullName?: string;
   email?: string;
-  birthDate?: string; 
+  birthDate?: string;
   phoneNumber?: string;
   travelReason?: string;
   additionalNotes?: string;
@@ -191,7 +194,7 @@ export interface Reservation {
   type?: 'Chambre' | 'Table';
   clientId?: string;
   clientName?: string;
-  dateArrivee: string; 
+  dateArrivee: string;
   dateDepart?: string | undefined;
   nombrePersonnes: number;
   animauxDomestiques?: boolean;
@@ -205,7 +208,7 @@ export interface Reservation {
   pointsGagnes?: number;
   onlineCheckinData?: OnlineCheckinData;
   onlineCheckinStatus?: OnlineCheckinStatus;
-  clientInitiatedCheckoutTime?: string; 
+  clientInitiatedCheckoutTime?: string;
   checkoutNotes?: string;
   currency?: string;
 }
@@ -228,18 +231,18 @@ export interface NavItem {
 export interface ChatMessage {
   id: string;
   conversationId: string;
-  senderId: string; 
-  receiverId: string; 
+  senderId: string;
+  receiverId: string;
   text: string;
   timestamp: string; // ISO string
   read?: boolean;
 }
 
 export interface ChatConversation {
-  id: string; 
-  participantIds: string[]; 
+  id: string;
+  participantIds: string[];
   lastMessage?: Pick<ChatMessage, 'text' | 'timestamp' | 'senderId'>;
-  unreadCounts?: { [userId: string]: number }; 
+  unreadCounts?: { [userId: string]: number };
   clientName?: string;
   hostName?: string;
   clientAvatar?: string; // URL
@@ -250,35 +253,35 @@ export interface MenuCard {
   id: string;
   name: string;
   hostId: string;
-  globalSiteId: string; 
+  globalSiteId: string;
   description?: string;
-  isActive: boolean; 
-  visibleFromTime?: string; 
-  visibleToTime?: string;   
+  isActive: boolean;
+  visibleFromTime?: string;
+  visibleToTime?: string;
 }
 
-export interface MenuCategory { 
+export interface MenuCategory {
   id: string;
   name: string;
-  menuCardId: string; 
-  hostId: string; 
+  menuCardId: string;
+  hostId: string; // Added for consistency in data functions
   description?: string;
-  displayOrder?: number; 
+  displayOrder?: number;
 }
 
 export interface MenuItemOption {
-  id: string; 
-  name: string; 
-  priceAdjustment?: number; 
+  id: string;
+  name: string;
+  priceAdjustment?: number;
 }
 
 export interface MenuItemOptionGroup {
-  id: string; 
-  name: string; 
-  menuItemId: string; 
-  selectionType: 'single' | 'multiple'; 
-  isRequired: boolean; 
-  options: MenuItemOption[]; 
+  id: string;
+  menuItemId: string;
+  name: string;
+  selectionType: 'single' | 'multiple';
+  isRequired: boolean;
+  options: MenuItemOption[];
   displayOrder?: number;
 }
 
@@ -289,22 +292,23 @@ export interface MenuItem {
   price: number;
   imageUrl?: string;
   imageAiHint?: string;
-  menuCategoryId: string; 
-  hostId: string; 
+  menuCategoryId: string;
+  hostId: string;
   isConfigurable?: boolean;
   optionGroups?: MenuItemOptionGroup[];
   isAvailable?: boolean;
   loginRequired?: boolean;
   pointsRequis?: number;
-  stock?: number; 
+  stock?: number;
   currency?: string;
 }
 
-export type CartItem = (MenuItem) & { // Cart only supports MenuItems for now
+export type CartItem = (MenuItem) & {
   quantity: number;
   uniqueIdInCart: string;
-  selectedOptions?: Record<string, string | string[]>; // For configurable items
-  finalPrice?: number; // Price after options
+  selectedOptions?: Record<string, string | string[]>;
+  finalPrice?: number;
+  currency?: string; // Ensure CartItem also has currency
 };
 
 export interface CartContextType {
@@ -349,12 +353,10 @@ export type TranslationKeys =
   | 'stockStatusOutOfStock' | 'stockStatusLimited' | 'configure' | 'addToCart' | 'viewCart'
   | 'upTo' | 'night' | 'nights' | 'person' | 'reservation' | 'priceNotSpecified' | 'selectDate'
   | 'description' | 'amenitiesAndTags' | 'searchErrorTitle' | 'adultsDescription' | 'childrenDescription' | 'infantsDescription'
-  | 'youCan' | 'toSaveReservation' | 'priceFrom';
+  | 'youCan' | 'toSaveReservation' | 'priceFrom' | 'pricingModel' | 'perRoomNight' | 'perPersonNight' | 'fixedBookingPrice';
 
 export type Translations = {
   [key in LanguageCode]: {
     [key in TranslationKeys]?: string;
   };
 };
-
-    
