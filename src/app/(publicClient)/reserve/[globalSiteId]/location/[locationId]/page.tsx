@@ -8,7 +8,8 @@ import type { Site as GlobalSiteType, RoomOrTable, Tag, Reservation, AmenityOpti
 import { PREDEFINED_AMENITIES } from '@/lib/amenities';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Label } from '@/components/ui/label'; // Fixed: Added Label import
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input'; // Added Input import
 import { BedDouble, Utensils, Users, CalendarDays as CalendarIcon, Tag as TagIconLucide, ChevronLeft, AlertTriangle, CheckCircle, Info, Image as ImageIconLucide, DollarSign } from 'lucide-react';
 import NextImage from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -46,10 +47,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, altText, aiHint }) 
   }
 
   const mainImage = images[0];
-  const sideImages = images.slice(1, 5);
+  const sideImages = images.slice(1, 5); // Show up to 4 side images
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-lg overflow-hidden h-[400px] md:h-[450px]">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-lg overflow-hidden h-[400px] md:h-[450px] bg-muted">
       <div className="relative col-span-1 md:col-span-1 h-full">
         <NextImage src={mainImage} alt={`${altText} - main`} layout="fill" objectFit="cover" data-ai-hint={aiHint || 'location image'} priority />
       </div>
@@ -67,7 +68,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, altText, aiHint }) 
           </div>
         )}
       </div>
-       {images.length > 1 && (
+       {images.length > 1 && images.length <=5 && ( // Show this if there are 2 to 5 images for mobile
         <div className="md:hidden absolute bottom-4 right-4">
             <Button variant="secondary" size="sm" className="bg-white/80 hover:bg-white">
                 Voir les {images.length} photos
@@ -82,7 +83,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, altText, aiHint }) 
 function LocationDetailPageContent() {
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParamsHook = useSearchParams();
   const { toast } = useToast();
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -105,21 +106,28 @@ function LocationDetailPageContent() {
   const [bookingSuccess, setBookingSuccess] = useState(false);
 
   useEffect(() => {
-    const arrivalParam = searchParams.get('arrival');
-    const departureParam = searchParams.get('departure');
-    const personsParam = searchParams.get('persons');
+    const arrivalParam = searchParamsHook.get('arrival');
+    const departureParam = searchParamsHook.get('departure');
+    const personsParam = searchParamsHook.get('persons');
 
-    if (arrivalParam && isValid(parseISO(arrivalParam))) setArrivalDate(startOfDay(parseISO(arrivalParam)));
-    else setArrivalDate(startOfDay(new Date()));
+    let initialArrival = startOfDay(new Date());
+    if (arrivalParam && isValid(parseISO(arrivalParam))) {
+      initialArrival = startOfDay(parseISO(arrivalParam));
+    }
+    setArrivalDate(initialArrival);
 
-    if (departureParam && isValid(parseISO(departureParam))) setDepartureDate(startOfDay(parseISO(departureParam)));
-    else if (arrivalParam && isValid(parseISO(arrivalParam))) setDepartureDate(startOfDay(addDays(parseISO(arrivalParam),1)));
-    else setDepartureDate(startOfDay(addDays(new Date(),1)));
-
-    if (personsParam && !isNaN(parseInt(personsParam))) setNumPersons(Math.max(1, parseInt(personsParam)));
-    else setNumPersons(1);
-
-  }, [searchParams]);
+    if (departureParam && isValid(parseISO(departureParam))) {
+      setDepartureDate(startOfDay(parseISO(departureParam)));
+    } else {
+      setDepartureDate(startOfDay(addDays(initialArrival, 1)));
+    }
+    
+    if (personsParam && !isNaN(parseInt(personsParam))) {
+      setNumPersons(Math.max(1, parseInt(personsParam)));
+    } else {
+      setNumPersons(1);
+    }
+  }, [searchParamsHook]);
 
   const fetchPageData = useCallback(async () => {
     if (!globalSiteId || !locationId) {
@@ -177,8 +185,8 @@ function LocationDetailPageContent() {
       if (!departureDate || !isSameDay(arrivalDate, departureDate)) {
         setDepartureDate(arrivalDate);
       }
-    } else if (locationInfo?.type === 'Chambre' && arrivalDate && departureDate && !isBefore(arrivalDate, departureDate)) {
-       setDepartureDate(addDays(arrivalDate, 1));
+    } else if (locationInfo?.type === 'Chambre' && arrivalDate && departureDate && !isBefore(startOfDay(arrivalDate), startOfDay(departureDate))) {
+       setDepartureDate(startOfDay(addDays(arrivalDate, 1)));
     }
   }, [arrivalDate, locationInfo?.type, departureDate]);
 
@@ -196,28 +204,32 @@ function LocationDetailPageContent() {
   }, [arrivalDate, departureDate, locationInfo?.type]);
 
   const nights = calculateNights();
-  let totalPrice: number | undefined = undefined;
-  let priceDisplayString: string = t('priceNotSpecified');
+  
+  const { totalPrice, priceDisplayString } = useMemo(() => {
+    let priceStr = t('priceNotSpecified');
+    let total: number | undefined = undefined;
 
-  if (locationInfo?.prixParNuit !== undefined && locationInfo.type === 'Chambre') {
-    if (locationInfo.pricingModel === 'perPerson') {
-      priceDisplayString = `$${locationInfo.prixParNuit.toFixed(2)} / ${t('person')} / ${t('night')}`;
-      if (arrivalDate && departureDate && nights > 0 && numPersons > 0) {
-        totalPrice = nights * locationInfo.prixParNuit * numPersons;
+    if (locationInfo?.prixParNuit !== undefined && locationInfo.type === 'Chambre') {
+      if (locationInfo.pricingModel === 'perPerson') {
+        priceStr = `${(locationInfo.currency || '$')}${locationInfo.prixParNuit.toFixed(2)} / ${t('person')} / ${t('night')}`;
+        if (arrivalDate && departureDate && nights > 0 && numPersons > 0) {
+          total = nights * locationInfo.prixParNuit * numPersons;
+        }
+      } else { // perRoom or undefined (default to perRoom)
+        priceStr = `${(locationInfo.currency || '$')}${locationInfo.prixParNuit.toFixed(2)} / ${t('night')}`;
+        if (arrivalDate && departureDate && nights > 0) {
+          total = nights * locationInfo.prixParNuit;
+        }
       }
-    } else { // perRoom or undefined (default to perRoom)
-      priceDisplayString = `$${locationInfo.prixParNuit.toFixed(2)} / ${t('night')}`;
-      if (arrivalDate && departureDate && nights > 0) {
-        totalPrice = nights * locationInfo.prixParNuit;
-      }
+    } else if (locationInfo?.type === 'Table' && locationInfo.prixFixeReservation !== undefined) {
+      priceStr = `${(locationInfo.currency || '$')}${locationInfo.prixFixeReservation.toFixed(2)} / ${t('reservation')}`;
+      total = locationInfo.prixFixeReservation;
     }
-  } else if (locationInfo?.type === 'Table' && locationInfo.prixFixeReservation !== undefined) {
-    priceDisplayString = `$${locationInfo.prixFixeReservation.toFixed(2)} / ${t('reservation')}`;
-    totalPrice = locationInfo.prixFixeReservation;
-  }
+    return { totalPrice: total, priceDisplayString: priceStr };
+  }, [locationInfo, arrivalDate, departureDate, nights, numPersons, t]);
   
   const handleConfirmReservation = async () => {
-    if (!globalSiteInfo || !locationInfo || !arrivalDate || !totalPrice) {
+    if (!globalSiteInfo || !locationInfo || !arrivalDate || totalPrice === undefined) {
       toast({ title: t("dates"), description: t('arrivalDate') + " et un prix valide sont requis.", variant: "destructive"});
       return;
     }
@@ -225,7 +237,7 @@ function LocationDetailPageContent() {
         toast({ title: t("dates"), description: t('departureDate') + " est requise pour une chambre.", variant: "destructive"});
         return;
     }
-    if (locationInfo.type === 'Chambre' && departureDate && (isBefore(startOfDay(departureDate), startOfDay(addDays(arrivalDate, 1))) || isSameDay(startOfDay(departureDate), startOfDay(arrivalDate)))) {
+    if (locationInfo.type === 'Chambre' && departureDate && !isBefore(startOfDay(arrivalDate), startOfDay(departureDate))) {
         toast({ title: t("departureDate"), description: "La date de départ doit être après la date d'arrivée pour une chambre.", variant: "destructive"});
         return;
     }
@@ -241,10 +253,11 @@ function LocationDetailPageContent() {
         dateArrivee: format(arrivalDate, 'yyyy-MM-dd'),
         dateDepart: locationInfo.type === 'Chambre' && departureDate ? format(departureDate, 'yyyy-MM-dd') : undefined,
         nombrePersonnes: numPersons,
-        animauxDomestiques: locationInfo.type === 'Chambre' ? false : undefined, // Assuming no pets by default for public booking
+        animauxDomestiques: locationInfo.type === 'Chambre' ? false : undefined, 
         status: 'pending',
         notes: `Réservation via la page publique pour ${locationInfo.nom}.`,
-        prixTotal: totalPrice, // Use the calculated total price
+        prixTotal: totalPrice,
+        currency: locationInfo.currency || globalSiteInfo.currency,
       };
 
       await addReservationToData(reservationData as Omit<Reservation, 'id' | 'onlineCheckinData' | 'onlineCheckinStatus' | 'clientInitiatedCheckoutTime' | 'checkoutNotes' | 'prixTotal' | 'montantPaye' | 'soldeDu' | 'paiements' | 'pointsGagnes'>);
@@ -266,11 +279,9 @@ function LocationDetailPageContent() {
         const resStart = startOfDay(parseISO(res.dateArrivee));
         if (locationInfo.type === 'Chambre' && res.dateDepart) {
           const resEnd = startOfDay(parseISO(res.dateDepart));
-          // For rooms, disable from resStart (inclusive) up to, but not including, resEnd
-          // This means if departure is 25th, the 24th is the last booked night.
           datesToDisable.push({ from: resStart, to: addDays(resEnd, -1) });
         } else if (locationInfo.type === 'Table') {
-          datesToDisable.push(resStart); // Disable the single day for table bookings
+          datesToDisable.push(resStart); 
         }
       } catch (e) {
         console.error("Error parsing reservation dates for disabledDates", e, res);
@@ -361,6 +372,8 @@ function LocationDetailPageContent() {
     .map(tagId => hostTags.find(t => t.id === tagId)?.name)
     .filter(Boolean) as string[];
 
+  const LocationIcon = locationInfo.type === 'Chambre' ? BedDouble : Utensils;
+
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
       <Button variant="outline" onClick={() => router.push(`/reserve/${globalSiteId}?arrival=${arrivalDate ? format(arrivalDate, 'yyyy-MM-dd') : ''}&departure=${departureDate ? format(departureDate, 'yyyy-MM-dd') : ''}&persons=${numPersons}&type=${locationInfo.type}`)} className="mb-6">
@@ -376,30 +389,32 @@ function LocationDetailPageContent() {
                 <p className="text-sm text-muted-foreground">{globalSiteInfo.nom}</p>
                 <CardTitle className="text-3xl md:text-4xl font-bold">{locationInfo.nom}</CardTitle>
                 <CardDescription className="text-lg flex items-center text-primary mt-1">
-                    {locationInfo.type === 'Chambre' ? <BedDouble className="mr-2 h-5 w-5" /> : <Utensils className="mr-2 h-5 w-5" />}
+                    <LocationIcon className="mr-2 h-5 w-5" />
                     {locationInfo.type}
-                    {locationInfo.capacity && <span className="text-muted-foreground text-base ml-2 flex items-center"><Users className="mr-1 h-4 w-4"/>{t('upTo')} {locationInfo.capacity} {t('persons')}</span>}
+                    {locationInfo.capacity && <span className="text-muted-foreground text-base ml-2 flex items-center"><Users className="mr-1 h-4 w-4"/>{t('upTo')} {locationInfo.capacity} {t('guests')}</span>}
                 </CardDescription>
             </div>
-            <div>
-              <h3 className="text-xl font-semibold mb-2 border-b pb-2">{t('description')}</h3>
-              <p className="text-muted-foreground whitespace-pre-wrap">{locationInfo.description || t('noDescriptionAvailable')}</p>
-            </div>
+            {locationInfo.description && (
+              <div>
+                <h3 className="text-xl font-semibold mb-2 border-b pb-2">{t('description')}</h3>
+                <p className="text-muted-foreground whitespace-pre-wrap">{locationInfo.description}</p>
+              </div>
+            )}
             
-            {(locationTags.length > 0 || (locationInfo.amenityIds && locationInfo.amenityIds.length > 0)) && (
+            {(locationTags.length > 0 || Object.keys(groupedAmenities).length > 0) && (
                <div className="border-t pt-4">
-                <h3 className="text-xl font-semibold mb-2">{t('amenitiesAndTags')}</h3>
+                <h3 className="text-xl font-semibold mb-3">{t('amenitiesAndTags')}</h3>
                 {locationTags.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-4">
                       {locationTags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
                     </div>
                 )}
                 {Object.keys(groupedAmenities).length > 0 && (
-                  <div>
+                  <div className="space-y-4">
                     {Object.entries(groupedAmenities).map(([categoryLabel, amenities]) => (
-                      <div key={categoryLabel} className="mb-3">
-                        <h4 className="text-md font-medium mb-1.5 text-muted-foreground">{categoryLabel}</h4>
-                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                      <div key={categoryLabel}>
+                        <h4 className="text-md font-semibold mb-2 text-muted-foreground">{categoryLabel}</h4>
+                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
                           {amenities.map(amenity => (
                             <li key={amenity.id} className="flex items-center py-0.5">
                               {React.createElement(amenity.icon, { className: "mr-2 h-4 w-4 text-primary/80" })}
@@ -434,7 +449,7 @@ function LocationDetailPageContent() {
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
-                                <Calendar mode="single" selected={arrivalDate} onSelect={(date) => setArrivalDate(date ? startOfDay(date) : undefined)} initialFocus disabled={disabledDates}/>
+                                <Calendar mode="single" selected={arrivalDate} onSelect={(date) => setArrivalDate(date ? startOfDay(date) : undefined)} initialFocus disabled={(date) => isBefore(date, startOfDay(new Date())) || disabledDates.some(d => typeof d === 'object' && 'from' in d ? (isEqual(date, d.from) || isEqual(date, d.to) || (isBefore(d.from, date) && isBefore(date, d.to))) : isEqual(date, d))}/>
                             </PopoverContent>
                         </Popover>
                     </div>
@@ -464,13 +479,13 @@ function LocationDetailPageContent() {
                     <div className="pt-3 border-t">
                         {locationInfo.type === 'Chambre' && locationInfo.prixParNuit !== undefined && (
                             <div className="flex justify-between text-sm text-muted-foreground">
-                                <span>${locationInfo.prixParNuit.toFixed(2)} x {nights} {nights > 1 ? t('nights') : t('night')} {locationInfo.pricingModel === 'perPerson' ? `x ${numPersons} ${t('persons')}` : ''}</span>
-                                <span>${(totalPrice).toFixed(2)}</span>
+                                <span>{(locationInfo.currency || '$')}{locationInfo.prixParNuit.toFixed(2)} x {nights} {nights > 1 ? t('nights') : t('night')} {locationInfo.pricingModel === 'perPerson' ? `x ${numPersons} ${t('persons')}` : ''}</span>
+                                <span>{(locationInfo.currency || '$')}{(totalPrice).toFixed(2)}</span>
                             </div>
                         )}
                         <div className="flex justify-between text-lg font-semibold mt-1">
                             <span>{t('totalEstimatedPrice')}</span>
-                            <span>${totalPrice.toFixed(2)}</span>
+                            <span>{(locationInfo.currency || '$')}{totalPrice.toFixed(2)}</span>
                         </div>
                     </div>
                 )}
@@ -506,4 +521,3 @@ export default function LocationDetailPage() {
   );
 }
       
-

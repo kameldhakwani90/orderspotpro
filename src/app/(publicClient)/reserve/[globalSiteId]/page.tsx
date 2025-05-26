@@ -27,7 +27,8 @@ import {
   Minus,
   Plus,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  DollarSign
 } from 'lucide-react';
 import {
   format, parseISO, isWithinInterval, eachDayOfInterval, addDays, subDays,
@@ -135,11 +136,17 @@ function PublicReservationPageContent() {
 
       const roomEnabled = siteInfo.reservationPageSettings?.enableRoomReservations ?? true;
       const tableEnabled = siteInfo.reservationPageSettings?.enableTableReservations ?? true;
-      if (roomEnabled && !tableEnabled) setSearchType('Chambre');
-      else if (!roomEnabled && tableEnabled) setSearchType('Table');
+      
+      const typeParam = searchParamsHook.get('type') as 'Chambre' | 'Table' | null;
+      let initialSearchType = typeParam || (roomEnabled ? 'Chambre' : tableEnabled ? 'Table' : 'Chambre');
+
+      if (!roomEnabled && tableEnabled) initialSearchType = 'Table';
+      else if (roomEnabled && !tableEnabled) initialSearchType = 'Chambre';
       else if (!roomEnabled && !tableEnabled) {
           setError(t('noAvailabilityDescription'));
       }
+      setSearchType(initialSearchType);
+
 
     } catch (e: any) {
       setError(t('errorLoadingServiceDetails') + ` (${e.message})`);
@@ -147,7 +154,7 @@ function PublicReservationPageContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [globalSiteId, t]);
+  }, [globalSiteId, t, searchParamsHook]);
 
   useEffect(() => {
     fetchPageData();
@@ -156,25 +163,20 @@ function PublicReservationPageContent() {
   useEffect(() => {
     let newArrivalDate = startOfDay(new Date());
     let newDepartureDate = startOfDay(addDays(new Date(), 1));
-    let newSearchType = searchType; // Keep current searchType unless overridden by param
-
+    
     const arrivalParam = searchParamsHook.get('arrival');
     const departureParam = searchParamsHook.get('departure');
     const adultsParam = searchParamsHook.get('adults');
     const childrenParam = searchParamsHook.get('children');
     const infantsParam = searchParamsHook.get('infants');
     const petsParam = searchParamsHook.get('pets');
-    const typeParam = searchParamsHook.get('type') as 'Chambre' | 'Table' | null;
-
-    if (typeParam) {
-        newSearchType = typeParam;
-    }
 
     if (arrivalParam && isValid(parseISO(arrivalParam))) {
         newArrivalDate = startOfDay(parseISO(arrivalParam));
     }
+    setArrivalDate(newArrivalDate);
     
-    if (newSearchType === 'Chambre') {
+    if (searchType === 'Chambre') {
       if (departureParam && isValid(parseISO(departureParam)) && isBefore(newArrivalDate, startOfDay(parseISO(departureParam)))) {
           newDepartureDate = startOfDay(parseISO(departureParam));
       } else {
@@ -183,17 +185,14 @@ function PublicReservationPageContent() {
     } else { // Table
       newDepartureDate = startOfDay(newArrivalDate);
     }
-    
-    setArrivalDate(newArrivalDate);
     setDepartureDate(newDepartureDate);
-    setSearchType(newSearchType);
 
     if (adultsParam && !isNaN(parseInt(adultsParam))) setNumAdults(Math.max(1, parseInt(adultsParam)));
     if (childrenParam && !isNaN(parseInt(childrenParam))) setNumChildren(Math.max(0, parseInt(childrenParam)));
     if (infantsParam && !isNaN(parseInt(infantsParam))) setNumInfants(Math.max(0, parseInt(infantsParam)));
     if (petsParam && !isNaN(parseInt(petsParam))) setNumPets(Math.max(0, parseInt(petsParam)));
 
-  }, [searchParamsHook]);
+  }, [searchParamsHook, searchType]); // Re-run if searchType changes too
 
   useEffect(() => {
     if (arrivalDate) {
@@ -209,7 +208,7 @@ function PublicReservationPageContent() {
         }
       }
     }
-  }, [arrivalDate, searchType]);
+  }, [arrivalDate, searchType, departureDate]);
 
 
   const handleTagChange = (tagId: string, checked: boolean | string) => {
@@ -293,9 +292,10 @@ function PublicReservationPageContent() {
   
   const showTypeSelector = useMemo(() => {
     if (!globalSiteInfo || !globalSiteInfo.reservationPageSettings) return true; 
-    const { enableRoomReservations, enableTableReservations } = globalSiteInfo.reservationPageSettings;
-    return (enableRoomReservations !== false) && (enableTableReservations !== false);
+    const { enableRoomReservations = true, enableTableReservations = true } = globalSiteInfo.reservationPageSettings;
+    return enableRoomReservations && enableTableReservations;
   }, [globalSiteInfo]);
+
 
   if (isLoading) {
     return (
@@ -336,8 +336,9 @@ function PublicReservationPageContent() {
     (searchType === 'Chambre' && (!departureDate || !isBefore(startOfDay(arrivalDate), startOfDay(departureDate)))) ||
     totalTravelers <= 0 ||
     (
-      globalSiteInfo?.reservationPageSettings?.enableRoomReservations === false &&
-      globalSiteInfo?.reservationPageSettings?.enableTableReservations === false
+      globalSiteInfo?.reservationPageSettings &&
+      globalSiteInfo.reservationPageSettings.enableRoomReservations === false &&
+      globalSiteInfo.reservationPageSettings.enableTableReservations === false
     );
 
   return (
@@ -362,21 +363,21 @@ function PublicReservationPageContent() {
 
       <Card className="shadow-xl sticky top-24 z-40 bg-card/95 backdrop-blur-md">
         <CardContent className="p-4 md:p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
             
             {showTypeSelector && (
               <div className="space-y-1.5">
                 <Label htmlFor="searchType" className="text-xs font-medium text-muted-foreground">{t('searchType')}</Label>
                 <Select value={searchType} onValueChange={(value: 'Chambre' | 'Table') => setSearchType(value)}>
                   <SelectTrigger id="searchType" className="h-12 text-sm">
-                    <div className="flex items-center">
+                    <div className="flex items-center min-w-0">
                        <LocationTypeIcon type={searchType} />
                        <SelectValue />
                     </div>
                   </SelectTrigger>
                   <SelectContent>
-                    {(globalSiteInfo?.reservationPageSettings?.enableRoomReservations ?? true) && <SelectItem value="Chambre"><BedDouble className="inline-block mr-2 h-4 w-4" />{t('room')}</SelectItem>}
-                    {(globalSiteInfo?.reservationPageSettings?.enableTableReservations ?? true) && <SelectItem value="Table"><UtensilsIcon className="inline-block mr-2 h-4 w-4" />{t('table')}</SelectItem>}
+                    {(globalSiteInfo?.reservationPageSettings?.enableRoomReservations !== false) && <SelectItem value="Chambre"><BedDouble className="inline-block mr-2 h-4 w-4" />{t('room')}</SelectItem>}
+                    {(globalSiteInfo?.reservationPageSettings?.enableTableReservations !== false) && <SelectItem value="Table"><UtensilsIcon className="inline-block mr-2 h-4 w-4" />{t('table')}</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
@@ -391,7 +392,7 @@ function PublicReservationPageContent() {
                     {arrivalDate && isValid(arrivalDate) ? format(arrivalDate, 'dd/MM/yy', { locale: fr }) : <span>{t('when')}</span>}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0"><ShadCalendar mode="single" selected={arrivalDate} onSelect={setArrivalDate} initialFocus /></PopoverContent>
+                <PopoverContent className="w-auto p-0"><ShadCalendar mode="single" selected={arrivalDate} onSelect={setArrivalDate} initialFocus disabled={{ before: startOfDay(new Date()) }}/></PopoverContent>
               </Popover>
             </div>
             
@@ -415,7 +416,7 @@ function PublicReservationPageContent() {
                       mode="single"
                       selected={departureDate}
                       onSelect={setDepartureDate}
-                      disabled={(date) => arrivalDate && isValid(arrivalDate) ? isBefore(date, addDays(arrivalDate,1)) : false}
+                      disabled={(date) => arrivalDate && isValid(arrivalDate) ? isBefore(date, addDays(arrivalDate,1)) : true}
                       initialFocus
                     />
                   </PopoverContent>
@@ -427,21 +428,21 @@ function PublicReservationPageContent() {
               <Label htmlFor="voyageursButton" className="text-xs font-medium text-muted-foreground">{t('guests')}</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button id="voyageursButton" variant="outline" className="w-full justify-start text-left font-normal h-12 text-sm">
-                     <div className="flex items-center min-w-0 flex-1">
-                        <Users className="mr-2 h-4 w-4 flex-shrink-0" />
-                        <span className="truncate">
-                          {(() => {
-                            const parts = [];
-                            const displayTravelers = Math.max(1, totalTravelers); 
-                            parts.push(t('numTravelers', {count: displayTravelers}));
-                            if (numInfants > 0) parts.push(t('numInfants', {count: numInfants}));
-                            if (numPets > 0) parts.push(t('numPets', {count: numPets}));
-                            return parts.join(', ');
-                          })()}
-                        </span>
-                    </div>
-                  </Button>
+                    <Button id="voyageursButton" variant="outline" className="w-full justify-start text-left font-normal h-12 text-sm">
+                        <div className="flex items-center min-w-0 flex-1">
+                            <Users className="mr-2 h-4 w-4 flex-shrink-0" />
+                            <span className="truncate">
+                            {(() => {
+                                const parts = [];
+                                const displayTravelers = Math.max(1, totalTravelers); 
+                                parts.push(t('numTravelers', {count: displayTravelers}));
+                                if (numInfants > 0) parts.push(t('numInfants', {count: numInfants}));
+                                if (numPets > 0) parts.push(t('numPets', {count: numPets}));
+                                return parts.join(', ');
+                            })()}
+                            </span>
+                        </div>
+                    </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-80 p-0">
                   <div className="p-4 space-y-2">
@@ -454,7 +455,7 @@ function PublicReservationPageContent() {
               </Popover>
             </div>
             
-            <div className="flex items-end gap-2 col-span-full sm:col-span-2 md:col-span-2 lg:col-span-1 xl:col-span-1">
+            <div className="flex items-end gap-2 col-span-full sm:col-span-2 md:col-span-2 lg:col-span-full xl:col-span-1">
               {allHostTags.length > 0 && (
                 <Button variant="outline" onClick={() => setShowTagFilters(!showTagFilters)} className="h-12 w-12 p-0 flex-shrink-0" title={t('filterByTags')}>
                   <FilterIcon className="h-5 w-5" />
@@ -516,6 +517,21 @@ function PublicReservationPageContent() {
                     </CardHeader>
                     <CardContent className="text-sm text-muted-foreground space-y-1 pt-0 pb-3">
                       <p className="line-clamp-2 h-10">{loc.description || t('noDescriptionAvailable')}</p>
+                      
+                      {loc.type === 'Chambre' && loc.prixParNuit !== undefined && (
+                        <p className="font-semibold text-primary flex items-center">
+                          <DollarSign className="h-4 w-4 mr-1"/>
+                          {(loc.currency || globalSiteInfo?.currency || '$')}{loc.prixParNuit.toFixed(2)}
+                          {loc.pricingModel === 'perPerson' ? ` / ${t('person')} / ${t('night')}` : ` / ${t('night')}`}
+                        </p>
+                      )}
+                      {loc.type === 'Table' && loc.prixFixeReservation !== undefined && (
+                         <p className="font-semibold text-primary flex items-center">
+                           <DollarSign className="h-4 w-4 mr-1"/>
+                           {(loc.currency || globalSiteInfo?.currency || '$')}{loc.prixFixeReservation.toFixed(2)} / {t('reservation')}
+                         </p>
+                      )}
+
                       {loc.tagIds && loc.tagIds.length > 0 && (
                         <div className="flex flex-wrap gap-1 pt-1">
                           {loc.tagIds.map(tagId => {
@@ -552,9 +568,9 @@ function PublicReservationPageContent() {
 
 export default function PublicReservationPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center items-center min-h-screen"><p className="text-lg">Chargement...</p></div>}>
+    <Suspense fallback={<div className="flex justify-center items-center min-h-screen"><p className="text-lg">{/* Fallback UI while params are loading */}</p></div>}>
       <PublicReservationPageContent />
     </Suspense>
   );
 }
-
+      

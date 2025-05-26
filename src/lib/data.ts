@@ -1,9 +1,8 @@
-// src/lib/data.ts
-import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus, Tag, LoyaltySettings, ReservationPageSettings, OnlineCheckinData, OnlineCheckinStatus, Paiement, MenuCard, MenuCategory, MenuItem, MenuItemOption, MenuItemOptionGroup } from './types';
 
-// Comment out Firebase imports if reverting to full in-memory
-// import { db } from './firebase';
-// import { collection, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp, DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
+// src/lib/data.ts
+import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormField, Service, Order, OrderStatus, Client, ClientType, Reservation, ReservationStatus, Tag, LoyaltySettings, ReservationPageSettings, OnlineCheckinData, OnlineCheckinStatus, Paiement, MenuCard, MenuCategory, MenuItem, MenuItemOption, MenuItemOptionGroup, EnrichedReservation } from './types';
+
+// No Firestore imports - using in-memory data
 
 const log = (message: string, data?: any) => {
   console.log(`[Data Layer] ${new Date().toISOString()}: ${message}`, data !== undefined ? data : '');
@@ -11,7 +10,6 @@ const log = (message: string, data?: any) => {
 log("Data layer initialized. Using IN-MEMORY DATA for all entities.");
 
 
-// --- In-memory data store ---
 let usersInMemory: User[] = [
   { id: 'user-admin-01', email: 'kamel@gmail.com', nom: 'Kamel Admin', role: 'admin', motDePasse: '0000' },
   { id: 'user-host-paradise', email: 'manager@paradise.com', nom: 'Paradise Manager', role: 'host', hostId: 'host-paradise-resort', motDePasse: '1234' },
@@ -20,7 +18,7 @@ let usersInMemory: User[] = [
   { id: 'user-host-le-phare', email: 'info@lepharebistro.com', nom: 'Le Phare Bistro', role: 'host', hostId: 'host-le-phare', motDePasse: '1234' },
   { id: 'user-client-alice', email: 'alice@example.com', nom: 'Alice Wonderland', role: 'client', motDePasse: '1234' },
   { id: 'user-client-bob', email: 'bob@example.com', nom: 'Bob The Builder', role: 'client', motDePasse: '1234' },
-  { id: 'user-dynamic-host', email: 'dynamic@host.com', nom: 'Dynamic Test User', role: 'host', hostId: 'host-1747669860022', motDePasse: '1234' },
+  { id: 'user-host-dynamic-1747669860022', email: 'dynamic@host.com', nom: 'Dynamic Test Establishment', role: 'host', hostId: 'host-1747669860022', motDePasse: '1234' },
 ];
 
 const defaultLoyaltySettings: LoyaltySettings = {
@@ -39,11 +37,11 @@ const defaultReservationPageSettings: ReservationPageSettings = {
 };
 
 let hostsInMemory: Host[] = [
-  { hostId: 'host-paradise-resort', nom: 'Paradise Beach Resort', email: 'manager@paradise.com', currency: 'USD', language: 'en', reservationPageSettings: { ...defaultReservationPageSettings, heroImageUrl: 'https://placehold.co/1200x400.png?text=Paradise+Resort+Banner', heroImageAiHint: 'resort beach banner' }, loyaltySettings: { ...defaultLoyaltySettings, enabled: true, pointsPerEuroSpent: 1, pointsPerNightRoom: 10, pointsPerTableBooking: 5, pointsForNewClientSignup: 50 } },
-  { hostId: 'host-le-delice', nom: 'Le Delice Downtown', email: 'contact@delice.com', currency: 'EUR', language: 'fr', reservationPageSettings: { ...defaultReservationPageSettings, heroImageUrl: 'https://placehold.co/1200x400.png?text=Le+Delice+Banner', heroImageAiHint: 'restaurant city banner', enableRoomReservations: false }, loyaltySettings: { ...defaultLoyaltySettings } },
-  { hostId: 'host-salty-pelican', nom: 'The Salty Pelican Beach Lodge', email: 'hello@saltypelican.com', currency: 'USD', language: 'en', reservationPageSettings: { ...defaultReservationPageSettings, heroImageUrl: 'https://placehold.co/1200x400.png?text=Salty+Pelican+Lodge', heroImageAiHint: 'beach lodge hotel', enableTableReservations: false }, loyaltySettings: { ...defaultLoyaltySettings, enabled: true, pointsPerNightRoom: 15, pointsForNewClientSignup: 25 } },
-  { hostId: 'host-le-phare', nom: 'Le Phare Bistro', email: 'info@lepharebistro.com', currency: 'EUR', language: 'fr', reservationPageSettings: { ...defaultReservationPageSettings, heroImageUrl: 'https://placehold.co/1200x400.png?text=Le+Phare+Bistro', heroImageAiHint: 'bistro beach cafe', enableRoomReservations: false}, loyaltySettings: { ...defaultLoyaltySettings, enabled: true, pointsPerEuroSpent: 0.5, pointsPerTableBooking: 3, pointsForNewClientSignup: 10 } },
-  { hostId: 'host-1747669860022', nom: 'Dynamic Test Establishment', email: 'dynamic@host.com', currency: 'EUR', language: 'fr', reservationPageSettings: { ...defaultReservationPageSettings, heroImageUrl: 'https://placehold.co/1200x400.png?text=Dynamic+Test', heroImageAiHint: 'dynamic test banner' }, loyaltySettings: { ...defaultLoyaltySettings, enabled: true } },
+  { hostId: 'host-paradise-resort', nom: 'Paradise Beach Resort', email: 'manager@paradise.com', reservationPageSettings: { ...defaultReservationPageSettings, heroImageUrl: 'https://placehold.co/1200x400.png?text=Paradise+Resort+Banner', heroImageAiHint: 'resort beach banner' }, loyaltySettings: { ...defaultLoyaltySettings, enabled: true, pointsPerEuroSpent: 1, pointsPerNightRoom: 10, pointsPerTableBooking: 5, pointsForNewClientSignup: 50 }, currency: 'USD', language: 'en' },
+  { hostId: 'host-le-delice', nom: 'Le Delice Downtown', email: 'contact@delice.com', reservationPageSettings: { ...defaultReservationPageSettings, heroImageUrl: 'https://placehold.co/1200x400.png?text=Le+Delice+Banner', heroImageAiHint: 'restaurant city banner', enableRoomReservations: false }, loyaltySettings: { ...defaultLoyaltySettings }, currency: 'EUR', language: 'fr' },
+  { hostId: 'host-salty-pelican', nom: 'The Salty Pelican Beach Lodge', email: 'hello@saltypelican.com', reservationPageSettings: { ...defaultReservationPageSettings, heroImageUrl: 'https://placehold.co/1200x400.png?text=Salty+Pelican+Lodge', heroImageAiHint: 'beach lodge hotel', enableTableReservations: false }, loyaltySettings: { ...defaultLoyaltySettings, enabled: true, pointsPerNightRoom: 15, pointsForNewClientSignup: 25 }, currency: 'USD', language: 'en' },
+  { hostId: 'host-le-phare', nom: 'Le Phare Bistro', email: 'info@lepharebistro.com', reservationPageSettings: { ...defaultReservationPageSettings, heroImageUrl: 'https://placehold.co/1200x400.png?text=Le+Phare+Bistro', heroImageAiHint: 'bistro beach cafe', enableRoomReservations: false}, loyaltySettings: { ...defaultLoyaltySettings, enabled: true, pointsPerEuroSpent: 0.5, pointsPerTableBooking: 3, pointsForNewClientSignup: 10 }, currency: 'EUR', language: 'fr' },
+  { hostId: 'host-1747669860022', nom: 'Dynamic Test Establishment', email: 'dynamic@host.com', reservationPageSettings: { ...defaultReservationPageSettings, heroImageUrl: 'https://placehold.co/1200x400.png?text=Dynamic+Test', heroImageAiHint: 'dynamic test banner' }, loyaltySettings: { ...defaultLoyaltySettings, enabled: true }, currency: 'EUR', language: 'fr' },
 ];
 
 let sitesInMemory: Site[] = [
@@ -68,31 +66,34 @@ let tagsInMemory: Tag[] = [
 
 let roomsOrTablesInMemory: RoomOrTable[] = [
   // Salty Pelican
-  { id: 'sp-room-ocean-double', nom: 'Ocean Double', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-ocean-double`, capacity: 2, pricingModel: 'perRoom', prixParNuit: 150, description: "Chambre double avec vue imprenable sur l'océan.", imageUrls: ["https://placehold.co/600x400.png?text=Ocean+View+Double", "https://placehold.co/600x400.png?text=Ocean+Room+Balcony"], imageAiHint: "ocean view room", tagIds: ['tag-vue-mer'], amenityIds: ['wifi', 'salle-de-bain', 'tv', 'terrasse-balcon', 'climatisation'], menuCardId: 'mc-salty-main' },
-  { id: 'sp-room-garden-bungalow', nom: 'Garden Bungalow', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-garden-bungalow`, capacity: 4, pricingModel: 'perRoom', prixParNuit: 180, description: "Bungalow spacieux avec accès direct au jardin, idéal pour les familles.", imageUrls: ["https://placehold.co/600x400.png?text=Garden+Bungalow", "https://placehold.co/600x400.png?text=Bungalow+Interior"], imageAiHint: "garden bungalow family", tagIds: ['tag-famille', 'tag-animaux'], amenityIds: ['wifi', 'salle-de-bain', 'cuisine', 'animaux-acceptes'], menuCardId: 'mc-salty-main' },
+  { id: 'sp-room-ocean-double', nom: 'Ocean Double', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-ocean-double`, capacity: 2, pricingModel: 'perRoom', prixParNuit: 150, description: "Chambre double avec vue imprenable sur l'océan.", imageUrls: ["https://placehold.co/600x400.png?text=Ocean+View+Double", "https://placehold.co/600x400.png?text=Ocean+Room+Balcony"], imageAiHint: "ocean view room", tagIds: ['tag-vue-mer'], amenityIds: ['wifi', 'salle-de-bain', 'tv', 'terrasse-balcon', 'climatisation'], menuCardId: 'mc-salty-main', currency: 'USD' },
+  { id: 'sp-room-garden-bungalow', nom: 'Garden Bungalow', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-garden-bungalow`, capacity: 4, pricingModel: 'perRoom', prixParNuit: 180, description: "Bungalow spacieux avec accès direct au jardin, idéal pour les familles.", imageUrls: ["https://placehold.co/600x400.png?text=Garden+Bungalow", "https://placehold.co/600x400.png?text=Bungalow+Interior"], imageAiHint: "garden bungalow family", tagIds: ['tag-famille', 'tag-animaux'], amenityIds: ['wifi', 'salle-de-bain', 'cuisine', 'animaux-acceptes'], menuCardId: 'mc-salty-main', currency: 'USD' },
+  { id: 'sp-room-surfer-dorm', nom: 'Surfer Dorm Bed', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-surfer-dorm`, capacity: 1, pricingModel: 'perPerson', prixParNuit: 45, description: "Lit en dortoir partagé, parfait pour les surfeurs solo.", imageUrls: ["https://placehold.co/600x400.png?text=Surfer+Dorm"], imageAiHint: "dorm bed hostel", amenityIds: ['wifi', 'salle-de-bain'], menuCardId: 'mc-salty-main', currency: 'USD' },
+  { id: 'sp-room-eco-tent', nom: 'Eco-Tent Glamping', type: 'Chambre', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-room-eco-tent`, capacity: 2, pricingModel: 'perRoom', prixParNuit: 90, description: "Tente de glamping écologique avec confort moderne.", imageUrls: ["https://placehold.co/600x400.png?text=Eco+Tent"], imageAiHint: "glamping tent nature", tagIds: ['tag-calme'], amenityIds: ['linge-lit-coton'], menuCardId: 'mc-salty-main', currency: 'USD' },
+
   { id: 'sp-zone-terrasse', nom: 'Terrasse Plage', type: 'Site', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', urlPersonnalise: `/client/host-salty-pelican/sp-zone-terrasse`, description: "Terrasse ensoleillée face à la mer.", amenityIds: ['wifi'], menuCardId: 'mc-salty-main' },
-  { id: 'sp-table-terrasse-1', nom: 'Table Terrasse Vue Mer 1', type: 'Table', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', parentLocationId: 'sp-zone-terrasse', urlPersonnalise: `/client/host-salty-pelican/sp-table-terrasse-1`, capacity: 4, prixFixeReservation: 10, description: "Table avec la meilleure vue.", menuCardId: 'mc-salty-main' },
+  { id: 'sp-table-terrasse-1', nom: 'Table Terrasse Vue Mer 1', type: 'Table', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', parentLocationId: 'sp-zone-terrasse', urlPersonnalise: `/client/host-salty-pelican/sp-table-terrasse-1`, capacity: 4, prixFixeReservation: 10, description: "Table avec la meilleure vue.", menuCardId: 'mc-salty-main', currency: 'USD' },
 
   // Le Phare Bistro
   { id: 'lp-zone-principale', nom: 'Salle Principale Bistro', type: 'Site', hostId: 'host-le-phare', globalSiteId: 'site-le-phare', urlPersonnalise: `/client/host-le-phare/lp-zone-principale`, description: "Ambiance conviviale au coeur du bistro.", amenityIds:['wifi'], menuCardId: 'mc-lephare-jour' },
-  { id: 'lp-table-fenetre-1', nom: 'Table Fenêtre 1', type: 'Table', hostId: 'host-le-phare', globalSiteId: 'site-le-phare', parentLocationId: 'lp-zone-principale', urlPersonnalise: `/client/host-le-phare/lp-table-fenetre-1`, capacity: 2, prixFixeReservation: 5, description: "Table intime avec vue sur la rue animée.", menuCardId: 'mc-lephare-jour' },
-  { id: 'lp-table-groupe-5', nom: 'Table Groupe 5', type: 'Table', hostId: 'host-le-phare', globalSiteId: 'site-le-phare', parentLocationId: 'lp-zone-principale', urlPersonnalise: `/client/host-le-phare/lp-table-groupe-5`, capacity: 6, prixFixeReservation: 15, description: "Grande table pour les groupes.", tagIds: ['tag-exterieur'], menuCardId: 'mc-lephare-jour' },
+  { id: 'lp-table-fenetre-1', nom: 'Table Fenêtre 1', type: 'Table', hostId: 'host-le-phare', globalSiteId: 'site-le-phare', parentLocationId: 'lp-zone-principale', urlPersonnalise: `/client/host-le-phare/lp-table-fenetre-1`, capacity: 2, prixFixeReservation: 5, description: "Table intime avec vue sur la rue animée.", menuCardId: 'mc-lephare-jour', currency: 'EUR' },
+  { id: 'lp-table-groupe-5', nom: 'Table Groupe 5', type: 'Table', hostId: 'host-le-phare', globalSiteId: 'site-le-phare', parentLocationId: 'lp-zone-principale', urlPersonnalise: `/client/host-le-phare/lp-table-groupe-5`, capacity: 6, prixFixeReservation: 15, description: "Grande table pour les groupes.", tagIds: ['tag-exterieur'], menuCardId: 'mc-lephare-jour', currency: 'EUR' },
 
   // Paradise Beach Resort
   { id: 'pbr-lobby', nom: 'Lobby Principal Paradise', type: 'Site', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', urlPersonnalise: `/client/host-paradise-resort/pbr-lobby`, amenityIds: ['wifi', 'climatisation'] },
-  { id: 'pbr-room-deluxe-king', nom: 'Deluxe King Suite', type: 'Chambre', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-lobby', urlPersonnalise: `/client/host-paradise-resort/pbr-room-deluxe-king`, capacity: 2, pricingModel: 'perRoom', prixParNuit: 250, description: "Suite luxueuse avec lit King Size et vue mer.", imageUrls: ["https://placehold.co/600x400.png?text=Deluxe+King", "https://placehold.co/600x400.png?text=Suite+Bathroom"], imageAiHint: "luxury suite king", tagIds: ['tag-vue-mer-paradise', 'tag-luxe'], amenityIds: ['wifi', 'salle-de-bain', 'tv', 'climatisation', 'terrasse-balcon', 'petit-dejeuner-inclus'], menuCardId: "mc-paradise-roomservice" },
-  { id: 'pbr-room-standard-twin', nom: 'Standard Twin Vue Jardin', type: 'Chambre', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-lobby', urlPersonnalise: `/client/host-paradise-resort/pbr-room-standard-twin`, capacity: 2, pricingModel: 'perPerson', prixParNuit: 65, description: "Chambre confortable avec deux lits jumeaux et vue sur les jardins. Prix par personne.", imageUrls: ["https://placehold.co/600x400.png?text=Standard+Twin", "https://placehold.co/600x400.png?text=Twin+Room+View"], imageAiHint: "twin room garden", tagIds: ['tag-calme', 'tag-famille-paradise'], amenityIds: ['wifi', 'salle-de-bain', 'tv'], menuCardId: "mc-paradise-roomservice" },
+  { id: 'pbr-room-deluxe-king', nom: 'Deluxe King Suite', type: 'Chambre', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-lobby', urlPersonnalise: `/client/host-paradise-resort/pbr-room-deluxe-king`, capacity: 2, pricingModel: 'perRoom', prixParNuit: 250, description: "Suite luxueuse avec lit King Size et vue mer.", imageUrls: ["https://placehold.co/600x400.png?text=Deluxe+King", "https://placehold.co/600x400.png?text=Suite+Bathroom"], imageAiHint: "luxury suite king", tagIds: ['tag-vue-mer-paradise', 'tag-luxe'], amenityIds: ['wifi', 'salle-de-bain', 'tv', 'climatisation', 'terrasse-balcon', 'petit-dejeuner-inclus'], menuCardId: "mc-paradise-roomservice", currency: 'USD' },
+  { id: 'pbr-room-standard-twin', nom: 'Standard Twin Vue Jardin', type: 'Chambre', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-lobby', urlPersonnalise: `/client/host-paradise-resort/pbr-room-standard-twin`, capacity: 2, pricingModel: 'perPerson', prixParNuit: 65, description: "Chambre confortable avec deux lits jumeaux et vue sur les jardins. Prix par personne.", imageUrls: ["https://placehold.co/600x400.png?text=Standard+Twin", "https://placehold.co/600x400.png?text=Twin+Room+View"], imageAiHint: "twin room garden", tagIds: ['tag-calme', 'tag-famille-paradise'], amenityIds: ['wifi', 'salle-de-bain', 'tv'], menuCardId: "mc-paradise-roomservice", currency: 'USD' },
   { id: 'pbr-zone-piscine', nom: 'Espace Piscine Paradise', type: 'Site', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', urlPersonnalise: `/client/host-paradise-resort/pbr-zone-piscine`, amenityIds: ['piscine', 'jacuzzi'], menuCardId: "mc-paradise-pool" },
-  { id: 'pbr-table-piscine-A', nom: 'Table Cabana Piscine A', type: 'Table', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-zone-piscine', urlPersonnalise: `/client/host-paradise-resort/pbr-table-piscine-A`, capacity: 6, prixFixeReservation: 25, description: "Cabana privée près de la piscine.", menuCardId: "mc-paradise-pool" },
+  { id: 'pbr-table-piscine-A', nom: 'Table Cabana Piscine A', type: 'Table', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', parentLocationId: 'pbr-zone-piscine', urlPersonnalise: `/client/host-paradise-resort/pbr-table-piscine-A`, capacity: 6, prixFixeReservation: 25, description: "Cabana privée près de la piscine.", menuCardId: "mc-paradise-pool", currency: 'USD' },
 
   // Le Delice Downtown
   { id: 'ldd-salle-principale', nom: 'Salle Restaurant Le Delice', type: 'Site', hostId: 'host-le-delice', globalSiteId: 'site-le-delice', urlPersonnalise: `/client/host-le-delice/ldd-salle-principale`, amenityIds: ['wifi', 'climatisation'], menuCardId: 'mc-delice-dinner' },
-  { id: 'ldd-table-romantique-2', nom: 'Table Romantique 2pax', type: 'Table', hostId: 'host-le-delice', globalSiteId: 'site-le-delice', parentLocationId: 'ldd-salle-principale', urlPersonnalise: `/client/host-le-delice/ldd-table-romantique-2`, capacity: 2, prixFixeReservation: 10, description: "Table parfaite pour un dîner en amoureux.", tagIds:['tag-romantique'], menuCardId: 'mc-delice-dinner' },
+  { id: 'ldd-table-romantique-2', nom: 'Table Romantique 2pax', type: 'Table', hostId: 'host-le-delice', globalSiteId: 'site-le-delice', parentLocationId: 'ldd-salle-principale', urlPersonnalise: `/client/host-le-delice/ldd-table-romantique-2`, capacity: 2, prixFixeReservation: 10, description: "Table parfaite pour un dîner en amoureux.", tagIds:['tag-romantique'], menuCardId: 'mc-delice-dinner', currency: 'EUR' },
 
   // Dynamic Test Establishment
   { id: 'rt-dynamic-lobby', nom: 'Dynamic Lobby', type: 'Site', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-lobby`, description: "Lobby for the dynamic establishment.", amenityIds: ['wifi'], menuCardId: 'mc-dyn-main' },
-  { id: 'rt-dynamic-room1', nom: 'Dynamic Room 101', type: 'Chambre', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-room1`, capacity: 2, pricingModel: 'perRoom', prixParNuit: 100, description: "A standard room in the dynamic establishment.", imageUrls: ["https://placehold.co/600x400.png?text=Dynamic+Room+101"], imageAiHint: "dynamic room hotel", amenityIds: ['wifi', 'salle-de-bain', 'tv'], menuCardId: 'mc-dyn-main' },
-  { id: 'rt-dynamic-table5', nom: 'Dynamic Table 5', type: 'Table', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-table5`, capacity: 4, prixFixeReservation: 5, description: "A table in the dynamic lobby.", amenityIds: ['wifi'], menuCardId: 'mc-dyn-main' },
+  { id: 'rt-dynamic-room1', nom: 'Dynamic Room 101', type: 'Chambre', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-room1`, capacity: 2, pricingModel: 'perRoom', prixParNuit: 100, description: "A standard room in the dynamic establishment.", imageUrls: ["https://placehold.co/600x400.png?text=Dynamic+Room+101"], imageAiHint: "dynamic room hotel", amenityIds: ['wifi', 'salle-de-bain', 'tv'], menuCardId: 'mc-dyn-main', currency: 'EUR' },
+  { id: 'rt-dynamic-table5', nom: 'Dynamic Table 5', type: 'Table', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', parentLocationId: 'rt-dynamic-lobby', urlPersonnalise: `/client/host-1747669860022/rt-dynamic-table5`, capacity: 4, prixFixeReservation: 5, description: "A table in the dynamic lobby.", amenityIds: ['wifi'], menuCardId: 'mc-dyn-main', currency: 'EUR' },
 ];
 
 let serviceCategoriesInMemory: ServiceCategory[] = [
@@ -125,7 +126,7 @@ let formFieldsInMemory: FormField[] = [
 
 let servicesInMemory: Service[] = [
   // Salty Pelican Services
-  { id: 'svc-sp-breakfast', titre: 'Petit Déjeuner Continental', description: 'Café, thé, jus, viennoiseries, fruits frais.', image: 'https://placehold.co/600x400.png?text=Continental+Breakfast', "data-ai-hint": "breakfast continental", categorieId: 'cat-sp-breakfast', hostId: 'host-salty-pelican', prix: 15, targetLocationIds: ['sp-room-ocean-double', 'sp-room-garden-bungalow'], loginRequired: false, currency: 'USD' },
+  { id: 'svc-sp-breakfast', titre: 'Petit Déjeuner Continental', description: 'Café, thé, jus, viennoiseries, fruits frais.', image: 'https://placehold.co/600x400.png?text=Continental+Breakfast', "data-ai-hint": "breakfast continental", categorieId: 'cat-sp-breakfast', hostId: 'host-salty-pelican', prix: 15, targetLocationIds: ['sp-room-ocean-double', 'sp-room-garden-bungalow', 'sp-room-surfer-dorm', 'sp-room-eco-tent'], loginRequired: false, currency: 'USD' },
   { id: 'svc-sp-kayak', titre: 'Location de Kayak (1h)', description: 'Explorez la côte en kayak.', image: 'https://placehold.co/600x400.png?text=Kayak+Rental', "data-ai-hint": "kayak beach", categorieId: 'cat-sp-activities', hostId: 'host-salty-pelican', formulaireId: 'form-sp-activity-booking', prix: 20, targetLocationIds: ['sp-zone-terrasse'], loginRequired: true, currency: 'USD' },
   { id: 'svc-sp-yoga', titre: 'Cours de Yoga au Lever du Soleil', description: 'Session de yoga revitalisante sur la plage.', image: 'https://placehold.co/600x400.png?text=Sunrise+Yoga', "data-ai-hint": "yoga sunrise beach", categorieId: 'cat-sp-activities', hostId: 'host-salty-pelican', prix: 25, targetLocationIds: [], loginRequired: true, pointsRequis: 100, currency: 'USD' },
 
@@ -191,17 +192,17 @@ let menuCategoriesInMemory: MenuCategory[] = [
   { id: 'mcat-pbr-roomservice-main', name: 'Plats Principaux (Room Svc)', menuCardId: 'mc-paradise-roomservice', hostId: 'host-paradise-resort', displayOrder: 1 },
   { id: 'mcat-delice-dinner-main', name: 'Plats Principaux (Dîner)', menuCardId: 'mc-delice-dinner', hostId: 'host-le-delice', displayOrder: 1},
   { id: 'mcat-dyn-starters', name: 'Starters (Dynamic)', menuCardId: 'mc-dyn-main', hostId: 'host-1747669860022', displayOrder: 1},
-  { id: 'mcat-lephare-pizzas', name: 'Pizzas Le Phare', menuCardId: 'mc-lephare-jour', hostId: 'host-le-phare', displayOrder: 3 }, // Pizza category for Le Phare
+  { id: 'mcat-lephare-pizzas', name: 'Pizzas Le Phare', menuCardId: 'mc-lephare-jour', hostId: 'host-le-phare', displayOrder: 3 }, 
 ];
 
 let menuItemsInMemory: MenuItem[] = [
-  { id: 'mi-salty-coca', name: 'Coca-Cola', description: '33cl, bien frais.', price: 3, menuCategoryId: 'mcat-salty-boissons', hostId: 'host-salty-pelican', imageUrl: 'https://placehold.co/300x200.png?text=Coca-Cola', imageAiHint: 'soda can', isAvailable: true, stock: 50 },
-  { id: 'mi-salty-frites', name: 'Cornet de Frites Maison', description: 'Avec sauce au choix.', price: 5, menuCategoryId: 'mcat-salty-snacks', hostId: 'host-salty-pelican', imageUrl: 'https://placehold.co/300x200.png?text=Frites', imageAiHint: 'fries food', isAvailable: true, stock: 0 }, // Rupture de stock
+  { id: 'mi-salty-coca', name: 'Coca-Cola', description: '33cl, bien frais.', price: 3, menuCategoryId: 'mcat-salty-boissons', hostId: 'host-salty-pelican', imageUrl: 'https://placehold.co/300x200.png?text=Coca-Cola', imageAiHint: 'soda can', isAvailable: true, stock: 50, currency: 'USD' },
+  { id: 'mi-salty-frites', name: 'Cornet de Frites Maison', description: 'Avec sauce au choix.', price: 5, menuCategoryId: 'mcat-salty-snacks', hostId: 'host-salty-pelican', imageUrl: 'https://placehold.co/300x200.png?text=Frites', imageAiHint: 'fries food', isAvailable: true, stock: 0, currency: 'USD' },
   {
     id: 'mi-salty-pizza',
     name: 'Pizza du Pélican Personnalisable',
     description: 'Composez votre pizza de plage idéale ! Base tomate et mozzarella incluse.',
-    price: 12, // Prix de base
+    price: 12, 
     menuCategoryId: 'mcat-salty-snacks',
     hostId: 'host-salty-pelican',
     imageUrl: 'https://placehold.co/300x200.png?text=Custom+Pizza',
@@ -209,6 +210,7 @@ let menuItemsInMemory: MenuItem[] = [
     isAvailable: true,
     isConfigurable: true,
     stock: 20,
+    currency: 'USD',
     optionGroups: [
       {
         id: 'og-saltypizza-taille',
@@ -250,10 +252,10 @@ let menuItemsInMemory: MenuItem[] = [
       }
     ]
   },
-  { id: 'mi-lephare-salade', name: 'Salade César', description: 'Poulet grillé, Grana Padano, croûtons à l\'ail.', price: 14, menuCategoryId: 'mcat-lephare-entrees', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Salade+Cesar', imageAiHint: 'caesar salad', isAvailable: true, stock: 10 },
-  { id: 'mi-lephare-poisson', name: 'Poisson du Jour Grillé', description: 'Selon arrivage, légumes de saison.', price: 22, menuCategoryId: 'mcat-lephare-plats', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Poisson+Grille', imageAiHint: 'grilled fish', isAvailable: false, stock: 10 }, // Non disponible
+  { id: 'mi-lephare-salade', name: 'Salade César', description: 'Poulet grillé, Grana Padano, croûtons à l\'ail.', price: 14, menuCategoryId: 'mcat-lephare-entrees', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Salade+Cesar', imageAiHint: 'caesar salad', isAvailable: true, stock: 10, currency: 'EUR' },
+  { id: 'mi-lephare-poisson', name: 'Poisson du Jour Grillé', description: 'Selon arrivage, légumes de saison.', price: 22, menuCategoryId: 'mcat-lephare-plats', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Poisson+Grille', imageAiHint: 'grilled fish', isAvailable: false, stock: 10, currency: 'EUR' },
   {
-    id: 'mi-lephare-pizza-config', name: 'Pizza Personnalisée (Le Phare)', description: 'Composez votre pizza idéale ! Base tomate et mozzarella incluse.', price: 10, menuCategoryId: 'mcat-lephare-pizzas', hostId: 'host-le-phare', isConfigurable: true, isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Custom+Pizza', imageAiHint: 'custom pizza', stock: 20,
+    id: 'mi-lephare-pizza-config', name: 'Pizza Personnalisée (Le Phare)', description: 'Composez votre pizza idéale ! Base tomate et mozzarella incluse.', price: 10, menuCategoryId: 'mcat-lephare-pizzas', hostId: 'host-le-phare', isConfigurable: true, isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Custom+Pizza', imageAiHint: 'custom pizza', stock: 20, currency: 'EUR',
     optionGroups: [
       { id: 'og-pizza-taille-lp', menuItemId: 'mi-lephare-pizza-config', name: 'Choisissez votre taille', selectionType: 'single', isRequired: true, displayOrder: 1, options: [
         { id: 'opt-taille-moyenne-lp', name: 'Moyenne', priceAdjustment: 0 },
@@ -271,10 +273,10 @@ let menuItemsInMemory: MenuItem[] = [
       ]}
     ]
   },
-  { id: 'mi-paradise-mojito', name: 'Mojito Classique', description: 'Rhum, menthe fraîche, citron vert, sucre de canne, eau gazeuse.', price: 12, menuCategoryId: 'mcat-paradise-cocktails', hostId: 'host-paradise-resort', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Mojito', imageAiHint: 'mojito cocktail', stock: 3 }, // Stock limité
-  { id: 'mi-pbr-roomservice-club', name: 'Club Sandwich Room Service', description: 'Poulet, bacon, laitue, tomate, frites.', price: 18, menuCategoryId: 'mcat-pbr-roomservice-main', hostId: 'host-paradise-resort', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Club+Sandwich', imageAiHint: 'club sandwich', stock: 10 },
-  { id: 'mi-delice-dinner-sole', name: 'Sole Meunière', description: 'Servie avec pommes de terre grenaille.', price: 28, menuCategoryId: 'mcat-delice-dinner-main', hostId: 'host-le-delice', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Sole+Meuniere', imageAiHint: 'sole fish food'},
-  { id: 'mi-dyn-soup', name: 'Daily Soup (Dynamic)', description: 'Chef\'s special soup of the day.', price: 7, menuCategoryId: 'mcat-dyn-starters', hostId: 'host-1747669860022', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Dynamic+Soup', imageAiHint: 'soup bowl'},
+  { id: 'mi-paradise-mojito', name: 'Mojito Classique', description: 'Rhum, menthe fraîche, citron vert, sucre de canne, eau gazeuse.', price: 12, menuCategoryId: 'mcat-paradise-cocktails', hostId: 'host-paradise-resort', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Mojito', imageAiHint: 'mojito cocktail', stock: 3, currency: 'USD' },
+  { id: 'mi-pbr-roomservice-club', name: 'Club Sandwich Room Service', description: 'Poulet, bacon, laitue, tomate, frites.', price: 18, menuCategoryId: 'mcat-pbr-roomservice-main', hostId: 'host-paradise-resort', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Club+Sandwich', imageAiHint: 'club sandwich', stock: 10, currency: 'USD' },
+  { id: 'mi-delice-dinner-sole', name: 'Sole Meunière', description: 'Servie avec pommes de terre grenaille.', price: 28, menuCategoryId: 'mcat-delice-dinner-main', hostId: 'host-le-delice', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Sole+Meuniere', imageAiHint: 'sole fish food', currency: 'EUR'},
+  { id: 'mi-dyn-soup', name: 'Daily Soup (Dynamic)', description: 'Chef\'s special soup of the day.', price: 7, menuCategoryId: 'mcat-dyn-starters', hostId: 'host-1747669860022', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Dynamic+Soup', imageAiHint: 'soup bowl', currency: 'EUR'},
 ];
 
 // --- Helper to normalize user data ---
@@ -284,7 +286,7 @@ const normalizeUserPassword = (user: any): User => {
     if (userData.motDePasse === undefined && userData.password !== undefined) {
       userData.motDePasse = String(userData.password);
     } else if (userData.motDePasse === undefined) {
-      userData.motDePasse = "";
+      userData.motDePasse = ""; // Ensure motDePasse is always a string
     } else {
       userData.motDePasse = String(userData.motDePasse);
     }
@@ -302,14 +304,30 @@ const normalizeUserPassword = (user: any): User => {
   }
 };
 
+
 // --- User Management ---
 export const getUserByEmail = async (email: string): Promise<User | undefined> => {
   log(`getUserByEmail called for: ${email}`);
   try {
     const user = usersInMemory.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (user) {
-      const normalizedUser = normalizeUserPassword(user);
-      return normalizedUser;
+      let storedPassword = user.motDePasse;
+      // @ts-ignore - This is a temporary workaround for data inconsistency
+      if (user.motDePasse === undefined && user.password !== undefined) {
+        // @ts-ignore
+        storedPassword = user.password;
+      }
+      
+      let name = user.nom;
+      if (!name && user.email) {
+        name = user.email.split('@')[0];
+      }
+
+      return {
+        ...user,
+        motDePasse: String(storedPassword || ""),
+        nom: name || "Unnamed User"
+      };
     }
     return undefined;
   } catch (e) {
@@ -359,7 +377,7 @@ export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
     }
     const newUser: User = {
       id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      motDePasse: userData.motDePasse.trim(),
+      motDePasse: userData.motDePasse.trim(), // Ensure motDePasse is a string
       nom: userData.nom || userData.email.split('@')[0],
       ...userData,
     };
@@ -372,15 +390,16 @@ export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
   }
 };
 
-export const updateUser = async (userId: string, userData: Partial<Omit<User, 'id' | 'motDePasse'>> & { motDePasse?: string }): Promise<User | undefined> => {
+export const updateUser = async (userId: string, userData: Partial<Omit<User, 'id'>>): Promise<User | undefined> => {
   log(`updateUser called for ID: ${userId} with data:`, userData);
   try {
     const userIndex = usersInMemory.findIndex(u => u.id === userId);
     if (userIndex > -1) {
       const updatedUser = { ...usersInMemory[userIndex], ...userData };
-      if (userData.motDePasse && userData.motDePasse.trim() !== '') {
+      if (userData.motDePasse && userData.motDePasse.trim() !== '') { // Check if motDePasse is being updated
           updatedUser.motDePasse = userData.motDePasse.trim();
       }
+      // Ensure hostId is correctly handled (can be set to undefined)
       if (userData.hasOwnProperty('hostId')) {
         updatedUser.hostId = userData.hostId || undefined;
       }
@@ -437,7 +456,7 @@ export const getHostById = async (hostId: string): Promise<Host | undefined> => 
   }
 };
 
-export const addHost = async (hostData: Omit<Host, 'hostId' | 'loyaltySettings' | 'reservationPageSettings' | 'currency' | 'language'> & { loyaltySettings?: Partial<LoyaltySettings>; reservationPageSettings?: Partial<ReservationPageSettings>; currency?:string; language?:string; }): Promise<Host> => {
+export const addHost = async (hostData: Omit<Host, 'hostId' | 'loyaltySettings' | 'reservationPageSettings'> & { loyaltySettings?: Partial<LoyaltySettings>; reservationPageSettings?: Partial<ReservationPageSettings> }): Promise<Host> => {
   log(`addHost called for: ${hostData.email}`);
   try {
     const existingHostByEmail = hostsInMemory.find(h => h.email.toLowerCase() === hostData.email.toLowerCase());
@@ -476,7 +495,7 @@ export const addHost = async (hostData: Omit<Host, 'hostId' | 'loyaltySettings' 
       nom: newHost.nom,
       role: 'host',
       hostId: newHost.hostId,
-      motDePasse: '1234',
+      motDePasse: '1234', // Default password for new host users
     });
     return { ...newHost };
   } catch (e) {
@@ -495,11 +514,13 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
         ...(originalHostData.reservationPageSettings || defaultReservationPageSettings),
         ...(hostData.reservationPageSettings || {}),
       };
+      // Auto-update heroImageAiHint if relevant fields change
       if (hostData.reservationPageSettings?.heroImageUrl || (hostData.nom && hostData.nom !== originalHostData.nom)) {
           updatedReservationSettings.heroImageAiHint = (hostData.nom || originalHostData.nom).toLowerCase().split(' ').slice(0,2).join(' ') + ' banner';
       }
-       if (hostData.reservationPageSettings?.heroImageUrl === '') {
-          updatedReservationSettings.heroImageUrl = '';
+       // Clear hint if URL is cleared
+      if (hostData.reservationPageSettings?.heroImageUrl === '') {
+          updatedReservationSettings.heroImageUrl = ''; // Ensure it's set to empty string
           updatedReservationSettings.heroImageAiHint = '';
       }
 
@@ -513,15 +534,18 @@ export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'h
         ...hostData,
         reservationPageSettings: updatedReservationSettings,
         loyaltySettings: updatedLoyaltySettings,
-        currency: hostData.currency !== undefined ? hostData.currency : originalHostData.currency,
-        language: hostData.language !== undefined ? hostData.language : originalHostData.language,
+        currency: hostData.currency !== undefined ? hostData.currency : originalHostData.currency, // Ensure currency is preserved or updated
+        language: hostData.language !== undefined ? hostData.language : originalHostData.language, // Ensure language is preserved or updated
       };
       log(`Host ${hostId} updated.`);
 
+      // If host's email or name changed, update the associated user
       const updatedHost = hostsInMemory[hostIndex];
       if ((hostData.email && hostData.email !== originalHostData.email) || (hostData.nom && hostData.nom !== originalHostData.nom)) {
+          // Try to find user by hostId first, then by old email if hostId link isn't direct
           let userToUpdate = usersInMemory.find(u => u.hostId === hostId);
           if (!userToUpdate) userToUpdate = usersInMemory.find(u => u.email.toLowerCase() === originalHostData.email.toLowerCase() && u.role === 'host');
+
           if (userToUpdate) {
               await updateUser(userToUpdate.id, { email: updatedHost.email, nom: updatedHost.nom });
               log(`Associated user for host ${hostId} also updated.`);
@@ -545,6 +569,7 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
       log(`Host ${hostId} not found for deletion.`);
       return false;
     }
+    // Attempt to delete the associated user
     const userToDelete = usersInMemory.find(u => u.hostId === hostId && u.email.toLowerCase() === hostToDelete.email.toLowerCase());
     if (userToDelete) {
       await deleteUser(userToDelete.id);
@@ -557,6 +582,7 @@ export const deleteHost = async (hostId: string): Promise<boolean> => {
     const hostDeleted = hostsInMemory.length < initialLength;
     if (hostDeleted) {
       log(`Host ${hostId} deleted. Cascading deletes to related in-memory data.`);
+      // Cascade delete related data
       sitesInMemory = sitesInMemory.filter(s => s.hostId !== hostId);
       roomsOrTablesInMemory = roomsOrTablesInMemory.filter(rt => rt.hostId !== hostId);
       serviceCategoriesInMemory = serviceCategoriesInMemory.filter(sc => sc.hostId !== hostId);
@@ -613,7 +639,7 @@ export const addSiteToData = async (siteData: Omit<Site, 'siteId' | 'logoAiHint'
       siteId: `globalsite-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
       logoUrl: siteData.logoUrl || undefined,
       logoAiHint: siteData.logoUrl && siteData.nom ? siteData.nom.toLowerCase().split(' ').slice(0,2).join(' ') : (siteData.nom ? siteData.nom.toLowerCase().split(' ').slice(0,2).join(' ') : undefined),
-      primaryColor: siteData.primaryColor || undefined,
+      primaryColor: siteData.primaryColor || undefined, // Store HEX directly
     };
     sitesInMemory.push(newSite);
     return newSite;
@@ -633,7 +659,7 @@ export const updateSiteInData = async (siteId: string, siteData: Partial<Omit<Si
         ...siteData,
         logoUrl: siteData.logoUrl !== undefined ? (siteData.logoUrl || undefined) : sitesInMemory[siteIndex].logoUrl,
         logoAiHint: siteData.logoUrl && siteData.nom ? siteData.nom.toLowerCase().split(' ').slice(0,2).join(' ') : (siteData.nom ? siteData.nom.toLowerCase().split(' ').slice(0,2).join(' ') : sitesInMemory[siteIndex].logoAiHint),
-        primaryColor: siteData.primaryColor !== undefined ? (siteData.primaryColor || undefined) : sitesInMemory[siteIndex].primaryColor,
+        primaryColor: siteData.primaryColor !== undefined ? (siteData.primaryColor || undefined) : sitesInMemory[siteIndex].primaryColor, // Store HEX
       };
       return sitesInMemory[siteIndex];
     }
@@ -649,8 +675,10 @@ export const deleteSiteInData = async (siteId: string): Promise<boolean> => {
     try {
       const initialLength = sitesInMemory.length;
       sitesInMemory = sitesInMemory.filter(s => s.siteId !== siteId);
+      // Cascade delete: remove locations linked to this global site
       roomsOrTablesInMemory = roomsOrTablesInMemory.filter(rt => rt.globalSiteId !== siteId);
       menuCardsInMemory = menuCardsInMemory.filter(mc => mc.globalSiteId !== siteId);
+      // Add other cascades if necessary (e.g., services directly linked to global site ID, though unlikely)
       return sitesInMemory.length < initialLength;
     } catch (e) {
       console.error("Error in deleteSiteInData (in-memory):", e);
@@ -706,6 +734,7 @@ export const addRoomOrTable = async (data: Omit<RoomOrTable, 'id' | 'urlPersonna
       prixParNuit: data.type === 'Chambre' ? data.prixParNuit : undefined,
       prixFixeReservation: data.type === 'Table' ? data.prixFixeReservation : undefined,
       menuCardId: data.menuCardId || undefined,
+      currency: data.currency || hostsInMemory.find(h => h.hostId === data.hostId)?.currency || 'USD',
     };
     roomsOrTablesInMemory.push(newRoomOrTable);
     return newRoomOrTable;
@@ -739,6 +768,7 @@ export const updateRoomOrTable = async (id: string, data: Partial<Omit<RoomOrTab
           prixParNuit: newType === 'Chambre' ? (data.prixParNuit !== undefined ? data.prixParNuit : currentItem.prixParNuit) : undefined,
           prixFixeReservation: newType === 'Table' ? (data.prixFixeReservation !== undefined ? data.prixFixeReservation : currentItem.prixFixeReservation) : undefined,
           menuCardId: data.hasOwnProperty('menuCardId') ? data.menuCardId : currentItem.menuCardId,
+          currency: data.currency || currentItem.currency,
       };
       return { ...roomsOrTablesInMemory[itemIndex] };
     }
@@ -756,23 +786,30 @@ export const deleteRoomOrTable = async (id: string): Promise<boolean> => {
       const locationToDelete = roomsOrTablesInMemory.find(rt => rt.id === id);
 
       if (locationToDelete) {
+          // Re-parent children locations
           const children = roomsOrTablesInMemory.filter(rt => rt.parentLocationId === id);
           children.forEach(child => {
               const childIndex = roomsOrTablesInMemory.findIndex(c => c.id === child.id);
               if (childIndex > -1) {
+                  // Re-parent to the grandparent or make it a top-level location under the same global site
                   roomsOrTablesInMemory[childIndex].parentLocationId = locationToDelete.parentLocationId || undefined;
               }
           });
+          // Remove from service targetLocationIds
           servicesInMemory.forEach(service => {
               if (service.targetLocationIds?.includes(id)) {
                   service.targetLocationIds = service.targetLocationIds.filter(targetId => targetId !== id);
               }
           });
+          // Unassign from clients
           clientsInMemory.forEach(client => {
               if (client.locationId === id) {
-                  client.locationId = undefined;
+                  client.locationId = undefined; // Or reassign to a default/parent if applicable
               }
           });
+          // Handle reservations: Ideally, prevent deletion if active reservations exist,
+          // or mark them as needing attention, or delete them if appropriate.
+          // For now, simple deletion of linked reservations for in-memory.
           const linkedReservations = reservationsInMemory.filter(r => r.locationId === id);
           if (linkedReservations.length > 0) {
               log(`Warning: Deleting location ${id} which has ${linkedReservations.length} associated reservations. These reservations will also be removed.`);
@@ -830,6 +867,7 @@ export const deleteTag = async (tagId: string): Promise<boolean> => {
   try {
     const initialLength = tagsInMemory.length;
     tagsInMemory = tagsInMemory.filter(tag => tag.id !== tagId);
+    // Remove this tagId from all locations that might be using it
     if (tagsInMemory.length < initialLength) {
       roomsOrTablesInMemory = roomsOrTablesInMemory.map(loc => {
         if (loc.tagIds && loc.tagIds.includes(tagId)) {
@@ -894,7 +932,8 @@ export const deleteServiceCategory = async (id: string): Promise<boolean> => {
     try {
       const initialLength = serviceCategoriesInMemory.length;
       serviceCategoriesInMemory = serviceCategoriesInMemory.filter(sc => sc.id !== id);
-      servicesInMemory = servicesInMemory.map(s => s.categorieId === id ? {...s, categorieId: ''} : s);
+      // Unassign this category from services
+      servicesInMemory = servicesInMemory.map(s => s.categorieId === id ? {...s, categorieId: ''} : s); // Or set to a default category ID
       return serviceCategoriesInMemory.length < initialLength;
     } catch (e) {
       console.error("Error in deleteServiceCategory (in-memory):", e);
@@ -965,7 +1004,9 @@ export const deleteCustomForm = async (id: string): Promise<boolean> => {
     try {
       const initialLength = customFormsInMemory.length;
       customFormsInMemory = customFormsInMemory.filter(cf => cf.id !== id);
+      // Delete associated form fields
       formFieldsInMemory = formFieldsInMemory.filter(ff => ff.formulaireId !== id);
+      // Unassign this form from services
       servicesInMemory = servicesInMemory.map(s => s.formulaireId === id ? {...s, formulaireId: undefined} : s);
       return customFormsInMemory.length < initialLength;
     } catch (e) {
@@ -1050,7 +1091,7 @@ export const getServiceById = async (itemId: string): Promise<Service | MenuItem
 
 export const getServices = async (
   hostId: string,
-  clientCurrentLocationId?: string,
+  clientCurrentLocationId?: string, // Can be a RoomOrTable ID, or a "Site" ID (area/zone)
   categoryId?: string
 ): Promise<Service[]> => {
   log(`getServices called for host: ${hostId}, location: ${clientCurrentLocationId}, category: ${categoryId}.`);
@@ -1061,20 +1102,28 @@ export const getServices = async (
       const currentScannedLocation = await getRoomOrTableById(clientCurrentLocationId);
       if (!currentScannedLocation) {
         log(`Location with ID ${clientCurrentLocationId} not found for service filtering.`);
-        return [];
+        return []; // Or perhaps return all host services if location context is invalid? For now, empty.
       }
+
+      // Build a list of relevant location IDs: current location + its parent Site(s) + its Global Site
       const relevantLocationIds: string[] = [currentScannedLocation.id];
-      if (currentScannedLocation.parentLocationId) { // Add immediate parent if exists
-        relevantLocationIds.push(currentScannedLocation.parentLocationId);
+      if (currentScannedLocation.globalSiteId) {
+        relevantLocationIds.push(currentScannedLocation.globalSiteId); // The global site itself might be a target
       }
-      if (currentScannedLocation.globalSiteId) { // Also consider services targeted to the global site
-        relevantLocationIds.push(currentScannedLocation.globalSiteId);
+      let parentId = currentScannedLocation.parentLocationId;
+      while (parentId) {
+        relevantLocationIds.push(parentId);
+        const parentLoc = await getRoomOrTableById(parentId);
+        parentId = parentLoc?.parentLocationId;
       }
       
+      log(`Relevant location IDs for filtering services:`, relevantLocationIds);
+
       hostServices = hostServices.filter(service => {
         if (!service.targetLocationIds || service.targetLocationIds.length === 0) {
-          return true; 
+          return true; // Service is host-wide if no specific targets
         }
+        // Check if any of the service's target IDs match any of the relevant location IDs
         return service.targetLocationIds.some(targetId => relevantLocationIds.includes(targetId));
       });
     }
@@ -1093,11 +1142,13 @@ export const getServices = async (
 export const addService = async (data: Omit<Service, 'id' | 'data-ai-hint'>): Promise<Service> => {
   log(`addService called. Data: ${JSON.stringify(data)}.`);
   try {
+    const host = hostsInMemory.find(h => h.hostId === data.hostId);
     const newService: Service = {
       ...data,
       id: `svc-${Date.now()}`,
       "data-ai-hint": data.image && data.titre ? data.titre.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : undefined,
-      targetLocationIds: data.targetLocationIds || []
+      targetLocationIds: data.targetLocationIds || [],
+      currency: data.currency || host?.currency || 'USD',
     };
     servicesInMemory.push(newService);
     return newService;
@@ -1132,6 +1183,7 @@ export const deleteService = async (id: string): Promise<boolean> => {
     try {
       const initialLength = servicesInMemory.length;
       servicesInMemory = servicesInMemory.filter(s => s.id !== id);
+      // Remove this serviceId from orders (less common to delete, but good for cleanup)
       ordersInMemory = ordersInMemory.filter(o => o.serviceId !== id); 
       return servicesInMemory.length < initialLength;
     } catch (e) {
@@ -1160,6 +1212,7 @@ export const getOrders = async (
     if (filters?.serviceId && filters.serviceId !== "all") {
       filteredOrders = filteredOrders.filter(o => o.serviceId === filters.serviceId);
     } else if (filters?.categoryId && filters.categoryId !== "all") {
+      // If filtering by category, consider both Services and MenuItems
       const servicesInCategory = servicesInMemory.filter(s => s.categorieId === filters.categoryId && s.hostId === hostId).map(s => s.id);
       const menuItemsInCategory = menuItemsInMemory.filter(mi => mi.menuCategoryId === filters.categoryId && mi.hostId === hostId).map(mi => mi.id);
       const allItemIdsInCategory = [...servicesInCategory, ...menuItemsInCategory];
@@ -1213,18 +1266,26 @@ export const getOrdersByUserId = async (userId: string): Promise<Order[]> => {
   }
 };
 
-export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status' | 'montantPaye' | 'soldeDu' | 'paiements' | 'pointsGagnes' | 'currency'> & { prixTotal?: number }): Promise<Order> => {
+export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status' | 'montantPaye' | 'soldeDu' | 'paiements' | 'pointsGagnes' >): Promise<Order> => {
   log(`addOrder called. Data: ${JSON.stringify(data)}.`);
   try {
-    const itemDetails = await getServiceById(data.serviceId);
-    const hostDetails = await getHostById(data.hostId);
-
-    let basePrice = 0;
+    const itemDetails = await getServiceById(data.serviceId); // Could be Service or MenuItem
+    const host = await getHostById(data.hostId);
+    
+    let itemBasePrice = 0;
+    let itemCurrency = host?.currency || 'USD'; // Default to host currency or USD
     if (itemDetails) {
-      basePrice = 'price' in itemDetails ? itemDetails.price : (itemDetails as Service)?.prix || 0;
+      if ('prix' in itemDetails && itemDetails.prix !== undefined) { // Service
+        itemBasePrice = itemDetails.prix;
+        if (itemDetails.currency) itemCurrency = itemDetails.currency;
+      } else if ('price' in itemDetails && itemDetails.price !== undefined) { // MenuItem
+        itemBasePrice = itemDetails.price;
+        if (itemDetails.currency) itemCurrency = itemDetails.currency;
+      }
     }
     
-    const finalPrice = data.prixTotal !== undefined ? data.prixTotal : basePrice;
+    // If data.prixTotal is provided (e.g., from cart with options), use it. Otherwise, use item's base price.
+    const finalPrice = data.prixTotal !== undefined ? data.prixTotal : itemBasePrice;
 
     const newOrder: Order = {
       ...data,
@@ -1237,7 +1298,7 @@ export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status' |
       paiements: [],
       userId: data.userId,
       pointsGagnes: 0,
-      currency: hostDetails?.currency || 'USD',
+      currency: itemCurrency,
     };
     ordersInMemory.push(newOrder);
     return newOrder;
@@ -1255,20 +1316,23 @@ export const updateOrderStatus = async (orderId: string, status: OrderStatus): P
       const order = ordersInMemory[orderIndex];
       order.status = status;
 
+      // Award loyalty points if order is completed
       if (status === 'completed') {
           const host = await getHostById(order.hostId);
           if (host?.loyaltySettings?.enabled && host.loyaltySettings.pointsPerEuroSpent > 0 && order.prixTotal && order.prixTotal > 0) {
               const pointsEarned = Math.floor(order.prixTotal * host.loyaltySettings.pointsPerEuroSpent);
               if (pointsEarned > 0) {
                 let clientRecordToUpdate: Client | undefined;
+                // Prefer finding client by userId if available
                 if (order.userId) {
                   clientRecordToUpdate = clientsInMemory.find(c => c.userId === order.userId && c.hostId === order.hostId);
                 }
+                // Fallback to clientNom if userId not present or no match
                 if (!clientRecordToUpdate && order.clientNom) {
                   clientRecordToUpdate = clientsInMemory.find(c => c.nom === order.clientNom && c.hostId === order.hostId);
                 }
                 if (clientRecordToUpdate) {
-                   await addPointsToClient(clientRecordToUpdate.id, pointsEarned, order.hostId);
+                   await addPointsToClient(clientRecordToUpdate.id, pointsEarned, order.hostId); // Ensure addPointsToClient exists and works
                    order.pointsGagnes = pointsEarned;
                    log(`Awarded ${pointsEarned} loyalty points to client ID ${clientRecordToUpdate.id} (User ID: ${order.userId || 'N/A'}, Name: ${order.clientNom}) for order ${order.id}`);
                 } else {
@@ -1388,9 +1452,11 @@ export const deleteClientData = async (clientId: string): Promise<boolean> => {
   try {
     const initialLength = clientsInMemory.length;
     clientsInMemory = clientsInMemory.filter(c => c.id !== clientId);
+    // Update reservations to remove clientId if it matches the deleted client
     if (clientsInMemory.length < initialLength) {
       reservationsInMemory = reservationsInMemory.map(r => {
         if (r.clientId === clientId) {
+          // Keep clientName but remove clientId
           return { ...r, clientId: undefined, clientName: r.clientName || "Deleted Client" };
         }
         return r;
@@ -1442,10 +1508,10 @@ export const getReservations = async (
   hostId: string,
   filters?: {
     locationId?: string;
-    month?: number;
+    month?: number; // 0-indexed (0 for January)
     year?: number;
-    startDate?: Date;
-    endDate?: Date;
+    startDate?: Date; // For date range queries
+    endDate?: Date;   // For date range queries
   }
 ): Promise<Reservation[]> => {
   log(`getReservations called for host: ${hostId}, filters: ${JSON.stringify(filters)}.`);
@@ -1454,15 +1520,21 @@ export const getReservations = async (
     if (filters?.locationId) {
       hostReservations = hostReservations.filter(r => r.locationId === filters.locationId);
     }
+    // Filter by month and year if provided
     if (filters?.month !== undefined && filters?.year !== undefined) {
         const monthStart = new Date(Date.UTC(filters.year, filters.month, 1));
-        const monthEnd = new Date(Date.UTC(filters.year, filters.month + 1, 0, 23, 59, 59, 999));
+        const monthEnd = new Date(Date.UTC(filters.year, filters.month + 1, 0, 23, 59, 59, 999)); // End of the last day of the month
         hostReservations = hostReservations.filter(r => {
             try {
-                const arrivalDate = new Date(r.dateArrivee + "T00:00:00Z");
+                const arrivalDate = new Date(r.dateArrivee + "T00:00:00Z"); // Assume dates are stored as YYYY-MM-DD
+                // For rooms, departure date defines the end of the stay.
+                // For tables, the reservation is for the arrivalDate.
                 const departureDateForRoom = r.dateDepart ? new Date(r.dateDepart + "T00:00:00Z") : null;
                 const effectiveDeparture = r.type === 'Table' || !departureDateForRoom ? new Date(r.dateArrivee + "T23:59:59Z") : departureDateForRoom;
-                if (!effectiveDeparture) return false;
+
+                if (!effectiveDeparture) return false; // Should not happen if data is clean
+
+                // Reservation overlaps if it starts before month ends AND ends after month starts
                 return (arrivalDate <= monthEnd && effectiveDeparture >= monthStart);
             } catch (e) {
                 log("Error parsing date for reservation filtering by month/year", {reservationId: r.id, error: e});
@@ -1470,13 +1542,16 @@ export const getReservations = async (
             }
         });
     }
+     // Filter by date range if provided
      if (filters?.startDate && filters?.endDate) {
         const queryStart = filters.startDate;
         const queryEnd = filters.endDate;
         hostReservations = hostReservations.filter(r => {
             try {
                 const resArrival = new Date(r.dateArrivee + "T00:00:00Z");
+                // If dateDepart is not set (e.g., for tables), consider it a single-day event.
                 const resDeparture = r.dateDepart ? new Date(r.dateDepart + "T00:00:00Z") : new Date(r.dateArrivee + "T23:59:59Z");
+                // Check for overlap: (StartA <= EndB) and (EndA >= StartB)
                 return resArrival < queryEnd && resDeparture > queryStart;
             } catch (e) {
                  log("Error parsing date for reservation range filtering", {reservationId: r.id, error: e});
@@ -1501,7 +1576,7 @@ export const getReservationById = async (reservationId: string): Promise<Reserva
   }
 };
 
-export const addReservationToData = async (data: Omit<Reservation, 'id' | 'prixTotal' | 'montantPaye' | 'soldeDu' | 'paiements' | 'pointsGagnes' | 'onlineCheckinStatus' | 'onlineCheckinData' | 'clientInitiatedCheckoutTime' | 'checkoutNotes' | 'currency'>): Promise<Reservation> => {
+export const addReservationToData = async (data: Omit<Reservation, 'id' | 'montantPaye' | 'soldeDu' | 'paiements' | 'pointsGagnes' | 'onlineCheckinStatus' | 'onlineCheckinData' | 'clientInitiatedCheckoutTime' | 'checkoutNotes' | 'currency'>): Promise<Reservation> => {
   log(`addReservationToData called. Data: ${JSON.stringify(data)}.`);
   try {
     const location = await getRoomOrTableById(data.locationId);
@@ -1524,14 +1599,14 @@ export const addReservationToData = async (data: Omit<Reservation, 'id' | 'prixT
     const newReservation: Reservation = {
       ...data,
       id: `res-${Date.now()}-${Math.random().toString(36).substring(2,5)}`,
-      type: location?.type,
+      type: location?.type, // Set type based on location
       prixTotal: prixTotalReservation,
       montantPaye: 0,
       soldeDu: prixTotalReservation || 0,
       paiements: [],
       pointsGagnes: 0,
       onlineCheckinStatus: 'not-started',
-      currency: host?.currency || 'USD',
+      currency: location?.currency || host?.currency || 'USD',
     };
     reservationsInMemory.push(newReservation);
     return newReservation;
@@ -1550,15 +1625,17 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
       const location = data.locationId ? await getRoomOrTableById(data.locationId) : await getRoomOrTableById(existingReservation.locationId);
       let prixTotalReservation = existingReservation.prixTotal;
 
-      if(data.dateArrivee || data.dateDepart || data.locationId || data.nombrePersonnes) {
-        const arrivalDate = data.dateArrivee || existingReservation.dateArrivee;
-        const departureDate = data.dateDepart === null ? undefined : (data.dateDepart || existingReservation.dateDepart);
+      // Recalculate price if dates, location, or number of persons change
+      if(data.dateArrivee || data.dateDepart !== undefined || data.locationId || data.nombrePersonnes) {
+        const arrivalDateStr = data.dateArrivee || existingReservation.dateArrivee;
+        // Handle dateDepart: if explicitly set to null, it means undefined (e.g. for tables)
+        const departureDateStr = data.hasOwnProperty('dateDepart') ? data.dateDepart : existingReservation.dateDepart;
         const currentType = location?.type || existingReservation.type;
         const currentPersons = data.nombrePersonnes || existingReservation.nombrePersonnes;
 
-        if (currentType === 'Chambre' && location?.prixParNuit !== undefined && departureDate) {
-            const arrival = new Date(arrivalDate);
-            const departure = new Date(departureDate);
+        if (currentType === 'Chambre' && location?.prixParNuit !== undefined && departureDateStr) {
+            const arrival = new Date(arrivalDateStr);
+            const departure = new Date(departureDateStr);
             const nights = Math.max(1, Math.ceil((departure.getTime() - arrival.getTime()) / (1000 * 3600 * 24)));
             if (location.pricingModel === 'perPerson') {
                 prixTotalReservation = nights * location.prixParNuit * currentPersons;
@@ -1573,11 +1650,14 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
       const updatedReservation = {
         ...existingReservation,
         ...data,
-        type: location?.type || existingReservation.type,
+        type: location?.type || existingReservation.type, // Update type if location changes
         prixTotal: prixTotalReservation,
         soldeDu: prixTotalReservation !== undefined ? prixTotalReservation - (data.montantPaye !== undefined ? data.montantPaye : (existingReservation.montantPaye || 0)) : existingReservation.soldeDu,
+        // Ensure dateDepart is explicitly undefined if data.dateDepart is null (for tables)
+        dateDepart: data.hasOwnProperty('dateDepart') ? data.dateDepart : existingReservation.dateDepart,
       };
 
+      // Loyalty points for checked-out reservations
       if (updatedReservation.status === 'checked-out' && existingReservation.status !== 'checked-out') {
         const host = await getHostById(updatedReservation.hostId);
         if (host?.loyaltySettings?.enabled) {
@@ -1592,12 +1672,18 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
           }
           if (pointsToAward > 0) {
              let clientToAwardPoints: Client | undefined = undefined;
-             if (updatedReservation.clientId) {
-                clientToAwardPoints = clientsInMemory.find(c => c.userId === updatedReservation.clientId && c.hostId === updatedReservation.hostId);
+             // Prefer finding client by userId if available, then by clientId, then by name
+             const userRelatedToReservation = updatedReservation.clientId ? usersInMemory.find(u => u.id === updatedReservation.clientId) : null;
+             if (userRelatedToReservation) {
+                clientToAwardPoints = clientsInMemory.find(c => c.userId === userRelatedToReservation.id && c.hostId === updatedReservation.hostId);
              }
-             if (!clientToAwardPoints && updatedReservation.clientName) {
+             if (!clientToAwardPoints && updatedReservation.clientId) { // If clientId is a Client.id not a User.id
+                clientToAwardPoints = clientsInMemory.find(c => c.id === updatedReservation.clientId && c.hostId === updatedReservation.hostId);
+             }
+             if (!clientToAwardPoints && updatedReservation.clientName) { // Fallback to name
                 clientToAwardPoints = clientsInMemory.find(c => c.nom === updatedReservation.clientName && c.hostId === updatedReservation.hostId);
              }
+             
              if (clientToAwardPoints) {
                 await addPointsToClient(clientToAwardPoints.id, pointsToAward, updatedReservation.hostId);
                 updatedReservation.pointsGagnes = (updatedReservation.pointsGagnes || 0) + pointsToAward;
@@ -1631,15 +1717,15 @@ export const deleteReservationInData = async (id: string): Promise<boolean> => {
 export const getReservationsByUserId = async (userId: string): Promise<Reservation[]> => {
   log(`getReservationsByUserId called for userId: ${userId}.`);
   try {
-    // Find client records linked to this user ID
+    // Find client records linked to this user ID across all hosts
     const userClientRecords = clientsInMemory.filter(c => c.userId === userId);
     const clientRecordIds = userClientRecords.map(cr => cr.id);
 
     // Find reservations linked either directly by userId (if we ever store it on reservation)
     // or by matching one of the clientRecordIds to reservation.clientId
     return [...reservationsInMemory].filter(r =>
-      r.clientId === userId || // Direct link (if user.id was stored in reservation.clientId)
-      (r.clientId && clientRecordIds.includes(r.clientId)) // Link via client record
+      r.clientId === userId || // Direct link (if user.id was mistakenly stored in reservation.clientId)
+      (r.clientId && clientRecordIds.includes(r.clientId)) // Link via Client.id
     )
       .sort((a, b) => new Date(b.dateArrivee).getTime() - new Date(a.dateArrivee).getTime());
   } catch (e) {
@@ -1656,7 +1742,7 @@ export const getReservationsByClientName = async (hostId: string, clientName: st
     return [...reservationsInMemory].filter(r =>
       r.hostId === hostId &&
       r.clientName &&
-      r.clientName.toLowerCase().includes(lowerCaseClientName)
+      r.clientName.toLowerCase().includes(lowerCaseClientName) // Use includes for partial matching
     ).sort((a, b) => new Date(b.dateArrivee).getTime() - new Date(a.dateArrivee).getTime());
   } catch (e) {
     console.error("Error in getReservationsByClientName (in-memory):", e);
@@ -1719,12 +1805,14 @@ export const deleteMenuCard = async (id: string): Promise<boolean> => {
     const initialLength = menuCardsInMemory.length;
     menuCardsInMemory = menuCardsInMemory.filter(mc => mc.id !== id);
 
+    // Cascade delete categories and items associated with this menu card
     const categoriesToDelete = menuCategoriesInMemory.filter(cat => cat.menuCardId === id);
     const categoryIdsToDelete = categoriesToDelete.map(cat => cat.id);
 
     menuCategoriesInMemory = menuCategoriesInMemory.filter(cat => cat.menuCardId !== id);
     menuItemsInMemory = menuItemsInMemory.filter(item => !categoryIdsToDelete.includes(item.menuCategoryId));
 
+    // Unassign this menu card from locations
     roomsOrTablesInMemory = roomsOrTablesInMemory.map(loc => loc.menuCardId === id ? { ...loc, menuCardId: undefined } : loc);
     return menuCardsInMemory.length < initialLength;
   } catch (e) {
@@ -1750,6 +1838,7 @@ export const duplicateMenuCard = async (menuCardId: string): Promise<MenuCard | 
     menuCardsInMemory.push(newMenuCard);
     log(`Duplicated MenuCard: ${newMenuCard.name} (ID: ${newMenuCardId})`);
 
+    // Duplicate categories
     const originalCategories = menuCategoriesInMemory.filter(cat => cat.menuCardId === menuCardId);
     for (const originalCategory of originalCategories) {
       const newMenuCategoryId = `menucat-${Date.now()}-${Math.random().toString(36).substring(2,6)}`;
@@ -1762,6 +1851,7 @@ export const duplicateMenuCard = async (menuCardId: string): Promise<MenuCard | 
       menuCategoriesInMemory.push(newMenuCategory);
       log(`Duplicated MenuCategory: ${newMenuCategory.name} (ID: ${newMenuCategoryId}) for card ${newMenuCardId}`);
 
+      // Duplicate menu items for this category
       const originalItems = menuItemsInMemory.filter(item => item.menuCategoryId === originalCategory.id);
       for (const originalItem of originalItems) {
         const newMenuItemId = `menuitem-${Date.now()}-${Math.random().toString(36).substring(2,7)}`;
@@ -1771,12 +1861,12 @@ export const duplicateMenuCard = async (menuCardId: string): Promise<MenuCard | 
             const newOptionGroupId = `og-${Date.now()}-${Math.random().toString(36).substring(2,8)}`;
             const newOptions: MenuItemOption[] = og.options.map(opt => ({
               ...opt,
-              id: `opt-${Date.now()}-${Math.random().toString(36).substring(2,9)}`,
+              id: `opt-${Date.now()}-${Math.random().toString(36).substring(2,9)}`, // New ID for option
             }));
             return {
               ...og,
-              id: newOptionGroupId,
-              menuItemId: newMenuItemId,
+              id: newOptionGroupId, // New ID for group
+              menuItemId: newMenuItemId, // Link to new menu item
               options: newOptions,
             };
           });
@@ -1784,7 +1874,7 @@ export const duplicateMenuCard = async (menuCardId: string): Promise<MenuCard | 
         const newMenuItem: MenuItem = {
           ...originalItem,
           id: newMenuItemId,
-          menuCategoryId: newMenuCategoryId,
+          menuCategoryId: newMenuCategoryId, // Link to new category
           hostId: originalItem.hostId, // Ensure hostId is copied
           optionGroups: newOptionGroups,
         };
@@ -1799,9 +1889,11 @@ export const duplicateMenuCard = async (menuCardId: string): Promise<MenuCard | 
   }
 };
 
+
 // --- Menu Category Management ---
 export const getMenuCategories = async (menuCardId: string, hostId: string): Promise<MenuCategory[]> => {
   try {
+    // Ensure filtering by hostId as well, just in case menuCardId isn't globally unique
     return menuCategoriesInMemory.filter(cat => cat.menuCardId === menuCardId && cat.hostId === hostId).sort((a, b) => (a.displayOrder ?? Infinity) - (b.displayOrder ?? Infinity) || a.name.localeCompare(b.name));
   } catch (e) {
     log("Error in getMenuCategories (in-memory)", e); return [];
@@ -1835,6 +1927,7 @@ export const deleteMenuCategory = async (id: string): Promise<boolean> => {
   try {
     const initialLength = menuCategoriesInMemory.length;
     menuCategoriesInMemory = menuCategoriesInMemory.filter(cat => cat.id !== id);
+    // Delete associated menu items
     menuItemsInMemory = menuItemsInMemory.filter(item => item.menuCategoryId !== id);
     return menuCategoriesInMemory.length < initialLength;
   } catch (e) {
@@ -1845,6 +1938,7 @@ export const deleteMenuCategory = async (id: string): Promise<boolean> => {
 // --- MenuItem Management ---
 export const getMenuItems = async (menuCategoryId: string, hostId: string): Promise<MenuItem[]> => {
   try {
+    // Ensure filtering by hostId as well
     return menuItemsInMemory.filter(item => item.menuCategoryId === menuCategoryId && item.hostId === hostId).sort((a, b) => a.name.localeCompare(b.name));
   } catch (e) {
     log("Error in getMenuItems (in-memory)", e); return [];
@@ -1861,13 +1955,15 @@ export const getMenuItemById = async (itemId: string): Promise<MenuItem | undefi
 
 export const addMenuItem = async (data: Omit<MenuItem, 'id' | 'imageAiHint'>): Promise<MenuItem> => {
   try {
+    const host = hostsInMemory.find(h => h.hostId === data.hostId);
     const newItem: MenuItem = {
       ...data,
       id: `menuitem-${Date.now()}`,
       imageAiHint: data.imageUrl && data.name ? data.name.toLowerCase().substring(0,15).replace(/\s+/g, ' ') : undefined,
       isAvailable: data.isAvailable !== undefined ? data.isAvailable : true,
       optionGroups: data.optionGroups || [],
-      stock: data.stock
+      stock: data.stock,
+      currency: data.currency || host?.currency || 'USD',
     };
     menuItemsInMemory.push(newItem);
     return newItem;
@@ -1906,4 +2002,5 @@ export const deleteMenuItem = async (id: string): Promise<boolean> => {
   }
 };
 
-log("Initial in-memory data (reverted) loaded/defined.");
+log("Initial in-memory data loaded/defined.");
+
