@@ -6,25 +6,34 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import {
-  getOrdersByUserId,
-  getOrdersByClientName,
+  getOrdersByClientId,
   getRoomOrTableById,
   getServiceById,
   getClientById,
-  getReservationsByUserId,
-  getReservationsByClientName,
-  getHostById
+  getReservationsByClientId,
+  getHostById,
+  recordPaymentForOrder,
+  recordPaymentForReservation,
+  addCreditToClient, // For manual adjustment if needed outside payment
+  addPointsToClient // For manual adjustment if needed
 } from '@/lib/data';
-import type { Order, RoomOrTable, Service, Client, Reservation, Host } from '@/lib/types';
+import type { Order, RoomOrTable, Service, Client, Reservation, Host, Paiement, PaymentMethod } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { User, ShoppingBag, MapPin, CalendarDays, Phone, Mail, DollarSign, AlertTriangle, Info, ListOrdered, Building, BedDouble, Utensils, FileCheck as FileCheckIcon, ArrowLeft, Edit3, Users as UsersIcon } from 'lucide-react';
+import { User, ShoppingBag, MapPin, CalendarDays, Phone, Mail, DollarSign, AlertTriangle, Info, ListOrdered, Building, BedDouble, Utensils, FileCheck as FileCheckIcon, ArrowLeft, Edit3, Users as UsersIcon, CreditCard } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, parseISO, isValid } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 interface EnrichedOrder extends Order {
   serviceName?: string;
@@ -37,11 +46,23 @@ interface EnrichedReservation extends Reservation {
     hostName?: string;
 }
 
+type BillableItem = (Order | Reservation) & { itemType: 'Commande' | 'Séjour' };
+
+interface PaymentDialogState {
+  isOpen: boolean;
+  itemType: 'Order' | 'Reservation' | null;
+  itemId: string | null;
+  itemName: string; // For display in dialog title
+  amountDue: number;
+  currentPaid: number;
+  currency: string;
+}
 
 function ClientFilePageContent() {
   const params = useParams();
   const router = useRouter();
   const { user: authUser, isLoading: authLoading } = useAuth();
+  const { toast } = useToast();
 
   const clientId = params.clientId as string;
 
@@ -49,9 +70,21 @@ function ClientFilePageContent() {
   const [clientHost, setClientHost] = useState<Host | null>(null);
   const [clientOrders, setClientOrders] = useState<EnrichedOrder[]>([]);
   const [clientReservations, setClientReservations] = useState<EnrichedReservation[]>([]);
+  
+  const [billableItems, setBillableItems] = useState<BillableItem[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Payment Dialog State
+  const [paymentDialogState, setPaymentDialogState] = useState<PaymentDialogState>({
+    isOpen: false, itemType: null, itemId: null, itemName: '', amountDue: 0, currentPaid: 0, currency: 'USD'
+  });
+  const [paymentAmount, setPaymentAmount] = useState<number | ''>('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [paymentNotes, setPaymentNotes] = useState('');
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+
 
   const fetchData = useCallback(async (hostIdForAuth: string, currentClientId: string) => {
     if (!currentClientId) {
@@ -66,6 +99,7 @@ function ClientFilePageContent() {
       if (!clientData || clientData.hostId !== hostIdForAuth) {
         setError("Fiche client introuvable ou non accessible.");
         setClientDetails(null);
+        setBillableItems([]);
         setIsLoading(false);
         return;
       }
@@ -74,20 +108,10 @@ function ClientFilePageContent() {
       const hostData = await getHostById(clientData.hostId);
       setClientHost(hostData);
 
-      let ordersData: Order[] = [];
-      let reservationsData: Reservation[] = [];
-
-      if (clientData.userId) {
-        ordersData = await getOrdersByUserId(clientData.userId);
-        reservationsData = await getReservationsByUserId(clientData.userId);
-        
-        ordersData = ordersData.filter(o => o.hostId === clientData.hostId);
-        reservationsData = reservationsData.filter(r => r.hostId === clientData.hostId);
-      } else if (clientData.nom) {
-        ordersData = await getOrdersByClientName(clientData.hostId, clientData.nom);
-        reservationsData = await getReservationsByClientName(clientData.hostId, clientData.nom);
-      }
-
+      const [ordersData, reservationsData] = await Promise.all([
+        getOrdersByClientId(hostIdForAuth, currentClientId),
+        getReservationsByClientId(hostIdForAuth, currentClientId)
+      ]);
 
       const enrichedOrders = await Promise.all(
         ordersData.map(async (order) => {
@@ -114,10 +138,18 @@ function ClientFilePageContent() {
         })
       );
       setClientReservations(enrichedReservations);
+      
+      const combinedBillableItems: BillableItem[] = [
+        ...enrichedOrders.map(o => ({ ...o, itemType: 'Commande' as const, dateHeure: o.dateHeure, id: o.id  })),
+        ...enrichedReservations.map(r => ({ ...r, itemType: 'Séjour' as const, dateHeure: r.dateArrivee, id: r.id }))
+      ].sort((a, b) => new Date(b.dateHeure || 0).getTime() - new Date(a.dateHeure || 0).getTime());
+      setBillableItems(combinedBillableItems);
+
 
     } catch (e) {
       console.error("Échec de la récupération des détails du client:", e);
       setError("Impossible de charger les détails du client. Veuillez réessayer.");
+      setBillableItems([]);
     } finally {
       setIsLoading(false);
     }
@@ -136,18 +168,73 @@ function ClientFilePageContent() {
 
   const totalSpentOverall = useMemo(() => {
     return clientOrders
-      .filter(o => o.status === 'completed' && typeof o.prixTotal === 'number')
+      .filter(o => (o.status === 'completed' || o.status === 'confirmed') && typeof o.prixTotal === 'number')
       .reduce((sum, o) => sum + (o.prixTotal!), 0);
   }, [clientOrders]);
+
+  const openPaymentDialog = (item: BillableItem) => {
+    const amountDue = (item.prixTotal || 0) - (item.montantPaye || 0);
+    setPaymentDialogState({
+      isOpen: true,
+      itemType: item.itemType === 'Commande' ? 'Order' : 'Reservation',
+      itemId: item.id,
+      itemName: item.itemType === 'Commande' ? (item as EnrichedOrder).serviceName || 'Commande' : `Séjour ${ (item as EnrichedReservation).locationFullName || 'N/A'}`,
+      amountDue: amountDue,
+      currentPaid: item.montantPaye || 0,
+      currency: item.currency || clientHost?.currency || 'USD'
+    });
+    setPaymentAmount(amountDue > 0 ? amountDue : '');
+    setPaymentMethod('cash');
+    setPaymentNotes('');
+  };
+
+  const handleRecordPayment = async () => {
+    if (!paymentDialogState.itemType || !paymentDialogState.itemId || typeof paymentAmount !== 'number' || paymentAmount <= 0) {
+      toast({ title: "Montant Invalide", description: "Veuillez saisir un montant de paiement valide.", variant: "destructive" });
+      return;
+    }
+    if (paymentAmount > paymentDialogState.amountDue + 0.001) { // check for overpayment with small tolerance
+      toast({ title: "Paiement Excessif", description: `Le montant saisi dépasse le solde dû de ${paymentDialogState.amountDue.toFixed(2)} ${paymentDialogState.currency}.`, variant: "destructive" });
+      return;
+    }
+
+    setIsSubmittingPayment(true);
+    try {
+      const paymentDetails: Omit<Paiement, 'id'> = {
+        montant: paymentAmount,
+        type: paymentMethod,
+        date: new Date().toISOString(),
+        notes: paymentNotes.trim() || undefined,
+      };
+
+      if (paymentDialogState.itemType === 'Order') {
+        await recordPaymentForOrder(paymentDialogState.itemId, paymentDetails);
+      } else if (paymentDialogState.itemType === 'Reservation') {
+        await recordPaymentForReservation(paymentDialogState.itemId, paymentDetails);
+      }
+
+      if (paymentMethod === 'credit' && clientDetails) {
+        await updateClientData(clientDetails.id, { credit: (clientDetails.credit || 0) - paymentAmount });
+      }
+      // Logic for points deduction would go here if implemented
+
+      toast({ title: "Paiement Enregistré", description: `Paiement de ${paymentAmount.toFixed(2)} ${paymentDialogState.currency} pour ${paymentDialogState.itemName} enregistré.` });
+      if (authUser?.hostId) fetchData(authUser.hostId, clientId); // Refresh all data
+      setPaymentDialogState(prev => ({ ...prev, isOpen: false }));
+    } catch (error) {
+      toast({ title: "Erreur d'Enregistrement", description: `Impossible d'enregistrer le paiement. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
+    } finally {
+      setIsSubmittingPayment(false);
+    }
+  };
 
 
   if (isLoading || authLoading) {
     return (
       <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8 space-y-6">
-        <Skeleton className="h-10 w-1/3 mb-2" />
-        <Skeleton className="h-6 w-1/2 mb-6" />
-        <Skeleton className="h-12 w-full mb-6" /> {/* For TabsList */}
-        <Skeleton className="h-80 w-full" /> {/* For TabsContent */}
+        <Skeleton className="h-10 w-1/3 mb-2" /> <Skeleton className="h-6 w-1/2 mb-6" />
+        <Skeleton className="h-12 w-full mb-6" />
+        <Skeleton className="h-80 w-full" />
       </div>
     );
   }
@@ -190,11 +277,10 @@ function ClientFilePageContent() {
         </Link>
       </div>
 
-      <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+      <Tabs defaultValue="billing" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3">
           <TabsTrigger value="general">Infos Générales</TabsTrigger>
-          <TabsTrigger value="orders">Commandes ({clientOrders.length})</TabsTrigger>
-          <TabsTrigger value="reservations">Réservations ({clientReservations.length})</TabsTrigger>
+          <TabsTrigger value="billing">Facturation & Transactions</TabsTrigger>
           <TabsTrigger value="checkins">Enreg. en Ligne</TabsTrigger>
         </TabsList>
 
@@ -212,12 +298,11 @@ function ClientFilePageContent() {
                 <>
                   <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Arrivée: {clientDetails.dateArrivee && isValid(parseISO(clientDetails.dateArrivee)) ? format(parseISO(clientDetails.dateArrivee), 'PPP', {locale: fr}) : 'N/A'}</div>
                   <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Départ: {clientDetails.dateDepart && isValid(parseISO(clientDetails.dateDepart)) ? format(parseISO(clientDetails.dateDepart), 'PPP', {locale: fr}) : 'N/A'}</div>
-                  {clientDetails.locationId && <div><MapPin className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Lieu Actuel: {clientDetails.locationId}</div>} {/* TODO: Fetch location name */}
+                  {clientDetails.locationId && <div><MapPin className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Lieu Actuel: {clientDetails.locationId}</div>}
                 </>
               )}
-              <div className="text-green-600"><DollarSign className="inline mr-1.5 h-4 w-4"/> Crédit: <span className="font-semibold">${(clientDetails.credit || 0).toFixed(2)}</span></div>
+              <div className="text-green-600"><DollarSign className="inline mr-1.5 h-4 w-4"/> Crédit: <span className="font-semibold">{(clientDetails.credit || 0).toFixed(2)} {clientHost?.currency || '$'}</span></div>
               <div className="text-amber-600"><ListOrdered className="inline mr-1.5 h-4 w-4"/> Points Fidélité: <span className="font-semibold">{clientDetails.pointsFidelite || 0} pts</span></div>
-              <div><DollarSign className="inline mr-1.5 h-4 w-4 text-blue-500" /> Total Dépensé (Commandes): <span className="font-semibold">${totalSpentOverall.toFixed(2)}</span></div>
               <div className="mt-2"><strong className="text-primary">Notes:</strong> <p className="text-muted-foreground whitespace-pre-wrap">{clientDetails.notes || "(Aucune note pour cette fiche)"}</p></div>
                {clientDetails.userId && <p className="text-xs text-muted-foreground italic pt-2">(Lié à l'utilisateur global ID: #{clientDetails.userId.slice(-6)})</p>}
             </CardContent>
@@ -227,65 +312,52 @@ function ClientFilePageContent() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="orders" className="mt-6">
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-xl flex items-center"><ShoppingBag className="mr-2 h-5 w-5 text-primary"/>Historique des Commandes ({clientHost?.nom || 'cet établissement'})</CardTitle>
-              <CardDescription>{clientOrders.length} commande(s) trouvée(s).</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {clientOrders.length > 0 ? (
-                <Table>
-                  <TableHeader><TableRow><TableHead>ID</TableHead><TableHead>Service</TableHead><TableHead>Lieu</TableHead><TableHead>Date</TableHead><TableHead>Prix</TableHead><TableHead>Statut</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {clientOrders.map(order => (
-                      <TableRow key={order.id}>
-                        <TableCell className="font-medium text-xs">#{order.id.slice(-6)}</TableCell>
-                        <TableCell>{order.serviceName}</TableCell>
-                        <TableCell>{order.locationName}</TableCell>
-                        <TableCell>{isValid(parseISO(order.dateHeure)) ? format(parseISO(order.dateHeure), 'Pp', {locale: fr}) : 'Date invalide'}</TableCell>
-                        <TableCell>{order.prixTotal ? `$${order.prixTotal.toFixed(2)}` : 'N/A'}</TableCell>
-                        <TableCell><Badge variant={order.status === 'completed' ? 'default' : order.status === 'cancelled' ? 'destructive' : 'secondary'} className="capitalize text-xs">{order.status}</Badge></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : <p className="text-muted-foreground text-center py-4">Aucune commande trouvée pour ce client chez cet établissement.</p>}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="reservations" className="mt-6">
+        <TabsContent value="billing" className="mt-6">
             <Card className="shadow-lg">
                 <CardHeader>
-                    <CardTitle className="text-xl flex items-center"><Building className="mr-2 h-5 w-5 text-primary"/>Réservations ({clientHost?.nom || 'cet établissement'})</CardTitle>
-                    <CardDescription>{clientReservations.length} réservation(s) trouvée(s).</CardDescription>
+                    <CardTitle className="text-xl flex items-center"><CreditCard className="mr-2 h-5 w-5 text-primary"/>Facturation & Transactions</CardTitle>
+                    <CardDescription>{billableItems.length} élément(s) facturable(s) trouvé(s) pour ce client.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {clientReservations.length > 0 ? (
+                    {billableItems.length > 0 ? (
                         <Table>
-                            <TableHeader><TableRow><TableHead>ID</TableHead><TableHead>Lieu</TableHead><TableHead>Type</TableHead><TableHead>Arrivée</TableHead><TableHead>Départ</TableHead><TableHead>Statut</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Type</TableHead><TableHead>Réf.</TableHead><TableHead>Date</TableHead><TableHead>Description</TableHead>
+                                    <TableHead>Total</TableHead><TableHead>Payé</TableHead><TableHead>Solde Dû</TableHead><TableHead>Statut</TableHead><TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
                             <TableBody>
-                                {clientReservations.map(res => (
-                                    <TableRow key={res.id}>
-                                        <TableCell className="font-medium text-xs">#{res.id.slice(-6)}</TableCell>
-                                        <TableCell>{res.locationFullName}</TableCell>
-                                        <TableCell>{res.type === 'Chambre' ? <BedDouble className="h-4 w-4"/> : <Utensils className="h-4 w-4"/>} {res.type}</TableCell>
-                                        <TableCell>{isValid(parseISO(res.dateArrivee)) ? format(parseISO(res.dateArrivee), 'P', {locale: fr}) : 'N/A'}</TableCell>
-                                        <TableCell>{res.dateDepart && isValid(parseISO(res.dateDepart)) ? format(parseISO(res.dateDepart), 'P', {locale: fr}) : (res.type === 'Table' ? 'N/A' : 'N/A')}</TableCell>
-                                        <TableCell><Badge variant={res.status === 'cancelled' ? 'destructive' : 'secondary'} className="capitalize text-xs">{res.status || 'N/A'}</Badge></TableCell>
-                                        <TableCell className="text-right">
-                                            <Link href={`/host/reservations/detail/${res.id}`} passHref>
-                                                <Button variant="outline" size="sm" className="flex items-center">
-                                                  <Edit3 className="mr-1.5 h-3.5 w-3.5"/> Voir/Gérer
-                                                </Button>
-                                            </Link>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
+                                {billableItems.map(item => {
+                                    const total = item.prixTotal || 0;
+                                    const paid = item.montantPaye || 0;
+                                    const due = total - paid;
+                                    let paymentStatus: 'Payé' | 'Impayé' | 'Partiel' = 'Impayé';
+                                    if (due <= 0 && total > 0) paymentStatus = 'Payé';
+                                    else if (paid > 0 && due > 0) paymentStatus = 'Partiel';
+                                    
+                                    const description = item.itemType === 'Commande' ? (item as EnrichedOrder).serviceName : `Séjour ${(item as EnrichedReservation).locationFullName || 'N/A'}`;
+                                    const currencySymbol = item.currency || clientHost?.currency || '$';
+
+                                    return (
+                                        <TableRow key={`${item.itemType}-${item.id}`}>
+                                            <TableCell><Badge variant={item.itemType === 'Commande' ? 'outline' : 'secondary'}>{item.itemType}</Badge></TableCell>
+                                            <TableCell className="font-medium text-xs">#{item.id.slice(-6)}</TableCell>
+                                            <TableCell>{isValid(parseISO(item.dateHeure || item.dateArrivee)) ? format(parseISO(item.dateHeure || item.dateArrivee), 'P', {locale: fr}) : 'N/A'}</TableCell>
+                                            <TableCell>{description}</TableCell>
+                                            <TableCell>{currencySymbol}{total.toFixed(2)}</TableCell>
+                                            <TableCell className="text-green-600">{currencySymbol}{paid.toFixed(2)}</TableCell>
+                                            <TableCell className={due > 0 ? "text-red-600 font-semibold" : ""}>{currencySymbol}{due.toFixed(2)}</TableCell>
+                                            <TableCell><Badge variant={paymentStatus === 'Payé' ? 'default' : paymentStatus === 'Partiel' ? 'secondary' : 'destructive'}>{paymentStatus}</Badge></TableCell>
+                                            <TableCell className="text-right">
+                                                {due > 0.009 && <Button size="sm" onClick={() => openPaymentDialog(item)}>Encaisser</Button>}
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
                             </TableBody>
                         </Table>
-                    ) : <p className="text-muted-foreground text-center py-4">Aucune réservation trouvée pour ce client chez cet établissement.</p>}
+                    ) : <p className="text-muted-foreground text-center py-4">Aucune commande ou réservation facturable trouvée.</p>}
                 </CardContent>
             </Card>
         </TabsContent>
@@ -319,8 +391,53 @@ function ClientFilePageContent() {
             </CardContent>
           </Card>
         </TabsContent>
-
       </Tabs>
+
+      {/* Payment Dialog */}
+      <Dialog open={paymentDialogState.isOpen} onOpenChange={(open) => setPaymentDialogState(prev => ({ ...prev, isOpen: open }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enregistrer Paiement pour {paymentDialogState.itemName}</DialogTitle>
+            <DialogDescription>
+              Solde Dû: {paymentDialogState.amountDue.toFixed(2)} {paymentDialogState.currency} (Déjà payé: {paymentDialogState.currentPaid.toFixed(2)} {paymentDialogState.currency})
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="paymentAmount">Montant à Payer*</Label>
+              <Input id="paymentAmount" type="number" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value === '' ? '' : parseFloat(e.target.value))} placeholder={`Max ${paymentDialogState.amountDue.toFixed(2)}`} min="0.01" step="0.01" max={paymentDialogState.amountDue}/>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="paymentMethod">Méthode de Paiement*</Label>
+              <Select value={paymentMethod} onValueChange={(val) => setPaymentMethod(val as PaymentMethod)}>
+                <SelectTrigger id="paymentMethod"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Espèces</SelectItem>
+                  <SelectItem value="card">Carte Bancaire</SelectItem>
+                  <SelectItem value="credit" disabled={(clientDetails?.credit || 0) === 0}>Crédit Client (Dispo: {(clientDetails?.credit || 0).toFixed(2)} {paymentDialogState.currency})</SelectItem>
+                  <SelectItem value="points" disabled={(clientDetails?.pointsFidelite || 0) === 0}>Points Fidélité (Dispo: {clientDetails?.pointsFidelite || 0} pts)</SelectItem>
+                </SelectContent>
+              </Select>
+              {paymentMethod === 'credit' && typeof paymentAmount === 'number' && (clientDetails?.credit || 0) < paymentAmount && <p className="text-xs text-destructive">Crédit client insuffisant pour ce montant.</p>}
+              {paymentMethod === 'points' && <p className="text-xs text-muted-foreground">La logique de conversion points/devise et déduction n'est pas encore implémentée.</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="paymentNotes">Notes (Optionnel)</Label>
+              <Textarea id="paymentNotes" value={paymentNotes} onChange={(e) => setPaymentNotes(e.target.value)} placeholder="Ex: Paiement partiel, référence transaction..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline" disabled={isSubmittingPayment}>Annuler</Button></DialogClose>
+            <Button
+              onClick={handleRecordPayment}
+              disabled={isSubmittingPayment || typeof paymentAmount !== 'number' || paymentAmount <= 0 || (paymentMethod === 'credit' && (clientDetails?.credit || 0) < paymentAmount) || paymentAmount > paymentDialogState.amountDue + 0.001 }
+            >
+              {isSubmittingPayment ? "Enregistrement..." : "Enregistrer Paiement"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
@@ -332,4 +449,3 @@ export default function ClientFilePage() {
     </Suspense>
   )
 }
-

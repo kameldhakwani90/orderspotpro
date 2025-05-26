@@ -77,12 +77,13 @@ export interface RoomOrTable {
   imageAiHint?: string;
   tagIds?: string[];
   amenityIds?: string[];
+  prixParNuit?: number; // For rooms
   pricingModel?: 'perRoom' | 'perPerson'; // For rooms
-  prixParNuit?: number; // For rooms: per night (per room or per person based on pricingModel)
   prixFixeReservation?: number; // For tables
   menuCardId?: string;
-  allowOnlineCheckin?: boolean; // New: For zones to allow check-in/out
-  allowOnlineCheckout?: boolean; // New: For zones to allow check-in/out
+  allowOnlineCheckin?: boolean; 
+  allowOnlineCheckout?: boolean; 
+  currency?: string;
 }
 
 export interface ServiceCategory {
@@ -124,14 +125,17 @@ export interface Service {
   prix?: number;
   targetLocationIds?: string[];
   loginRequired?: boolean;
-  pointsRequis?: number;
+  pointsRequis?: number; // Points needed to "buy" this service
   currency?: string;
 }
 
 export type OrderStatus = "pending" | "confirmed" | "completed" | "cancelled";
 
+export type PaymentMethod = 'credit' | 'cash' | 'card' | 'points';
+
 export interface Paiement {
-  type: 'credit' | 'cash' | 'card' | 'points';
+  id: string;
+  type: PaymentMethod;
   montant: number;
   date: string; // ISO string
   notes?: string;
@@ -143,7 +147,8 @@ export interface Order {
   hostId: string;
   chambreTableId: string;
   clientNom?: string;
-  userId?: string;
+  userId?: string; // ID of the User account if logged in
+  clientId?: string; // ID of the Client record managed by the host
   donneesFormulaire: string;
   dateHeure: string; // ISO string
   status: OrderStatus;
@@ -169,9 +174,9 @@ export interface Client {
     locationId?: string;
     notes?: string;
     documents?: Array<{ name: string; url: string; uploadedAt: string }>;
-    credit?: number;
-    pointsFidelite?: number;
-    userId?: string;
+    credit?: number; // Client's monetary credit with this host
+    pointsFidelite?: number; // Client's loyalty points with this host
+    userId?: string; // Link to global User.id if client is a registered user
 }
 
 export type ReservationStatus = "pending" | "confirmed" | "cancelled" | "checked-in" | "checked-out";
@@ -180,7 +185,7 @@ export type OnlineCheckinStatus = 'not-started' | 'pending-review' | 'completed'
 export interface OnlineCheckinData {
   fullName?: string;
   email?: string;
-  birthDate?: string;
+  birthDate?: string; // Format YYYY-MM-DD
   phoneNumber?: string;
   travelReason?: string;
   additionalNotes?: string;
@@ -192,10 +197,11 @@ export interface Reservation {
   hostId: string;
   locationId: string;
   type?: 'Chambre' | 'Table';
-  clientId?: string;
+  clientId?: string; // ID of the Client record managed by the host
+  userId?: string; // ID of the User account if logged in
   clientName?: string;
-  dateArrivee: string;
-  dateDepart?: string | undefined;
+  dateArrivee: string; // YYYY-MM-DD
+  dateDepart?: string | undefined; // YYYY-MM-DD, undefined for tables
   nombrePersonnes: number;
   animauxDomestiques?: boolean;
   notes?: string;
@@ -208,7 +214,7 @@ export interface Reservation {
   pointsGagnes?: number;
   onlineCheckinData?: OnlineCheckinData;
   onlineCheckinStatus?: OnlineCheckinStatus;
-  clientInitiatedCheckoutTime?: string;
+  clientInitiatedCheckoutTime?: string; // ISO DateTime
   checkoutNotes?: string;
   currency?: string;
 }
@@ -218,6 +224,7 @@ export interface EnrichedReservation extends Reservation {
   locationName?: string;
   locationType?: 'Chambre' | 'Table' | 'Site';
 }
+
 
 export interface NavItem {
   label: string;
@@ -231,23 +238,25 @@ export interface NavItem {
 export interface ChatMessage {
   id: string;
   conversationId: string;
-  senderId: string;
-  receiverId: string;
+  senderId: string; // User.id
+  receiverId: string; // User.id
   text: string;
   timestamp: string; // ISO string
   read?: boolean;
 }
 
 export interface ChatConversation {
-  id: string;
-  participantIds: string[];
+  id: string; // Could be composite like user1Id_user2Id
+  participantIds: string[]; // Array of User.id
   lastMessage?: Pick<ChatMessage, 'text' | 'timestamp' | 'senderId'>;
   unreadCounts?: { [userId: string]: number };
-  clientName?: string;
-  hostName?: string;
-  clientAvatar?: string; // URL
-  hostAvatar?: string;   // URL
+  // For displaying names in conversation list
+  clientName?: string; // Name of the client participant
+  hostName?: string;   // Name of the host participant
+  clientAvatar?: string; // Placeholder for avatar URL
+  hostAvatar?: string;   // Placeholder for avatar URL
 }
+
 
 export interface MenuCard {
   id: string;
@@ -256,15 +265,15 @@ export interface MenuCard {
   globalSiteId: string;
   description?: string;
   isActive: boolean;
-  visibleFromTime?: string;
-  visibleToTime?: string;
+  visibleFromTime?: string; // HH:MM
+  visibleToTime?: string;   // HH:MM
 }
 
 export interface MenuCategory {
   id: string;
   name: string;
   menuCardId: string;
-  hostId: string; // Added for consistency in data functions
+  hostId: string;
   description?: string;
   displayOrder?: number;
 }
@@ -277,7 +286,7 @@ export interface MenuItemOption {
 
 export interface MenuItemOptionGroup {
   id: string;
-  menuItemId: string;
+  menuItemId: string; // Belongs to which MenuItem
   name: string;
   selectionType: 'single' | 'multiple';
   isRequired: boolean;
@@ -289,26 +298,27 @@ export interface MenuItem {
   id: string;
   name: string;
   description?: string;
-  price: number;
+  price: number; // Base price
   imageUrl?: string;
   imageAiHint?: string;
   menuCategoryId: string;
   hostId: string;
   isConfigurable?: boolean;
   optionGroups?: MenuItemOptionGroup[];
-  isAvailable?: boolean;
+  isAvailable?: boolean; // For host to toggle visibility/availability
   loginRequired?: boolean;
   pointsRequis?: number;
-  stock?: number;
+  stock?: number; // Undefined for unlimited, 0 for out of stock
   currency?: string;
 }
 
+
 export type CartItem = (MenuItem) & {
   quantity: number;
-  uniqueIdInCart: string;
-  selectedOptions?: Record<string, string | string[]>;
-  finalPrice?: number;
-  currency?: string; // Ensure CartItem also has currency
+  uniqueIdInCart: string; // Unique ID for this specific instance in the cart
+  selectedOptions?: Record<string, string | string[]>; // Store selected option IDs: { groupId: optionId or optionId[] }
+  finalPrice?: number; // Calculated price including options for one unit
+  // currency field is inherited from MenuItem
 };
 
 export interface CartContextType {
@@ -354,6 +364,7 @@ export type TranslationKeys =
   | 'upTo' | 'night' | 'nights' | 'person' | 'reservation' | 'priceNotSpecified' | 'selectDate'
   | 'description' | 'amenitiesAndTags' | 'searchErrorTitle' | 'adultsDescription' | 'childrenDescription' | 'infantsDescription'
   | 'youCan' | 'toSaveReservation' | 'priceFrom' | 'pricingModel' | 'perRoomNight' | 'perPersonNight' | 'fixedBookingPrice';
+
 
 export type Translations = {
   [key in LanguageCode]: {
