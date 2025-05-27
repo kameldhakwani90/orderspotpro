@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useCallback, Suspense, useMemo } from 'react';
@@ -5,18 +6,16 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import {
-  getOrdersByClientId,
-  getRoomOrTableById,
-  getItemById, // Changed from getServiceById
   getClientById,
-  getReservationsByClientId,
+  getOrdersByClientId, // Changed from getOrdersByClientName and getOrdersByUserId
+  getReservationsByClientId, // Changed from getReservationsByClientName
   getHostById,
   getSiteById,
-  getRoomsOrTables,
+  getRoomOrTableById,
+  getRoomsOrTables, // To get all host locations for displaying names
+  getItemById, // To determine item type for generic description
   recordPaymentForOrder,
   recordPaymentForReservation,
-  addCreditToClient,
-  addPointsToClient,
 } from '@/lib/data';
 import type { Order, RoomOrTable, Service, Client, Reservation, Host, Paiement, PaymentMethod, OnlineCheckinData, Site as GlobalSite, MenuItem } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -34,11 +33,12 @@ import { fr } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
+import { useLanguage } from '@/context/LanguageContext';
 
 interface EnrichedOrder extends Order {
-  itemName?: string; // Can be Service.titre or MenuItem.name
+  itemName?: string;
   locationName?: string;
+  itemCategoryType?: 'FoodBeverage' | 'GeneralService'; // New property
 }
 
 interface EnrichedReservation extends Reservation {
@@ -58,11 +58,13 @@ interface PaymentDialogState {
   currency: string;
 }
 
+
 function ClientFilePageContent() {
   const params = useParams();
   const router = useRouter();
   const { user: authUser, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const clientId = params.clientId as string;
 
@@ -70,7 +72,7 @@ function ClientFilePageContent() {
   const [clientHost, setClientHost] = useState<Host | null>(null);
   const [clientOrders, setClientOrders] = useState<EnrichedOrder[]>([]);
   const [clientReservations, setClientReservations] = useState<EnrichedReservation[]>([]);
-  const [allHostLocations, setAllHostLocations] = useState<RoomOrTable[]>([]);
+  const [allHostLocations, setAllHostLocations] = useState<RoomOrTable[]>([]); // For displaying location names
 
   const [billableItems, setBillableItems] = useState<BillableItem[]>([]);
 
@@ -112,29 +114,38 @@ function ClientFilePageContent() {
         hostData,
         ordersData,
         reservationsData,
-        hostLocationsData
+        hostLocationsData // Fetch all locations for the host
       ] = await Promise.all([
         getHostById(clientData.hostId),
-        getOrdersByClientId(hostIdForAuth, currentClientId),
-        getReservationsByClientId(hostIdForAuth, currentClientId),
-        getRoomsOrTables(hostIdForAuth)
+        getOrdersByClientId(hostIdForAuth, currentClientId), // Use getOrdersByClientId
+        getReservationsByClientId(hostIdForAuth, currentClientId), // Use getReservationsByClientId
+        getRoomsOrTables(hostIdForAuth) // Fetch all locations for this host
       ]);
       
       setClientHost(hostData);
       setAllHostLocations(hostLocationsData);
 
+
       const enrichedOrders = await Promise.all(
         ordersData.map(async (order) => {
-          const item = await getItemById(order.serviceId); // Use getItemById
-          const location = await getRoomOrTableById(order.chambreTableId);
-          let itemName = 'Article Inconnu';
+          const item = await getItemById(order.serviceId);
+          const location = hostLocationsData.find(loc => loc.id === order.chambreTableId); // Find from already fetched locations
+          
+          let itemNameDisplay = t('unknownItem');
+          let itemCatType: 'FoodBeverage' | 'GeneralService' = 'GeneralService';
+
           if (item) {
-            itemName = 'titre' in item ? item.titre : item.name; // Check if Service or MenuItem
+            itemNameDisplay = 'titre' in item ? item.titre : ('name' in item ? item.name : itemNameDisplay);
+            // Check if it's a MenuItem (Food/Beverage)
+            if ('menuCategoryId' in item) {
+              itemCatType = 'FoodBeverage';
+            }
           }
           return {
             ...order,
-            itemName: itemName,
-            locationName: location ? `${location.type} ${location.nom}` : 'Lieu Inconnu',
+            itemName: itemNameDisplay,
+            locationName: location ? `${location.type} ${location.nom}` : (t('unknownLocation')),
+            itemCategoryType: itemCatType, // Store the category type
           };
         })
       );
@@ -145,13 +156,13 @@ function ClientFilePageContent() {
             let locFullName: string | undefined = undefined;
             let locType: 'Chambre' | 'Table' | undefined = undefined;
             if(res.locationId) {
-                const loc = await getRoomOrTableById(res.locationId);
+                const loc = hostLocationsData.find(l => l.id === res.locationId); // Find from already fetched locations
                 if(loc) {
                     locFullName = `${loc.type} ${loc.nom}`;
                     locType = loc.type as 'Chambre' | 'Table';
                 }
             }
-            return { ...res, locationFullName: locFullName, locationType: locType };
+            return { ...res, locationFullName: locFullName || t('unknownLocation'), locationType: locType };
         })
       );
       setClientReservations(enrichedReservations);
@@ -173,7 +184,7 @@ function ClientFilePageContent() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]); // Added t to dependencies
 
   useEffect(() => {
     if (!authLoading && authUser?.hostId && clientId) {
@@ -181,20 +192,20 @@ function ClientFilePageContent() {
     } else if (!authLoading && (!authUser?.hostId && authUser?.role === 'host')) {
         setError("ID d'hôte manquant pour l'utilisateur connecté.");
         setIsLoading(false);
-    } else if (!authLoading && authUser?.role !== 'host') {
+    } else if (!authLoading && authUser?.role !== 'host' && authUser?.role !== 'admin') { // Allow admin to potentially view too
       router.replace('/dashboard');
     }
   }, [authUser, authLoading, clientId, fetchData, router]);
 
   const openPaymentDialog = (item: BillableItem) => {
     const amountDue = (item.prixTotal || 0) - (item.montantPaye || 0);
-    let itemNameDisplay = 'Élément Inconnu';
+    let itemNameDisplay = t('unknownItem');
     if (item.itemType === 'Commande') {
         const orderItem = item as EnrichedOrder;
         itemNameDisplay = orderItem.itemName || 'Commande';
     } else {
         const reservationItem = item as EnrichedReservation;
-        itemNameDisplay = `Séjour ${reservationItem.locationFullName || 'N/A'}`;
+        itemNameDisplay = `Séjour ${reservationItem.locationFullName || t('unknownLocation')}`;
     }
 
     setPaymentDialogState({
@@ -216,7 +227,7 @@ function ClientFilePageContent() {
       toast({ title: "Montant Invalide", description: "Veuillez saisir un montant de paiement valide.", variant: "destructive" });
       return;
     }
-    if (paymentAmount > paymentDialogState.amountDue + 0.001) {
+    if (paymentAmount > paymentDialogState.amountDue + 0.001) { // Allow for tiny floating point differences
       toast({ title: "Paiement Excessif", description: `Le montant saisi (${paymentAmount.toFixed(2)}) dépasse le solde dû de ${paymentDialogState.amountDue.toFixed(2)} ${paymentDialogState.currency}.`, variant: "destructive" });
       return;
     }
@@ -236,10 +247,6 @@ function ClientFilePageContent() {
           setIsSubmittingPayment(false);
           return;
         }
-        // Actual credit deduction handled by recordPayment function
-      } else if (paymentMethod === 'points' && clientDetails) {
-        // Placeholder: Actual points deduction needs conversion logic.
-        toast({ title: "Paiement par Points (Simulation)", description: "La logique de déduction des points sera implémentée ultérieurement.", variant: "info"});
       }
 
       if (paymentDialogState.itemType === 'Order') {
@@ -249,7 +256,7 @@ function ClientFilePageContent() {
       }
 
       toast({ title: "Paiement Enregistré", description: `Paiement de ${paymentAmount.toFixed(2)} ${paymentDialogState.currency} pour ${paymentDialogState.itemName} enregistré.` });
-      if (authUser?.hostId) fetchData(authUser.hostId, clientId); // Refresh all client data
+      if (authUser?.hostId) fetchData(authUser.hostId, clientId);
       setPaymentDialogState(prev => ({ ...prev, isOpen: false }));
     } catch (error) {
       toast({ title: "Erreur d'Enregistrement", description: `Impossible d'enregistrer le paiement. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
@@ -261,8 +268,8 @@ function ClientFilePageContent() {
   const totalSpentOverall = useMemo(() => {
     return billableItems
       .filter(item => 
-        (item.itemType === 'Commande' && (item as EnrichedOrder).status === 'completed') ||
-        (item.itemType === 'Séjour' && (item as EnrichedReservation).status === 'checked-out')
+        (item.itemType === 'Commande' && ((item as EnrichedOrder).status === 'completed' || (item as EnrichedOrder).status === 'confirmed')) ||
+        (item.itemType === 'Séjour' && ((item as EnrichedReservation).status === 'checked-out' || (item as EnrichedReservation).status === 'confirmed' || (item as EnrichedReservation).status === 'checked-in'))
       )
       .reduce((sum, item) => sum + (item.prixTotal || 0), 0);
   }, [billableItems]);
@@ -300,7 +307,7 @@ function ClientFilePageContent() {
       <div className="container mx-auto py-8 px-4 text-center">
         <Info className="mx-auto h-12 w-12 text-primary mb-4" />
         <h2 className="text-2xl font-semibold mb-2">Client Non Trouvé</h2>
-        <p className="text-muted-foreground">Aucune fiche client trouvée pour cet ID.</p>
+        <p className="text-muted-foreground">Aucune fiche client trouvée pour cet ID ou vous n'y avez pas accès.</p>
         <Button onClick={() => router.push('/host/clients')} className="mt-6">Retour à la Gestion Clients</Button>
       </div>
     );
@@ -325,7 +332,7 @@ function ClientFilePageContent() {
       <Tabs defaultValue="general" className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
           <TabsTrigger value="general">Infos Générales</TabsTrigger>
-          <TabsTrigger value="billing">Facturation &amp; Transactions</TabsTrigger>
+          <TabsTrigger value="billing">Facturation & Transactions</TabsTrigger>
           <TabsTrigger value="reservations">Réservations</TabsTrigger>
           <TabsTrigger value="checkins">Enreg. en Ligne</TabsTrigger>
         </TabsList>
@@ -343,9 +350,11 @@ function ClientFilePageContent() {
               <div className="flex items-center"><Mail className="inline mr-1.5 h-4 w-4 text-muted-foreground" /> Email: <span className="font-medium">{clientDetails.email || "(Non renseigné)"}</span></div>
               <div className="flex items-center"><Phone className="inline mr-1.5 h-4 w-4 text-muted-foreground" /> Téléphone: <span className="font-medium">{clientDetails.telephone || "(Non renseigné)"}</span></div>
               
-              {clientDetails.type === 'heberge' && clientDetails.dateArrivee && <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Arrivée Prévue (Fiche): {isValid(parseISO(clientDetails.dateArrivee)) ? format(parseISO(clientDetails.dateArrivee), 'PPP', {locale: fr}) : 'N/A'}</div>}
-              {clientDetails.type === 'heberge' && clientDetails.dateDepart && <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Départ Prévu (Fiche): {isValid(parseISO(clientDetails.dateDepart), {locale: fr}) ? format(parseISO(clientDetails.dateDepart), 'PPP') : 'N/A'}</div>}
-              {clientDetails.type === 'heberge' && clientDetails.locationId && <div><MapPin className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Lieu Assigné (Fiche): {allHostLocations.find(loc => loc.id === clientDetails.locationId)?.nom || clientDetails.locationId}</div>}
+              {/* Removed Client.type display here as requested */}
+              
+              {clientDetails.dateArrivee && <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Arrivée Prévue (Fiche): {isValid(parseISO(clientDetails.dateArrivee)) ? format(parseISO(clientDetails.dateArrivee), 'PPP', {locale: fr}) : 'N/A'}</div>}
+              {clientDetails.dateDepart && <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Départ Prévu (Fiche): {isValid(parseISO(clientDetails.dateDepart)) ? format(parseISO(clientDetails.dateDepart), 'PPP', {locale: fr}) : 'N/A'}</div>}
+              {clientDetails.locationId && <div><MapPin className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Lieu Assigné (Fiche): {allHostLocations.find(loc => loc.id === clientDetails.locationId)?.nom || clientDetails.locationId}</div>}
               
               <div className="pt-2 border-t mt-2">
                 <div className="text-green-600 flex items-center"><DollarSign className="inline mr-1.5 h-4 w-4"/> Crédit Client: <span className="font-semibold">{(clientDetails.credit || 0).toFixed(2)} {clientHost?.currency || '€'}</span></div>
@@ -356,7 +365,7 @@ function ClientFilePageContent() {
                 
                 <div className="pt-4 border-t mt-4">
                     <h4 className="font-semibold mb-2 text-primary">Résumé Financier Global chez {clientHost?.nom}:</h4>
-                    <p>Total Dépensé Estimé (Complété/Check-out) : <span className="font-bold">{totalSpentOverall.toFixed(2)} {clientHost?.currency || '€'}</span></p>
+                    <p>Total Dépensé Estimé (Complété/Check-out/Confirmé) : <span className="font-bold">{totalSpentOverall.toFixed(2)} {clientHost?.currency || '€'}</span></p>
                     <p>Total Payé : <span className="font-bold text-green-600">{totalPaidOverall.toFixed(2)} {clientHost?.currency || '€'}</span></p>
                     <div className={grandTotalDueOverall > 0.009 ? "text-red-600 font-bold" : "font-bold"}>Solde Dû Global : {grandTotalDueOverall.toFixed(2)} {clientHost?.currency || '€'}</div>
                 </div>
@@ -367,7 +376,7 @@ function ClientFilePageContent() {
         <TabsContent value="billing" className="mt-6">
             <Card className="shadow-lg">
                 <CardHeader>
-                    <CardTitle className="text-xl flex items-center"><CreditCard className="mr-2 h-5 w-5 text-primary"/>Facturation &amp; Transactions</CardTitle>
+                    <CardTitle className="text-xl flex items-center"><CreditCard className="mr-2 h-5 w-5 text-primary"/>Facturation & Transactions</CardTitle>
                     <CardDescription>{billableItems.length} élément(s) trouvé(s) pour ce client.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -386,10 +395,20 @@ function ClientFilePageContent() {
                                     const paid = item.montantPaye || 0;
                                     const due = total - paid;
                                     let paymentStatus: 'Payé' | 'Impayé' | 'Partiel' = 'Impayé';
-                                    if (due <= 0.009 && total > 0) paymentStatus = 'Payé'; 
+                                    if (paid >= total - 0.001 && total > 0) paymentStatus = 'Payé'; // Handle floating point
                                     else if (paid > 0 && due > 0.009) paymentStatus = 'Partiel';
                                     
-                                    const description = item.itemType === 'Commande' ? (item as EnrichedOrder).itemName : `Séjour ${(item as EnrichedReservation).locationFullName || 'N/A'}`;
+                                    let displayDescription;
+                                    if (item.itemType === 'Commande') {
+                                        const orderItem = item as EnrichedOrder;
+                                        if (orderItem.itemCategoryType === 'FoodBeverage') {
+                                            displayDescription = "Commande Nourriture & Boissons";
+                                        } else {
+                                            displayDescription = orderItem.itemName || t('unknownItem');
+                                        }
+                                    } else {
+                                        displayDescription = `Séjour ${t('for')} ${(item as EnrichedReservation).locationFullName || t('unknownLocation')}`;
+                                    }
                                     const currencySymbol = item.currency || clientHost?.currency || '€';
 
                                     return (
@@ -397,14 +416,14 @@ function ClientFilePageContent() {
                                             <TableCell><Badge variant={item.itemType === 'Commande' ? 'outline' : 'secondary'}>{item.itemType}</Badge></TableCell>
                                             <TableCell className="font-medium text-xs">#{item.id.slice(-6)}</TableCell>
                                             <TableCell>{isValid(parseISO(item.dateHeure || (item as EnrichedReservation).dateArrivee)) ? format(parseISO(item.dateHeure || (item as EnrichedReservation).dateArrivee), 'P', {locale: fr}) : 'N/A'}</TableCell>
-                                            <TableCell>{description}</TableCell>
+                                            <TableCell>{displayDescription}</TableCell>
                                             <TableCell>{currencySymbol}{total.toFixed(2)}</TableCell>
                                             <TableCell className="text-green-600">{currencySymbol}{paid.toFixed(2)}</TableCell>
                                             <TableCell className={due > 0.009 ? "text-red-600 font-semibold" : ""}>{currencySymbol}{due.toFixed(2)}</TableCell>
                                             <TableCell><Badge variant={paymentStatus === 'Payé' ? 'default' : paymentStatus === 'Partiel' ? 'secondary' : 'destructive'} className="capitalize text-xs">{paymentStatus}</Badge></TableCell>
                                             <TableCell className="text-right space-x-1">
                                                 <Link href={item.itemType === 'Commande' ? `/invoice/order/${item.id}` : `/invoice/reservation/${item.id}`} target="_blank" passHref>
-                                                    <Button variant="outline" size="sm" disabled={isSubmittingPayment} className="h-8 px-2.5 text-xs">
+                                                    <Button variant="outline" size="sm" disabled={isSubmittingPayment || isSubmitting} className="h-8 px-2.5 text-xs">
                                                         <InvoiceIcon className="mr-1 h-3.5 w-3.5"/>Facture
                                                     </Button>
                                                 </Link>
@@ -412,7 +431,7 @@ function ClientFilePageContent() {
                                                     <Button 
                                                         size="sm" 
                                                         onClick={() => openPaymentDialog(item)} 
-                                                        disabled={isSubmittingPayment}
+                                                        disabled={isSubmittingPayment || isSubmitting}
                                                         className="h-8 px-2.5 text-xs"
                                                     >
                                                         Règlement
@@ -546,5 +565,6 @@ export default function ClientFilePage() {
     </Suspense>
   )
 }
+    
 
     
