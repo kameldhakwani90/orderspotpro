@@ -3,8 +3,8 @@
 
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getOrderById, getHostById, getItemById, getRoomOrTableById, getUserById, getSiteById, getSites } from '@/lib/data'; // Changed getServiceById to getItemById
-import type { Order, Host, Service, RoomOrTable, User, Site as GlobalSiteType, MenuItem } from '@/lib/types';
+import { getOrderById, getHostById, getItemById, getRoomOrTableById, getUserById, getSiteById, getSites } from '@/lib/data';
+import type { Order, Host, Service, RoomOrTable, User, Site as GlobalSiteType, MenuItem, MenuItemOptionGroup, MenuItemOption } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Printer, ArrowLeft, Building, User as UserIcon, ShoppingBag, MapPin, CalendarDays, Hash, Info } from 'lucide-react';
@@ -13,12 +13,13 @@ import { useToast } from '@/hooks/use-toast';
 import NextImage from 'next/image';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface InvoiceDetails {
   order: Order;
   host: Host | null;
   globalSite: GlobalSiteType | null;
-  item: Service | MenuItem | null; // Changed from service to item
+  item: Service | MenuItem | null;
   location: RoomOrTable | null;
   clientUser: User | null;
 }
@@ -27,6 +28,7 @@ function InvoicePageContent() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const orderId = params.orderId as string;
 
   const [invoiceDetails, setInvoiceDetails] = useState<InvoiceDetails | null>(null);
@@ -56,22 +58,22 @@ function InvoicePageContent() {
       if (orderData.hostId) {
         hostData = await getHostById(orderData.hostId);
         if (hostData) {
-            const sites = await getSites(orderData.hostId); 
+            const sites = await getSites(orderData.hostId);
             if (sites.length > 0) {
                 const locationForOrder = orderData.chambreTableId ? await getRoomOrTableById(orderData.chambreTableId) : null;
                 if (locationForOrder?.globalSiteId) {
                     const specificSite = sites.find(s => s.siteId === locationForOrder.globalSiteId);
-                    globalSiteData = specificSite || sites[0];
+                    globalSiteData = specificSite || sites[0]; // Fallback to host's first global site
                 } else {
-                     globalSiteData = sites[0]; 
+                     globalSiteData = sites[0]; // Fallback to host's first global site
                 }
             }
         }
       }
 
 
-      const [itemData, locationData, clientUserData] = await Promise.all([ // Renamed serviceData to itemData
-        getItemById(orderData.serviceId), // Used getItemById
+      const [itemData, locationData, clientUserData] = await Promise.all([
+        getItemById(orderData.serviceId),
         getRoomOrTableById(orderData.chambreTableId),
         orderData.userId ? getUserById(orderData.userId) : Promise.resolve(null)
       ]);
@@ -80,7 +82,7 @@ function InvoicePageContent() {
         order: orderData,
         host: hostData || null,
         globalSite: globalSiteData || null,
-        item: itemData || null, // Updated to item
+        item: itemData || null,
         location: locationData || null,
         clientUser: clientUserData || null,
       });
@@ -139,21 +141,50 @@ function InvoicePageContent() {
     );
   }
 
-  const { order, host, globalSite, item, location, clientUser } = invoiceDetails; // Updated to item
+  const { order, host, globalSite, item, location, clientUser } = invoiceDetails;
   const clientDisplayName = clientUser?.nom || order.clientNom || "Client Inconnu";
   const establishmentName = globalSite?.nom || host?.nom || "Établissement Inconnu";
-  const establishmentLogo = globalSite?.logoUrl || host?.reservationPageSettings?.heroImageUrl; 
+  const establishmentLogo = globalSite?.logoUrl || host?.reservationPageSettings?.heroImageUrl;
   const establishmentLogoHint = globalSite?.logoAiHint || host?.reservationPageSettings?.heroImageAiHint || "establishment logo";
   const currencySymbol = order.currency || host?.currency || '$';
 
   const getItemName = (item: Service | MenuItem | null): string => {
     if (!item) return "Article non trouvé";
-    if ('titre' in item) return item.titre; // It's a Service
-    if ('name' in item) return item.name;   // It's a MenuItem
+    if ('titre' in item && item.titre) return item.titre; // It's a Service
+    if ('name' in item && item.name) return item.name;   // It's a MenuItem
     return "Article Inconnu";
   };
-  
+
   const itemName = getItemName(item);
+  const isConfigurableMenuItem = item && 'isConfigurable' in item && item.isConfigurable && 'optionGroups' in item;
+  let selectedOptionsDetails: Array<{ groupName: string; optionName: string; adjustment: number }> = [];
+
+  if (isConfigurableMenuItem && order.donneesFormulaire) {
+    try {
+      const formData = JSON.parse(order.donneesFormulaire);
+      const menuItem = item as MenuItem; // Type assertion
+      menuItem.optionGroups?.forEach(group => {
+        const selectedOptionId = formData[group.id];
+        if (selectedOptionId) {
+          if (Array.isArray(selectedOptionId)) { // For multiple selection
+            selectedOptionId.forEach(optId => {
+              const option = group.options.find(opt => opt.id === optId);
+              if (option) {
+                selectedOptionsDetails.push({ groupName: group.name, optionName: option.name, adjustment: option.priceAdjustment || 0 });
+              }
+            });
+          } else { // For single selection
+            const option = group.options.find(opt => opt.id === selectedOptionId);
+            if (option) {
+              selectedOptionsDetails.push({ groupName: group.name, optionName: option.name, adjustment: option.priceAdjustment || 0 });
+            }
+          }
+        }
+      });
+    } catch (e) {
+      console.error("Error parsing form data for invoice options:", e);
+    }
+  }
 
   return (
     <div className="max-w-4xl mx-auto bg-background text-foreground p-4 sm:p-8 print:p-0 print:shadow-none print:border-none print:bg-white">
@@ -224,12 +255,24 @@ function InvoicePageContent() {
               </thead>
               <tbody>
                 <tr>
-                  <td className="py-2 text-foreground">{itemName}</td>
-                  <td className="text-right py-2 text-foreground">1</td>
-                  <td className="text-right py-2 text-foreground">
-                    {order.prixTotal !== undefined ? `${currencySymbol}${order.prixTotal.toFixed(2)}` : "N/A"}
+                  <td className="py-2 text-foreground align-top">
+                    {itemName}
+                    {selectedOptionsDetails.length > 0 && (
+                      <ul className="list-none pl-4 text-xs text-muted-foreground">
+                        {selectedOptionsDetails.map((opt, idx) => (
+                          <li key={idx} className="mt-0.5">
+                            + {opt.optionName} 
+                            {opt.adjustment !== 0 && ` (${opt.adjustment > 0 ? '+' : ''}${currencySymbol}${opt.adjustment.toFixed(2)})`}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </td>
-                  <td className="text-right py-2 text-foreground">
+                  <td className="text-right py-2 text-foreground align-top">1</td>
+                  <td className="text-right py-2 text-foreground align-top">
+                    {item && 'price' in item && item.price !== undefined ? `${currencySymbol}${item.price.toFixed(2)}` : (item && 'prix' in item && item.prix !== undefined ? `${currencySymbol}${item.prix.toFixed(2)}`: "N/A")}
+                  </td>
+                  <td className="text-right py-2 text-foreground align-top">
                     {order.prixTotal !== undefined ? `${currencySymbol}${order.prixTotal.toFixed(2)}` : "N/A"}
                   </td>
                 </tr>
@@ -238,15 +281,9 @@ function InvoicePageContent() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t">
-            <div className="text-sm text-muted-foreground space-y-1">
-              <h4 className="font-semibold text-foreground mb-1">Notes & Informations :</h4>
-              {order.donneesFormulaire && order.donneesFormulaire !== '{}' && (
-                <pre className="whitespace-pre-wrap bg-muted/50 p-2 rounded-md text-xs">
-                  Données du formulaire : {JSON.stringify(JSON.parse(order.donneesFormulaire), null, 2)}
-                </pre>
-              )}
-              <p>Merci pour votre confiance !</p>
-            </div>
+             <div className="text-sm text-muted-foreground space-y-1">
+                <h4 className="font-semibold text-foreground mb-1">Merci pour votre confiance !</h4>
+             </div>
             <div className="space-y-2 text-sm sm:text-right">
               <div className="flex justify-between sm:justify-end sm:gap-4">
                 <span className="text-muted-foreground">Sous-total :</span>
@@ -289,3 +326,6 @@ export default function InvoicePage() {
     </Suspense>
   );
 }
+
+
+    
