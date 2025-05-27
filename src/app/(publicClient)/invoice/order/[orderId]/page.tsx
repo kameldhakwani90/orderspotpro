@@ -3,8 +3,8 @@
 
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getOrderById, getHostById, getServiceById, getRoomOrTableById, getUserById, getSiteById, getSites } from '@/lib/data'; // Added getSites
-import type { Order, Host, Service, RoomOrTable, User, Site as GlobalSiteType } from '@/lib/types';
+import { getOrderById, getHostById, getItemById, getRoomOrTableById, getUserById, getSiteById, getSites } from '@/lib/data'; // Changed getServiceById to getItemById
+import type { Order, Host, Service, RoomOrTable, User, Site as GlobalSiteType, MenuItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Printer, ArrowLeft, Building, User as UserIcon, ShoppingBag, MapPin, CalendarDays, Hash, Info } from 'lucide-react';
@@ -18,7 +18,7 @@ interface InvoiceDetails {
   order: Order;
   host: Host | null;
   globalSite: GlobalSiteType | null;
-  service: Service | null;
+  item: Service | MenuItem | null; // Changed from service to item
   location: RoomOrTable | null;
   clientUser: User | null;
 }
@@ -56,28 +56,22 @@ function InvoicePageContent() {
       if (orderData.hostId) {
         hostData = await getHostById(orderData.hostId);
         if (hostData) {
-            const sites = await getSites(orderData.hostId); // Use getSites to fetch sites for the host
+            const sites = await getSites(orderData.hostId); 
             if (sites.length > 0) {
-                // Attempt to find the specific global site if location has one,
-                // otherwise fallback to host's first global site.
                 const locationForOrder = orderData.chambreTableId ? await getRoomOrTableById(orderData.chambreTableId) : null;
                 if (locationForOrder?.globalSiteId) {
                     const specificSite = sites.find(s => s.siteId === locationForOrder.globalSiteId);
-                    if (specificSite) {
-                        globalSiteData = specificSite;
-                    } else {
-                        globalSiteData = sites[0]; // Fallback if specific not found but others exist
-                    }
+                    globalSiteData = specificSite || sites[0];
                 } else {
-                     globalSiteData = sites[0]; // Fallback to host's first global site
+                     globalSiteData = sites[0]; 
                 }
             }
         }
       }
 
 
-      const [serviceData, locationData, clientUserData] = await Promise.all([
-        getServiceById(orderData.serviceId),
+      const [itemData, locationData, clientUserData] = await Promise.all([ // Renamed serviceData to itemData
+        getItemById(orderData.serviceId), // Used getItemById
         getRoomOrTableById(orderData.chambreTableId),
         orderData.userId ? getUserById(orderData.userId) : Promise.resolve(null)
       ]);
@@ -86,7 +80,7 @@ function InvoicePageContent() {
         order: orderData,
         host: hostData || null,
         globalSite: globalSiteData || null,
-        service: serviceData || null,
+        item: itemData || null, // Updated to item
         location: locationData || null,
         clientUser: clientUserData || null,
       });
@@ -145,12 +139,21 @@ function InvoicePageContent() {
     );
   }
 
-  const { order, host, globalSite, service, location, clientUser } = invoiceDetails;
+  const { order, host, globalSite, item, location, clientUser } = invoiceDetails; // Updated to item
   const clientDisplayName = clientUser?.nom || order.clientNom || "Client Inconnu";
   const establishmentName = globalSite?.nom || host?.nom || "Établissement Inconnu";
   const establishmentLogo = globalSite?.logoUrl || host?.reservationPageSettings?.heroImageUrl; 
   const establishmentLogoHint = globalSite?.logoAiHint || host?.reservationPageSettings?.heroImageAiHint || "establishment logo";
   const currencySymbol = order.currency || host?.currency || '$';
+
+  const getItemName = (item: Service | MenuItem | null): string => {
+    if (!item) return "Article non trouvé";
+    if ('titre' in item) return item.titre; // It's a Service
+    if ('name' in item) return item.name;   // It's a MenuItem
+    return "Article Inconnu";
+  };
+  
+  const itemName = getItemName(item);
 
   return (
     <div className="max-w-4xl mx-auto bg-background text-foreground p-4 sm:p-8 print:p-0 print:shadow-none print:border-none print:bg-white">
@@ -221,7 +224,7 @@ function InvoicePageContent() {
               </thead>
               <tbody>
                 <tr>
-                  <td className="py-2 text-foreground">{service?.titre || "Service non trouvé"}</td>
+                  <td className="py-2 text-foreground">{itemName}</td>
                   <td className="text-right py-2 text-foreground">1</td>
                   <td className="text-right py-2 text-foreground">
                     {order.prixTotal !== undefined ? `${currencySymbol}${order.prixTotal.toFixed(2)}` : "N/A"}
@@ -286,4 +289,3 @@ export default function InvoicePage() {
     </Suspense>
   );
 }
-

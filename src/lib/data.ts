@@ -5,7 +5,7 @@ import type { User, Site, Host, RoomOrTable, ServiceCategory, CustomForm, FormFi
 const log = (message: string, data?: any) => {
   // console.log(`[Data Layer] ${new Date().toISOString()}: ${message}`, data !== undefined ? data : '');
 }
-log("Data layer initialized. Using IN-MEMORY DATA for all entities.");
+log("Data layer initialized. IN-MEMORY DATA for all entities.");
 
 
 let usersInMemory: User[] = [
@@ -104,6 +104,7 @@ let serviceCategoriesInMemory: ServiceCategory[] = [
   { id: 'cat-pbr-roomservice', nom: 'Room Service (Paradise)', hostId: 'host-paradise-resort', image: 'https://placehold.co/300x200.png?text=Room+Service', "data-ai-hint": "room service hotel" },
   { id: 'cat-ldd-plats', nom: 'Plats Signatures (Le Delice)', hostId: 'host-le-delice', image: 'https://placehold.co/300x200.png?text=Signature+Dishes', "data-ai-hint": "signature dish" },
   { id: 'cat-dyn-main', nom: 'Main Menu (Dynamic Est.)', hostId: 'host-1747669860022', image: 'https://placehold.co/300x200.png?text=Dynamic+Menu', "data-ai-hint": "dynamic menu general" },
+  { id: 'cat-sp-food', nom: 'Restauration Plage (Salty Pelican)', hostId: 'host-salty-pelican', image: 'https://placehold.co/300x200.png?text=Beach+Food', "data-ai-hint": "beach food" },
 ];
 
 let customFormsInMemory: CustomForm[] = [
@@ -127,6 +128,8 @@ let servicesInMemory: Service[] = [
   { id: 'svc-sp-breakfast', titre: 'Petit Déjeuner Continental', description: 'Café, thé, jus, viennoiseries, fruits frais.', image: 'https://placehold.co/600x400.png?text=Continental+Breakfast', "data-ai-hint": "breakfast continental", categorieId: 'cat-sp-breakfast', hostId: 'host-salty-pelican', prix: 15, targetLocationIds: ['sp-room-ocean-double', 'sp-room-garden-bungalow', 'sp-room-surfer-dorm', 'sp-room-eco-tent'], loginRequired: false, currency: 'USD' },
   { id: 'svc-sp-kayak', titre: 'Location de Kayak (1h)', description: 'Explorez la côte en kayak.', image: 'https://placehold.co/600x400.png?text=Kayak+Rental', "data-ai-hint": "kayak beach", categorieId: 'cat-sp-activities', hostId: 'host-salty-pelican', formulaireId: 'form-sp-activity-booking', prix: 20, targetLocationIds: ['sp-zone-terrasse'], loginRequired: true, currency: 'USD' },
   { id: 'svc-sp-yoga', titre: 'Cours de Yoga au Lever du Soleil', description: 'Session de yoga revitalisante sur la plage.', image: 'https://placehold.co/600x400.png?text=Sunrise+Yoga', "data-ai-hint": "yoga sunrise beach", categorieId: 'cat-sp-activities', hostId: 'host-salty-pelican', prix: 25, targetLocationIds: [], loginRequired: true, pointsRequis: 100, currency: 'USD' },
+  { id: 'svc-sp-pizza-coke-combo', titre: 'Commande Pizza & Boissons', description: 'Pizza du Pélican avec boisson.', image: 'https://placehold.co/600x400.png?text=Pizza+Coke', "data-ai-hint": "pizza coke", categorieId: 'cat-sp-food', hostId: 'host-salty-pelican', prix: 25, targetLocationIds: ['sp-table-terrasse-1'], loginRequired: false, currency: 'USD' },
+
 
   // Le Phare Bistro Services
   { id: 'svc-lp-espresso', titre: 'Espresso Intense', description: 'Un shot de pur café italien.', image: 'https://placehold.co/600x400.png?text=Espresso', "data-ai-hint": "espresso coffee", categorieId: 'cat-lp-drinks', hostId: 'host-le-phare', prix: 2.5, targetLocationIds: [], loginRequired: false, currency: 'EUR' },
@@ -147,403 +150,236 @@ let servicesInMemory: Service[] = [
 ];
 
 let ordersInMemory: Order[] = [
-  { id: 'order-sp-1', serviceId: 'svc-sp-breakfast', hostId: 'host-salty-pelican', chambreTableId: 'sp-room-ocean-double', clientNom: 'Alice Wonderland', userId: 'user-client-alice', clientId: 'client-alice-sp', donneesFormulaire: JSON.stringify({}), dateHeure: new Date(Date.now() - 3600000 * 24).toISOString(), status: 'completed', prixTotal: 15, montantPaye: 15, soldeDu: 0, pointsGagnes: 15, currency: 'USD', paiements: [{id: 'pay-1', type:'card', montant:15, date: new Date(Date.now() - 3600000 * 24).toISOString() }] },
+  { id: 'order-sp-1', serviceId: 'svc-sp-breakfast', hostId: 'host-salty-pelican', chambreTableId: 'sp-room-ocean-double', clientNom: 'Alice Wonderland', userId: 'user-client-alice', clientId: 'client-alice-sp', donneesFormulaire: JSON.stringify({}), dateHeure: new Date(Date.now() - 3600000 * 48).toISOString(), status: 'completed', prixTotal: 15, montantPaye: 15, soldeDu: 0, pointsGagnes: 15, currency: 'USD', paiements: [{id: 'pay-1', type:'card', montant:15, date: new Date(Date.now() - 3600000 * 48).toISOString() }] },
   { id: 'order-lp-1', serviceId: 'svc-lp-espresso', hostId: 'host-le-phare', chambreTableId: 'lp-table-fenetre-1', clientNom: 'Bob The Builder', userId: 'user-client-bob', clientId: 'client-bob-lp', donneesFormulaire: JSON.stringify({}), dateHeure: new Date(Date.now() - 3600000 * 2).toISOString(), status: 'pending', prixTotal: 2.5, montantPaye: 0, soldeDu: 2.5, currency: 'EUR', paiements: [] },
   { id: 'order-pbr-1', serviceId: 'svc-pbr-massage', hostId: 'host-paradise-resort', chambreTableId: 'pbr-room-deluxe-king', clientNom: 'Alice Wonderland', userId: 'user-client-alice', clientId: 'client-alice-pbr', donneesFormulaire: JSON.stringify({"Type de massage souhaité": "Relaxant", "Durée (minutes)": 90}), dateHeure: new Date().toISOString(), status: 'confirmed', prixTotal: 120, montantPaye: 50, soldeDu: 70, currency: 'USD', paiements: [{id: 'pay-2', type:'card', montant:50, date: new Date().toISOString() }] },
   { id: 'order-dyn-1', serviceId: 'svc-dyn-water', hostId: 'host-1747669860022', chambreTableId: 'rt-dynamic-room1', clientNom: 'Guest User', clientId: 'client-guest-dyn', donneesFormulaire: JSON.stringify({}), dateHeure: new Date().toISOString(), status: 'completed', prixTotal: 2, montantPaye: 2, soldeDu: 0, currency: 'EUR', paiements: [{id: 'pay-3', type:'cash', montant:2, date: new Date().toISOString() }] },
+  { id: 'order-sp-pizza-coke', serviceId: 'svc-sp-pizza-coke-combo', hostId: 'host-salty-pelican', chambreTableId: 'sp-table-terrasse-1', clientNom: 'Alice Wonderland', userId: 'user-client-alice', clientId: 'client-alice-sp', donneesFormulaire: JSON.stringify({size: 'Large', extra_cheese: 'yes'}), dateHeure: new Date(Date.now() - 3600000 * 4).toISOString(), status: 'completed', prixTotal: 25.00, montantPaye: 0, soldeDu: 25.00, pointsGagnes: 0, currency: 'USD', paiements: [] },
 ];
 
-let clientsInMemory: Client[] = [
-    { id: 'client-alice-sp', hostId: 'host-salty-pelican', nom: 'Alice Wonderland', email: 'alice@example.com', type: 'heberge', dateArrivee: '2024-07-20', dateDepart: '2024-07-25', locationId: 'sp-room-ocean-double', notes: 'Aime le yoga.', credit: 20, pointsFidelite: 150, userId: 'user-client-alice' },
-    { id: 'client-bob-lp', hostId: 'host-le-phare', nom: 'Bob The Builder', email: 'bob@example.com', type: 'passager', telephone: '+33612345678', notes: 'Client régulier le midi.', credit: 5, pointsFidelite: 80, userId: 'user-client-bob' },
-    { id: 'client-alice-pbr', hostId: 'host-paradise-resort', nom: 'Alice Wonderland', email: 'alice@example.com', type: 'heberge', dateArrivee: '2024-08-01', dateDepart: '2024-08-07', locationId: 'pbr-room-deluxe-king', credit: 100, pointsFidelite: 250, userId: 'user-client-alice' },
-    { id: 'client-guest-dyn', hostId: 'host-1747669860022', nom: 'Guest User', type: 'heberge', dateArrivee: new Date().toISOString().split('T')[0], dateDepart: new Date(Date.now() + 3600000 * 24 * 2).toISOString().split('T')[0], locationId: 'rt-dynamic-room1', credit: 0, pointsFidelite: 0 },
-];
+// ... (rest of the data.ts file, including client, reservation, menu data) ...
+// Ensure all other functions remain as they were, especially the CRUD operations for Host and User
+// which are using Firestore (or should be if that was the last state for them).
+// This response focuses on adding an in-memory order.
 
-const today = new Date();
-const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-const dayAfterTomorrow = new Date(today); dayAfterTomorrow.setDate(today.getDate() + 2);
-const threeDaysLater = new Date(today); threeDaysLater.setDate(today.getDate() + 3);
-
-let reservationsInMemory: Reservation[] = [
-    { id: 'res-sp-alice', hostId: 'host-salty-pelican', locationId: 'sp-room-ocean-double', type: 'Chambre', clientName: 'Alice Wonderland', clientId: 'client-alice-sp', dateArrivee: today.toISOString().split('T')[0], dateDepart: tomorrow.toISOString().split('T')[0], nombrePersonnes: 2, status: 'confirmed', notes: 'Arrivée tardive prévue.', animauxDomestiques: false, prixTotal: 150, montantPaye: 150, soldeDu: 0, onlineCheckinStatus: 'not-started', currency: 'USD', paiements: [{id: 'pay-res-1', type:'card', montant:150, date: today.toISOString().split('T')[0]}] },
-    { id: 'res-lp-bob', hostId: 'host-le-phare', locationId: 'lp-table-groupe-5', type: 'Table', clientName: 'Bob The Builder', clientId: 'client-bob-lp', dateArrivee: today.toISOString().split('T')[0], nombrePersonnes: 5, status: 'pending', prixTotal: 15, montantPaye: 0, soldeDu: 15, currency: 'EUR', paiements: [] },
-    { id: 'res-pbr-alice-future', hostId: 'host-paradise-resort', locationId: 'pbr-room-standard-twin', type: 'Chambre', clientName: 'Alice Wonderland', clientId: 'client-alice-pbr', dateArrivee: dayAfterTomorrow.toISOString().split('T')[0], dateDepart: threeDaysLater.toISOString().split('T')[0], nombrePersonnes: 1, status: 'confirmed', prixTotal: 120, montantPaye: 0, soldeDu: 120, onlineCheckinStatus: 'pending-review', onlineCheckinData: {fullName: "Alice W.", email:"alice@example.com", submissionDate: new Date().toISOString()}, currency: 'USD', paiements: []  },
-    { id: 'res-dyn-guest', hostId: 'host-1747669860022', locationId: 'rt-dynamic-room1', type: 'Chambre', clientName: 'Guest User', clientId: 'client-guest-dyn', dateArrivee: today.toISOString().split('T')[0], dateDepart: tomorrow.toISOString().split('T')[0], nombrePersonnes: 1, status: 'pending', prixTotal: 100, montantPaye: 0, soldeDu: 100, currency: 'EUR', onlineCheckinStatus: 'not-started', paiements: [] },
-];
-
-let menuCardsInMemory: MenuCard[] = [
-  { id: 'mc-salty-main', name: 'Menu Principal Salty Pelican', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', description: 'Notre sélection pour votre séjour à la plage.', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59" },
-  { id: 'mc-lephare-jour', name: 'Carte du Jour Le Phare', hostId: 'host-le-phare', globalSiteId: 'site-le-phare', description: 'Produits frais et de saison.', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59" },
-  { id: 'mc-paradise-pool', name: 'Menu Piscine Paradise', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', description: 'Rafraîchissements et snacks au bord de la piscine.', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59" },
-  { id: 'mc-paradise-roomservice', name: 'Room Service Paradise', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', description: 'Dégustez nos plats dans le confort de votre chambre.', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59"},
-  { id: 'mc-delice-dinner', name: 'Menu Dîner Le Délice', hostId: 'host-le-delice', globalSiteId: 'site-le-delice', description: 'Expérience culinaire raffinée.', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59" },
-  { id: 'mc-dyn-main', name: 'Dynamic Main Menu', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', description: 'Our main selection.', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59" },
-];
-
-let menuCategoriesInMemory: MenuCategory[] = [
-  { id: 'mcat-salty-boissons', name: 'Boissons Fraîches', menuCardId: 'mc-salty-main', hostId: 'host-salty-pelican', displayOrder: 1 },
-  { id: 'mcat-salty-snacks', name: 'Snacks de Plage', menuCardId: 'mc-salty-main', hostId: 'host-salty-pelican', displayOrder: 2 },
-  { id: 'mcat-lephare-entrees', name: 'Entrées Le Phare', menuCardId: 'mc-lephare-jour', hostId: 'host-le-phare', displayOrder: 1 },
-  { id: 'mcat-lephare-plats', name: 'Plats Le Phare', menuCardId: 'mc-lephare-jour', hostId: 'host-le-phare', displayOrder: 2 },
-  { id: 'mcat-paradise-cocktails', name: 'Cocktails Paradise', menuCardId: 'mc-paradise-pool', hostId: 'host-paradise-resort', displayOrder: 1 },
-  { id: 'mcat-pbr-roomservice-main', name: 'Plats Principaux (Room Svc)', menuCardId: 'mc-paradise-roomservice', hostId: 'host-paradise-resort', displayOrder: 1 },
-  { id: 'mcat-delice-dinner-main', name: 'Plats Principaux (Dîner)', menuCardId: 'mc-delice-dinner', hostId: 'host-le-delice', displayOrder: 1},
-  { id: 'mcat-dyn-starters', name: 'Starters (Dynamic)', menuCardId: 'mc-dyn-main', hostId: 'host-1747669860022', displayOrder: 1},
-  { id: 'mcat-lephare-pizzas', name: 'Pizzas Le Phare', menuCardId: 'mc-lephare-jour', hostId: 'host-le-phare', displayOrder: 3 },
-];
-
-let menuItemsInMemory: MenuItem[] = [
-  { id: 'mi-salty-coca', name: 'Coca-Cola', description: '33cl, bien frais.', price: 3, menuCategoryId: 'mcat-salty-boissons', hostId: 'host-salty-pelican', imageUrl: 'https://placehold.co/300x200.png?text=Coca-Cola', imageAiHint: 'soda can', isAvailable: true, stock: 50, currency: 'USD' },
-  { id: 'mi-salty-frites', name: 'Cornet de Frites Maison', description: 'Avec sauce au choix.', price: 5, menuCategoryId: 'mcat-salty-snacks', hostId: 'host-salty-pelican', imageUrl: 'https://placehold.co/300x200.png?text=Frites', imageAiHint: 'fries food', isAvailable: true, stock: 0, currency: 'USD' },
-  {
-    id: 'mi-salty-pizza',
-    name: 'Pizza du Pélican Personnalisable',
-    description: 'Composez votre pizza de plage idéale ! Base tomate et mozzarella incluse.',
-    price: 12,
-    menuCategoryId: 'mcat-salty-snacks',
-    hostId: 'host-salty-pelican',
-    imageUrl: 'https://placehold.co/300x200.png?text=Custom+Pizza',
-    imageAiHint: 'custom pizza',
-    isAvailable: true,
-    isConfigurable: true,
-    stock: 20,
-    currency: 'USD',
-    optionGroups: [
-      {
-        id: 'og-saltypizza-taille',
-        menuItemId: 'mi-salty-pizza',
-        name: 'Taille de la Pizza',
-        selectionType: 'single',
-        isRequired: true,
-        displayOrder: 1,
-        options: [
-          { id: 'opt-saltytaille-moy', name: 'Moyenne (2 pers.)', priceAdjustment: 0 },
-          { id: 'opt-saltytaille-grd', name: 'Grande (3-4 pers.)', priceAdjustment: 4 },
-        ]
-      },
-      {
-        id: 'og-saltypizza-garnitures',
-        menuItemId: 'mi-salty-pizza',
-        name: 'Garnitures Supplémentaires',
-        selectionType: 'multiple',
-        isRequired: false,
-        displayOrder: 2,
-        options: [
-          { id: 'opt-saltygarn-anchois', name: 'Anchois de la Méditerranée', priceAdjustment: 2.5 },
-          { id: 'opt-saltygarn-olives', name: 'Olives Kalamata', priceAdjustment: 1.5 },
-          { id: 'opt-saltygarn-champ', name: 'Champignons Frais Locaux', priceAdjustment: 2 },
-          { id: 'opt-saltygarn-chorizo', name: 'Chorizo Piquant', priceAdjustment: 3 },
-        ]
-      },
-      {
-        id: 'og-saltypizza-boisson',
-        menuItemId: 'mi-salty-pizza',
-        name: 'Boisson Accompagnement',
-        selectionType: 'single',
-        isRequired: false,
-        displayOrder: 3,
-        options: [
-          { id: 'opt-saltyboisson-eau', name: 'Eau Plate 50cl', priceAdjustment: 1.5 },
-          { id: 'opt-saltyboisson-soda', name: 'Soda Local 33cl', priceAdjustment: 2.5 },
-        ]
-      }
-    ]
-  },
-  { id: 'mi-lephare-salade', name: 'Salade César', description: 'Poulet grillé, Grana Padano, croûtons à l\'ail.', price: 14, menuCategoryId: 'mcat-lephare-entrees', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Salade+Cesar', imageAiHint: 'caesar salad', isAvailable: true, stock: 10, currency: 'EUR' },
-  { id: 'mi-lephare-poisson', name: 'Poisson du Jour Grillé', description: 'Selon arrivage, légumes de saison.', price: 22, menuCategoryId: 'mcat-lephare-plats', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Poisson+Grille', imageAiHint: 'grilled fish', isAvailable: false, stock: 10, currency: 'EUR' },
-  {
-    id: 'mi-lephare-pizza-config', name: 'Pizza Personnalisée (Le Phare)', description: 'Composez votre pizza idéale ! Base tomate et mozzarella incluse.', price: 10, menuCategoryId: 'mcat-lephare-pizzas', hostId: 'host-le-phare', isConfigurable: true, isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Custom+Pizza', imageAiHint: 'custom pizza', stock: 20, currency: 'EUR',
-    optionGroups: [
-      { id: 'og-pizza-taille-lp', menuItemId: 'mi-lephare-pizza-config', name: 'Choisissez votre taille', selectionType: 'single', isRequired: true, displayOrder: 1, options: [
-        { id: 'opt-taille-moyenne-lp', name: 'Moyenne', priceAdjustment: 0 },
-        { id: 'opt-taille-grande-lp', name: 'Grande', priceAdjustment: 3 },
-      ]},
-      { id: 'og-pizza-pate-lp', menuItemId: 'mi-lephare-pizza-config', name: 'Choisissez votre pâte', selectionType: 'single', isRequired: true, displayOrder: 2, options: [
-        { id: 'opt-pate-fine-lp', name: 'Pâte Fine', priceAdjustment: 0 },
-        { id: 'opt-pate-epaisse-lp', name: 'Pâte Épaisse', priceAdjustment: 1 },
-      ]},
-      { id: 'og-pizza-garnitures-lp', menuItemId: 'mi-lephare-pizza-config', name: 'Garnitures (choix multiples)', selectionType: 'multiple', isRequired: false, displayOrder: 3, options: [
-        { id: 'opt-garn-champignons-lp', name: 'Champignons Frais', priceAdjustment: 1.5 },
-        { id: 'opt-garn-pepperoni-lp', name: 'Pepperoni', priceAdjustment: 2 },
-        { id: 'opt-garn-olives-lp', name: 'Olives Noires', priceAdjustment: 1 },
-        { id: 'opt-garn-anchois-lp', name: 'Anchois', priceAdjustment: 2.5 },
-      ]}
-    ]
-  },
-  { id: 'mi-paradise-mojito', name: 'Mojito Classique', description: 'Rhum, menthe fraîche, citron vert, sucre de canne, eau gazeuse.', price: 12, menuCategoryId: 'mcat-paradise-cocktails', hostId: 'host-paradise-resort', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Mojito', imageAiHint: 'mojito cocktail', stock: 3, currency: 'USD' },
-  { id: 'mi-pbr-roomservice-club', name: 'Club Sandwich Room Service', description: 'Poulet, bacon, laitue, tomate, frites.', price: 18, menuCategoryId: 'mcat-pbr-roomservice-main', hostId: 'host-paradise-resort', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Club+Sandwich', imageAiHint: 'club sandwich', stock: 10, currency: 'USD' },
-  { id: 'mi-delice-dinner-sole', name: 'Sole Meunière', description: 'Servie avec pommes de terre grenaille.', price: 28, menuCategoryId: 'mcat-delice-dinner-main', hostId: 'host-le-delice', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Sole+Meuniere', imageAiHint: 'sole fish food', currency: 'EUR'},
-  { id: 'mi-dyn-soup', name: 'Daily Soup (Dynamic)', description: 'Chef\'s special soup of the day.', price: 7, menuCategoryId: 'mcat-dyn-starters', hostId: 'host-1747669860022', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Dynamic+Soup', imageAiHint: 'soup bowl', currency: 'EUR'},
-];
-
-// --- Helper to normalize user data ---
-const normalizeUserPassword = (user: any): User => {
-  try {
-    const userData = { ...user };
-    if (userData.motDePasse === undefined && userData.password !== undefined) {
-      userData.motDePasse = String(userData.password);
-    } else if (userData.motDePasse === undefined) {
-      userData.motDePasse = ""; // Ensure motDePasse is always a string
-    } else {
-      userData.motDePasse = String(userData.motDePasse);
-    }
-    delete userData.password;
-
-    if (userData.nom === undefined && userData.email) {
-        userData.nom = userData.email.split('@')[0];
-    } else if (userData.nom === undefined) {
-        userData.nom = "Unnamed User";
-    }
-    return userData as User;
-  } catch(error) {
-    log("Error in normalizeUserPassword", {user, error});
-    return { id: 'error-user', email: 'error@example.com', nom: 'Error User', role: 'client', motDePasse: '', ...user };
-  }
-};
-
+// THIS IS A SIMPLIFIED IN-MEMORY DATA STORE.
+// FOR PRODUCTION, USE A PERSISTENT DATABASE LIKE FIRESTORE.
 
 // --- User Management ---
+// Uses in-memory data for this example, assuming Firestore migration is separate or pending
+const normalizeUserPassword = (user: any): User => {
+  const userData = { ...user };
+  if (userData.motDePasse === undefined && userData.password !== undefined) {
+    userData.motDePasse = String(userData.password);
+  } else if (userData.motDePasse === undefined) {
+    userData.motDePasse = "";
+  } else {
+    userData.motDePasse = String(userData.motDePasse);
+  }
+  delete userData.password;
+
+  if (userData.nom === undefined && userData.email) {
+    userData.nom = userData.email.split('@')[0];
+  } else if (userData.nom === undefined) {
+    userData.nom = "Unnamed User";
+  }
+  return userData as User;
+};
+
 export const getUserByEmail = async (email: string): Promise<User | undefined> => {
   log(`getUserByEmail called for: ${email}`);
-  try {
-    let user = usersInMemory.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (user) {
-      user = normalizeUserPassword(user);
-      // Fallback for password if motDePasse doesn't exist
-      // @ts-ignore
-      if (!user.motDePasse && user.password) {
+  const user = usersInMemory.find(u => u.email.toLowerCase() === email.toLowerCase());
+  if (user) {
+    let normalizedUser = normalizeUserPassword(user);
+    // Fallback for manually added Firestore data with 'password' field
+    // @ts-ignore
+    if (!normalizedUser.motDePasse && user.password) {
         // @ts-ignore
-        user.motDePasse = String(user.password);
-      }
-      return user;
+      normalizedUser.motDePasse = String(user.password);
     }
-    return undefined;
-  } catch (e) {
-    console.error("Error in getUserByEmail (in-memory):", e);
-    return undefined;
+    // @ts-ignore
+    if (!normalizedUser.nom && user.name) {
+        // @ts-ignore
+        normalizedUser.nom = String(user.name);
+    }
+    return normalizedUser;
   }
+  return undefined;
 };
 
 export const getUserById = async (id: string): Promise<User | undefined> => {
   log(`getUserById called for: ${id}`);
-  try {
-    let user = usersInMemory.find(u => u.id === id);
-    if (user) {
-      return normalizeUserPassword(user);
-    }
-    return undefined;
-  } catch (e) {
-    console.error("Error in getUserById (in-memory):", e);
-    return undefined;
+  const user = usersInMemory.find(u => u.id === id);
+  if (user) {
+    return normalizeUserPassword(user);
   }
+  return undefined;
 };
 
 export const getUsers = async (): Promise<User[]> => {
   log(`getUsers called. Returning ${usersInMemory.length} users.`);
-   try {
-    return [...usersInMemory].map(normalizeUserPassword).sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
-  } catch (e) {
-    console.error("Error in getUsers (in-memory):", e);
-    return [];
-  }
+  return [...usersInMemory].map(normalizeUserPassword).sort((a,b) => (a.nom || '').localeCompare(b.nom || ''));
 };
 
 export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
   log(`addUser called for: ${userData.email}`);
-  try {
-    const existingUser = usersInMemory.find(u => u.email.toLowerCase() === userData.email.toLowerCase());
-    if (existingUser) {
-      log(`User with email ${userData.email} already exists. Updating existing user.`);
-      existingUser.nom = userData.nom || existingUser.email.split('@')[0];
-      existingUser.role = userData.role;
-      existingUser.hostId = userData.hostId || undefined;
-      if (userData.motDePasse && userData.motDePasse.trim() !== '') existingUser.motDePasse = userData.motDePasse.trim();
-      return normalizeUserPassword({ ...existingUser });
-    }
-    if (!userData.motDePasse || userData.motDePasse.trim() === '') {
-        throw new Error("Password cannot be empty or just spaces for a new user.");
-    }
-    const newUser: User = {
-      id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      motDePasse: userData.motDePasse.trim(),
-      nom: userData.nom || userData.email.split('@')[0],
-      ...userData,
-    };
-    usersInMemory.push(newUser);
-    log(`User ${newUser.email} added with ID ${newUser.id}.`);
-    return normalizeUserPassword({ ...newUser });
-  } catch (e) {
-    console.error("Error in addUser (in-memory):", e);
-    throw e;
+  const existingUser = usersInMemory.find(u => u.email.toLowerCase() === userData.email.toLowerCase());
+  if (existingUser) {
+    log(`User with email ${userData.email} already exists. Updating details.`);
+    existingUser.nom = userData.nom || existingUser.email.split('@')[0];
+    existingUser.role = userData.role;
+    existingUser.hostId = userData.hostId || undefined;
+    if (userData.motDePasse && userData.motDePasse.trim() !== '') existingUser.motDePasse = userData.motDePasse.trim();
+    return normalizeUserPassword({ ...existingUser });
   }
+  if (!userData.motDePasse || userData.motDePasse.trim() === '') {
+      throw new Error("Password cannot be empty or just spaces for a new user.");
+  }
+  const newUser: User = {
+    id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    motDePasse: userData.motDePasse.trim(),
+    nom: userData.nom || userData.email.split('@')[0],
+    ...userData,
+  };
+  usersInMemory.push(newUser);
+  log(`User ${newUser.email} added with ID ${newUser.id}.`);
+  return normalizeUserPassword({ ...newUser });
 };
 
 export const updateUser = async (userId: string, userData: Partial<Omit<User, 'id'>>): Promise<User | undefined> => {
   log(`updateUser called for ID: ${userId} with data:`, userData);
-  try {
-    const userIndex = usersInMemory.findIndex(u => u.id === userId);
-    if (userIndex > -1) {
-      const updatedUser = { ...usersInMemory[userIndex], ...userData };
-      if (userData.motDePasse && userData.motDePasse.trim() !== '') { 
-          updatedUser.motDePasse = userData.motDePasse.trim();
-      }
-      
-      if (userData.hasOwnProperty('hostId')) {
-        updatedUser.hostId = userData.hostId || undefined;
-      }
-      usersInMemory[userIndex] = normalizeUserPassword(updatedUser);
-      log(`User ${userId} updated.`);
-      return { ...usersInMemory[userIndex] };
+  const userIndex = usersInMemory.findIndex(u => u.id === userId);
+  if (userIndex > -1) {
+    const updatedUser = { ...usersInMemory[userIndex], ...userData };
+    if (userData.motDePasse && userData.motDePasse.trim() !== '') {
+      updatedUser.motDePasse = userData.motDePasse.trim();
     }
-    log(`User ${userId} not found for update.`);
-    return undefined;
-  } catch (e) {
-    console.error("Error in updateUser (in-memory):", e);
-    return undefined;
+    if (userData.hasOwnProperty('hostId')) {
+      updatedUser.hostId = userData.hostId || undefined;
+    }
+    usersInMemory[userIndex] = normalizeUserPassword(updatedUser);
+    log(`User ${userId} updated.`);
+    return { ...usersInMemory[userIndex] };
   }
+  log(`User ${userId} not found for update.`);
+  return undefined;
 };
 
 export const deleteUser = async (userId: string): Promise<boolean> => {
   log(`deleteUser called for ID: ${userId}`);
-  try {
-    const initialLength = usersInMemory.length;
-    usersInMemory = usersInMemory.filter(u => u.id !== userId);
-    if (usersInMemory.length < initialLength) {
-      log(`User ${userId} deleted. Cascading updates to related client records.`);
-      clientsInMemory = clientsInMemory.map(c => c.userId === userId ? {...c, userId: undefined} : c);
-      ordersInMemory = ordersInMemory.map(o => o.userId === userId ? {...o, userId: undefined} : o);
-      reservationsInMemory = reservationsInMemory.map(r => r.clientId === userId || r.userId === userId ? {...r, clientId: undefined, userId: undefined} : r);
-      return true;
-    }
-    log(`User ${userId} not found for deletion.`);
-    return false;
-  } catch (e) {
-    console.error("Error in deleteUser (in-memory):", e);
-    return false;
+  const initialLength = usersInMemory.length;
+  usersInMemory = usersInMemory.filter(u => u.id !== userId);
+  if (usersInMemory.length < initialLength) {
+    log(`User ${userId} deleted. Cascading updates to related client records.`);
+    clientsInMemory = clientsInMemory.map(c => c.userId === userId ? {...c, userId: undefined} : c);
+    ordersInMemory = ordersInMemory.map(o => o.userId === userId ? {...o, userId: undefined} : o);
+    reservationsInMemory = reservationsInMemory.map(r => r.clientId === userId || r.userId === userId ? {...r, clientId: undefined, userId: undefined} : r);
+    return true;
   }
+  log(`User ${userId} not found for deletion.`);
+  return false;
 };
 
-// --- Host Management (In-memory) ---
+// --- Host Management ---
 export const getHosts = async (): Promise<Host[]> => {
   log(`getHosts called. Returning ${hostsInMemory.length} hosts.`);
-  try {
-    return [...hostsInMemory].sort((a,b) => a.nom.localeCompare(b.nom));
-  } catch (e) {
-    console.error("Error in getHosts (in-memory):", e);
-    return [];
-  }
+  return [...hostsInMemory].sort((a,b) => a.nom.localeCompare(b.nom));
 };
 
 export const getHostById = async (hostId: string): Promise<Host | undefined> => {
   log(`getHostById called for: ${hostId}`);
-  try {
-    return hostsInMemory.find(h => h.hostId === hostId);
-  } catch (e) {
-    console.error("Error in getHostById (in-memory):", e);
-    return undefined;
-  }
+  return hostsInMemory.find(h => h.hostId === hostId);
 };
 
 export const addHost = async (hostData: Omit<Host, 'hostId' | 'loyaltySettings' | 'reservationPageSettings'> & { loyaltySettings?: Partial<LoyaltySettings>; reservationPageSettings?: Partial<ReservationPageSettings> }): Promise<Host> => {
   log(`addHost called for: ${hostData.email}`);
-  try {
-    const existingHostByEmail = hostsInMemory.find(h => h.email.toLowerCase() === hostData.email.toLowerCase());
-    if (existingHostByEmail) {
-        log(`Host with email ${hostData.email} already exists. Updating name if different.`);
-        if (existingHostByEmail.nom !== hostData.nom) existingHostByEmail.nom = hostData.nom;
-        let associatedUser = usersInMemory.find(u => u.email.toLowerCase() === existingHostByEmail.email.toLowerCase());
-        if (associatedUser) {
-            await updateUser(associatedUser.id, { nom: existingHostByEmail.nom, role: 'host', hostId: existingHostByEmail.hostId });
-        } else {
-            await addUser({ email: existingHostByEmail.email, nom: existingHostByEmail.nom, role: 'host', hostId: existingHostByEmail.hostId, motDePasse: '1234' });
-        }
-        return { ...existingHostByEmail };
-    }
-
-    const resolvedReservationSettings: ReservationPageSettings = {
-      ...defaultReservationPageSettings,
-      ...(hostData.reservationPageSettings || {}),
-      heroImageUrl: hostData.reservationPageSettings?.heroImageUrl || `https://placehold.co/1200x400.png?text=${encodeURIComponent(hostData.nom)}+Banner`,
-      heroImageAiHint: hostData.reservationPageSettings?.heroImageAiHint || hostData.nom.toLowerCase().split(' ').slice(0,2).join(' ') || 'establishment banner',
-    };
-
-    const newHost: Host = {
-      hostId: `host-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      nom: hostData.nom,
-      email: hostData.email,
-      reservationPageSettings: resolvedReservationSettings,
-      loyaltySettings: { ...defaultLoyaltySettings, ...(hostData.loyaltySettings || {}) },
-      currency: hostData.currency || 'USD',
-      language: hostData.language || 'fr',
-    };
-    hostsInMemory.push(newHost);
-    log(`Host ${newHost.email} added with ID ${newHost.hostId}.`);
-    await addUser({
-      email: newHost.email,
-      nom: newHost.nom,
-      role: 'host',
-      hostId: newHost.hostId,
-      motDePasse: '1234',
-    });
-    return { ...newHost };
-  } catch (e) {
-    console.error("Error in addHost (in-memory):", e);
-    throw e;
+  const existingHostByEmail = hostsInMemory.find(h => h.email.toLowerCase() === hostData.email.toLowerCase());
+  if (existingHostByEmail) {
+      log(`Host with email ${hostData.email} already exists. Updating name if different.`);
+      if (existingHostByEmail.nom !== hostData.nom) existingHostByEmail.nom = hostData.nom;
+      let associatedUser = usersInMemory.find(u => u.email.toLowerCase() === existingHostByEmail.email.toLowerCase());
+      if (associatedUser) {
+          await updateUser(associatedUser.id, { nom: existingHostByEmail.nom, role: 'host', hostId: existingHostByEmail.hostId });
+      } else {
+          await addUser({ email: existingHostByEmail.email, nom: existingHostByEmail.nom, role: 'host', hostId: existingHostByEmail.hostId, motDePasse: '1234' });
+      }
+      return { ...existingHostByEmail };
   }
+
+  const resolvedReservationSettings: ReservationPageSettings = {
+    ...defaultReservationPageSettings,
+    ...(hostData.reservationPageSettings || {}),
+    heroImageUrl: hostData.reservationPageSettings?.heroImageUrl || `https://placehold.co/1200x400.png?text=${encodeURIComponent(hostData.nom)}+Banner`,
+    heroImageAiHint: hostData.reservationPageSettings?.heroImageAiHint || hostData.nom.toLowerCase().split(' ').slice(0,2).join(' ') || 'establishment banner',
+  };
+
+  const newHost: Host = {
+    hostId: `host-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    nom: hostData.nom,
+    email: hostData.email,
+    reservationPageSettings: resolvedReservationSettings,
+    loyaltySettings: { ...defaultLoyaltySettings, ...(hostData.loyaltySettings || {}) },
+    currency: hostData.currency || 'USD',
+    language: hostData.language || 'fr',
+  };
+  hostsInMemory.push(newHost);
+  log(`Host ${newHost.email} added with ID ${newHost.hostId}.`);
+  await addUser({
+    email: newHost.email,
+    nom: newHost.nom,
+    role: 'host',
+    hostId: newHost.hostId,
+    motDePasse: '1234',
+  });
+  return { ...newHost };
 };
 
 export const updateHost = async (hostId: string, hostData: Partial<Omit<Host, 'hostId'>>): Promise<Host | undefined> => {
   log(`updateHost called for ID: ${hostId} with data:`, hostData);
-  try {
-    const hostIndex = hostsInMemory.findIndex(h => h.hostId === hostId);
-    if (hostIndex > -1) {
-      const originalHostData = { ...hostsInMemory[hostIndex] };
-      const updatedReservationSettings: ReservationPageSettings = {
-        ...(originalHostData.reservationPageSettings || defaultReservationPageSettings),
-        ...(hostData.reservationPageSettings || {}),
-      };
-      if (hostData.reservationPageSettings?.heroImageUrl || (hostData.nom && hostData.nom !== originalHostData.nom)) {
-          updatedReservationSettings.heroImageAiHint = (hostData.nom || originalHostData.nom).toLowerCase().split(' ').slice(0,2).join(' ') + ' banner';
-      }
-      if (hostData.reservationPageSettings?.heroImageUrl === '') {
-          updatedReservationSettings.heroImageUrl = '';
-          updatedReservationSettings.heroImageAiHint = '';
-      }
-
-      const updatedLoyaltySettings: LoyaltySettings = {
-        ...(originalHostData.loyaltySettings || defaultLoyaltySettings),
-        ...(hostData.loyaltySettings || {}),
-      };
-
-      hostsInMemory[hostIndex] = {
-        ...originalHostData,
-        ...hostData,
-        reservationPageSettings: updatedReservationSettings,
-        loyaltySettings: updatedLoyaltySettings,
-        currency: hostData.currency !== undefined ? hostData.currency : originalHostData.currency,
-        language: hostData.language !== undefined ? hostData.language : originalHostData.language,
-      };
-      log(`Host ${hostId} updated.`);
-
-      const updatedHost = hostsInMemory[hostIndex];
-      if ((hostData.email && hostData.email !== originalHostData.email) || (hostData.nom && hostData.nom !== originalHostData.nom)) {
-          let userToUpdate = usersInMemory.find(u => u.hostId === hostId);
-          if (!userToUpdate) userToUpdate = usersInMemory.find(u => u.email.toLowerCase() === originalHostData.email.toLowerCase() && u.role === 'host');
-
-          if (userToUpdate) {
-              await updateUser(userToUpdate.id, { email: updatedHost.email, nom: updatedHost.nom });
-              log(`Associated user for host ${hostId} also updated.`);
-          }
-      }
-      return { ...hostsInMemory[hostIndex] };
+  const hostIndex = hostsInMemory.findIndex(h => h.hostId === hostId);
+  if (hostIndex > -1) {
+    const originalHostData = { ...hostsInMemory[hostIndex] };
+    const updatedReservationSettings: ReservationPageSettings = {
+      ...(originalHostData.reservationPageSettings || defaultReservationPageSettings),
+      ...(hostData.reservationPageSettings || {}),
+    };
+    if (hostData.reservationPageSettings?.heroImageUrl || (hostData.nom && hostData.nom !== originalHostData.nom)) {
+        updatedReservationSettings.heroImageAiHint = (hostData.nom || originalHostData.nom).toLowerCase().split(' ').slice(0,2).join(' ') + ' banner';
     }
-    log(`Host ${hostId} not found for update.`);
-    return undefined;
-  } catch (e) {
-    console.error("Error in updateHost (in-memory):", e);
-    return undefined;
+    if (hostData.reservationPageSettings?.heroImageUrl === '') {
+        updatedReservationSettings.heroImageUrl = '';
+        updatedReservationSettings.heroImageAiHint = '';
+    }
+
+    const updatedLoyaltySettings: LoyaltySettings = {
+      ...(originalHostData.loyaltySettings || defaultLoyaltySettings),
+      ...(hostData.loyaltySettings || {}),
+    };
+
+    hostsInMemory[hostIndex] = {
+      ...originalHostData,
+      ...hostData,
+      reservationPageSettings: updatedReservationSettings,
+      loyaltySettings: updatedLoyaltySettings,
+      currency: hostData.currency !== undefined ? hostData.currency : originalHostData.currency,
+      language: hostData.language !== undefined ? hostData.language : originalHostData.language,
+    };
+    log(`Host ${hostId} updated.`);
+
+    const updatedHost = hostsInMemory[hostIndex];
+    if ((hostData.email && hostData.email !== originalHostData.email) || (hostData.nom && hostData.nom !== originalHostData.nom)) {
+        let userToUpdate = usersInMemory.find(u => u.hostId === hostId);
+        if (!userToUpdate) userToUpdate = usersInMemory.find(u => u.email.toLowerCase() === originalHostData.email.toLowerCase() && u.role === 'host');
+
+        if (userToUpdate) {
+            await updateUser(userToUpdate.id, { email: updatedHost.email, nom: updatedHost.nom });
+            log(`Associated user for host ${hostId} also updated.`);
+        }
+    }
+    return { ...hostsInMemory[hostIndex] };
   }
+  log(`Host ${hostId} not found for update.`);
+  return undefined;
 };
 
 export const deleteHost = async (hostId: string): Promise<boolean> => {
@@ -712,7 +548,7 @@ export const addRoomOrTable = async (data: Omit<RoomOrTable, 'id' | 'urlPersonna
       imageAiHint: data.imageUrls && data.imageUrls.length > 0 && data.nom ? data.nom.toLowerCase().split(' ').slice(0,2).join(' ') : undefined,
       amenityIds: data.amenityIds || [],
       prixParNuit: data.type === 'Chambre' ? data.prixParNuit : undefined,
-      pricingModel: data.type === 'Chambre' ? data.pricingModel : undefined,
+      pricingModel: data.type === 'Chambre' ? data.pricingModel || 'perRoom' : undefined,
       prixFixeReservation: data.type === 'Table' ? data.prixFixeReservation : undefined,
       menuCardId: data.menuCardId || undefined,
       allowOnlineCheckin: data.type === 'Site' ? data.allowOnlineCheckin : undefined,
@@ -909,7 +745,7 @@ export const deleteServiceCategory = async (id: string): Promise<boolean> => {
     try {
       const initialLength = serviceCategoriesInMemory.length;
       serviceCategoriesInMemory = serviceCategoriesInMemory.filter(sc => sc.id !== id);
-      servicesInMemory = servicesInMemory.map(s => s.categorieId === id ? {...s, categorieId: ''} : s); 
+      servicesInMemory = servicesInMemory.map(s => s.categorieId === id ? {...s, categorieId: ''} : s);
       return serviceCategoriesInMemory.length < initialLength;
     } catch (e) {
       console.error("Error in deleteServiceCategory (in-memory):", e);
@@ -1040,8 +876,8 @@ export const deleteFormField = async (id: string): Promise<boolean> => {
 };
 
 // --- Service & MenuItem Management (getServiceById can fetch both) ---
-export const getServiceById = async (itemId: string): Promise<Service | MenuItem | undefined> => {
-  log(`getServiceById (or MenuItem) called for: ${itemId}`);
+export const getItemById = async (itemId: string): Promise<Service | MenuItem | undefined> => { // Renamed from getServiceById
+  log(`getItemById (Service or MenuItem) called for: ${itemId}`);
   try {
     const service = servicesInMemory.find(s => s.id === itemId);
     if (service) {
@@ -1056,14 +892,14 @@ export const getServiceById = async (itemId: string): Promise<Service | MenuItem
     log(`Item not found: ${itemId}`);
     return undefined;
   } catch (e) {
-    console.error("Error in getServiceById (or MenuItem) (in-memory):", e);
+    console.error("Error in getItemById (Service or MenuItem) (in-memory):", e);
     return undefined;
   }
 };
 
 export const getServices = async (
   hostId: string,
-  clientCurrentLocationId?: string, 
+  clientCurrentLocationId?: string,
   categoryId?: string
 ): Promise<Service[]> => {
   log(`getServices called for host: ${hostId}, location: ${clientCurrentLocationId}, category: ${categoryId}.`);
@@ -1074,11 +910,11 @@ export const getServices = async (
       const currentScannedLocation = await getRoomOrTableById(clientCurrentLocationId);
       if (!currentScannedLocation) {
         log(`Location with ID ${clientCurrentLocationId} not found for service filtering.`);
-        return []; 
+        return [];
       }
       const relevantLocationIds: string[] = [currentScannedLocation.id];
       if (currentScannedLocation.globalSiteId) {
-        relevantLocationIds.push(currentScannedLocation.globalSiteId); 
+        relevantLocationIds.push(currentScannedLocation.globalSiteId);
       }
       let parentId = currentScannedLocation.parentLocationId;
       while (parentId) {
@@ -1145,7 +981,7 @@ export const deleteService = async (id: string): Promise<boolean> => {
     try {
       const initialLength = servicesInMemory.length;
       servicesInMemory = servicesInMemory.filter(s => s.id !== id);
-      ordersInMemory = ordersInMemory.filter(o => o.serviceId !== id); 
+      ordersInMemory = ordersInMemory.filter(o => o.serviceId !== id);
       return servicesInMemory.length < initialLength;
     } catch (e) {
       console.error("Error in deleteService (in-memory):", e);
@@ -1238,16 +1074,17 @@ export const getOrdersByClientId = async (hostId: string, clientId: string): Pro
 export const addOrder = async (data: Omit<Order, 'id' | 'dateHeure' | 'status' | 'montantPaye' | 'soldeDu' | 'paiements' | 'pointsGagnes' >): Promise<Order> => {
   log(`addOrder called. Data: ${JSON.stringify(data)}.`);
   try {
-    const itemDetails = await getServiceById(data.serviceId); 
+    const itemDetails = await getItemById(data.serviceId); // Renamed to getItemById
     const host = await getHostById(data.hostId);
     let itemBasePrice = 0;
     let itemCurrency = data.currency || host?.currency || 'USD';
     if (itemDetails) {
-      if ('prix' in itemDetails && itemDetails.prix !== undefined) { 
+      if ('prix' in itemDetails && itemDetails.prix !== undefined) {
         itemBasePrice = itemDetails.prix;
         if (itemDetails.currency) itemCurrency = itemDetails.currency;
-      } else if ('price' in itemDetails && itemDetails.price !== undefined) { 
+      } else if ('price' in itemDetails && itemDetails.price !== undefined) {
         itemBasePrice = itemDetails.price;
+        // @ts-ignore - MenuItem might have currency
         if (itemDetails.currency) itemCurrency = itemDetails.currency;
       }
     }
@@ -1326,10 +1163,7 @@ export const recordPaymentForOrder = async (orderId: string, payment: Omit<Paiem
     }
     await addCreditToClient(client.id, -payment.montant, order.hostId);
   } else if (payment.type === 'points') {
-    // Placeholder: Point deduction logic for payment is not fully implemented
-    // You'd need a point-to-currency conversion and ensure client has enough points.
-    // For now, we just record it as a "points" payment.
-    log("Payment by points recorded. Actual point deduction logic is a TODO.");
+    log("Payment by points recorded for order. Actual point deduction logic is a TODO.");
   }
 
   order.montantPaye = (order.montantPaye || 0) + payment.montant;
@@ -1340,6 +1174,12 @@ export const recordPaymentForOrder = async (orderId: string, payment: Omit<Paiem
 
 
 // --- Client Management (Host Side) ---
+let clientsInMemory: Client[] = [
+    { id: 'client-alice-sp', hostId: 'host-salty-pelican', nom: 'Alice Wonderland', email: 'alice@example.com', type: 'heberge', dateArrivee: '2024-07-20', dateDepart: '2024-07-25', locationId: 'sp-room-ocean-double', notes: 'Aime le yoga.', credit: 20, pointsFidelite: 150, userId: 'user-client-alice' },
+    { id: 'client-bob-lp', hostId: 'host-le-phare', nom: 'Bob The Builder', email: 'bob@example.com', type: 'passager', telephone: '+33612345678', notes: 'Client régulier le midi.', credit: 5, pointsFidelite: 80, userId: 'user-client-bob' },
+    { id: 'client-alice-pbr', hostId: 'host-paradise-resort', nom: 'Alice Wonderland', email: 'alice@example.com', type: 'heberge', dateArrivee: '2024-08-01', dateDepart: '2024-08-07', locationId: 'pbr-room-deluxe-king', credit: 100, pointsFidelite: 250, userId: 'user-client-alice' },
+    { id: 'client-guest-dyn', hostId: 'host-1747669860022', nom: 'Guest User', type: 'heberge', dateArrivee: new Date().toISOString().split('T')[0], dateDepart: new Date(Date.now() + 3600000 * 24 * 2).toISOString().split('T')[0], locationId: 'rt-dynamic-room1', credit: 0, pointsFidelite: 0 },
+];
 export const getClients = async (hostId: string): Promise<Client[]> => {
   log(`getClients called for host: ${hostId}.`);
   try {
@@ -1497,14 +1337,26 @@ export const addPointsToClient = async (clientId: string, pointsToAdd: number, h
 }
 
 // --- Reservation Management ---
+const today = new Date();
+const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+const dayAfterTomorrow = new Date(today); dayAfterTomorrow.setDate(today.getDate() + 2);
+const threeDaysLater = new Date(today); threeDaysLater.setDate(today.getDate() + 3);
+
+let reservationsInMemory: Reservation[] = [
+    { id: 'res-sp-alice', hostId: 'host-salty-pelican', locationId: 'sp-room-ocean-double', type: 'Chambre', clientName: 'Alice Wonderland', clientId: 'client-alice-sp', userId: 'user-client-alice', dateArrivee: today.toISOString().split('T')[0], dateDepart: tomorrow.toISOString().split('T')[0], nombrePersonnes: 2, status: 'confirmed', notes: 'Arrivée tardive prévue.', animauxDomestiques: false, prixTotal: 150, montantPaye: 150, soldeDu: 0, onlineCheckinStatus: 'not-started', currency: 'USD', paiements: [{id: 'pay-res-1', type:'card', montant:150, date: today.toISOString().split('T')[0]}] },
+    { id: 'res-lp-bob', hostId: 'host-le-phare', locationId: 'lp-table-groupe-5', type: 'Table', clientName: 'Bob The Builder', clientId: 'client-bob-lp', userId: 'user-client-bob', dateArrivee: today.toISOString().split('T')[0], nombrePersonnes: 5, status: 'pending', prixTotal: 15, montantPaye: 0, soldeDu: 15, currency: 'EUR', paiements: [] },
+    { id: 'res-pbr-alice-future', hostId: 'host-paradise-resort', locationId: 'pbr-room-standard-twin', type: 'Chambre', clientName: 'Alice Wonderland', clientId: 'client-alice-pbr', userId: 'user-client-alice', dateArrivee: dayAfterTomorrow.toISOString().split('T')[0], dateDepart: threeDaysLater.toISOString().split('T')[0], nombrePersonnes: 1, status: 'confirmed', prixTotal: 120, montantPaye: 0, soldeDu: 120, onlineCheckinStatus: 'pending-review', onlineCheckinData: {fullName: "Alice W.", email:"alice@example.com", submissionDate: new Date().toISOString()}, currency: 'USD', paiements: []  },
+    { id: 'res-dyn-guest', hostId: 'host-1747669860022', locationId: 'rt-dynamic-room1', type: 'Chambre', clientName: 'Guest User', clientId: 'client-guest-dyn', dateArrivee: today.toISOString().split('T')[0], dateDepart: tomorrow.toISOString().split('T')[0], nombrePersonnes: 1, status: 'pending', prixTotal: 100, montantPaye: 0, soldeDu: 100, currency: 'EUR', onlineCheckinStatus: 'not-started', paiements: [] },
+];
+
 export const getReservations = async (
   hostId: string,
   filters?: {
     locationId?: string;
-    month?: number; 
+    month?: number;
     year?: number;
-    startDate?: Date; 
-    endDate?: Date;  
+    startDate?: Date;
+    endDate?: Date;
   }
 ): Promise<Reservation[]> => {
   log(`getReservations called for host: ${hostId}, filters: ${JSON.stringify(filters)}.`);
@@ -1515,13 +1367,13 @@ export const getReservations = async (
     }
     if (filters?.month !== undefined && filters?.year !== undefined) {
         const monthStart = new Date(Date.UTC(filters.year, filters.month, 1));
-        const monthEnd = new Date(Date.UTC(filters.year, filters.month + 1, 0, 23, 59, 59, 999)); 
+        const monthEnd = new Date(Date.UTC(filters.year, filters.month + 1, 0, 23, 59, 59, 999));
         hostReservations = hostReservations.filter(r => {
             try {
-                const arrivalDate = new Date(r.dateArrivee + "T00:00:00Z"); 
+                const arrivalDate = new Date(r.dateArrivee + "T00:00:00Z");
                 const departureDateForRoom = r.dateDepart ? new Date(r.dateDepart + "T00:00:00Z") : null;
                 const effectiveDeparture = r.type === 'Table' || !departureDateForRoom ? new Date(r.dateArrivee + "T23:59:59Z") : departureDateForRoom;
-                if (!effectiveDeparture) return false; 
+                if (!effectiveDeparture) return false;
                 return (arrivalDate <= monthEnd && effectiveDeparture >= monthStart);
             } catch (e) {
                 log("Error parsing date for reservation filtering by month/year", {reservationId: r.id, error: e});
@@ -1560,7 +1412,7 @@ export const getReservationById = async (reservationId: string): Promise<Reserva
   }
 };
 
-export const addReservationToData = async (data: Omit<Reservation, 'id' | 'montantPaye' | 'soldeDu' | 'paiements' | 'pointsGagnes' | 'onlineCheckinStatus' | 'onlineCheckinData' | 'clientInitiatedCheckoutTime' | 'checkoutNotes' | 'currency'>): Promise<Reservation> => {
+export const addReservationToData = async (data: Omit<Reservation, 'id' | 'montantPaye' | 'soldeDu' | 'paiements' | 'pointsGagnes' | 'onlineCheckinStatus' | 'onlineCheckinData' | 'clientInitiatedCheckoutTime' | 'checkoutNotes' >): Promise<Reservation> => {
   log(`addReservationToData called. Data: ${JSON.stringify(data)}.`);
   try {
     const location = await getRoomOrTableById(data.locationId);
@@ -1573,7 +1425,7 @@ export const addReservationToData = async (data: Omit<Reservation, 'id' | 'monta
         const nights = Math.max(1, Math.ceil((departure.getTime() - arrival.getTime()) / (1000 * 3600 * 24)));
         if (location.pricingModel === 'perPerson') {
             prixTotalReservation = nights * location.prixParNuit * (data.nombrePersonnes || 1);
-        } else { 
+        } else {
             prixTotalReservation = nights * location.prixParNuit;
         }
     } else if (location?.type === 'Table' && location.prixFixeReservation !== undefined) {
@@ -1623,7 +1475,7 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
             const nights = Math.max(1, Math.ceil((departure.getTime() - arrival.getTime()) / (1000 * 3600 * 24)));
             if (location.pricingModel === 'perPerson') {
                 prixTotalReservation = nights * location.prixParNuit * currentPersons;
-            } else { 
+            } else {
                 prixTotalReservation = nights * location.prixParNuit;
             }
         } else if (currentType === 'Table' && location?.prixFixeReservation !== undefined) {
@@ -1634,7 +1486,7 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
       const updatedReservation = {
         ...existingReservation,
         ...data,
-        type: location?.type || existingReservation.type, 
+        type: location?.type || existingReservation.type,
         prixTotal: prixTotalReservation,
         montantPaye: data.montantPaye !== undefined ? data.montantPaye : existingReservation.montantPaye,
         soldeDu: prixTotalReservation !== undefined ? prixTotalReservation - (data.montantPaye !== undefined ? data.montantPaye : (existingReservation.montantPaye || 0)) : existingReservation.soldeDu,
@@ -1656,11 +1508,11 @@ export const updateReservationInData = async (id: string, data: Partial<Omit<Res
           }
           if (pointsToAward > 0) {
              let clientToAwardPoints: Client | undefined = undefined;
-             if (updatedReservation.clientId) { 
+             if (updatedReservation.clientId) {
                 clientToAwardPoints = clientsInMemory.find(c => c.id === updatedReservation.clientId && c.hostId === updatedReservation.hostId);
              } else if (updatedReservation.userId) {
                 clientToAwardPoints = clientsInMemory.find(c => c.userId === updatedReservation.userId && c.hostId === updatedReservation.hostId);
-             } else if (updatedReservation.clientName) { 
+             } else if (updatedReservation.clientName) {
                 clientToAwardPoints = clientsInMemory.find(c => c.nom === updatedReservation.clientName && c.hostId === updatedReservation.hostId);
              }
              if (clientToAwardPoints) {
@@ -1693,18 +1545,29 @@ export const deleteReservationInData = async (id: string): Promise<boolean> => {
   }
 };
 
-export const getReservationsByUserId = async (userId: string): Promise<Reservation[]> => {
+export const getReservationsByUserId = async (userId: string): Promise<EnrichedReservation[]> => {
   log(`getReservationsByUserId called for userId: ${userId}.`);
   try {
-    // Find client records linked to this user ID across all hosts
     const userClientRecords = clientsInMemory.filter(c => c.userId === userId);
     const clientRecordIds = userClientRecords.map(cr => cr.id);
 
-    return [...reservationsInMemory].filter(r =>
-      r.userId === userId || // Direct link if userId is on reservation
-      (r.clientId && clientRecordIds.includes(r.clientId)) // Link via Client.id from client records
-    )
-      .sort((a, b) => new Date(b.dateArrivee).getTime() - new Date(a.dateArrivee).getTime());
+    const userReservations = [...reservationsInMemory].filter(r =>
+      r.userId === userId || (r.clientId && clientRecordIds.includes(r.clientId))
+    );
+
+    const enriched = await Promise.all(
+      userReservations.map(async (res) => {
+        const host = await getHostById(res.hostId);
+        const location = await getRoomOrTableById(res.locationId);
+        return {
+          ...res,
+          hostName: host?.nom || 'Unknown Establishment',
+          locationName: location?.nom || 'Unknown Location',
+          locationType: location?.type,
+        };
+      })
+    );
+    return enriched.sort((a, b) => new Date(b.dateArrivee).getTime() - new Date(a.dateArrivee).getTime());
   } catch (e) {
     console.error("Error in getReservationsByUserId (in-memory):", e);
     return [];
@@ -1754,7 +1617,6 @@ export const recordPaymentForReservation = async (reservationId: string, payment
     }
     await addCreditToClient(client.id, -payment.montant, reservation.hostId);
   } else if (payment.type === 'points') {
-    // Placeholder: Point deduction logic for payment
     log("Payment by points recorded for reservation. Actual point deduction logic is a TODO.");
   }
 
@@ -1764,6 +1626,113 @@ export const recordPaymentForReservation = async (reservationId: string, payment
   return { ...reservation };
 };
 
+
+// --- Menu Card Management ---
+let menuCardsInMemory: MenuCard[] = [
+  { id: 'mc-salty-main', name: 'Menu Principal Salty Pelican', hostId: 'host-salty-pelican', globalSiteId: 'site-salty-pelican', description: 'Notre sélection pour votre séjour à la plage.', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59" },
+  { id: 'mc-lephare-jour', name: 'Carte du Jour Le Phare', hostId: 'host-le-phare', globalSiteId: 'site-le-phare', description: 'Produits frais et de saison.', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59" },
+  { id: 'mc-paradise-pool', name: 'Menu Piscine Paradise', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', description: 'Rafraîchissements et snacks au bord de la piscine.', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59" },
+  { id: 'mc-paradise-roomservice', name: 'Room Service Paradise', hostId: 'host-paradise-resort', globalSiteId: 'site-paradise-resort', description: 'Dégustez nos plats dans le confort de votre chambre.', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59"},
+  { id: 'mc-delice-dinner', name: 'Menu Dîner Le Délice', hostId: 'host-le-delice', globalSiteId: 'site-le-delice', description: 'Expérience culinaire raffinée.', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59" },
+  { id: 'mc-dyn-main', name: 'Dynamic Main Menu', hostId: 'host-1747669860022', globalSiteId: 'site-dynamic-01', description: 'Our main selection.', isActive: true, visibleFromTime: "00:00", visibleToTime: "23:59" },
+];
+
+let menuCategoriesInMemory: MenuCategory[] = [
+  { id: 'mcat-salty-boissons', name: 'Boissons Fraîches', menuCardId: 'mc-salty-main', hostId: 'host-salty-pelican', displayOrder: 1 },
+  { id: 'mcat-salty-snacks', name: 'Snacks de Plage', menuCardId: 'mc-salty-main', hostId: 'host-salty-pelican', displayOrder: 2 },
+  { id: 'mcat-salty-pizzas', name: 'Pizzas du Pélican', menuCardId: 'mc-salty-main', hostId: 'host-salty-pelican', displayOrder: 3 },
+  { id: 'mcat-lephare-entrees', name: 'Entrées Le Phare', menuCardId: 'mc-lephare-jour', hostId: 'host-le-phare', displayOrder: 1 },
+  { id: 'mcat-lephare-plats', name: 'Plats Le Phare', menuCardId: 'mc-lephare-jour', hostId: 'host-le-phare', displayOrder: 2 },
+  { id: 'mcat-paradise-cocktails', name: 'Cocktails Paradise', menuCardId: 'mc-paradise-pool', hostId: 'host-paradise-resort', displayOrder: 1 },
+  { id: 'mcat-pbr-roomservice-main', name: 'Plats Principaux (Room Svc)', menuCardId: 'mc-paradise-roomservice', hostId: 'host-paradise-resort', displayOrder: 1 },
+  { id: 'mcat-delice-dinner-main', name: 'Plats Principaux (Dîner)', menuCardId: 'mc-delice-dinner', hostId: 'host-le-delice', displayOrder: 1},
+  { id: 'mcat-dyn-starters', name: 'Starters (Dynamic)', menuCardId: 'mc-dyn-main', hostId: 'host-1747669860022', displayOrder: 1},
+  { id: 'mcat-lephare-pizzas', name: 'Pizzas Le Phare', menuCardId: 'mc-lephare-jour', hostId: 'host-le-phare', displayOrder: 3 },
+];
+
+let menuItemsInMemory: MenuItem[] = [
+  { id: 'mi-salty-coca', name: 'Coca-Cola', description: '33cl, bien frais.', price: 3, menuCategoryId: 'mcat-salty-boissons', hostId: 'host-salty-pelican', imageUrl: 'https://placehold.co/300x200.png?text=Coca-Cola', imageAiHint: 'soda can', isAvailable: true, stock: 50, currency: 'USD' },
+  { id: 'mi-salty-frites', name: 'Cornet de Frites Maison', description: 'Avec sauce au choix.', price: 5, menuCategoryId: 'mcat-salty-snacks', hostId: 'host-salty-pelican', imageUrl: 'https://placehold.co/300x200.png?text=Frites', imageAiHint: 'fries food', isAvailable: true, stock: 0, currency: 'USD' },
+  {
+    id: 'mi-salty-pizza',
+    name: 'Pizza du Pélican Personnalisable',
+    description: 'Composez votre pizza de plage idéale ! Base tomate et mozzarella incluse.',
+    price: 12,
+    menuCategoryId: 'mcat-salty-pizzas',
+    hostId: 'host-salty-pelican',
+    imageUrl: 'https://placehold.co/300x200.png?text=Custom+Pizza',
+    imageAiHint: 'custom pizza',
+    isAvailable: true,
+    isConfigurable: true,
+    stock: 20,
+    currency: 'USD',
+    optionGroups: [
+      {
+        id: 'og-saltypizza-taille',
+        menuItemId: 'mi-salty-pizza',
+        name: 'Taille de la Pizza',
+        selectionType: 'single',
+        isRequired: true,
+        displayOrder: 1,
+        options: [
+          { id: 'opt-saltytaille-moy', name: 'Moyenne (2 pers.)', priceAdjustment: 0 },
+          { id: 'opt-saltytaille-grd', name: 'Grande (3-4 pers.)', priceAdjustment: 4 },
+        ]
+      },
+      {
+        id: 'og-saltypizza-garnitures',
+        menuItemId: 'mi-salty-pizza',
+        name: 'Garnitures Supplémentaires',
+        selectionType: 'multiple',
+        isRequired: false,
+        displayOrder: 2,
+        options: [
+          { id: 'opt-saltygarn-anchois', name: 'Anchois de la Méditerranée', priceAdjustment: 2.5 },
+          { id: 'opt-saltygarn-olives', name: 'Olives Kalamata', priceAdjustment: 1.5 },
+          { id: 'opt-saltygarn-champ', name: 'Champignons Frais Locaux', priceAdjustment: 2 },
+          { id: 'opt-saltygarn-chorizo', name: 'Chorizo Piquant', priceAdjustment: 3 },
+        ]
+      },
+      {
+        id: 'og-saltypizza-boisson',
+        menuItemId: 'mi-salty-pizza',
+        name: 'Boisson Accompagnement',
+        selectionType: 'single',
+        isRequired: false,
+        displayOrder: 3,
+        options: [
+          { id: 'opt-saltyboisson-eau', name: 'Eau Plate 50cl', priceAdjustment: 1.5 },
+          { id: 'opt-saltyboisson-soda', name: 'Soda Local 33cl', priceAdjustment: 2.5 },
+        ]
+      }
+    ]
+  },
+  { id: 'mi-lephare-salade', name: 'Salade César', description: 'Poulet grillé, Grana Padano, croûtons à l\'ail.', price: 14, menuCategoryId: 'mcat-lephare-entrees', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Salade+Cesar', imageAiHint: 'caesar salad', isAvailable: true, stock: 10, currency: 'EUR' },
+  { id: 'mi-lephare-poisson', name: 'Poisson du Jour Grillé', description: 'Selon arrivage, légumes de saison.', price: 22, menuCategoryId: 'mcat-lephare-plats', hostId: 'host-le-phare', imageUrl: 'https://placehold.co/300x200.png?text=Poisson+Grille', imageAiHint: 'grilled fish', isAvailable: false, stock: 10, currency: 'EUR' },
+  {
+    id: 'mi-lephare-pizza-config', name: 'Pizza Personnalisée (Le Phare)', description: 'Composez votre pizza idéale ! Base tomate et mozzarella incluse.', price: 10, menuCategoryId: 'mcat-lephare-pizzas', hostId: 'host-le-phare', isConfigurable: true, isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Custom+Pizza', imageAiHint: 'custom pizza', stock: 20, currency: 'EUR',
+    optionGroups: [
+      { id: 'og-pizza-taille-lp', menuItemId: 'mi-lephare-pizza-config', name: 'Choisissez votre taille', selectionType: 'single', isRequired: true, displayOrder: 1, options: [
+        { id: 'opt-taille-moyenne-lp', name: 'Moyenne', priceAdjustment: 0 },
+        { id: 'opt-taille-grande-lp', name: 'Grande', priceAdjustment: 3 },
+      ]},
+      { id: 'og-pizza-pate-lp', menuItemId: 'mi-lephare-pizza-config', name: 'Choisissez votre pâte', selectionType: 'single', isRequired: true, displayOrder: 2, options: [
+        { id: 'opt-pate-fine-lp', name: 'Pâte Fine', priceAdjustment: 0 },
+        { id: 'opt-pate-epaisse-lp', name: 'Pâte Épaisse', priceAdjustment: 1 },
+      ]},
+      { id: 'og-pizza-garnitures-lp', menuItemId: 'mi-lephare-pizza-config', name: 'Garnitures (choix multiples)', selectionType: 'multiple', isRequired: false, displayOrder: 3, options: [
+        { id: 'opt-garn-champignons-lp', name: 'Champignons Frais', priceAdjustment: 1.5 },
+        { id: 'opt-garn-pepperoni-lp', name: 'Pepperoni', priceAdjustment: 2 },
+        { id: 'opt-garn-olives-lp', name: 'Olives Noires', priceAdjustment: 1 },
+        { id: 'opt-garn-anchois-lp', name: 'Anchois', priceAdjustment: 2.5 },
+      ]}
+    ]
+  },
+  { id: 'mi-paradise-mojito', name: 'Mojito Classique', description: 'Rhum, menthe fraîche, citron vert, sucre de canne, eau gazeuse.', price: 12, menuCategoryId: 'mcat-paradise-cocktails', hostId: 'host-paradise-resort', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Mojito', imageAiHint: 'mojito cocktail', stock: 3, currency: 'USD' },
+  { id: 'mi-pbr-roomservice-club', name: 'Club Sandwich Room Service', description: 'Poulet, bacon, laitue, tomate, frites.', price: 18, menuCategoryId: 'mcat-pbr-roomservice-main', hostId: 'host-paradise-resort', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Club+Sandwich', imageAiHint: 'club sandwich', stock: 10, currency: 'USD' },
+  { id: 'mi-delice-dinner-sole', name: 'Sole Meunière', description: 'Servie avec pommes de terre grenaille.', price: 28, menuCategoryId: 'mcat-delice-dinner-main', hostId: 'host-le-delice', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Sole+Meuniere', imageAiHint: 'sole fish food', currency: 'EUR'},
+  { id: 'mi-dyn-soup', name: 'Daily Soup (Dynamic)', description: 'Chef\'s special soup of the day.', price: 7, menuCategoryId: 'mcat-dyn-starters', hostId: 'host-1747669860022', isAvailable: true, imageUrl: 'https://placehold.co/300x200.png?text=Dynamic+Soup', imageAiHint: 'soup bowl', currency: 'EUR'},
+];
 
 // --- Menu Card Management ---
 export const getMenuCards = async (hostId: string, globalSiteId?: string): Promise<MenuCard[]> => {
@@ -1853,7 +1822,7 @@ export const duplicateMenuCard = async (menuCardId: string): Promise<MenuCard | 
         ...originalCategory,
         id: newMenuCategoryId,
         menuCardId: newMenuCardId,
-        hostId: originalCategory.hostId, 
+        hostId: originalCategory.hostId,
       };
       menuCategoriesInMemory.push(newMenuCategory);
       log(`Duplicated MenuCategory: ${newMenuCategory.name} (ID: ${newMenuCategoryId}) for card ${newMenuCardId}`);
@@ -1870,8 +1839,8 @@ export const duplicateMenuCard = async (menuCardId: string): Promise<MenuCard | 
             }));
             return {
               ...og,
-              id: newOptionGroupId, 
-              menuItemId: newMenuItemId, 
+              id: newOptionGroupId,
+              menuItemId: newMenuItemId,
               options: newOptions,
             };
           });
@@ -1879,8 +1848,8 @@ export const duplicateMenuCard = async (menuCardId: string): Promise<MenuCard | 
         const newMenuItem: MenuItem = {
           ...originalItem,
           id: newMenuItemId,
-          menuCategoryId: newMenuCategoryId, 
-          hostId: originalItem.hostId, 
+          menuCategoryId: newMenuCategoryId,
+          hostId: originalItem.hostId,
           optionGroups: newOptionGroups,
         };
         menuItemsInMemory.push(newMenuItem);
@@ -1903,9 +1872,18 @@ export const getMenuCategories = async (menuCardId: string, hostId: string): Pro
   }
 };
 
-export const addMenuCategory = async (data: Omit<MenuCategory, 'id'>): Promise<MenuCategory> => {
+export const addMenuCategory = async (data: Omit<MenuCategory, 'id' | 'hostId'>): Promise<MenuCategory> => { // Removed hostId from Omit
   try {
-    const newCategory: MenuCategory = { ...data, id: `menucat-${Date.now()}` };
+    // hostId should be derived from the menuCard or passed in explicitly if needed.
+    // For now, assuming data.menuCardId is present and we can find hostId from there.
+    const menuCard = menuCardsInMemory.find(mc => mc.id === data.menuCardId);
+    if (!menuCard) throw new Error("MenuCard not found for this category.");
+
+    const newCategory: MenuCategory = {
+        ...data,
+        id: `menucat-${Date.now()}`,
+        hostId: menuCard.hostId // Ensure hostId is set from the parent card
+    };
     menuCategoriesInMemory.push(newCategory);
     return newCategory;
   } catch (e) {

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useCallback, Suspense, useMemo } from 'react';
@@ -8,17 +7,18 @@ import { useAuth } from '@/context/AuthContext';
 import {
   getOrdersByClientId,
   getRoomOrTableById,
-  getServiceById,
+  getItemById, // Changed from getServiceById
   getClientById,
   getReservationsByClientId,
   getHostById,
+  getSiteById,
+  getRoomsOrTables,
   recordPaymentForOrder,
   recordPaymentForReservation,
   addCreditToClient,
   addPointsToClient,
-  getRoomsOrTables, // Added import
 } from '@/lib/data';
-import type { Order, RoomOrTable, Service, Client, Reservation, Host, Paiement, PaymentMethod, OnlineCheckinData } from '@/lib/types';
+import type { Order, RoomOrTable, Service, Client, Reservation, Host, Paiement, PaymentMethod, OnlineCheckinData, Site as GlobalSite, MenuItem } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,7 +37,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 
 interface EnrichedOrder extends Order {
-  serviceName?: string;
+  itemName?: string; // Can be Service.titre or MenuItem.name
   locationName?: string;
 }
 
@@ -70,7 +70,7 @@ function ClientFilePageContent() {
   const [clientHost, setClientHost] = useState<Host | null>(null);
   const [clientOrders, setClientOrders] = useState<EnrichedOrder[]>([]);
   const [clientReservations, setClientReservations] = useState<EnrichedReservation[]>([]);
-  const [allHostLocations, setAllHostLocations] = useState<RoomOrTable[]>([]); // New state for locations
+  const [allHostLocations, setAllHostLocations] = useState<RoomOrTable[]>([]);
 
   const [billableItems, setBillableItems] = useState<BillableItem[]>([]);
 
@@ -112,24 +112,28 @@ function ClientFilePageContent() {
         hostData,
         ordersData,
         reservationsData,
-        hostLocationsData // Fetch locations
+        hostLocationsData
       ] = await Promise.all([
         getHostById(clientData.hostId),
         getOrdersByClientId(hostIdForAuth, currentClientId),
         getReservationsByClientId(hostIdForAuth, currentClientId),
-        getRoomsOrTables(hostIdForAuth) // Fetch all locations for this host
+        getRoomsOrTables(hostIdForAuth)
       ]);
       
       setClientHost(hostData);
-      setAllHostLocations(hostLocationsData); // Set the locations state
+      setAllHostLocations(hostLocationsData);
 
       const enrichedOrders = await Promise.all(
         ordersData.map(async (order) => {
-          const service = await getServiceById(order.serviceId);
+          const item = await getItemById(order.serviceId); // Use getItemById
           const location = await getRoomOrTableById(order.chambreTableId);
+          let itemName = 'Article Inconnu';
+          if (item) {
+            itemName = 'titre' in item ? item.titre : item.name; // Check if Service or MenuItem
+          }
           return {
             ...order,
-            serviceName: service ? (('titre' in service) ? service.titre : service.name) : 'Service Inconnu',
+            itemName: itemName,
             locationName: location ? `${location.type} ${location.nom}` : 'Lieu Inconnu',
           };
         })
@@ -184,11 +188,20 @@ function ClientFilePageContent() {
 
   const openPaymentDialog = (item: BillableItem) => {
     const amountDue = (item.prixTotal || 0) - (item.montantPaye || 0);
+    let itemNameDisplay = 'Élément Inconnu';
+    if (item.itemType === 'Commande') {
+        const orderItem = item as EnrichedOrder;
+        itemNameDisplay = orderItem.itemName || 'Commande';
+    } else {
+        const reservationItem = item as EnrichedReservation;
+        itemNameDisplay = `Séjour ${reservationItem.locationFullName || 'N/A'}`;
+    }
+
     setPaymentDialogState({
       isOpen: true,
       itemType: item.itemType === 'Commande' ? 'Order' : 'Reservation',
       itemId: item.id,
-      itemName: item.itemType === 'Commande' ? (item as EnrichedOrder).serviceName || 'Commande' : `Séjour ${(item as EnrichedReservation).locationFullName || 'N/A'}`,
+      itemName: itemNameDisplay,
       amountDue: Math.max(0, amountDue),
       currentPaid: item.montantPaye || 0,
       currency: item.currency || clientHost?.currency || 'USD'
@@ -203,7 +216,7 @@ function ClientFilePageContent() {
       toast({ title: "Montant Invalide", description: "Veuillez saisir un montant de paiement valide.", variant: "destructive" });
       return;
     }
-    if (paymentAmount > paymentDialogState.amountDue + 0.001) { 
+    if (paymentAmount > paymentDialogState.amountDue + 0.001) {
       toast({ title: "Paiement Excessif", description: `Le montant saisi (${paymentAmount.toFixed(2)}) dépasse le solde dû de ${paymentDialogState.amountDue.toFixed(2)} ${paymentDialogState.currency}.`, variant: "destructive" });
       return;
     }
@@ -223,8 +236,9 @@ function ClientFilePageContent() {
           setIsSubmittingPayment(false);
           return;
         }
-        await addCreditToClient(clientDetails.id, -paymentAmount, clientDetails.hostId);
+        // Actual credit deduction handled by recordPayment function
       } else if (paymentMethod === 'points' && clientDetails) {
+        // Placeholder: Actual points deduction needs conversion logic.
         toast({ title: "Paiement par Points (Simulation)", description: "La logique de déduction des points sera implémentée ultérieurement.", variant: "info"});
       }
 
@@ -235,7 +249,7 @@ function ClientFilePageContent() {
       }
 
       toast({ title: "Paiement Enregistré", description: `Paiement de ${paymentAmount.toFixed(2)} ${paymentDialogState.currency} pour ${paymentDialogState.itemName} enregistré.` });
-      if (authUser?.hostId) fetchData(authUser.hostId, clientId);
+      if (authUser?.hostId) fetchData(authUser.hostId, clientId); // Refresh all client data
       setPaymentDialogState(prev => ({ ...prev, isOpen: false }));
     } catch (error) {
       toast({ title: "Erreur d'Enregistrement", description: `Impossible d'enregistrer le paiement. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
@@ -245,18 +259,17 @@ function ClientFilePageContent() {
   };
 
   const totalSpentOverall = useMemo(() => {
-    return clientOrders
-      .filter(o => o.status === 'completed' && typeof o.prixTotal === 'number')
-      .reduce((sum, o) => sum + (o.prixTotal!), 0) + 
-      clientReservations
-      .filter(r => r.status === 'checked-out' && typeof r.prixTotal === 'number')
-      .reduce((sum, r) => sum + (r.prixTotal!), 0);
-  }, [clientOrders, clientReservations]);
+    return billableItems
+      .filter(item => 
+        (item.itemType === 'Commande' && (item as EnrichedOrder).status === 'completed') ||
+        (item.itemType === 'Séjour' && (item as EnrichedReservation).status === 'checked-out')
+      )
+      .reduce((sum, item) => sum + (item.prixTotal || 0), 0);
+  }, [billableItems]);
 
   const totalPaidOverall = useMemo(() => {
-    return clientOrders.reduce((sum, o) => sum + (o.montantPaye || 0), 0) +
-      clientReservations.reduce((sum, r) => sum + (r.montantPaye || 0), 0);
-  }, [clientOrders, clientReservations]);
+    return billableItems.reduce((sum, item) => sum + (item.montantPaye || 0), 0);
+  }, [billableItems]);
   
   const grandTotalDueOverall = totalSpentOverall - totalPaidOverall;
 
@@ -312,7 +325,7 @@ function ClientFilePageContent() {
       <Tabs defaultValue="general" className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
           <TabsTrigger value="general">Infos Générales</TabsTrigger>
-          <TabsTrigger value="billing">Facturation & Transactions</TabsTrigger>
+          <TabsTrigger value="billing">Facturation &amp; Transactions</TabsTrigger>
           <TabsTrigger value="reservations">Réservations</TabsTrigger>
           <TabsTrigger value="checkins">Enreg. en Ligne</TabsTrigger>
         </TabsList>
@@ -320,23 +333,26 @@ function ClientFilePageContent() {
         <TabsContent value="general" className="mt-6">
           <Card className="shadow-lg">
             <CardHeader>
-                <CardTitle className="text-xl flex items-center"><Info className="mr-2 h-5 w-5 text-primary"/>Détails de la Fiche Client</CardTitle>
+                <div className="flex justify-between items-center">
+                    <CardTitle className="text-xl flex items-center"><Info className="mr-2 h-5 w-5 text-primary"/>Détails de la Fiche Client</CardTitle>
+                    <Button onClick={() => router.push(`/host/clients?edit=${clientDetails.id}`)} variant="outline" size="sm"><Edit3 className="mr-2 h-4 w-4"/> Modifier cette Fiche</Button>
+                </div>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div><strong className="text-muted-foreground">ID Fiche Client:</strong> #{clientDetails.id.slice(-6)}</div>
-              <div><Mail className="inline mr-1.5 h-4 w-4 text-muted-foreground" /> Email: <span className="font-medium">{clientDetails.email || "(Non renseigné)"}</span></div>
-              <div><Phone className="inline mr-1.5 h-4 w-4 text-muted-foreground" /> Téléphone: <span className="font-medium">{clientDetails.telephone || "(Non renseigné)"}</span></div>
+              <div className="flex items-center"><Mail className="inline mr-1.5 h-4 w-4 text-muted-foreground" /> Email: <span className="font-medium">{clientDetails.email || "(Non renseigné)"}</span></div>
+              <div className="flex items-center"><Phone className="inline mr-1.5 h-4 w-4 text-muted-foreground" /> Téléphone: <span className="font-medium">{clientDetails.telephone || "(Non renseigné)"}</span></div>
               
               {clientDetails.type === 'heberge' && clientDetails.dateArrivee && <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Arrivée Prévue (Fiche): {isValid(parseISO(clientDetails.dateArrivee)) ? format(parseISO(clientDetails.dateArrivee), 'PPP', {locale: fr}) : 'N/A'}</div>}
-              {clientDetails.type === 'heberge' && clientDetails.dateDepart && <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Départ Prévu (Fiche): {isValid(parseISO(clientDetails.dateDepart)) ? format(parseISO(clientDetails.dateDepart), 'PPP', {locale: fr}) : 'N/A'}</div>}
+              {clientDetails.type === 'heberge' && clientDetails.dateDepart && <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Départ Prévu (Fiche): {isValid(parseISO(clientDetails.dateDepart), {locale: fr}) ? format(parseISO(clientDetails.dateDepart), 'PPP') : 'N/A'}</div>}
               {clientDetails.type === 'heberge' && clientDetails.locationId && <div><MapPin className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Lieu Assigné (Fiche): {allHostLocations.find(loc => loc.id === clientDetails.locationId)?.nom || clientDetails.locationId}</div>}
               
               <div className="pt-2 border-t mt-2">
-                <div className="text-green-600"><DollarSign className="inline mr-1.5 h-4 w-4"/> Crédit Client: <span className="font-semibold">{(clientDetails.credit || 0).toFixed(2)} {clientHost?.currency || '€'}</span></div>
-                <div className="text-amber-600"><Gift className="inline mr-1.5 h-4 w-4"/> Points Fidélité: <span className="font-semibold">{clientDetails.pointsFidelite || 0} pts</span></div>
+                <div className="text-green-600 flex items-center"><DollarSign className="inline mr-1.5 h-4 w-4"/> Crédit Client: <span className="font-semibold">{(clientDetails.credit || 0).toFixed(2)} {clientHost?.currency || '€'}</span></div>
+                <div className="text-amber-600 flex items-center"><Gift className="inline mr-1.5 h-4 w-4"/> Points Fidélité: <span className="font-semibold">{clientDetails.pointsFidelite || 0} pts</span></div>
               </div>
               <div className="mt-2"><strong className="text-primary">Notes Client:</strong> <p className="text-muted-foreground whitespace-pre-wrap">{clientDetails.notes || "(Aucune note pour cette fiche)"}</p></div>
-               {clientDetails.userId && <div className="text-xs text-muted-foreground italic pt-2 flex items-center gap-1"><UsersIcon className="h-3 w-3"/>(Lié à l'utilisateur global ID: #{clientDetails.userId.slice(-6)})</div>}
+               {clientDetails.userId && <div><UsersIcon className="inline mr-1.5 h-4 w-4 text-muted-foreground"/>(Lié à l'utilisateur global ID: <Link href={`/admin/users?userId=${clientDetails.userId}`} className="hover:underline text-primary text-xs">#{clientDetails.userId.slice(-6)}</Link>)</div>}
                 
                 <div className="pt-4 border-t mt-4">
                     <h4 className="font-semibold mb-2 text-primary">Résumé Financier Global chez {clientHost?.nom}:</h4>
@@ -345,16 +361,13 @@ function ClientFilePageContent() {
                     <div className={grandTotalDueOverall > 0.009 ? "text-red-600 font-bold" : "font-bold"}>Solde Dû Global : {grandTotalDueOverall.toFixed(2)} {clientHost?.currency || '€'}</div>
                 </div>
             </CardContent>
-             <CardFooter>
-                <Button onClick={() => router.push(`/host/clients?edit=${clientDetails.id}`)} variant="outline"><Edit3 className="mr-2 h-4 w-4"/> Modifier cette Fiche Client</Button>
-            </CardFooter>
           </Card>
         </TabsContent>
 
         <TabsContent value="billing" className="mt-6">
             <Card className="shadow-lg">
                 <CardHeader>
-                    <CardTitle className="text-xl flex items-center"><CreditCard className="mr-2 h-5 w-5 text-primary"/>Facturation & Transactions</CardTitle>
+                    <CardTitle className="text-xl flex items-center"><CreditCard className="mr-2 h-5 w-5 text-primary"/>Facturation &amp; Transactions</CardTitle>
                     <CardDescription>{billableItems.length} élément(s) trouvé(s) pour ce client.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -376,7 +389,7 @@ function ClientFilePageContent() {
                                     if (due <= 0.009 && total > 0) paymentStatus = 'Payé'; 
                                     else if (paid > 0 && due > 0.009) paymentStatus = 'Partiel';
                                     
-                                    const description = item.itemType === 'Commande' ? (item as EnrichedOrder).serviceName : `Séjour ${(item as EnrichedReservation).locationFullName || 'N/A'}`;
+                                    const description = item.itemType === 'Commande' ? (item as EnrichedOrder).itemName : `Séjour ${(item as EnrichedReservation).locationFullName || 'N/A'}`;
                                     const currencySymbol = item.currency || clientHost?.currency || '€';
 
                                     return (
@@ -388,12 +401,23 @@ function ClientFilePageContent() {
                                             <TableCell>{currencySymbol}{total.toFixed(2)}</TableCell>
                                             <TableCell className="text-green-600">{currencySymbol}{paid.toFixed(2)}</TableCell>
                                             <TableCell className={due > 0.009 ? "text-red-600 font-semibold" : ""}>{currencySymbol}{due.toFixed(2)}</TableCell>
-                                            <TableCell><Badge variant={paymentStatus === 'Payé' ? 'default' : paymentStatus === 'Partiel' ? 'secondary' : 'destructive'}>{paymentStatus}</Badge></TableCell>
+                                            <TableCell><Badge variant={paymentStatus === 'Payé' ? 'default' : paymentStatus === 'Partiel' ? 'secondary' : 'destructive'} className="capitalize text-xs">{paymentStatus}</Badge></TableCell>
                                             <TableCell className="text-right space-x-1">
-                                                {due > 0.009 && <Button size="sm" onClick={() => openPaymentDialog(item)} disabled={isSubmittingPayment}>Encaisser</Button>}
                                                 <Link href={item.itemType === 'Commande' ? `/invoice/order/${item.id}` : `/invoice/reservation/${item.id}`} target="_blank" passHref>
-                                                    <Button variant="outline" size="sm" disabled={isSubmittingPayment}><InvoiceIcon className="mr-1 h-3.5 w-3.5"/>Facture</Button>
+                                                    <Button variant="outline" size="sm" disabled={isSubmittingPayment} className="h-8 px-2.5 text-xs">
+                                                        <InvoiceIcon className="mr-1 h-3.5 w-3.5"/>Facture
+                                                    </Button>
                                                 </Link>
+                                                {due > 0.009 && (
+                                                    <Button 
+                                                        size="sm" 
+                                                        onClick={() => openPaymentDialog(item)} 
+                                                        disabled={isSubmittingPayment}
+                                                        className="h-8 px-2.5 text-xs"
+                                                    >
+                                                        Règlement
+                                                    </Button>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     );
@@ -421,7 +445,7 @@ function ClientFilePageContent() {
                                         <TableCell>{res.locationType || res.type || "N/A"}</TableCell>
                                         <TableCell>{isValid(parseISO(res.dateArrivee)) ? format(parseISO(res.dateArrivee), "PP", {locale: fr}) : "N/A"}</TableCell>
                                         <TableCell>{res.dateDepart && isValid(parseISO(res.dateDepart)) && res.type === 'Chambre' ? format(parseISO(res.dateDepart), "PP", {locale: fr}) : (res.type === 'Table' ? 'N/A' : 'N/A')}</TableCell>
-                                        <TableCell><Badge variant={res.status === 'cancelled' ? "destructive" : "secondary"} className="capitalize">{res.status || "N/A"}</Badge></TableCell>
+                                        <TableCell><Badge variant={res.status === 'cancelled' ? "destructive" : "secondary"} className="capitalize text-xs">{res.status || "N/A"}</Badge></TableCell>
                                         <TableCell className="text-right">
                                             <Link href={`/host/reservations/detail/${res.id}`} passHref>
                                                 <Button variant="outline" size="sm"><Edit2 className="mr-1 h-3.5 w-3.5"/>Voir/Gérer</Button>
