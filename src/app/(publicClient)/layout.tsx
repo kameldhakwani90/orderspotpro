@@ -4,21 +4,20 @@ import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
-import { LogIn, UserCircle, MessageCircle, ShoppingCart, X } from "lucide-react";
-import { usePathname } from "next/navigation";
-import { Toaster } from "@/components/ui/toaster"; // Keep Toaster if it's used by children of this layout
+import { LogIn, ShoppingCart, X } from "lucide-react"; // Removed UserCircle, MessageCircle
+import { usePathname, useRouter } from "next/navigation"; // Added useRouter
 import { useToast } from "@/hooks/use-toast";
-import { LanguageProvider, useLanguage } from "@/context/LanguageContext";
+import { useLanguage } from "@/context/LanguageContext"; // LanguageProvider removed from here
 import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
-import { CartProvider, useCart } from "@/context/CartContext";
+import { useCart } from "@/context/CartContext"; // CartProvider removed from here
 import { CartSheet } from "@/components/client/CartSheet";
 import { Badge } from "@/components/ui/badge";
 import React, { useState, useEffect } from 'react';
 
-// HeaderContent remains a separate component as it uses useLanguage and useCart
 function HeaderContent() {
   const { user, isLoading } = useAuth();
   const pathname = usePathname();
+  const router = useRouter(); // Added router for programmatic navigation
   const { t } = useLanguage();
   const { getTotalItems } = useCart();
   const totalCartItems = getTotalItems();
@@ -30,6 +29,8 @@ function HeaderContent() {
   }, []);
 
   const userInitial = user?.nom ? user.nom.charAt(0).toUpperCase() : '?';
+  const loginRedirectUrl = typeof window !== 'undefined' ? `${pathname}${window.location.search}` : pathname;
+
 
   return (
     <>
@@ -40,10 +41,10 @@ function HeaderContent() {
           </Link>
           <div className="flex items-center gap-2 sm:gap-3">
             <LanguageSwitcher />
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="relative" 
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative"
               onClick={() => setIsCartOpen(true)}
               title={t('viewCart') || "View Cart"}
             >
@@ -67,12 +68,10 @@ function HeaderContent() {
                     </Button>
                   </Link>
                 ) : (
-                  <Link href={`/login?redirect_url=${encodeURIComponent(pathname)}`}>
-                    <Button variant="outline" className="bg-primary/10 hover:bg-primary/20 border-primary/50 text-primary">
-                      <LogIn className="mr-2 h-4 w-4" />
-                      {t('login')}
-                    </Button>
-                  </Link>
+                  <Button variant="outline" className="bg-primary/10 hover:bg-primary/20 border-primary/50 text-primary" onClick={() => router.push(`/login?redirect_url=${encodeURIComponent(loginRedirectUrl)}`)}>
+                    <LogIn className="mr-2 h-4 w-4" />
+                    {t('login')}
+                  </Button>
                 )}
               </>
             )}
@@ -87,14 +86,13 @@ function HeaderContent() {
   );
 }
 
-// New component to render the actual page structure, ensuring it's a child of providers
 function PageLayoutContent({ children }: { children: React.ReactNode }) {
-  const { t } = useLanguage(); // Safe to call here
-  const { toast } = useToast(); // toast is also safe here if needed, or can be in HeaderContent
+  const { t } = useLanguage();
+  const { toast } = useToast(); // toast is used here
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-background to-secondary/30">
-      <HeaderContent /> {/* HeaderContent will correctly use useLanguage from its parent provider */}
+      <HeaderContent />
       <main className="flex-grow container mx-auto py-8 px-4 md:px-6 lg:px-8">
         {children}
       </main>
@@ -102,14 +100,15 @@ function PageLayoutContent({ children }: { children: React.ReactNode }) {
       <Button
         variant="default"
         size="icon"
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-xl z-40 bg-primary hover:bg-primary/90"
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-xl z-40 bg-primary hover:bg-primary/90 print:hidden"
         title={t('chatComingSoon') || "Chat with us (Coming Soon)"}
         onClick={() => toast({ title: t('chatFeatureTitle') || "Chat Feature", description: t('chatComingSoon') || "Live chat with the establishment is coming soon!"})}
       >
-        <MessageCircle className="h-7 w-7 text-primary-foreground" />
+        {/* Using MessageSquare as a more common chat icon than MessageCircle for filled look */}
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-message-square-text text-primary-foreground"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M13 8H7"/><path d="M17 12H7"/></svg>
       </Button>
 
-      <footer className="p-6 text-center text-sm text-muted-foreground border-t bg-card/80">
+      <footer className="p-6 text-center text-sm text-muted-foreground border-t bg-card/80 print:hidden">
         {t('footerText', { year: new Date().getFullYear().toString() }) || `ConnectHost © ${new Date().getFullYear()} - Seamlessly connecting you to services.`}
       </footer>
     </div>
@@ -121,12 +120,8 @@ export default function PublicClientLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // PublicClientLayout now only sets up the providers
   return (
-    <LanguageProvider>
-      <CartProvider>
-        <PageLayoutContent>{children}</PageLayoutContent>
-      </CartProvider>
-    </LanguageProvider>
+    // LanguageProvider and CartProvider are now in RootLayout
+    <PageLayoutContent>{children}</PageLayoutContent>
   );
 }

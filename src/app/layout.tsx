@@ -4,6 +4,8 @@ import { Geist, Geist_Mono } from 'next/font/google'; // Assuming Geist is prefe
 import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
 import { Toaster } from "@/components/ui/toaster";
+import { LanguageProvider } from '@/context/LanguageContext'; // Added
+import { CartProvider } from '@/context/CartContext'; // Added
 
 const geistSans = Geist({ // Renamed from inter to geistSans
   variable: '--font-geist-sans', // Updated variable name
@@ -29,8 +31,12 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AuthProvider>
-          {children}
-          <Toaster />
+          <LanguageProvider>
+            <CartProvider>
+              {children}
+              <Toaster />
+            </CartProvider>
+          </LanguageProvider>
         </AuthProvider>
       </body>
     </html>
