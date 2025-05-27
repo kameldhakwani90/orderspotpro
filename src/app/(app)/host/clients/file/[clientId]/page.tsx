@@ -7,15 +7,16 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import {
   getClientById,
-  getOrdersByClientId, // Changed from getOrdersByClientName and getOrdersByUserId
-  getReservationsByClientId, // Changed from getReservationsByClientName
+  getOrdersByClientId, 
+  getReservationsByClientId, 
   getHostById,
   getSiteById,
   getRoomOrTableById,
-  getRoomsOrTables, // To get all host locations for displaying names
-  getItemById, // To determine item type for generic description
+  getRoomsOrTables, 
+  getItemById, 
   recordPaymentForOrder,
   recordPaymentForReservation,
+  updateClientData,
 } from '@/lib/data';
 import type { Order, RoomOrTable, Service, Client, Reservation, Host, Paiement, PaymentMethod, OnlineCheckinData, Site as GlobalSite, MenuItem } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -38,7 +39,7 @@ import { useLanguage } from '@/context/LanguageContext';
 interface EnrichedOrder extends Order {
   itemName?: string;
   locationName?: string;
-  itemCategoryType?: 'FoodBeverage' | 'GeneralService'; // New property
+  itemCategoryType?: 'FoodBeverage' | 'GeneralService';
 }
 
 interface EnrichedReservation extends Reservation {
@@ -72,7 +73,7 @@ function ClientFilePageContent() {
   const [clientHost, setClientHost] = useState<Host | null>(null);
   const [clientOrders, setClientOrders] = useState<EnrichedOrder[]>([]);
   const [clientReservations, setClientReservations] = useState<EnrichedReservation[]>([]);
-  const [allHostLocations, setAllHostLocations] = useState<RoomOrTable[]>([]); // For displaying location names
+  const [allHostLocations, setAllHostLocations] = useState<RoomOrTable[]>([]);
 
   const [billableItems, setBillableItems] = useState<BillableItem[]>([]);
 
@@ -114,29 +115,27 @@ function ClientFilePageContent() {
         hostData,
         ordersData,
         reservationsData,
-        hostLocationsData // Fetch all locations for the host
+        hostLocationsData
       ] = await Promise.all([
         getHostById(clientData.hostId),
-        getOrdersByClientId(hostIdForAuth, currentClientId), // Use getOrdersByClientId
-        getReservationsByClientId(hostIdForAuth, currentClientId), // Use getReservationsByClientId
-        getRoomsOrTables(hostIdForAuth) // Fetch all locations for this host
+        getOrdersByClientId(hostIdForAuth, currentClientId),
+        getReservationsByClientId(hostIdForAuth, currentClientId),
+        getRoomsOrTables(hostIdForAuth)
       ]);
       
       setClientHost(hostData);
       setAllHostLocations(hostLocationsData);
 
-
       const enrichedOrders = await Promise.all(
         ordersData.map(async (order) => {
           const item = await getItemById(order.serviceId);
-          const location = hostLocationsData.find(loc => loc.id === order.chambreTableId); // Find from already fetched locations
+          const location = hostLocationsData.find(loc => loc.id === order.chambreTableId);
           
           let itemNameDisplay = t('unknownItem');
           let itemCatType: 'FoodBeverage' | 'GeneralService' = 'GeneralService';
 
           if (item) {
             itemNameDisplay = 'titre' in item ? item.titre : ('name' in item ? item.name : itemNameDisplay);
-            // Check if it's a MenuItem (Food/Beverage)
             if ('menuCategoryId' in item) {
               itemCatType = 'FoodBeverage';
             }
@@ -145,7 +144,7 @@ function ClientFilePageContent() {
             ...order,
             itemName: itemNameDisplay,
             locationName: location ? `${location.type} ${location.nom}` : (t('unknownLocation')),
-            itemCategoryType: itemCatType, // Store the category type
+            itemCategoryType: itemCatType,
           };
         })
       );
@@ -156,7 +155,7 @@ function ClientFilePageContent() {
             let locFullName: string | undefined = undefined;
             let locType: 'Chambre' | 'Table' | undefined = undefined;
             if(res.locationId) {
-                const loc = hostLocationsData.find(l => l.id === res.locationId); // Find from already fetched locations
+                const loc = hostLocationsData.find(l => l.id === res.locationId);
                 if(loc) {
                     locFullName = `${loc.type} ${loc.nom}`;
                     locType = loc.type as 'Chambre' | 'Table';
@@ -184,7 +183,7 @@ function ClientFilePageContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [t]); // Added t to dependencies
+  }, [t]); 
 
   useEffect(() => {
     if (!authLoading && authUser?.hostId && clientId) {
@@ -192,10 +191,10 @@ function ClientFilePageContent() {
     } else if (!authLoading && (!authUser?.hostId && authUser?.role === 'host')) {
         setError("ID d'hôte manquant pour l'utilisateur connecté.");
         setIsLoading(false);
-    } else if (!authLoading && authUser?.role !== 'host' && authUser?.role !== 'admin') { // Allow admin to potentially view too
+    } else if (!authLoading && authUser?.role !== 'host' && authUser?.role !== 'admin') { 
       router.replace('/dashboard');
     }
-  }, [authUser, authLoading, clientId, fetchData, router]);
+  }, [authUser, authLoading, clientId, fetchData]);
 
   const openPaymentDialog = (item: BillableItem) => {
     const amountDue = (item.prixTotal || 0) - (item.montantPaye || 0);
@@ -227,7 +226,7 @@ function ClientFilePageContent() {
       toast({ title: "Montant Invalide", description: "Veuillez saisir un montant de paiement valide.", variant: "destructive" });
       return;
     }
-    if (paymentAmount > paymentDialogState.amountDue + 0.001) { // Allow for tiny floating point differences
+    if (paymentAmount > paymentDialogState.amountDue + 0.001) { 
       toast({ title: "Paiement Excessif", description: `Le montant saisi (${paymentAmount.toFixed(2)}) dépasse le solde dû de ${paymentDialogState.amountDue.toFixed(2)} ${paymentDialogState.currency}.`, variant: "destructive" });
       return;
     }
@@ -247,6 +246,18 @@ function ClientFilePageContent() {
           setIsSubmittingPayment(false);
           return;
         }
+        // Deduct credit from client record
+        await updateClientData(clientDetails.id, { credit: (clientDetails.credit || 0) - paymentAmount });
+      } else if (paymentMethod === 'points' && clientDetails) {
+        // Placeholder: Actual points to currency conversion and deduction logic needed here
+        const pointsToDeduct = paymentAmount * 10; // Example: 10 points per unit currency
+        if ((clientDetails.pointsFidelite || 0) < pointsToDeduct) {
+          toast({ title: "Points Fidélité Insuffisants", description: "Les points de fidélité ne sont pas suffisants.", variant: "destructive" });
+          setIsSubmittingPayment(false);
+          return;
+        }
+        await updateClientData(clientDetails.id, { pointsFidelite: (clientDetails.pointsFidelite || 0) - pointsToDeduct });
+        toast({ title: "Points Utilisés", description: `${pointsToDeduct} points ont été déduits.`, variant: "info" });
       }
 
       if (paymentDialogState.itemType === 'Order') {
@@ -350,8 +361,6 @@ function ClientFilePageContent() {
               <div className="flex items-center"><Mail className="inline mr-1.5 h-4 w-4 text-muted-foreground" /> Email: <span className="font-medium">{clientDetails.email || "(Non renseigné)"}</span></div>
               <div className="flex items-center"><Phone className="inline mr-1.5 h-4 w-4 text-muted-foreground" /> Téléphone: <span className="font-medium">{clientDetails.telephone || "(Non renseigné)"}</span></div>
               
-              {/* Removed Client.type display here as requested */}
-              
               {clientDetails.dateArrivee && <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Arrivée Prévue (Fiche): {isValid(parseISO(clientDetails.dateArrivee)) ? format(parseISO(clientDetails.dateArrivee), 'PPP', {locale: fr}) : 'N/A'}</div>}
               {clientDetails.dateDepart && <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Départ Prévu (Fiche): {isValid(parseISO(clientDetails.dateDepart)) ? format(parseISO(clientDetails.dateDepart), 'PPP', {locale: fr}) : 'N/A'}</div>}
               {clientDetails.locationId && <div><MapPin className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Lieu Assigné (Fiche): {allHostLocations.find(loc => loc.id === clientDetails.locationId)?.nom || clientDetails.locationId}</div>}
@@ -361,7 +370,7 @@ function ClientFilePageContent() {
                 <div className="text-amber-600 flex items-center"><Gift className="inline mr-1.5 h-4 w-4"/> Points Fidélité: <span className="font-semibold">{clientDetails.pointsFidelite || 0} pts</span></div>
               </div>
               <div className="mt-2"><strong className="text-primary">Notes Client:</strong> <p className="text-muted-foreground whitespace-pre-wrap">{clientDetails.notes || "(Aucune note pour cette fiche)"}</p></div>
-               {clientDetails.userId && <div><UsersIcon className="inline mr-1.5 h-4 w-4 text-muted-foreground"/>(Lié à l'utilisateur global ID: <Link href={`/admin/users?userId=${clientDetails.userId}`} className="hover:underline text-primary text-xs">#{clientDetails.userId.slice(-6)}</Link>)</div>}
+               {clientDetails.userId && <div className="flex items-center"><UsersIcon className="inline mr-1.5 h-4 w-4 text-muted-foreground"/>(Lié à l'utilisateur global ID: <Link href={`/admin/users?userId=${clientDetails.userId}`} className="hover:underline text-primary text-xs ml-1">#{clientDetails.userId.slice(-6)}</Link>)</div>}
                 
                 <div className="pt-4 border-t mt-4">
                     <h4 className="font-semibold mb-2 text-primary">Résumé Financier Global chez {clientHost?.nom}:</h4>
@@ -395,7 +404,7 @@ function ClientFilePageContent() {
                                     const paid = item.montantPaye || 0;
                                     const due = total - paid;
                                     let paymentStatus: 'Payé' | 'Impayé' | 'Partiel' = 'Impayé';
-                                    if (paid >= total - 0.001 && total > 0) paymentStatus = 'Payé'; // Handle floating point
+                                    if (paid >= total - 0.001 && total > 0) paymentStatus = 'Payé'; 
                                     else if (paid > 0 && due > 0.009) paymentStatus = 'Partiel';
                                     
                                     let displayDescription;
@@ -423,7 +432,7 @@ function ClientFilePageContent() {
                                             <TableCell><Badge variant={paymentStatus === 'Payé' ? 'default' : paymentStatus === 'Partiel' ? 'secondary' : 'destructive'} className="capitalize text-xs">{paymentStatus}</Badge></TableCell>
                                             <TableCell className="text-right space-x-1">
                                                 <Link href={item.itemType === 'Commande' ? `/invoice/order/${item.id}` : `/invoice/reservation/${item.id}`} target="_blank" passHref>
-                                                    <Button variant="outline" size="sm" disabled={isSubmittingPayment || isSubmitting} className="h-8 px-2.5 text-xs">
+                                                    <Button variant="outline" size="sm" disabled={isSubmittingPayment} className="h-8 px-2.5 text-xs">
                                                         <InvoiceIcon className="mr-1 h-3.5 w-3.5"/>Facture
                                                     </Button>
                                                 </Link>
@@ -431,7 +440,7 @@ function ClientFilePageContent() {
                                                     <Button 
                                                         size="sm" 
                                                         onClick={() => openPaymentDialog(item)} 
-                                                        disabled={isSubmittingPayment || isSubmitting}
+                                                        disabled={isSubmittingPayment}
                                                         className="h-8 px-2.5 text-xs"
                                                     >
                                                         Règlement
