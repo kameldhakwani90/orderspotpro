@@ -4,15 +4,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getClients, addClientData, updateClientData, deleteClientData, getRoomsOrTables, addCreditToClient } from '@/lib/data';
-import type { Client, ClientType, RoomOrTable } from '@/lib/types';
+import { getClients, addClientData, updateClientData, deleteClientData, getRoomsOrTables, addCreditToClient, getHostById, getUserById } from '@/lib/data';
+import type { Client, ClientType, RoomOrTable, Host, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Edit2, Trash2, Users, CalendarDays as CalendarLucideIcon, DollarSign, Link2, FileArchive } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, Users, CalendarDays as CalendarLucideIcon, DollarSign, Link2, FileArchive, Gift } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -30,8 +30,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar"; // Corrected import name
-import { format, parseISO, isValid, isBefore } from 'date-fns';
+import { Calendar } from "@/components/ui/calendar";
+import { format, parseISO, isValid, isBefore, startOfDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -47,6 +47,7 @@ export default function HostClientsPage() {
 
   const [clients, setClients] = useState<Client[]>([]);
   const [hostLocations, setHostLocations] = useState<RoomOrTable[]>([]);
+  const [hostDetails, setHostDetails] = useState<Host | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -55,6 +56,11 @@ export default function HostClientsPage() {
   const [isCreditDialogOpen, setIsCreditDialogOpen] = useState(false);
   const [clientForCredit, setClientForCredit] = useState<Client | null>(null);
   const [creditAmount, setCreditAmount] = useState<number | ''>('');
+  
+  const [isPointsDialogOpen, setIsPointsDialogOpen] = useState(false);
+  const [clientForPoints, setClientForPoints] = useState<Client | null>(null);
+  const [pointsAmount, setPointsAmount] = useState<number | ''>('');
+  const [pointsReason, setPointsReason] = useState<string>('');
 
 
   const [currentClientData, setCurrentClientData] = useState<{
@@ -83,12 +89,14 @@ export default function HostClientsPage() {
   const fetchData = useCallback(async (hostId: string) => {
     setIsLoading(true);
     try {
-      const [clientsData, locationsData] = await Promise.all([
+      const [clientsData, locationsData, hostDataResult] = await Promise.all([
         getClients(hostId),
-        getRoomsOrTables(hostId)
+        getRoomsOrTables(hostId),
+        getHostById(hostId)
       ]);
       setClients(clientsData);
       setHostLocations(locationsData.filter(loc => loc.type === 'Chambre' || loc.type === 'Table'));
+      setHostDetails(hostDataResult || null);
     } catch (error) {
       console.error("Failed to load clients or locations:", error);
       toast({ title: "Error", description: "Could not load client data. Please try again.", variant: "destructive" });
@@ -146,11 +154,6 @@ export default function HostClientsPage() {
     }
 
     if (currentClientData.type === 'heberge') {
-        // Optional: Allow adding heberge without dates
-        // if (!currentClientData._dateArrivee) {
-        //     toast({ title: "Validation Error", description: "Arrival date is required for 'Hébergé' clients.", variant: "destructive"});
-        //     return;
-        // }
         if (currentClientData._dateArrivee && currentClientData._dateDepart && isBefore(currentClientData._dateDepart, currentClientData._dateArrivee)) {
             toast({ title: "Validation Error", description: "Departure date cannot be before arrival date.", variant: "destructive"});
             return;
@@ -167,13 +170,12 @@ export default function HostClientsPage() {
       dateDepart: currentClientData.type === 'heberge' && currentClientData._dateDepart ? format(currentClientData._dateDepart, 'yyyy-MM-dd') : undefined,
       locationId: currentClientData.type === 'heberge' && currentClientData.locationId !== DEFAULT_NO_LOCATION_ID ? currentClientData.locationId : undefined,
       notes: currentClientData.notes?.trim() || undefined,
-      userId: currentClientData.userId || undefined,
+      userId: currentClientData.userId?.trim() || undefined,
     };
 
-    const host = await getHostById(user.hostId);
     let initialPoints = 0;
-    if (host?.loyaltySettings?.enabled && host.loyaltySettings.pointsForNewClientSignup && host.loyaltySettings.pointsForNewClientSignup > 0 && !editingClient) {
-      initialPoints = host.loyaltySettings.pointsForNewClientSignup;
+    if (hostDetails?.loyaltySettings?.enabled && hostDetails.loyaltySettings.pointsForNewClientSignup && hostDetails.loyaltySettings.pointsForNewClientSignup > 0 && !editingClient) {
+      initialPoints = hostDetails.loyaltySettings.pointsForNewClientSignup;
     }
 
     if (editingClient) {
@@ -184,14 +186,13 @@ export default function HostClientsPage() {
       dataToSubmit.pointsFidelite = initialPoints;
     }
 
-
     try {
       if (editingClient) {
         await updateClientData(editingClient.id, dataToSubmit);
         toast({ title: "Client Updated", description: `Client "${dataToSubmit.nom}" has been updated.` });
       } else {
         await addClientData({ ...dataToSubmit, hostId: user.hostId } as Omit<Client, 'id' | 'documents'> & { hostId: string });
-        toast({ title: "Client Added", description: `Client "${dataToSubmit.nom}" has been added.` });
+        toast({ title: "Client Added", description: `Client "${dataToSubmit.nom}" has been added.` + (initialPoints > 0 ? ` ${initialPoints} loyalty points awarded.` : "") });
       }
       if (user.hostId) fetchData(user.hostId);
     } catch (error) {
@@ -279,10 +280,9 @@ export default function HostClientsPage() {
     try {
       const updatedClient = await addCreditToClient(clientForCredit.id, creditAmount, user.hostId);
       if (updatedClient) {
-        toast({title: "Credit Added", description: `${creditAmount.toFixed(2)}€ added to ${clientForCredit.nom}. New balance: ${updatedClient.credit?.toFixed(2)}€`});
+        toast({title: "Credit Added", description: `${creditAmount.toFixed(2)}${hostDetails?.currency || '€'} added to ${clientForCredit.nom}. New balance: ${updatedClient.credit?.toFixed(2)}${hostDetails?.currency || '€'}`});
         if (user.hostId) fetchData(user.hostId);
         if (editingClient && editingClient.id === updatedClient.id) {
-          // If editing the same client, update the dialog form's credit value
            setCurrentClientData(prev => ({...prev, credit: updatedClient.credit}));
         }
       } else {
@@ -296,6 +296,45 @@ export default function HostClientsPage() {
       setIsCreditDialogOpen(false);
       setClientForCredit(null);
       setCreditAmount('');
+    }
+  };
+
+  const openAddPointsDialog = (client: Client) => {
+    setClientForPoints(client);
+    setPointsAmount('');
+    setPointsReason('');
+    setIsPointsDialogOpen(true);
+  };
+
+  // Placeholder for handleAddPointsSubmit
+  const handleAddPointsSubmit = async () => {
+    if (!clientForPoints || !user?.hostId || typeof pointsAmount !== 'number') {
+      toast({title: "Invalid Amount", description: "Please enter a valid points amount.", variant: "destructive"});
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      // Assuming addPointsToClient is updated or a new function is created
+      // For now, this is a placeholder for the logic
+      const updatedClient = await updateClientData(clientForPoints.id, { pointsFidelite: (clientForPoints.pointsFidelite || 0) + pointsAmount });
+      if (updatedClient) {
+        toast({title: "Points Adjusted", description: `${pointsAmount} points ${pointsAmount > 0 ? 'added to' : 'removed from'} ${clientForPoints.nom}. New balance: ${updatedClient.pointsFidelite} pts`});
+        if (user.hostId) fetchData(user.hostId);
+        if (editingClient && editingClient.id === updatedClient.id) {
+           setCurrentClientData(prev => ({...prev, pointsFidelite: updatedClient.pointsFidelite}));
+        }
+      } else {
+         toast({title: "Error", description: "Failed to adjust points.", variant: "destructive"});
+      }
+    } catch (error) {
+       console.error("Failed to adjust points:", error);
+       toast({title: "Error", description: `Could not adjust points. ${error instanceof Error ? error.message : ''}`, variant: "destructive"});
+    } finally {
+      setIsSubmitting(false);
+      setIsPointsDialogOpen(false);
+      setClientForPoints(null);
+      setPointsAmount('');
+      setPointsReason('');
     }
   };
 
@@ -354,7 +393,7 @@ export default function HostClientsPage() {
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 text-xs rounded-full font-semibold capitalize ${client.type === 'heberge' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                    <span className={`px-2 py-1 text-xs rounded-full font-semibold capitalize ${client.type === 'heberge' ? 'bg-blue-100 text-blue-700 dark:bg-blue-700/30 dark:text-blue-300' : 'bg-green-100 text-green-700 dark:bg-green-700/30 dark:text-green-300'}`}>
                         {client.type}
                     </span>
                   </TableCell>
@@ -368,14 +407,17 @@ export default function HostClientsPage() {
                         (hostLocations.find(l => l.id === client.locationId)?.nom || 'N/A') : 'N/A'}
                   </TableCell>
                   <TableCell className="font-semibold text-primary">
-                    {(client.credit || 0).toFixed(2)}€
+                    {(client.credit || 0).toFixed(2)}{hostDetails?.currency || '€'}
                   </TableCell>
                   <TableCell className="font-semibold text-amber-600">
                     {client.pointsFidelite || 0} pts
                   </TableCell>
-                  <TableCell className="text-right space-x-2">
+                  <TableCell className="text-right space-x-1">
                     <Button variant="outline" size="icon" onClick={() => openAddCreditDialog(client)} title="Add Credit" disabled={isSubmitting}>
                       <DollarSign className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => openAddPointsDialog(client)} title="Adjust Loyalty Points" disabled={isSubmitting || !hostDetails?.loyaltySettings?.enabled}>
+                      <Gift className="h-4 w-4" />
                     </Button>
                     <Button variant="outline" size="icon" onClick={() => openEditDialog(client)} title="Edit Client" disabled={isSubmitting}>
                       <Edit2 className="h-4 w-4" />
@@ -500,10 +542,10 @@ export default function HostClientsPage() {
              {editingClient && (
                 <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="currentCredit" className="text-right">Current Credit</Label>
-                    <Input id="currentCredit" value={`${(currentClientData.credit || 0).toFixed(2)}€`} className="col-span-3" disabled />
+                    <Input id="currentCredit" value={`${(currentClientData.credit || 0).toFixed(2)}${hostDetails?.currency || '€'}`} className="col-span-3" disabled />
                 </div>
             )}
-            {editingClient && (
+            {editingClient && hostDetails?.loyaltySettings?.enabled && (
                 <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="currentLoyaltyPoints" className="text-right">Loyalty Points</Label>
                     <Input id="currentLoyaltyPoints" value={`${currentClientData.pointsFidelite || 0} pts`} className="col-span-3" disabled />
@@ -535,12 +577,12 @@ export default function HostClientsPage() {
           <DialogHeader>
             <DialogTitle>Add Credit to {clientForCredit?.nom}</DialogTitle>
             <DialogDescription>
-              Current Balance: {(clientForCredit?.credit || 0).toFixed(2)}€
+              Current Balance: {(clientForCredit?.credit || 0).toFixed(2)}{hostDetails?.currency || '€'}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div>
-              <Label htmlFor="creditAmount">Amount to Add (€)</Label>
+              <Label htmlFor="creditAmount">Amount to Add ({hostDetails?.currency || '€'})</Label>
               <Input
                 id="creditAmount"
                 type="number"
@@ -563,7 +605,44 @@ export default function HostClientsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Adjust Points Dialog */}
+      <Dialog open={isPointsDialogOpen} onOpenChange={(open) => {if(!isSubmitting) setIsPointsDialogOpen(open)}}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Adjust Loyalty Points for {clientForPoints?.nom}</DialogTitle>
+            <DialogDescription>
+              Current Points: {clientForPoints?.pointsFidelite || 0} pts
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div>
+              <Label htmlFor="pointsAmount">Points to Add/Remove (+/-)</Label>
+              <Input
+                id="pointsAmount"
+                type="number"
+                value={pointsAmount}
+                onChange={(e) => setPointsAmount(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                placeholder="e.g., 100 or -50"
+                step="1"
+                disabled={isSubmitting}
+              />
+            </div>
+             <div>
+              <Label htmlFor="pointsReason">Reason (Optional)</Label>
+              <Textarea id="pointsReason" value={pointsReason} onChange={(e) => setPointsReason(e.target.value)} placeholder="e.g., Welcome gift, loyalty reward" disabled={isSubmitting}/>
+            </div>
+          </div>
+          <DialogFooter>
+             <DialogClose asChild>
+                <Button variant="outline" disabled={isSubmitting}>Cancel</Button>
+             </DialogClose>
+            <Button onClick={handleAddPointsSubmit} disabled={isSubmitting || typeof pointsAmount !== 'number'}>
+              {isSubmitting ? "Adjusting..." : "Confirm Points Adjustment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
