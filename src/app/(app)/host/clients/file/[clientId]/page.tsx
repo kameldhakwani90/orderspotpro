@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from 'react';
+import { useEffect, useState, useCallback, Suspense, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
@@ -15,7 +15,8 @@ import {
   recordPaymentForOrder,
   recordPaymentForReservation,
   addCreditToClient,
-  addPointsToClient
+  addPointsToClient,
+  getRoomsOrTables, // Added import
 } from '@/lib/data';
 import type { Order, RoomOrTable, Service, Client, Reservation, Host, Paiement, PaymentMethod, OnlineCheckinData } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -24,7 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { User, ShoppingBag, MapPin, CalendarDays, Phone, Mail, DollarSign, AlertTriangle, Info, ListOrdered, Building, BedDouble, Utensils, FileCheck as FileCheckIcon, ArrowLeft, Edit3, Users as UsersIcon, CreditCard, Gift, FileText as InvoiceIcon, Edit2 } from 'lucide-react'; // Added Edit2
+import { User, ShoppingBag, MapPin, CalendarDays, Phone, Mail, DollarSign, AlertTriangle, Info, ListOrdered, Building, BedDouble, Utensils, FileCheck as FileCheckIcon, ArrowLeft, Edit3, Users as UsersIcon, CreditCard, Gift, FileText as InvoiceIcon, Edit2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -69,7 +70,8 @@ function ClientFilePageContent() {
   const [clientHost, setClientHost] = useState<Host | null>(null);
   const [clientOrders, setClientOrders] = useState<EnrichedOrder[]>([]);
   const [clientReservations, setClientReservations] = useState<EnrichedReservation[]>([]);
-  
+  const [allHostLocations, setAllHostLocations] = useState<RoomOrTable[]>([]); // New state for locations
+
   const [billableItems, setBillableItems] = useState<BillableItem[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -100,18 +102,26 @@ function ClientFilePageContent() {
         setBillableItems([]);
         setClientOrders([]);
         setClientReservations([]);
+        setAllHostLocations([]);
         setIsLoading(false);
         return;
       }
       setClientDetails(clientData);
 
-      const hostData = await getHostById(clientData.hostId);
-      setClientHost(hostData);
-
-      const [ordersData, reservationsData] = await Promise.all([
+      const [
+        hostData,
+        ordersData,
+        reservationsData,
+        hostLocationsData // Fetch locations
+      ] = await Promise.all([
+        getHostById(clientData.hostId),
         getOrdersByClientId(hostIdForAuth, currentClientId),
-        getReservationsByClientId(hostIdForAuth, currentClientId)
+        getReservationsByClientId(hostIdForAuth, currentClientId),
+        getRoomsOrTables(hostIdForAuth) // Fetch all locations for this host
       ]);
+      
+      setClientHost(hostData);
+      setAllHostLocations(hostLocationsData); // Set the locations state
 
       const enrichedOrders = await Promise.all(
         ordersData.map(async (order) => {
@@ -119,7 +129,7 @@ function ClientFilePageContent() {
           const location = await getRoomOrTableById(order.chambreTableId);
           return {
             ...order,
-            serviceName: service ? ('titre' in service ? service.titre : service.name) : 'Service Inconnu',
+            serviceName: service ? (('titre' in service) ? service.titre : service.name) : 'Service Inconnu',
             locationName: location ? `${location.type} ${location.nom}` : 'Lieu Inconnu',
           };
         })
@@ -155,6 +165,7 @@ function ClientFilePageContent() {
       setClientOrders([]);
       setClientReservations([]);
       setBillableItems([]);
+      setAllHostLocations([]);
     } finally {
       setIsLoading(false);
     }
@@ -233,15 +244,19 @@ function ClientFilePageContent() {
     }
   };
 
-  const totalSpentOverall = clientOrders
-    .filter(o => o.status === 'completed' && typeof o.prixTotal === 'number')
-    .reduce((sum, o) => sum + (o.prixTotal!), 0) + 
-    clientReservations
-    .filter(r => r.status === 'checked-out' && typeof r.prixTotal === 'number')
-    .reduce((sum, r) => sum + (r.prixTotal!), 0);
+  const totalSpentOverall = useMemo(() => {
+    return clientOrders
+      .filter(o => o.status === 'completed' && typeof o.prixTotal === 'number')
+      .reduce((sum, o) => sum + (o.prixTotal!), 0) + 
+      clientReservations
+      .filter(r => r.status === 'checked-out' && typeof r.prixTotal === 'number')
+      .reduce((sum, r) => sum + (r.prixTotal!), 0);
+  }, [clientOrders, clientReservations]);
 
-  const totalPaidOverall = clientOrders.reduce((sum, o) => sum + (o.montantPaye || 0), 0) +
-    clientReservations.reduce((sum, r) => sum + (r.montantPaye || 0), 0);
+  const totalPaidOverall = useMemo(() => {
+    return clientOrders.reduce((sum, o) => sum + (o.montantPaye || 0), 0) +
+      clientReservations.reduce((sum, r) => sum + (r.montantPaye || 0), 0);
+  }, [clientOrders, clientReservations]);
   
   const grandTotalDueOverall = totalSpentOverall - totalPaidOverall;
 
@@ -311,9 +326,7 @@ function ClientFilePageContent() {
               <div><strong className="text-muted-foreground">ID Fiche Client:</strong> #{clientDetails.id.slice(-6)}</div>
               <div><Mail className="inline mr-1.5 h-4 w-4 text-muted-foreground" /> Email: <span className="font-medium">{clientDetails.email || "(Non renseigné)"}</span></div>
               <div><Phone className="inline mr-1.5 h-4 w-4 text-muted-foreground" /> Téléphone: <span className="font-medium">{clientDetails.telephone || "(Non renseigné)"}</span></div>
-              {clientDetails.type && (
-                <div><UsersIcon className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Type Fiche: <Badge variant="outline" className="capitalize">{clientDetails.type}</Badge></div>
-              )}
+              
               {clientDetails.type === 'heberge' && clientDetails.dateArrivee && <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Arrivée Prévue (Fiche): {isValid(parseISO(clientDetails.dateArrivee)) ? format(parseISO(clientDetails.dateArrivee), 'PPP', {locale: fr}) : 'N/A'}</div>}
               {clientDetails.type === 'heberge' && clientDetails.dateDepart && <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Départ Prévu (Fiche): {isValid(parseISO(clientDetails.dateDepart)) ? format(parseISO(clientDetails.dateDepart), 'PPP', {locale: fr}) : 'N/A'}</div>}
               {clientDetails.type === 'heberge' && clientDetails.locationId && <div><MapPin className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Lieu Assigné (Fiche): {allHostLocations.find(loc => loc.id === clientDetails.locationId)?.nom || clientDetails.locationId}</div>}
@@ -323,13 +336,13 @@ function ClientFilePageContent() {
                 <div className="text-amber-600"><Gift className="inline mr-1.5 h-4 w-4"/> Points Fidélité: <span className="font-semibold">{clientDetails.pointsFidelite || 0} pts</span></div>
               </div>
               <div className="mt-2"><strong className="text-primary">Notes Client:</strong> <p className="text-muted-foreground whitespace-pre-wrap">{clientDetails.notes || "(Aucune note pour cette fiche)"}</p></div>
-               {clientDetails.userId && <p className="text-xs text-muted-foreground italic pt-2">(Lié à l'utilisateur global ID: #{clientDetails.userId.slice(-6)})</p>}
+               {clientDetails.userId && <div className="text-xs text-muted-foreground italic pt-2 flex items-center gap-1"><UsersIcon className="h-3 w-3"/>(Lié à l'utilisateur global ID: #{clientDetails.userId.slice(-6)})</div>}
                 
                 <div className="pt-4 border-t mt-4">
                     <h4 className="font-semibold mb-2 text-primary">Résumé Financier Global chez {clientHost?.nom}:</h4>
                     <p>Total Dépensé Estimé (Complété/Check-out) : <span className="font-bold">{totalSpentOverall.toFixed(2)} {clientHost?.currency || '€'}</span></p>
                     <p>Total Payé : <span className="font-bold text-green-600">{totalPaidOverall.toFixed(2)} {clientHost?.currency || '€'}</span></p>
-                    <p className={grandTotalDueOverall > 0.009 ? "text-red-600 font-bold" : "font-bold"}>Solde Dû Global : {grandTotalDueOverall.toFixed(2)} {clientHost?.currency || '€'}</p>
+                    <div className={grandTotalDueOverall > 0.009 ? "text-red-600 font-bold" : "font-bold"}>Solde Dû Global : {grandTotalDueOverall.toFixed(2)} {clientHost?.currency || '€'}</div>
                 </div>
             </CardContent>
              <CardFooter>
@@ -370,7 +383,7 @@ function ClientFilePageContent() {
                                         <TableRow key={`${item.itemType}-${item.id}`}>
                                             <TableCell><Badge variant={item.itemType === 'Commande' ? 'outline' : 'secondary'}>{item.itemType}</Badge></TableCell>
                                             <TableCell className="font-medium text-xs">#{item.id.slice(-6)}</TableCell>
-                                            <TableCell>{isValid(parseISO(item.dateHeure || item.dateArrivee)) ? format(parseISO(item.dateHeure || item.dateArrivee), 'P', {locale: fr}) : 'N/A'}</TableCell>
+                                            <TableCell>{isValid(parseISO(item.dateHeure || (item as EnrichedReservation).dateArrivee)) ? format(parseISO(item.dateHeure || (item as EnrichedReservation).dateArrivee), 'P', {locale: fr}) : 'N/A'}</TableCell>
                                             <TableCell>{description}</TableCell>
                                             <TableCell>{currencySymbol}{total.toFixed(2)}</TableCell>
                                             <TableCell className="text-green-600">{currencySymbol}{paid.toFixed(2)}</TableCell>
@@ -438,12 +451,12 @@ function ClientFilePageContent() {
                       <CardDescription>Soumis le: {res.onlineCheckinData!.submissionDate && isValid(parseISO(res.onlineCheckinData!.submissionDate)) ? format(parseISO(res.onlineCheckinData!.submissionDate), 'PPP p', { locale: fr }) : 'Date inconnue'}</CardDescription>
                     </CardHeader>
                     <CardContent className="text-sm space-y-1">
-                      <p><strong>Nom complet:</strong> {res.onlineCheckinData!.fullName || 'N/A'}</p>
-                      <p><strong>Email:</strong> {res.onlineCheckinData!.email || 'N/A'}</p>
-                      {res.onlineCheckinData!.birthDate && isValid(parseISO(res.onlineCheckinData!.birthDate)) && <p><strong>Date de naissance:</strong> {format(parseISO(res.onlineCheckinData!.birthDate), 'PPP', { locale: fr })}</p>}
-                      <p><strong>Téléphone:</strong> {res.onlineCheckinData!.phoneNumber || 'N/A'}</p>
-                      {res.onlineCheckinData!.travelReason && <p><strong>Motif du voyage:</strong> {res.onlineCheckinData!.travelReason}</p>}
-                      {res.onlineCheckinData!.additionalNotes && <p><strong>Notes additionnelles:</strong> {res.onlineCheckinData!.additionalNotes}</p>}
+                      <div><strong>Nom complet:</strong> {res.onlineCheckinData!.fullName || 'N/A'}</div>
+                      <div><strong>Email:</strong> {res.onlineCheckinData!.email || 'N/A'}</div>
+                      {res.onlineCheckinData!.birthDate && isValid(parseISO(res.onlineCheckinData!.birthDate)) && <div><strong>Date de naissance:</strong> {format(parseISO(res.onlineCheckinData!.birthDate), 'PPP', { locale: fr })}</div>}
+                      <div><strong>Téléphone:</strong> {res.onlineCheckinData!.phoneNumber || 'N/A'}</div>
+                      {res.onlineCheckinData!.travelReason && <div><strong>Motif du voyage:</strong> {res.onlineCheckinData!.travelReason}</div>}
+                      {res.onlineCheckinData!.additionalNotes && <div><strong>Notes additionnelles:</strong> {res.onlineCheckinData!.additionalNotes}</div>}
                       <div><strong>Statut Enreg. Ligne:</strong> <Badge variant={res.onlineCheckinStatus === 'completed' ? 'default' : res.onlineCheckinStatus === 'pending-review' ? 'secondary' : 'outline'} className="capitalize text-xs ml-1">{res.onlineCheckinStatus?.replace('-', ' ') || 'Non démarré'}</Badge></div>
                     </CardContent>
                   </Card>
@@ -509,6 +522,5 @@ export default function ClientFilePage() {
     </Suspense>
   )
 }
-
 
     
