@@ -5,8 +5,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'; // Added usePathname
 import Link from 'next/link';
-import { getOrders, updateOrderStatus as updateOrderStatusInData, getServices, getServiceCategories, getServiceById, getRoomOrTableById } from '@/lib/data';
-import type { Order, Service, RoomOrTable, OrderStatus, ServiceCategory } from '@/lib/types';
+import { getOrders, updateOrderStatus as updateOrderStatusInData, getServices, getServiceCategories, getItemById, getRoomOrTableById } from '@/lib/data'; // Changed getServiceById to getItemById
+import type { Order, Service, RoomOrTable, OrderStatus, ServiceCategory, MenuItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -61,10 +61,10 @@ export default function HostOrdersPage() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
 
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<(Order & { serviceName?: string; locationName?: string })[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [viewingOrder, setViewingOrder] = useState<Order & { serviceName?: string; locationName?: string } | null>(null);
+  const [viewingOrder, setViewingOrder] = useState<(Order & { serviceName?: string; locationName?: string }) | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
 
   const [allServices, setAllServices] = useState<Service[]>([]);
@@ -106,11 +106,16 @@ export default function HostOrdersPage() {
        });
       
       const enrichedOrders = await Promise.all(ordersData.map(async (order) => {
-        const service = await getServiceById(order.serviceId);
+        const item = await getItemById(order.serviceId); // Use getItemById
         const location = await getRoomOrTableById(order.chambreTableId);
+        let itemName = 'Unknown Item';
+        if (item) {
+            if ('titre' in item) itemName = item.titre; // It's a Service
+            else if ('name' in item) itemName = item.name; // It's a MenuItem
+        }
         return {
           ...order,
-          serviceName: service?.titre || 'Unknown Service',
+          serviceName: itemName,
           locationName: location ? `${location.type} ${location.nom}` : 'Unknown Location',
         };
       }));
@@ -267,7 +272,7 @@ export default function HostOrdersPage() {
               <TableRow>
                 <TableHead>Order ID</TableHead>
                 <TableHead>Client</TableHead>
-                <TableHead>Service</TableHead>
+                <TableHead>Service/Item</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Status</TableHead>
@@ -280,7 +285,7 @@ export default function HostOrdersPage() {
                   <TableCell className="font-medium">#{order.id.slice(-6)}</TableCell>
                   <TableCell>
                     {order.clientNom ? (
-                      <Link href={`/host/clients/${encodeURIComponent(order.clientNom)}`} className="hover:underline text-primary flex items-center">
+                      <Link href={`/host/clients/file/${order.clientId || order.clientNom}`} className="hover:underline text-primary flex items-center">
                         <UserCircle className="mr-1.5 h-4 w-4" />
                         {order.clientNom}
                       </Link>
@@ -337,7 +342,7 @@ export default function HostOrdersPage() {
               <div className="text-sm"><strong>Client:</strong> {viewingOrder.clientNom || "N/A"}</div>
               <div className="text-sm"><strong>Date:</strong> {new Date(viewingOrder.dateHeure).toLocaleString()}</div>
               <div className="text-sm"><strong>Status:</strong> <span className="capitalize">{viewingOrder.status}</span></div>
-              {viewingOrder.prixTotal !== undefined && <div className="text-sm"><strong>Total Price:</strong> ${viewingOrder.prixTotal.toFixed(2)}</div>}
+              {viewingOrder.prixTotal !== undefined && <div className="text-sm"><strong>Total Price:</strong> { (viewingOrder.currency || '$') }{viewingOrder.prixTotal.toFixed(2)}</div>}
               
               <div className="space-y-2">
                 <h4 className="font-semibold">Form Data:</h4>
@@ -376,4 +381,3 @@ export default function HostOrdersPage() {
     </div>
   );
 }
-
