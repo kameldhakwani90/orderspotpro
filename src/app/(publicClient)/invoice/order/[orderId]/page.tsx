@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getOrderById, getHostById, getServiceById, getRoomOrTableById, getUserById, getSiteById } from '@/lib/data'; // Added getSiteById
+import { getOrderById, getHostById, getServiceById, getRoomOrTableById, getUserById, getSiteById, getSites } from '@/lib/data'; // Added getSites
 import type { Order, Host, Service, RoomOrTable, User, Site as GlobalSiteType } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -17,7 +17,7 @@ import { fr } from 'date-fns/locale';
 interface InvoiceDetails {
   order: Order;
   host: Host | null;
-  globalSite: GlobalSiteType | null; // Added GlobalSite
+  globalSite: GlobalSiteType | null;
   service: Service | null;
   location: RoomOrTable | null;
   clientUser: User | null;
@@ -56,13 +56,21 @@ function InvoicePageContent() {
       if (orderData.hostId) {
         hostData = await getHostById(orderData.hostId);
         if (hostData) {
-            // Assuming a host is associated with one primary global site for invoice display
-            // This logic might need adjustment if a host can manage multiple global sites
-            // and the order isn't directly tied to a specific global site.
-            // For now, let's try to find the first global site of the host for logo/name.
-            const sites = await getSites(orderData.hostId);
+            const sites = await getSites(orderData.hostId); // Use getSites to fetch sites for the host
             if (sites.length > 0) {
-                globalSiteData = sites[0]; 
+                // Attempt to find the specific global site if location has one,
+                // otherwise fallback to host's first global site.
+                const locationForOrder = orderData.chambreTableId ? await getRoomOrTableById(orderData.chambreTableId) : null;
+                if (locationForOrder?.globalSiteId) {
+                    const specificSite = sites.find(s => s.siteId === locationForOrder.globalSiteId);
+                    if (specificSite) {
+                        globalSiteData = specificSite;
+                    } else {
+                        globalSiteData = sites[0]; // Fallback if specific not found but others exist
+                    }
+                } else {
+                     globalSiteData = sites[0]; // Fallback to host's first global site
+                }
             }
         }
       }
@@ -140,8 +148,9 @@ function InvoicePageContent() {
   const { order, host, globalSite, service, location, clientUser } = invoiceDetails;
   const clientDisplayName = clientUser?.nom || order.clientNom || "Client Inconnu";
   const establishmentName = globalSite?.nom || host?.nom || "Établissement Inconnu";
-  const establishmentLogo = globalSite?.logoUrl || host?.reservationPageSettings?.heroImageUrl; // Prefer global site logo
+  const establishmentLogo = globalSite?.logoUrl || host?.reservationPageSettings?.heroImageUrl; 
   const establishmentLogoHint = globalSite?.logoAiHint || host?.reservationPageSettings?.heroImageAiHint || "establishment logo";
+  const currencySymbol = order.currency || host?.currency || '$';
 
   return (
     <div className="max-w-4xl mx-auto bg-background text-foreground p-4 sm:p-8 print:p-0 print:shadow-none print:border-none print:bg-white">
@@ -215,10 +224,10 @@ function InvoicePageContent() {
                   <td className="py-2 text-foreground">{service?.titre || "Service non trouvé"}</td>
                   <td className="text-right py-2 text-foreground">1</td>
                   <td className="text-right py-2 text-foreground">
-                    {order.prixTotal !== undefined ? `$${order.prixTotal.toFixed(2)}` : "N/A"}
+                    {order.prixTotal !== undefined ? `${currencySymbol}${order.prixTotal.toFixed(2)}` : "N/A"}
                   </td>
                   <td className="text-right py-2 text-foreground">
-                    {order.prixTotal !== undefined ? `$${order.prixTotal.toFixed(2)}` : "N/A"}
+                    {order.prixTotal !== undefined ? `${currencySymbol}${order.prixTotal.toFixed(2)}` : "N/A"}
                   </td>
                 </tr>
               </tbody>
@@ -239,24 +248,24 @@ function InvoicePageContent() {
               <div className="flex justify-between sm:justify-end sm:gap-4">
                 <span className="text-muted-foreground">Sous-total :</span>
                 <span className="font-medium text-foreground">
-                  {order.prixTotal !== undefined ? `$${order.prixTotal.toFixed(2)}` : "N/A"}
+                  {order.prixTotal !== undefined ? `${currencySymbol}${order.prixTotal.toFixed(2)}` : "N/A"}
                 </span>
               </div>
               <div className="flex justify-between sm:justify-end sm:gap-4">
                 <span className="text-muted-foreground">TVA (0%) :</span>
-                <span className="font-medium text-foreground">$0.00</span>
+                <span className="font-medium text-foreground">{currencySymbol}0.00</span>
               </div>
               <div className="flex justify-between sm:justify-end sm:gap-4 text-lg font-bold text-primary border-t pt-2 mt-2">
                 <span>Total Général :</span>
-                <span>{order.prixTotal !== undefined ? `$${order.prixTotal.toFixed(2)}` : "N/A"}</span>
+                <span>{order.prixTotal !== undefined ? `${currencySymbol}${order.prixTotal.toFixed(2)}` : "N/A"}</span>
               </div>
               <div className="flex justify-between sm:justify-end sm:gap-4 text-sm">
                 <span className="text-muted-foreground">Montant Payé :</span>
-                <span className="font-medium text-green-600">${(order.montantPaye || 0).toFixed(2)}</span>
+                <span className="font-medium text-green-600">{currencySymbol}{(order.montantPaye || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between sm:justify-end sm:gap-4 text-sm font-semibold">
                 <span className="text-muted-foreground">Solde Dû :</span>
-                <span className="text-red-600">${(order.soldeDu || 0).toFixed(2)}</span>
+                <span className={ (order.soldeDu || 0) > 0 ? "text-red-600" : "text-foreground" }>{currencySymbol}{(order.soldeDu || 0).toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -278,5 +287,3 @@ export default function InvoicePage() {
   );
 }
 
-
-    
