@@ -1,16 +1,16 @@
 
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, Suspense } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import {
-  getOrdersByClientId, // Uses new function
+  getOrdersByClientId,
   getRoomOrTableById,
   getServiceById,
   getClientById,
-  getReservationsByClientId, // Uses new function
+  getReservationsByClientId,
   getHostById,
   recordPaymentForOrder,
   recordPaymentForReservation,
@@ -24,7 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { User, ShoppingBag, MapPin, CalendarDays, Phone, Mail, DollarSign, AlertTriangle, Info, ListOrdered, Building, BedDouble, Utensils, FileCheck as FileCheckIcon, ArrowLeft, Edit3, Users as UsersIcon, CreditCard, Gift, FileText as InvoiceIcon } from 'lucide-react';
+import { User, ShoppingBag, MapPin, CalendarDays, Phone, Mail, DollarSign, AlertTriangle, Info, ListOrdered, Building, BedDouble, Utensils, FileCheck as FileCheckIcon, ArrowLeft, Edit3, Users as UsersIcon, CreditCard, Gift, FileText as InvoiceIcon, Edit2 } from 'lucide-react'; // Added Edit2
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -42,6 +42,7 @@ interface EnrichedOrder extends Order {
 
 interface EnrichedReservation extends Reservation {
     locationFullName?: string;
+    locationType?: 'Chambre' | 'Table';
 }
 
 type BillableItem = (EnrichedOrder | EnrichedReservation) & { itemType: 'Commande' | 'Séjour' };
@@ -97,6 +98,8 @@ function ClientFilePageContent() {
         setError("Fiche client introuvable ou non accessible.");
         setClientDetails(null);
         setBillableItems([]);
+        setClientOrders([]);
+        setClientReservations([]);
         setIsLoading(false);
         return;
       }
@@ -106,8 +109,8 @@ function ClientFilePageContent() {
       setClientHost(hostData);
 
       const [ordersData, reservationsData] = await Promise.all([
-        getOrdersByClientId(hostIdForAuth, currentClientId), // Use getOrdersByClientId
-        getReservationsByClientId(hostIdForAuth, currentClientId) // Use getReservationsByClientId
+        getOrdersByClientId(hostIdForAuth, currentClientId),
+        getReservationsByClientId(hostIdForAuth, currentClientId)
       ]);
 
       const enrichedOrders = await Promise.all(
@@ -116,7 +119,7 @@ function ClientFilePageContent() {
           const location = await getRoomOrTableById(order.chambreTableId);
           return {
             ...order,
-            serviceName: service && 'titre' in service ? service.titre : (service && 'name' in service ? service.name : 'Service Inconnu'),
+            serviceName: service ? ('titre' in service ? service.titre : service.name) : 'Service Inconnu',
             locationName: location ? `${location.type} ${location.nom}` : 'Lieu Inconnu',
           };
         })
@@ -126,11 +129,15 @@ function ClientFilePageContent() {
       const enrichedReservations = await Promise.all(
         reservationsData.map(async (res) => {
             let locFullName: string | undefined = undefined;
+            let locType: 'Chambre' | 'Table' | undefined = undefined;
             if(res.locationId) {
                 const loc = await getRoomOrTableById(res.locationId);
-                if(loc) locFullName = `${loc.type} ${loc.nom}`;
+                if(loc) {
+                    locFullName = `${loc.type} ${loc.nom}`;
+                    locType = loc.type as 'Chambre' | 'Table';
+                }
             }
-            return { ...res, locationFullName: locFullName };
+            return { ...res, locationFullName: locFullName, locationType: locType };
         })
       );
       setClientReservations(enrichedReservations);
@@ -144,7 +151,7 @@ function ClientFilePageContent() {
     } catch (e) {
       console.error("Échec de la récupération des détails du client:", e);
       setError("Impossible de charger les détails du client. Veuillez réessayer.");
-      setClientDetails(null); // Reset on error
+      setClientDetails(null);
       setClientOrders([]);
       setClientReservations([]);
       setBillableItems([]);
@@ -162,7 +169,7 @@ function ClientFilePageContent() {
     } else if (!authLoading && authUser?.role !== 'host') {
       router.replace('/dashboard');
     }
-  }, [authUser, authLoading, clientId, fetchData]); // router removed
+  }, [authUser, authLoading, clientId, fetchData, router]);
 
   const openPaymentDialog = (item: BillableItem) => {
     const amountDue = (item.prixTotal || 0) - (item.montantPaye || 0);
@@ -171,7 +178,7 @@ function ClientFilePageContent() {
       itemType: item.itemType === 'Commande' ? 'Order' : 'Reservation',
       itemId: item.id,
       itemName: item.itemType === 'Commande' ? (item as EnrichedOrder).serviceName || 'Commande' : `Séjour ${(item as EnrichedReservation).locationFullName || 'N/A'}`,
-      amountDue: Math.max(0, amountDue), // Ensure non-negative due amount
+      amountDue: Math.max(0, amountDue),
       currentPaid: item.montantPaye || 0,
       currency: item.currency || clientHost?.currency || 'USD'
     });
@@ -185,7 +192,7 @@ function ClientFilePageContent() {
       toast({ title: "Montant Invalide", description: "Veuillez saisir un montant de paiement valide.", variant: "destructive" });
       return;
     }
-    if (paymentAmount > paymentDialogState.amountDue + 0.001) { // check for overpayment with small tolerance
+    if (paymentAmount > paymentDialogState.amountDue + 0.001) { 
       toast({ title: "Paiement Excessif", description: `Le montant saisi (${paymentAmount.toFixed(2)}) dépasse le solde dû de ${paymentDialogState.amountDue.toFixed(2)} ${paymentDialogState.currency}.`, variant: "destructive" });
       return;
     }
@@ -207,8 +214,6 @@ function ClientFilePageContent() {
         }
         await addCreditToClient(clientDetails.id, -paymentAmount, clientDetails.hostId);
       } else if (paymentMethod === 'points' && clientDetails) {
-        // Placeholder for points logic - requires conversion rate and points balance check
-        // For now, just log and don't actually deduct points.
         toast({ title: "Paiement par Points (Simulation)", description: "La logique de déduction des points sera implémentée ultérieurement.", variant: "info"});
       }
 
@@ -227,6 +232,18 @@ function ClientFilePageContent() {
       setIsSubmittingPayment(false);
     }
   };
+
+  const totalSpentOverall = clientOrders
+    .filter(o => o.status === 'completed' && typeof o.prixTotal === 'number')
+    .reduce((sum, o) => sum + (o.prixTotal!), 0) + 
+    clientReservations
+    .filter(r => r.status === 'checked-out' && typeof r.prixTotal === 'number')
+    .reduce((sum, r) => sum + (r.prixTotal!), 0);
+
+  const totalPaidOverall = clientOrders.reduce((sum, o) => sum + (o.montantPaye || 0), 0) +
+    clientReservations.reduce((sum, r) => sum + (r.montantPaye || 0), 0);
+  
+  const grandTotalDueOverall = totalSpentOverall - totalPaidOverall;
 
 
   if (isLoading || authLoading) {
@@ -261,15 +278,6 @@ function ClientFilePageContent() {
     );
   }
   
-  const totalSpentAllOrders = clientOrders.reduce((sum, order) => sum + (order.prixTotal || 0), 0);
-  const totalSpentAllReservations = clientReservations.reduce((sum, res) => sum + (res.prixTotal || 0), 0);
-  const grandTotalSpent = totalSpentAllOrders + totalSpentAllReservations;
-  const totalPaidAllOrders = clientOrders.reduce((sum, order) => sum + (order.montantPaye || 0), 0);
-  const totalPaidAllReservations = clientReservations.reduce((sum, res) => sum + (res.montantPaye || 0), 0);
-  const grandTotalPaid = totalPaidAllOrders + totalPaidAllReservations;
-  const grandTotalDue = grandTotalSpent - grandTotalPaid;
-
-
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8 space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -303,23 +311,25 @@ function ClientFilePageContent() {
               <div><strong className="text-muted-foreground">ID Fiche Client:</strong> #{clientDetails.id.slice(-6)}</div>
               <div><Mail className="inline mr-1.5 h-4 w-4 text-muted-foreground" /> Email: <span className="font-medium">{clientDetails.email || "(Non renseigné)"}</span></div>
               <div><Phone className="inline mr-1.5 h-4 w-4 text-muted-foreground" /> Téléphone: <span className="font-medium">{clientDetails.telephone || "(Non renseigné)"}</span></div>
-              {/* Removed Client.type display as per previous request */}
-              {clientDetails.type === 'heberge' && (
-                <>
-                  {clientDetails.dateArrivee && <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Arrivée: {isValid(parseISO(clientDetails.dateArrivee)) ? format(parseISO(clientDetails.dateArrivee), 'PPP', {locale: fr}) : 'N/A'}</div>}
-                  {clientDetails.dateDepart && <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Départ: {isValid(parseISO(clientDetails.dateDepart)) ? format(parseISO(clientDetails.dateDepart), 'PPP', {locale: fr}) : 'N/A'}</div>}
-                  {clientDetails.locationId && <div><MapPin className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Lieu Actuel: {clientDetails.locationId}</div>}
-                </>
+              {clientDetails.type && (
+                <div><UsersIcon className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Type Fiche: <Badge variant="outline" className="capitalize">{clientDetails.type}</Badge></div>
               )}
-              <div className="text-green-600"><DollarSign className="inline mr-1.5 h-4 w-4"/> Crédit: <span className="font-semibold">{(clientDetails.credit || 0).toFixed(2)} {clientHost?.currency || '€'}</span></div>
-              <div className="text-amber-600"><Gift className="inline mr-1.5 h-4 w-4"/> Points Fidélité: <span className="font-semibold">{clientDetails.pointsFidelite || 0} pts</span></div>
-              <div className="mt-2"><strong className="text-primary">Notes:</strong> <p className="text-muted-foreground whitespace-pre-wrap">{clientDetails.notes || "(Aucune note pour cette fiche)"}</p></div>
+              {clientDetails.type === 'heberge' && clientDetails.dateArrivee && <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Arrivée Prévue (Fiche): {isValid(parseISO(clientDetails.dateArrivee)) ? format(parseISO(clientDetails.dateArrivee), 'PPP', {locale: fr}) : 'N/A'}</div>}
+              {clientDetails.type === 'heberge' && clientDetails.dateDepart && <div><CalendarDays className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Départ Prévu (Fiche): {isValid(parseISO(clientDetails.dateDepart)) ? format(parseISO(clientDetails.dateDepart), 'PPP', {locale: fr}) : 'N/A'}</div>}
+              {clientDetails.type === 'heberge' && clientDetails.locationId && <div><MapPin className="inline mr-1.5 h-4 w-4 text-muted-foreground"/> Lieu Assigné (Fiche): {allHostLocations.find(loc => loc.id === clientDetails.locationId)?.nom || clientDetails.locationId}</div>}
+              
+              <div className="pt-2 border-t mt-2">
+                <div className="text-green-600"><DollarSign className="inline mr-1.5 h-4 w-4"/> Crédit Client: <span className="font-semibold">{(clientDetails.credit || 0).toFixed(2)} {clientHost?.currency || '€'}</span></div>
+                <div className="text-amber-600"><Gift className="inline mr-1.5 h-4 w-4"/> Points Fidélité: <span className="font-semibold">{clientDetails.pointsFidelite || 0} pts</span></div>
+              </div>
+              <div className="mt-2"><strong className="text-primary">Notes Client:</strong> <p className="text-muted-foreground whitespace-pre-wrap">{clientDetails.notes || "(Aucune note pour cette fiche)"}</p></div>
                {clientDetails.userId && <p className="text-xs text-muted-foreground italic pt-2">(Lié à l'utilisateur global ID: #{clientDetails.userId.slice(-6)})</p>}
+                
                 <div className="pt-4 border-t mt-4">
-                    <h4 className="font-semibold mb-2">Résumé Financier Global :</h4>
-                    <p>Total Dépensé (Commandes + Séjours) : <span className="font-bold">{grandTotalSpent.toFixed(2)} {clientHost?.currency || '€'}</span></p>
-                    <p>Total Payé (Commandes + Séjours) : <span className="font-bold text-green-600">{grandTotalPaid.toFixed(2)} {clientHost?.currency || '€'}</span></p>
-                    <p className={grandTotalDue > 0 ? "text-red-600 font-bold" : "font-bold"}>Solde Dû Global : {grandTotalDue.toFixed(2)} {clientHost?.currency || '€'}</p>
+                    <h4 className="font-semibold mb-2 text-primary">Résumé Financier Global chez {clientHost?.nom}:</h4>
+                    <p>Total Dépensé Estimé (Complété/Check-out) : <span className="font-bold">{totalSpentOverall.toFixed(2)} {clientHost?.currency || '€'}</span></p>
+                    <p>Total Payé : <span className="font-bold text-green-600">{totalPaidOverall.toFixed(2)} {clientHost?.currency || '€'}</span></p>
+                    <p className={grandTotalDueOverall > 0.009 ? "text-red-600 font-bold" : "font-bold"}>Solde Dû Global : {grandTotalDueOverall.toFixed(2)} {clientHost?.currency || '€'}</p>
                 </div>
             </CardContent>
              <CardFooter>
@@ -350,7 +360,7 @@ function ClientFilePageContent() {
                                     const paid = item.montantPaye || 0;
                                     const due = total - paid;
                                     let paymentStatus: 'Payé' | 'Impayé' | 'Partiel' = 'Impayé';
-                                    if (due <= 0.009 && total > 0) paymentStatus = 'Payé'; // Added small tolerance for float issues
+                                    if (due <= 0.009 && total > 0) paymentStatus = 'Payé'; 
                                     else if (paid > 0 && due > 0.009) paymentStatus = 'Partiel';
                                     
                                     const description = item.itemType === 'Commande' ? (item as EnrichedOrder).serviceName : `Séjour ${(item as EnrichedReservation).locationFullName || 'N/A'}`;
@@ -395,7 +405,7 @@ function ClientFilePageContent() {
                                     <TableRow key={res.id}>
                                         <TableCell className="font-medium text-xs">#{res.id.slice(-6)}</TableCell>
                                         <TableCell>{res.locationFullName || "N/A"}</TableCell>
-                                        <TableCell>{res.type || "N/A"}</TableCell>
+                                        <TableCell>{res.locationType || res.type || "N/A"}</TableCell>
                                         <TableCell>{isValid(parseISO(res.dateArrivee)) ? format(parseISO(res.dateArrivee), "PP", {locale: fr}) : "N/A"}</TableCell>
                                         <TableCell>{res.dateDepart && isValid(parseISO(res.dateDepart)) && res.type === 'Chambre' ? format(parseISO(res.dateDepart), "PP", {locale: fr}) : (res.type === 'Table' ? 'N/A' : 'N/A')}</TableCell>
                                         <TableCell><Badge variant={res.status === 'cancelled' ? "destructive" : "secondary"} className="capitalize">{res.status || "N/A"}</Badge></TableCell>
@@ -444,7 +454,6 @@ function ClientFilePageContent() {
         </TabsContent>
       </Tabs>
 
-      {/* Payment Dialog */}
       <Dialog open={paymentDialogState.isOpen} onOpenChange={(open) => setPaymentDialogState(prev => ({ ...prev, isOpen: open }))}>
         <DialogContent>
           <DialogHeader>
@@ -465,11 +474,11 @@ function ClientFilePageContent() {
                 <SelectContent>
                   <SelectItem value="cash">Espèces</SelectItem>
                   <SelectItem value="card">Carte Bancaire</SelectItem>
-                  <SelectItem value="credit" disabled={(clientDetails?.credit || 0) === 0 || (clientDetails?.credit || 0) < (paymentAmount || 0)}>Crédit Client (Dispo: {(clientDetails?.credit || 0).toFixed(2)} {paymentDialogState.currency})</SelectItem>
-                  <SelectItem value="points" disabled={(clientDetails?.pointsFidelite || 0) === 0}>Points Fidélité (Dispo: {clientDetails?.pointsFidelite || 0} pts)</SelectItem>
+                  <SelectItem value="credit" disabled={!clientDetails || (clientDetails.credit || 0) === 0 || (clientDetails.credit || 0) < (typeof paymentAmount === 'number' ? paymentAmount : Infinity)}>Crédit Client (Dispo: {(clientDetails?.credit || 0).toFixed(2)} {paymentDialogState.currency})</SelectItem>
+                  <SelectItem value="points" disabled={!clientDetails || (clientDetails.pointsFidelite || 0) === 0}>Points Fidélité (Dispo: {clientDetails?.pointsFidelite || 0} pts)</SelectItem>
                 </SelectContent>
               </Select>
-              {paymentMethod === 'credit' && typeof paymentAmount === 'number' && (clientDetails?.credit || 0) < paymentAmount && <p className="text-xs text-destructive">Crédit client insuffisant pour ce montant.</p>}
+              {paymentMethod === 'credit' && typeof paymentAmount === 'number' && clientDetails && (clientDetails.credit || 0) < paymentAmount && <p className="text-xs text-destructive">Crédit client insuffisant pour ce montant.</p>}
               {paymentMethod === 'points' && <p className="text-xs text-muted-foreground">La logique de conversion points/devise et déduction n'est pas encore implémentée.</p>}
             </div>
             <div className="space-y-1.5">
@@ -481,7 +490,7 @@ function ClientFilePageContent() {
             <DialogClose asChild><Button variant="outline" disabled={isSubmittingPayment}>Annuler</Button></DialogClose>
             <Button
               onClick={handleRecordPayment}
-              disabled={isSubmittingPayment || typeof paymentAmount !== 'number' || paymentAmount <= 0 || (paymentMethod === 'credit' && ((clientDetails?.credit || 0) < paymentAmount)) || paymentAmount > paymentDialogState.amountDue + 0.001 }
+              disabled={isSubmittingPayment || typeof paymentAmount !== 'number' || paymentAmount <= 0 || (paymentMethod === 'credit' && (!clientDetails || (clientDetails.credit || 0) < paymentAmount)) || paymentAmount > paymentDialogState.amountDue + 0.001 }
             >
               {isSubmittingPayment ? "Enregistrement..." : "Enregistrer Paiement"}
             </Button>
@@ -500,3 +509,6 @@ export default function ClientFilePage() {
     </Suspense>
   )
 }
+
+
+    
