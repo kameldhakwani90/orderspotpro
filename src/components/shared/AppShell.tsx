@@ -1,3 +1,4 @@
+
 // src/components/shared/AppShell.tsx
 "use client";
 
@@ -19,7 +20,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import {
-  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon, Settings2, ChevronsUpDown, MessageSquare, LayoutDashboard, UserCircle, Utensils as MenuCardsIcon
+  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon, Settings2, ChevronsUpDown, MessageSquare, LayoutDashboard, UserCircle, Utensils as MenuCardsIcon, Database // Ajout de Database
 } from 'lucide-react'; 
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -32,6 +33,7 @@ const adminNavItems: NavItem[] = [
   { label: 'Manage Users', href: '/admin/users', icon: Users, allowedRoles: ['admin'] },
   { label: 'Manage Global Sites', href: '/admin/sites', icon: Building2, allowedRoles: ['admin'] },
   { label: 'Manage Hosts', href: '/admin/hosts', icon: UserCog, allowedRoles: ['admin'] },
+  { label: 'Data Model', href: '/admin/data-model', icon: Database, allowedRoles: ['admin'] }, // Nouvelle page
 ];
 
 const hostNavItems: NavItem[] = [
@@ -309,7 +311,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </Button>
         </div>
         <nav className="flex-grow p-4 space-y-1.5">
-          {currentNavItemsBasedOnRole.map((item) => ( // Changed from allNavItemsForUser
+          {currentNavItemsBasedOnRole.map((item) => ( 
             isSidebarOpen ? (
               <NavLink key={item.label + item.href} item={item} />
             ) : (
@@ -403,3 +405,5 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 export default AppShell;
+
+    
