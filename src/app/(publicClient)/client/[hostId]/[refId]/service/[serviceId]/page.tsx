@@ -3,7 +3,8 @@
 
 import React, { useEffect, useState, useRef, useCallback, Suspense } from 'react'; 
 import { useParams, useRouter, usePathname } from 'next/navigation';
-import { getServiceById, getFormById, getFormFields, addOrder, getHostById, getRoomOrTableById } from '@/lib/data';
+// Correction: Remplacer getServiceById par getItemById
+import { getItemById, getFormById, getFormFields, addOrder, getHostById, getRoomOrTableById } from '@/lib/data';
 import type { Service, CustomForm, FormField as FormFieldType, Host, RoomOrTable, MenuItem, MenuItemOptionGroup, MenuItemOption } from '@/lib/types';
 import { DynamicFormRenderer, type DynamicFormRendererRef } from '@/components/shared/DynamicFormRenderer';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,7 +21,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { HostOrderPlacementDialog } from '@/components/host/HostOrderPlacementDialog'; // New Import
+import { HostOrderPlacementDialog } from '@/components/host/HostOrderPlacementDialog';
 
 function PublicClientOrderServicePageContent() {
   const params = useParams();
@@ -66,8 +67,9 @@ function PublicClientOrderServicePageContent() {
         setError(null);
         setOrderSuccess(false);
         try {
+          // Correction: Utiliser getItemById ici
           const [fetchedItemData, fetchedHostData, fetchedLocationData] = await Promise.all([
-            getServiceById(itemId), 
+            getItemById(itemId), 
             getHostById(hostId),
             getRoomOrTableById(refId),
           ]);
@@ -479,4 +481,3 @@ export default function PublicClientOrderServicePage() {
     </Suspense>
   );
 }
-
