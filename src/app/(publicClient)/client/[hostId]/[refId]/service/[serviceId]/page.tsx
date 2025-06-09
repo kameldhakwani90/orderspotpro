@@ -20,6 +20,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { HostOrderPlacementDialog } from '@/components/host/HostOrderPlacementDialog'; // New Import
 
 function PublicClientOrderServicePageContent() {
   const params = useParams();
@@ -33,7 +34,7 @@ function PublicClientOrderServicePageContent() {
 
   const hostId = params.hostId as string;
   const refId = params.refId as string; 
-  const itemId = params.serviceId as string; // Can be Service.id or MenuItem.id
+  const itemId = params.serviceId as string; 
 
   const [itemDetail, setItemDetail] = useState<Service | MenuItem | null>(null);
   const [customForm, setCustomForm] = useState<CustomForm | null>(null);
@@ -48,8 +49,10 @@ function PublicClientOrderServicePageContent() {
 
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string | string[]>>({});
   const [currentTotalPrice, setCurrentTotalPrice] = useState<number>(0);
+  
+  const [isHostOrderPlacementDialogOpen, setIsHostOrderPlacementDialogOpen] = useState(false);
 
-  // Helper to determine if the item is a MenuItem
+
   const isMenuItem = (item: Service | MenuItem | null): item is MenuItem => {
     return item !== null && ('menuCategoryId' in item || 'isConfigurable' in item);
   };
@@ -70,7 +73,7 @@ function PublicClientOrderServicePageContent() {
           ]);
           
           if (!fetchedItemData) { setError(t('serviceNotFound')); setItemDetail(null); setIsLoadingPage(false); return; }
-          // @ts-ignore - hostId check is a bit tricky with union type here, but important
+          // @ts-ignore
           if (fetchedItemData.hostId && fetchedItemData.hostId !== hostId) { setError("Item not available for this establishment."); setItemDetail(null); setIsLoadingPage(false); return; }
           if (!fetchedHostData) { setError(t('establishmentNotFound')); setHostInfo(null); setIsLoadingPage(false); return; }
           if (!fetchedLocationData || fetchedLocationData.hostId !== hostId || fetchedLocationData.id !== refId) { setError(t('locationNotFound')); setLocationInfo(null); setIsLoadingPage(false); return; }
@@ -97,7 +100,7 @@ function PublicClientOrderServicePageContent() {
               setCurrentTotalPrice(fetchedItemData.price);
             }
             setCustomForm(null); setFormFields([]);
-          } else { // It's a Service
+          } else { 
             setCurrentTotalPrice(fetchedItemData.prix || 0);
             if (fetchedItemData.formulaireId) {
               const formDetails = await getFormById(fetchedItemData.formulaireId);
@@ -165,9 +168,9 @@ function PublicClientOrderServicePageContent() {
   };
 
   const handleDirectServiceOrderSubmit = async (formData: Record<string, any>) => {
-    if (!itemDetail || isMenuItem(itemDetail) || !hostId || !refId) return; // Only for Service type
+    if (!itemDetail || isMenuItem(itemDetail) || !hostId || !refId) return; 
     
-    const service = itemDetail as Service; // Type assertion
+    const service = itemDetail as Service; 
     if (service.loginRequired && !user) {
       toast({ title: t('loginRequired') || "Login Required", description: t('loginToOrder', { serviceName: service.titre }) || "Please log in to order.", variant: "destructive"});
       router.push(`/login?redirect_url=${encodeURIComponent(pathname)}`);
@@ -196,7 +199,7 @@ function PublicClientOrderServicePageContent() {
   const handleAddToCartClick = () => {
     if (!itemDetail || !isMenuItem(itemDetail)) return;
     
-    const menuItem = itemDetail as MenuItem; // Type assertion
+    const menuItem = itemDetail as MenuItem; 
     if (menuItem.loginRequired && !user) {
       toast({ title: t('loginRequired') || "Login Required", description: t('loginToOrder', { serviceName: menuItem.name }) || "Please log in to add to cart.", variant: "destructive"});
       router.push(`/login?redirect_url=${encodeURIComponent(pathname)}`);
@@ -214,6 +217,52 @@ function PublicClientOrderServicePageContent() {
     toast({ title: `${menuItem.name} ${t('addToCart') || "added to cart"}!`, description: t('orderSuccessDescription', { serviceName: menuItem.name }) || `Added ${menuItem.name} to your cart.` });
     router.push(`/client/${hostId}/${refId}`);
   };
+
+  const handleHostInitiatedOrder = () => {
+    if (!itemDetail || !hostInfo || !locationInfo) {
+      toast({ title: "Error", description: "Item or context details missing.", variant: "destructive" });
+      return;
+    }
+    if (isMenuItem(itemDetail) && itemDetail.isConfigurable && itemDetail.optionGroups) {
+      for (const group of itemDetail.optionGroups) {
+        if (group.isRequired && (!selectedOptions[group.id] || (Array.isArray(selectedOptions[group.id]) && (selectedOptions[group.id] as string[]).length === 0))) {
+          toast({ title: "Option requise", description: `Veuillez sélectionner une option pour "${group.name}".`, variant: "destructive" });
+          return;
+        }
+      }
+    }
+    setIsHostOrderPlacementDialogOpen(true);
+  };
+
+  const handleOrderPlacedByHost = () => {
+    setOrderSuccess(true); 
+  };
+
+  const handleMainAction = () => {
+    if (authIsLoading) return;
+
+    if (user && user.role === 'host') {
+      handleHostInitiatedOrder();
+    } else { 
+      if (currentItemIsMenuItem) {
+        handleAddToCartClick(); 
+      } else if (serviceHasForm && formRef.current) {
+        formRef.current.submit(); 
+      } else {
+        handleDirectServiceOrderSubmit({}); 
+      }
+    }
+  };
+
+  const submitButtonText = () => {
+    if (isSubmitting) return t('submitting') || "Submitting...";
+    if (user && user.role === 'host') {
+        return "Passer Commande pour Client";
+    }
+    if (currentItemIsMenuItem) return t('addToCart') || "Add to Cart";
+    return t('orderFor', { price: `${(itemDetail?.currency || hostInfo?.currency || '$')}${currentTotalPrice.toFixed(2)}` }) || `Order for ${(itemDetail?.currency || hostInfo?.currency || '$')}${currentTotalPrice.toFixed(2)}`;
+  };
+
 
   if (isLoadingPage || authIsLoading) {
     return (
@@ -276,8 +325,7 @@ function PublicClientOrderServicePageContent() {
   const itemStock = currentItemIsMenuItem ? itemDetail.stock : undefined;
   const isItemOutOfStock = itemStock === 0;
 
-
-  if (itemIsLoginRequired && !user) {
+  if (itemIsLoginRequired && !user && (!authUser || authUser.role !== 'host')) { // Allow host to proceed
     return (
       <div className="text-center py-10 bg-card p-8 rounded-xl shadow-xl max-w-md mx-auto">
         <Lock className="mx-auto h-16 w-16 text-primary mb-6" />
@@ -299,22 +347,6 @@ function PublicClientOrderServicePageContent() {
   }
 
   const LocationIcon = locationInfo.type === 'Chambre' ? BedDouble : Utensils;
-
-  const submitButtonText = () => {
-    if (isSubmitting) return t('submitting') || "Submitting...";
-    if (currentItemIsMenuItem) return t('addToCart') || "Add to Cart";
-    return t('orderFor', { price: `${(itemDetail?.currency || hostInfo?.currency || '$')}${currentTotalPrice.toFixed(2)}` }) || `Order for ${(itemDetail?.currency || hostInfo?.currency || '$')}${currentTotalPrice.toFixed(2)}`;
-  };
-
-  const handleMainAction = () => {
-    if (currentItemIsMenuItem) {
-      handleAddToCartClick();
-    } else if (serviceHasForm && formRef.current) {
-      formRef.current.submit();
-    } else {
-      handleDirectServiceOrderSubmit({});
-    }
-  };
 
   return (
     <div className="max-w-3xl mx-auto py-6">
@@ -398,7 +430,12 @@ function PublicClientOrderServicePageContent() {
             />
           )}
           <div className="mt-6">
-            <Button onClick={handleMainAction} disabled={isSubmitting || isItemOutOfStock} size="lg" className="w-full max-w-xs mx-auto block bg-primary hover:bg-primary/90">
+            <Button 
+              onClick={handleMainAction} 
+              disabled={isSubmitting || isItemOutOfStock || (itemIsLoginRequired && !user && (!authUser || authUser.role !== 'host'))} 
+              size="lg" 
+              className="w-full max-w-xs mx-auto block bg-primary hover:bg-primary/90"
+            >
               <ShoppingCart className="mr-2 h-5 w-5"/>
               <span>{submitButtonText()}</span>
             </Button>
@@ -409,6 +446,19 @@ function PublicClientOrderServicePageContent() {
       <Button variant="outline" onClick={() => router.back()} className="mt-8 w-full max-w-lg mx-auto block text-base py-3 h-auto">
          <ArrowLeft className="mr-2 h-4 w-4"/> <span>{t('cancelAndBackToServices') || "Cancel & Back to Services"}</span>
       </Button>
+
+      {itemDetail && hostInfo && locationInfo && user && user.role === 'host' && (
+        <HostOrderPlacementDialog
+          open={isHostOrderPlacementDialogOpen}
+          onOpenChange={setIsHostOrderPlacementDialogOpen}
+          item={itemDetail}
+          hostId={hostId}
+          locationId={refId}
+          selectedOptions={currentItemIsMenuItem ? selectedOptions : undefined}
+          finalPrice={currentTotalPrice}
+          onOrderPlaced={handleOrderPlacedByHost}
+        />
+      )}
     </div>
   );
 }
@@ -429,3 +479,4 @@ export default function PublicClientOrderServicePage() {
     </Suspense>
   );
 }
+
