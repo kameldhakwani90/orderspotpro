@@ -333,7 +333,22 @@ export default function HostDashboardPage() {
 
 
   if (authLoading || !user || user.role !== 'host') { return <div className="p-6">Loading host data or unauthorized...</div>; }
-  if (isDataLoading) { /* Skeleton UI */ }
+  if (isDataLoading && !isAddOrderDialogOpen) { 
+      return (
+        <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+            <div><Skeleton className="h-10 w-72"/><Skeleton className="h-6 w-96 mt-2"/></div>
+            <Skeleton className="h-12 w-48"/>
+          </div>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-32"/>)}
+          </div>
+          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
+            <Skeleton className="h-64"/> <Skeleton className="h-64"/>
+          </div>
+        </div>
+      );
+  }
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
@@ -344,7 +359,7 @@ export default function HostDashboardPage() {
         </div>
         <Dialog open={isAddOrderDialogOpen} onOpenChange={handleAddOrderDialogChange}>
           <DialogTrigger asChild>
-            <Button size="lg" disabled={dialogLocations.length === 0 && dialogServiceCategories.length === 0 && dialogMenuCards.length === 0}>
+            <Button size="lg">
               <PlusCircle className="mr-2 h-5 w-5" /> Add New Order
             </Button>
           </DialogTrigger>
@@ -492,3 +507,4 @@ export default function HostDashboardPage() {
   );
 }
     
+
