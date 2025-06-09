@@ -9,8 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useCallback } from "react";
-import type { User, Order, Client, RoomOrTable, Host as HostType, Service as ServiceType, Reservation } from "@/lib/types";
-import { updateUser, getOrdersByUserId, getClientRecordsByEmail, getHostById, getRoomOrTableById, getServiceById, getReservationsByUserId } from "@/lib/data";
+import type { User, Order, Client, RoomOrTable, Host as HostType, Service as ServiceType, Reservation, MenuItem } from "@/lib/types";
+import { updateUser, getOrdersByUserId, getClientRecordsByEmail, getHostById, getRoomOrTableById, getItemById, getReservationsByUserId } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { DollarSign, ShoppingBag, MapPin, CalendarDays, ListOrdered, Info, Hotel, LogOut as LogOutIcon, Search, FileText as InvoiceIcon, Edit3 } from "lucide-react";
@@ -45,12 +45,19 @@ export default function SettingsPage() {
 
       const enrichedOrders = await Promise.all(
         ordersData.map(async (order) => {
-          const service = await getServiceById(order.serviceId);
+          const item = await getItemById(order.serviceId); // Changed from getServiceById
           const location = await getRoomOrTableById(order.chambreTableId);
           const host = await getHostById(order.hostId);
+          
+          let itemName = 'Unknown Item';
+          if (item) {
+            if ('titre' in item) itemName = item.titre; // It's a Service
+            else if ('name' in item) itemName = item.name; // It's a MenuItem
+          }
+
           return {
             ...order,
-            serviceName: service?.titre || 'Unknown Service',
+            serviceName: itemName,
             locationName: location ? `${location.type} ${location.nom}` : 'Unknown Location',
             hostName: host?.nom || 'Unknown Establishment'
           };
@@ -66,7 +73,12 @@ export default function SettingsPage() {
                   const loc = await getRoomOrTableById(clientRecord.locationId);
                   if (loc) locationFullName = `${loc.type} ${loc.nom}`;
               }
-              const hostSpecificOrders = ordersData.filter(o => o.hostId === clientRecord.hostId && (o.status === 'completed' || o.status === 'confirmed'));
+              // Filter orders specifically for this host and client record for accurate spent/due calculation
+              const hostSpecificOrders = ordersData.filter(o => 
+                o.hostId === clientRecord.hostId && 
+                (o.clientId === clientRecord.id || o.userId === loggedInUser.id) && // Match by client record ID or user ID if client record is for this user
+                (o.status === 'completed' || o.status === 'confirmed')
+              );
               const totalSpentAtHost = hostSpecificOrders.reduce((sum, order) => sum + (order.prixTotal || 0), 0);
               const netDueAtHost = totalSpentAtHost - (clientRecord.credit || 0);
               return {
@@ -330,4 +342,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
