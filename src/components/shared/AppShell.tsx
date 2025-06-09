@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import {
-  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon, Settings2, ChevronsUpDown, MessageSquare, LayoutDashboard, UserCircle, Utensils as MenuCardsIcon, Database // Ajout de Database
+  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon, Settings2, ChevronsUpDown, MessageSquare, LayoutDashboard, UserCircle, Utensils as MenuCardsIcon, Database, ListOrdered
 } from 'lucide-react'; 
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -33,12 +33,13 @@ const adminNavItems: NavItem[] = [
   { label: 'Manage Users', href: '/admin/users', icon: Users, allowedRoles: ['admin'] },
   { label: 'Manage Global Sites', href: '/admin/sites', icon: Building2, allowedRoles: ['admin'] },
   { label: 'Manage Hosts', href: '/admin/hosts', icon: UserCog, allowedRoles: ['admin'] },
-  { label: 'Data Model', href: '/admin/data-model', icon: Database, allowedRoles: ['admin'] }, // Nouvelle page
+  { label: 'Data Model', href: '/admin/data-model', icon: Database, allowedRoles: ['admin'] },
 ];
 
 const hostNavItems: NavItem[] = [
   { label: 'Dashboard', href: '/host/dashboard', icon: LayoutDashboard, allowedRoles: ['host'] },
   { label: 'Client Orders', href: '/host/orders', icon: ShoppingCart, allowedRoles: ['host'] },
+  { label: 'Production Display', href: '/host/production-display', icon: ListOrdered, allowedRoles: ['host'] },
   { label: 'Reservations', href: '/host/reservations', icon: CalendarCheck, allowedRoles: ['host'] }, 
   { label: 'Gestion Clients', href: '/host/clients', icon: Users, allowedRoles: ['host'] },
   {
@@ -405,3 +406,4 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 export default AppShell;
+
