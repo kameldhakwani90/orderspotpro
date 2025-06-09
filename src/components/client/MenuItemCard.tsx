@@ -106,7 +106,7 @@ export function MenuItemCard({ item, hostId, refId, isUserLoggedIn }: MenuItemCa
             {item.price !== undefined && (
               <div className="flex items-center text-md font-semibold text-primary mt-1">
                 <Tag className="h-4 w-4 mr-1.5" />
-                {item.isConfigurable ? (t('priceFrom') || "From") : (t('servicePrice') || "Price")}: {(item.currency || '$')}{item.price.toFixed(2)}
+                {item.isConfigurable ? (t('priceFrom') || "From") : (t('servicePrice') || "Price")}: {item.price.toFixed(2)} {(item.currency || '$')}
               </div>
             )}
           </CardContent>

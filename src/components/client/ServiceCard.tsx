@@ -57,7 +57,7 @@ export function ServiceCard({ service, hostId, refId, isUserLoggedIn }: ServiceC
             {service.prix !== undefined && (
               <div className="flex items-center text-md font-semibold text-primary mt-1">
                 <Tag className="h-4 w-4 mr-1.5" />
-                {t('servicePrice') || "Price"}: {(service.currency || '$')}{service.prix.toFixed(2)}
+                {t('servicePrice') || "Price"}: {service.prix.toFixed(2)} {(service.currency || '$')}
               </div>
             )}
           </CardContent>
