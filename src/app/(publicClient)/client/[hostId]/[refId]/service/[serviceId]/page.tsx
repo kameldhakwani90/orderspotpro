@@ -3,7 +3,6 @@
 
 import React, { useEffect, useState, useRef, useCallback, Suspense } from 'react'; 
 import { useParams, useRouter, usePathname } from 'next/navigation';
-// Correction: Remplacer getServiceById par getItemById
 import { getItemById, getFormById, getFormFields, addOrder, getHostById, getRoomOrTableById } from '@/lib/data';
 import type { Service, CustomForm, FormField as FormFieldType, Host, RoomOrTable, MenuItem, MenuItemOptionGroup, MenuItemOption } from '@/lib/types';
 import { DynamicFormRenderer, type DynamicFormRendererRef } from '@/components/shared/DynamicFormRenderer';
@@ -67,7 +66,6 @@ function PublicClientOrderServicePageContent() {
         setError(null);
         setOrderSuccess(false);
         try {
-          // Correction: Utiliser getItemById ici
           const [fetchedItemData, fetchedHostData, fetchedLocationData] = await Promise.all([
             getItemById(itemId), 
             getHostById(hostId),
@@ -256,13 +254,17 @@ function PublicClientOrderServicePageContent() {
     }
   };
 
+  const currentItemIsMenuItem = isMenuItem(itemDetail);
+  
+  const formattedPrice = `${currentTotalPrice.toFixed(2)} ${(itemDetail?.currency || hostInfo?.currency || 'USD')}`;
+
   const submitButtonText = () => {
     if (isSubmitting) return t('submitting') || "Submitting...";
     if (user && user.role === 'host') {
         return "Passer Commande pour Client";
     }
     if (currentItemIsMenuItem) return t('addToCart') || "Add to Cart";
-    return t('orderFor', { price: `${(itemDetail?.currency || hostInfo?.currency || '$')}${currentTotalPrice.toFixed(2)}` }) || `Order for ${(itemDetail?.currency || hostInfo?.currency || '$')}${currentTotalPrice.toFixed(2)}`;
+    return t('orderFor', { price: formattedPrice }) || `Order for ${formattedPrice}`;
   };
 
 
@@ -315,7 +317,6 @@ function PublicClientOrderServicePageContent() {
     );
   }
 
-  const currentItemIsMenuItem = isMenuItem(itemDetail);
   const itemName = currentItemIsMenuItem ? itemDetail.name : (itemDetail as Service).titre;
   const itemDescription = itemDetail.description;
   const itemImage = currentItemIsMenuItem ? itemDetail.imageUrl : (itemDetail as Service).image;
@@ -384,7 +385,7 @@ function PublicClientOrderServicePageContent() {
                           <Label htmlFor={`${group.id}-${option.id}`} className="flex-1 cursor-pointer">
                             {option.name}
                             {option.priceAdjustment && option.priceAdjustment !== 0 ? (
-                              <span className="text-xs ml-1 text-muted-foreground">({option.priceAdjustment > 0 ? `+` : ``}{(itemDetail?.currency || hostInfo?.currency || '$')}{option.priceAdjustment.toFixed(2)})</span>
+                              <span className="text-xs ml-1 text-muted-foreground">({option.priceAdjustment > 0 ? `+` : ``}{currentTotalPrice.toFixed(2)} {(itemDetail?.currency || hostInfo?.currency || 'USD')})</span>
                             ) : ""}
                           </Label>
                         </div>
@@ -402,7 +403,7 @@ function PublicClientOrderServicePageContent() {
                           <Label htmlFor={`${group.id}-${option.id}`} className="flex-1 cursor-pointer">
                             {option.name}
                             {option.priceAdjustment && option.priceAdjustment !== 0 ? (
-                              <span className="text-xs ml-1 text-muted-foreground">({option.priceAdjustment > 0 ? `+` : ``}{(itemDetail?.currency || hostInfo?.currency || '$')}{option.priceAdjustment.toFixed(2)})</span>
+                              <span className="text-xs ml-1 text-muted-foreground">({option.priceAdjustment > 0 ? `+` : ``}{currentTotalPrice.toFixed(2)} {(itemDetail?.currency || hostInfo?.currency || 'USD')})</span>
                             ) : ""}
                           </Label>
                         </div>
@@ -416,7 +417,7 @@ function PublicClientOrderServicePageContent() {
 
           <p className="text-3xl font-semibold text-primary mb-6 flex items-center">
             <Tag className="h-7 w-7 mr-2" />
-            <span>{itemIsConfigurable ? t('totalEstimatedPrice') : t('servicePrice')}: {(itemDetail?.currency || hostInfo?.currency || '$')}{currentTotalPrice.toFixed(2)}</span>
+            <span>{itemIsConfigurable ? t('totalEstimatedPrice') : t('servicePrice')}: {formattedPrice}</span>
           </p>
 
 
@@ -438,7 +439,7 @@ function PublicClientOrderServicePageContent() {
               size="lg" 
               className="w-full max-w-xs mx-auto block bg-primary hover:bg-primary/90"
             >
-              <ShoppingCart className="mr-2 h-5 w-5"/>
+              <ShoppingCart className="mr-2 h-4 w-4"/> {/* Standardized icon size */}
               <span>{submitButtonText()}</span>
             </Button>
           </div>
