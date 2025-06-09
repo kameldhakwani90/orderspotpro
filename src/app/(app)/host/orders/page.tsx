@@ -342,7 +342,7 @@ export default function HostOrdersPage() {
               <div className="text-sm"><strong>Client:</strong> {viewingOrder.clientNom || "N/A"}</div>
               <div className="text-sm"><strong>Date:</strong> {new Date(viewingOrder.dateHeure).toLocaleString()}</div>
               <div className="text-sm"><strong>Status:</strong> <span className="capitalize">{viewingOrder.status}</span></div>
-              {viewingOrder.prixTotal !== undefined && <div className="text-sm"><strong>Total Price:</strong> { (viewingOrder.currency || '$') }{viewingOrder.prixTotal.toFixed(2)}</div>}
+              {viewingOrder.prixTotal !== undefined && <div className="text-sm"><strong>Total Price:</strong> {viewingOrder.prixTotal.toFixed(2)} {viewingOrder.currency || '$'}</div>}
               
               <div className="space-y-2">
                 <h4 className="font-semibold">Form Data:</h4>
@@ -381,3 +381,5 @@ export default function HostOrdersPage() {
     </div>
   );
 }
+
+    
