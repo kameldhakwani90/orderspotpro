@@ -9,9 +9,10 @@ import type { User, UserRole, Host } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Edit2, Trash2, Shield, UserPlus } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, Shield, UserPlus, BadgeInfo, Settings } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,24 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
+const defaultMenuPermissions = {
+    dashboard: true,
+    orders: true,
+    productionDisplay: true,
+    reservations: true,
+    clients: true,
+    configuration: true,
+};
+
+const hostMenuItems = [
+    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'orders', label: 'Client Orders' },
+    { id: 'productionDisplay', label: 'Production Display' },
+    { id: 'reservations', label: 'Reservations' },
+    { id: 'clients', label: 'Gestion Clients' },
+    { id: 'configuration', label: 'Configuration (Full Access)' },
+];
+
 export default function AdminUsersPage() {
   const { user: authUser, isLoading: authLoading } = useAuth();
   const router = useRouter();
@@ -39,7 +58,7 @@ export default function AdminUsersPage() {
   const [hosts, setHosts] = useState<Host[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null); // Store full User object for editing
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [currentUserData, setCurrentUserData] = useState<{
@@ -48,11 +67,15 @@ export default function AdminUsersPage() {
     role: UserRole;
     hostId?: string;
     motDePasse: string;
+    employeeType?: string;
+    menuPermissions?: Record<string, boolean>;
   }>({
     email: '',
     nom: '',
     role: 'client',
-    motDePasse: '1234', 
+    motDePasse: '1234',
+    employeeType: '',
+    menuPermissions: { ...defaultMenuPermissions },
   });
 
   const fetchData = useCallback(async () => {
@@ -89,12 +112,26 @@ export default function AdminUsersPage() {
     setCurrentUserData(prev => ({
         ...prev,
         role: value,
-        hostId: value === 'host' ? (prev.hostId || (hosts.length > 0 ? hosts[0].hostId : '')) : undefined
+        hostId: value === 'host' ? (prev.hostId || (hosts.length > 0 ? hosts[0].hostId : '')) : undefined,
+        employeeType: value !== 'host' ? '' : prev.employeeType,
+        menuPermissions: value !== 'host' ? { ...defaultMenuPermissions } : (prev.employeeType ? prev.menuPermissions : { ...defaultMenuPermissions }),
     }));
   };
   
   const handleHostChange = (value: string) => {
     setCurrentUserData(prev => ({...prev, hostId: value}));
+  };
+
+  const handleMenuPermissionChange = (permissionKey: string, checked: boolean | 'indeterminate') => {
+    if (typeof checked === 'boolean') {
+      setCurrentUserData(prev => ({
+        ...prev,
+        menuPermissions: {
+          ...(prev.menuPermissions || defaultMenuPermissions),
+          [permissionKey]: checked,
+        }
+      }));
+    }
   };
 
 
@@ -120,35 +157,33 @@ export default function AdminUsersPage() {
     }
     
     try {
+      const userPayload: Partial<User> = {
+        nom: dataToSubmit.nom,
+        email: dataToSubmit.email,
+        role: dataToSubmit.role,
+        hostId: dataToSubmit.role === 'host' ? dataToSubmit.hostId : undefined,
+        employeeType: dataToSubmit.role === 'host' && dataToSubmit.employeeType?.trim() ? dataToSubmit.employeeType.trim() : undefined,
+        menuPermissions: dataToSubmit.role === 'host' && dataToSubmit.employeeType?.trim() ? dataToSubmit.menuPermissions : undefined,
+      };
+
       if (editingUser && editingUser.id) {
-        // For updates, we don't send password unless it's explicitly being changed.
-        // This simple form doesn't have password change for existing users.
-        const updatePayload: Partial<Omit<User, 'id' | 'motDePasse'>> = {
-          nom: dataToSubmit.nom,
-          email: dataToSubmit.email, // Email editing for existing users typically disabled or handled with care
-          role: dataToSubmit.role,
-          hostId: dataToSubmit.role === 'host' ? dataToSubmit.hostId : undefined,
-        };
-        await updateUser(editingUser.id, updatePayload);
+        await updateUser(editingUser.id, userPayload);
         toast({ title: "User Updated", description: `${dataToSubmit.nom} has been updated.` });
       } else {
         await addUser({
-          email: dataToSubmit.email,
-          nom: dataToSubmit.nom,
-          role: dataToSubmit.role,
-          hostId: dataToSubmit.role === 'host' ? dataToSubmit.hostId : undefined,
+          ...userPayload,
           motDePasse: dataToSubmit.motDePasse!.trim(),
-        });
+        } as Omit<User, 'id'>);
         toast({ title: "User Created", description: `${dataToSubmit.nom} has been added.` });
       }
-      await fetchData(); // Refresh data from Firestore
+      await fetchData(); 
     } catch (error) {
         console.error("Failed to save user:", error);
         toast({ title: "Error", description: `Failed to save user. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
     } finally {
         setIsSubmitting(false);
         setIsDialogOpen(false);
-        setCurrentUserData({ email: '', nom: '', role: 'client', motDePasse: '1234', hostId: hosts.length > 0 ? hosts[0].hostId : '' });
+        setCurrentUserData({ email: '', nom: '', role: 'client', motDePasse: '1234', hostId: hosts.length > 0 ? hosts[0].hostId : '', employeeType: '', menuPermissions: { ...defaultMenuPermissions } });
         setEditingUser(null);
     }
   };
@@ -157,7 +192,7 @@ export default function AdminUsersPage() {
     setEditingUser(null);
     const initialRole: UserRole = 'client';
     const initialHostId = initialRole === 'host' && hosts.length > 0 ? hosts[0].hostId : undefined;
-    setCurrentUserData({ email: '', nom: '', role: initialRole, hostId: initialHostId, motDePasse: '1234' });
+    setCurrentUserData({ email: '', nom: '', role: initialRole, hostId: initialHostId, motDePasse: '1234', employeeType: '', menuPermissions: { ...defaultMenuPermissions } });
     setIsDialogOpen(true);
   };
 
@@ -172,7 +207,9 @@ export default function AdminUsersPage() {
         nom: userToEdit.nom,
         role: userToEdit.role,
         hostId: effectiveHostId,
-        motDePasse: '', // Password not shown/edited in this dialog for existing users
+        motDePasse: '', 
+        employeeType: userToEdit.employeeType || '',
+        menuPermissions: userToEdit.menuPermissions || { ...defaultMenuPermissions },
     });
     setIsDialogOpen(true);
   };
@@ -183,7 +220,7 @@ export default function AdminUsersPage() {
      try {
         await deleteUser(userId);
         toast({ title: "User Deleted", description: `User "${userName}" has been deleted.`, variant: "destructive" });
-        await fetchData(); // Refresh data
+        await fetchData(); 
      } catch (error) {
         console.error("Failed to delete user:", error);
         toast({ title: "Error deleting user", description: `Could not delete user. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
@@ -207,6 +244,8 @@ export default function AdminUsersPage() {
     );
   }
   
+  const isEmployeeTypeActive = currentUserData.role === 'host' && !!currentUserData.hostId && !!currentUserData.employeeType?.trim();
+
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
       <div className="flex justify-between items-center mb-8">
@@ -231,7 +270,7 @@ export default function AdminUsersPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead>Host ID (if applicable)</TableHead>
+                <TableHead>Host / Employee Type</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -249,7 +288,10 @@ export default function AdminUsersPage() {
                       {u.role}
                     </span>
                   </TableCell>
-                  <TableCell>{u.hostId || 'N/A'}</TableCell>
+                  <TableCell>
+                    {u.hostId ? (hosts.find(h => h.hostId === u.hostId)?.nom || u.hostId) : 'N/A'}
+                    {u.employeeType && <span className="text-xs text-muted-foreground ml-1">({u.employeeType})</span>}
+                  </TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button variant="outline" size="icon" onClick={() => openEditDialog(u)} title="Edit User" disabled={isSubmitting}>
                       <Edit2 className="h-4 w-4" />
@@ -267,14 +309,14 @@ export default function AdminUsersPage() {
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!isSubmitting) setIsDialogOpen(open); }}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
             <DialogDescription>
               {editingUser ? 'Modify the details of the existing user.' : 'Enter the details for the new user account.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="nom" className="text-right">Name</Label>
               <Input id="nom" name="nom" value={currentUserData.nom || ''} onChange={handleInputChange} className="col-span-3" disabled={isSubmitting} />
@@ -301,29 +343,63 @@ export default function AdminUsersPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin" disabled={(editingUser?.role === 'admin' && editingUser.id === authUser?.id) || (authUser?.role !== 'admin')}>Admin</SelectItem>
-                  <SelectItem value="host">Host</SelectItem>
+                  <SelectItem value="host">Host / Employee</SelectItem>
                   <SelectItem value="client">Client</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             {currentUserData.role === 'host' && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="hostId" className="text-right">Host</Label>
-                 <Select 
-                    value={currentUserData.hostId || (hosts.length > 0 ? hosts[0].hostId : '')} 
-                    onValueChange={handleHostChange} 
-                    disabled={isSubmitting || hosts.length === 0}
-                  >
-                    <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder={hosts.length > 0 ? "Assign to a host" : "No hosts available"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {hosts.length > 0 ? hosts.map(host => (
-                            <SelectItem key={host.hostId} value={host.hostId}>{host.nom} ({host.hostId})</SelectItem>
-                        )) : <SelectItem value="" disabled>No hosts available to assign</SelectItem>}
-                    </SelectContent>
-                 </Select>
-              </div>
+              <>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="hostId" className="text-right">Host Account</Label>
+                   <Select 
+                      value={currentUserData.hostId || (hosts.length > 0 ? hosts[0].hostId : '')} 
+                      onValueChange={handleHostChange} 
+                      disabled={isSubmitting || hosts.length === 0}
+                    >
+                      <SelectTrigger className="col-span-3">
+                          <SelectValue placeholder={hosts.length > 0 ? "Assign to a host" : "No hosts available"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                          {hosts.length > 0 ? hosts.map(host => (
+                              <SelectItem key={host.hostId} value={host.hostId}>{host.nom} ({host.hostId.slice(-5)})</SelectItem>
+                          )) : <SelectItem value="" disabled>No hosts available to assign</SelectItem>}
+                      </SelectContent>
+                   </Select>
+                </div>
+                {currentUserData.hostId && (
+                  <>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="employeeType" className="text-right">Employee Type</Label>
+                      <Input id="employeeType" name="employeeType" value={currentUserData.employeeType || ''} onChange={handleInputChange} className="col-span-3" placeholder="e.g., Chef, Serveur (optional)" disabled={isSubmitting} />
+                    </div>
+                     <p className="col-span-4 text-xs text-muted-foreground px-1">
+                        Si "Employee Type" est vide, l'utilisateur est considéré comme un propriétaire/manager de l'établissement avec tous les accès. Sinon, les permissions ci-dessous s'appliquent.
+                    </p>
+                    <div className="col-span-4 mt-2">
+                      <Label className="font-semibold text-sm flex items-center"><Settings className="mr-2 h-4 w-4 text-primary"/>Host Menu Permissions</Label>
+                      <Card className="mt-1 p-3 bg-muted/30">
+                        <div className="space-y-2">
+                          {hostMenuItems.map(item => (
+                            <div key={item.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`perm-${item.id}`}
+                                checked={currentUserData.menuPermissions?.[item.id] ?? (isEmployeeTypeActive ? false : true) }
+                                onCheckedChange={(checked) => handleMenuPermissionChange(item.id, checked)}
+                                disabled={isSubmitting || !isEmployeeTypeActive}
+                              />
+                              <Label htmlFor={`perm-${item.id}`} className={`font-normal ${!isEmployeeTypeActive ? 'text-muted-foreground italic' : ''}`}>
+                                {item.label}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                        {!isEmployeeTypeActive && <p className="text-xs text-muted-foreground mt-2 italic">Les permissions sont actives si un "Employee Type" est défini.</p>}
+                      </Card>
+                    </div>
+                  </>
+                )}
+              </>
             )}
           </div>
           <DialogFooter>
@@ -340,3 +416,5 @@ export default function AdminUsersPage() {
     </div>
   );
 }
+
+    

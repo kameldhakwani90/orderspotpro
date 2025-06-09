@@ -1,3 +1,4 @@
+
 // src/lib/types.ts
 import type { LucideIcon } from 'lucide-react';
 
@@ -10,6 +11,15 @@ export interface User {
   role: UserRole;
   hostId?: string;
   motDePasse: string;
+  employeeType?: string; // e.g., "Chef", "Serveur", "Réceptionniste"
+  menuPermissions?: {
+    dashboard?: boolean;
+    orders?: boolean;
+    productionDisplay?: boolean;
+    reservations?: boolean;
+    clients?: boolean;
+    configuration?: boolean; // True means full access to Configuration parent and all its children
+  };
 }
 
 export interface ReservationPageSettings {
@@ -81,8 +91,8 @@ export interface RoomOrTable {
   pricingModel?: 'perRoom' | 'perPerson'; // For rooms
   prixFixeReservation?: number; // For tables
   menuCardId?: string;
-  allowOnlineCheckin?: boolean; 
-  allowOnlineCheckout?: boolean; 
+  allowOnlineCheckin?: boolean;
+  allowOnlineCheckout?: boolean;
   currency?: string;
 }
 
@@ -371,3 +381,5 @@ export type Translations = {
     [key in TranslationKeys]?: string;
   };
 };
+
+    
