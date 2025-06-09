@@ -1,3 +1,4 @@
+
 // src/components/shared/AppShell.tsx
 "use client";
 
@@ -19,7 +20,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import {
-  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon, Settings2, ChevronsUpDown, MessageSquare, LayoutDashboard, UserCircle, Utensils as MenuCardsIcon, Database, ListOrdered
+  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, ClipboardList, ShoppingCart, Settings, LogOut, Menu, ChevronDown, ChevronUp, CalendarCheck, Tag as TagIcon, Settings2, ChevronsUpDown, MessageSquare, LayoutDashboard, UserCircle, Utensils as MenuCardsIcon, Database, ListOrdered, Briefcase // Added Briefcase for Manage Employees
 } from 'lucide-react'; 
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -54,6 +55,7 @@ const hostNavItems: NavItem[] = [
       { label: 'Custom Forms', href: '/host/forms', icon: FileText, allowedRoles: ['host'] },
       { label: 'My Services', href: '/host/services', icon: ClipboardList, allowedRoles: ['host'] },
       { label: 'Paramètres & Fidélité', href: '/host/reservation-settings', icon: Settings2, allowedRoles: ['host'] },
+      { label: 'Manage Employees', href: '/host/employees', icon: Briefcase, allowedRoles: ['host'] }, // New link
       { label: 'Account Settings', href: '/settings', icon: UserCircle, allowedRoles: ['host'] },
     ]
   }
@@ -406,3 +408,5 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 export default AppShell;
 
+
+    
