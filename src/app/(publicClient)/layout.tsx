@@ -37,7 +37,7 @@ function HeaderContent() {
       <header className="p-4 bg-card/90 backdrop-blur-md shadow-md sticky top-0 z-50 border-b">
         <div className="container mx-auto flex justify-between items-center">
           <Link href="/" className="text-2xl font-bold text-primary hover:opacity-80 transition-opacity">
-            ConnectHost
+            OrderSpot.pro
           </Link>
           <div className="flex items-center gap-2 sm:gap-3">
             <LanguageSwitcher />
@@ -109,7 +109,7 @@ function PageLayoutContent({ children }: { children: React.ReactNode }) {
       </Button>
 
       <footer className="p-6 text-center text-sm text-muted-foreground border-t bg-card/80 print:hidden">
-        {t('footerText', { year: new Date().getFullYear().toString() }) || `ConnectHost © ${new Date().getFullYear()} - Seamlessly connecting you to services.`}
+        {t('footerText', { year: new Date().getFullYear().toString() }) || `OrderSpot.pro © ${new Date().getFullYear()} - Seamlessly connecting you to services.`}
       </footer>
     </div>
   );

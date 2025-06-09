@@ -304,7 +304,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         <ScrollArea className="h-full">
         <div className="flex items-center justify-between h-16 border-b px-4">
           <Link href="/dashboard" className={cn("font-bold text-xl text-sidebar-primary", isSidebarOpen ? "opacity-100" : "md:opacity-0 md:w-0 overflow-hidden")}>
-            ConnectHost
+            OrderSpot.pro
           </Link>
           <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsSidebarOpen(false)}>
              <Menu />
@@ -405,5 +405,3 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 export default AppShell;
-
-    

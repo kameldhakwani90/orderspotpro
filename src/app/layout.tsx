@@ -18,8 +18,8 @@ const geistMono = Geist_Mono({ // Added Geist Mono
 });
 
 export const metadata: Metadata = {
-  title: 'ConnectHost',
-  description: 'Manage your hospitality services with ConnectHost.',
+  title: 'OrderSpot.pro',
+  description: 'Manage your hospitality services with OrderSpot.pro.',
 };
 
 export default function RootLayout({

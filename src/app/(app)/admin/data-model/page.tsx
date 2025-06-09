@@ -226,7 +226,7 @@ export default function AdminDataModelPage() {
       <div className="mb-8">
         <h1 className="text-4xl font-bold tracking-tight text-foreground">Modèle de Données de l'Application</h1>
         <p className="text-lg text-muted-foreground">
-          Cette page décrit les principales structures de données (entités) utilisées dans ConnectHost.
+          Cette page décrit les principales structures de données (entités) utilisées dans OrderSpot.pro.
           Ceci est une représentation des modèles de données en mémoire.
         </p>
       </div>
@@ -267,5 +267,3 @@ export default function AdminDataModelPage() {
     </div>
   );
 }
-
-    

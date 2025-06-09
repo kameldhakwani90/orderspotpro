@@ -45,7 +45,7 @@ function LoginFormContent() {
         <div className="mx-auto p-3 bg-primary rounded-full w-fit mb-4">
           <LogIn className="h-8 w-8 text-primary-foreground" />
         </div>
-        <CardTitle className="text-3xl font-bold">ConnectHost</CardTitle>
+        <CardTitle className="text-3xl font-bold">OrderSpot.pro</CardTitle>
         <CardDescription>Sign in to access your dashboard</CardDescription>
       </CardHeader>
       <CardContent>
