@@ -1,3 +1,4 @@
+
 // src/components/client/CartSheet.tsx
 "use client";
 
@@ -56,13 +57,18 @@ export function CartSheet({ open, onOpenChange }: CartSheetProps) {
         // Ensure price is a number
         const priceForOrder = typeof item.finalPrice === 'number' ? item.finalPrice : (typeof item.price === 'number' ? item.price : 0);
 
+        const orderDataPayload = {
+          quantity: item.quantity,
+          options: item.selectedOptions || {},
+        };
+
         await addOrder({
           serviceId: item.id, // serviceId is the MenuItem's ID
           hostId: hostId,
           chambreTableId: refId, // Assuming order is for the current location context
           clientNom: user?.nom, // Use logged-in user's name if available
           userId: user?.id, // Use logged-in user's ID if available
-          donneesFormulaire: JSON.stringify(item.selectedOptions || {}),
+          donneesFormulaire: JSON.stringify(orderDataPayload), // Store quantity and options
           prixTotal: priceForOrder * item.quantity, // Total price for this line item (unit price * quantity)
           // currency is handled by addOrder based on host settings
         });

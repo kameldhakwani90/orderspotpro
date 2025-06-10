@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { LogIn } from 'lucide-react';
-
+// New component to encapsulate the form and useSearchParams logic
 // New component to encapsulate the form and useSearchParams logic
 function LoginFormContent() {
   const [email, setEmail] = useState('kamel@gmail.com');
