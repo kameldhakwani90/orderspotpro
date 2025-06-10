@@ -53,6 +53,12 @@ const getStatusBadgeVariant = (status: OrderStatus): "default" | "secondary" | "
   }
 };
 
+interface EnrichedOrderForList extends Order {
+  itemName?: string;
+  locationName?: string;
+  itemQuantity?: number;
+}
+
 
 export default function HostOrdersPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -61,10 +67,10 @@ export default function HostOrdersPage() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
 
-  const [orders, setOrders] = useState<(Order & { serviceName?: string; locationName?: string })[]>([]);
+  const [orders, setOrders] = useState<EnrichedOrderForList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [viewingOrder, setViewingOrder] = useState<(Order & { serviceName?: string; locationName?: string }) | null>(null);
+  const [viewingOrder, setViewingOrder] = useState<EnrichedOrderForList | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
 
   const [allServices, setAllServices] = useState<Service[]>([]);
@@ -106,17 +112,34 @@ export default function HostOrdersPage() {
        });
       
       const enrichedOrders = await Promise.all(ordersData.map(async (order) => {
-        const item = await getItemById(order.serviceId); // Use getItemById
+        const itemDetails = await getItemById(order.serviceId);
         const location = await getRoomOrTableById(order.chambreTableId);
+        
         let itemName = 'Unknown Item';
-        if (item) {
-            if ('titre' in item) itemName = item.titre; // It's a Service
-            else if ('name' in item) itemName = item.name; // It's a MenuItem
+        let itemQuantity = 1;
+
+        if (itemDetails) {
+            if ('titre' in itemDetails) itemName = itemDetails.titre; // It's a Service
+            else if ('name' in itemDetails) itemName = itemDetails.name; // It's a MenuItem
         }
+
+        // Attempt to parse quantity for MenuItems
+        if (itemDetails && 'menuCategoryId' in itemDetails) { // Check if it's a MenuItem
+          try {
+            const formData = JSON.parse(order.donneesFormulaire);
+            if (formData && typeof formData.quantity === 'number') {
+              itemQuantity = formData.quantity;
+            }
+          } catch (e) {
+            // console.warn("Could not parse quantity from order.donneesFormulaire for order:", order.id);
+          }
+        }
+
         return {
           ...order,
-          serviceName: itemName,
+          itemName: itemName,
           locationName: location ? `${location.type} ${location.nom}` : 'Unknown Location',
+          itemQuantity: itemQuantity,
         };
       }));
       setOrders(enrichedOrders);
@@ -184,7 +207,7 @@ export default function HostOrdersPage() {
     }
   };
 
-  const openOrderDetails = (order: Order & { serviceName?: string; locationName?: string }) => {
+  const openOrderDetails = (order: EnrichedOrderForList) => {
     setViewingOrder(order);
     setIsDetailsDialogOpen(true);
   };
@@ -291,7 +314,11 @@ export default function HostOrdersPage() {
                       </Link>
                     ) : 'N/A'}
                   </TableCell>
-                  <TableCell>{order.serviceName || order.serviceId}</TableCell>
+                  <TableCell>
+                    {order.itemQuantity && order.itemQuantity > 1 
+                        ? `${order.itemQuantity}x ${order.itemName || order.serviceId}`
+                        : (order.itemName || order.serviceId)}
+                  </TableCell>
                   <TableCell>{order.locationName || order.chambreTableId}</TableCell>
                   <TableCell>{new Date(order.dateHeure).toLocaleString()}</TableCell>
                   <TableCell>
@@ -334,7 +361,7 @@ export default function HostOrdersPage() {
           <DialogHeader>
             <DialogTitle>Order Details - #{viewingOrder?.id.slice(-6)}</DialogTitle>
             <DialogDescription>
-              For {viewingOrder?.serviceName} at {viewingOrder?.locationName}
+              For {viewingOrder?.itemName} at {viewingOrder?.locationName}
             </DialogDescription>
           </DialogHeader>
           {viewingOrder && (
@@ -342,17 +369,31 @@ export default function HostOrdersPage() {
               <div className="text-sm"><strong>Client:</strong> {viewingOrder.clientNom || "N/A"}</div>
               <div className="text-sm"><strong>Date:</strong> {new Date(viewingOrder.dateHeure).toLocaleString()}</div>
               <div className="text-sm"><strong>Status:</strong> <span className="capitalize">{viewingOrder.status}</span></div>
-              {viewingOrder.prixTotal !== undefined && <div className="text-sm"><strong>Total Price:</strong> {viewingOrder.prixTotal.toFixed(2)} {viewingOrder.currency || '$'}</div>}
+              {viewingOrder.prixTotal !== undefined && <div className="text-sm"><strong>Total Price:</strong> {viewingOrder.currency || '$'}{viewingOrder.prixTotal.toFixed(2)}</div>}
+              {viewingOrder.itemQuantity && viewingOrder.itemQuantity > 1 && (
+                <div className="text-sm"><strong>Quantity:</strong> {viewingOrder.itemQuantity}</div>
+              )}
               
               <div className="space-y-2">
-                <h4 className="font-semibold">Form Data:</h4>
+                <h4 className="font-semibold">Form Data/Options:</h4>
                 {(() => {
                   try {
                     const formData = JSON.parse(viewingOrder.donneesFormulaire);
-                    if (typeof formData === 'object' && formData !== null && Object.keys(formData).length > 0) {
+                    const displayData: Record<string, any> = {};
+                    if (formData && typeof formData === 'object') {
+                        // If it's the structure with quantity and options
+                        if (formData.quantity !== undefined && formData.options) {
+                            if (formData.quantity > 1) displayData['Quantity'] = formData.quantity;
+                            Object.assign(displayData, formData.options);
+                        } else { // Old structure or service form data
+                            Object.assign(displayData, formData);
+                        }
+                    }
+
+                    if (Object.keys(displayData).length > 0) {
                       return (
                         <ul className="list-disc pl-5 space-y-1 text-sm bg-muted p-3 rounded-md">
-                          {Object.entries(formData).map(([key, value]) => (
+                          {Object.entries(displayData).map(([key, value]) => (
                             <li key={key}>
                               <strong>{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}:</strong> {String(value)}
                             </li>
@@ -360,9 +401,9 @@ export default function HostOrdersPage() {
                         </ul>
                       );
                     }
-                    return <p className="text-sm text-muted-foreground">No specific form data submitted or form was not required.</p>;
+                    return <p className="text-sm text-muted-foreground">No specific form data or options for this order.</p>;
                   } catch (e) {
-                    return <p className="text-sm text-muted-foreground">Could not parse form data.</p>;
+                    return <p className="text-sm text-muted-foreground">Could not parse form data/options.</p>;
                   }
                 })()}
               </div>
@@ -381,5 +422,3 @@ export default function HostOrdersPage() {
     </div>
   );
 }
-
-    
