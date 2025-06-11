@@ -58,7 +58,7 @@ model Host {
   orders                   Order[]
   reservations             Reservation[]
   clients                  Client[]
-  tags                     Tag[]
+  tags                     Tag[]                    @relation("HostTags")
   menuCards                MenuCard[]
   createdAt                DateTime                 @default(now())
   updatedAt                DateTime                 @updatedAt
@@ -72,7 +72,7 @@ model Site {
   hostId          String
   host            Host          @relation(fields: [hostId], references: [hostId])
   roomsOrTables   RoomOrTable[]
-  tags            Tag[]
+  tags            Tag[]         @relation("SiteTags")
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 }
@@ -245,14 +245,15 @@ model Reservation {
   updatedAt             DateTime     @updatedAt
 }
 
-// Tag model - Tags for locations and services
+// Tag model - Tags for locations and services  
 model Tag {
   id        String   @id @default(cuid())
   nom       String
   couleur   String?
   hostId    String
-  host      Host     @relation(fields: [hostId], references: [hostId])
-  site      Site?    @relation(fields: [hostId], references: [globalSiteId])
+  siteId    String?
+  host      Host     @relation("HostTags", fields: [hostId], references: [hostId])
+  site      Site?    @relation("SiteTags", fields: [siteId], references: [globalSiteId])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
