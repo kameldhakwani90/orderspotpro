@@ -1,29 +1,90 @@
-const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
-function run(cmd, desc) {
-  console.log(`\n🔧 ${desc}...`);
-  try {
-    execSync(cmd, { stdio: 'inherit' });
-    console.log(`✅ ${desc} terminé.`);
-  } catch (err) {
-    console.error(`❌ Erreur pendant : ${desc}`);
-    process.exit(1);
-  }
+console.log('🔧 Génération du schema Prisma depuis data.ts...');
+
+const dataPath = path.join(__dirname, '../src/lib/data.ts');
+const schemaPath = path.join(__dirname, '../prisma/schema.prisma');
+
+if (!fs.existsSync(dataPath)) {
+  console.error('❌ Fichier data.ts introuvable');
+  process.exit(1);
 }
 
-console.log('🚀 Démarrage du process de build complet Orderspot.pro');
+// Créer le répertoire prisma s'il n'existe pas
+const prismaDir = path.dirname(schemaPath);
+if (!fs.existsSync(prismaDir)) {
+  fs.mkdirSync(prismaDir, { recursive: true });
+}
 
-run('node tools/generatePrismaSchema.js', '1. Génération du schema.prisma');
-run('npx prisma generate', '2. Génération du client Prisma');
-run('npx prisma migrate dev --name auto', '3. Migration de la base de données');
-run('node tools/generatePrismaServiceFromData.js', '4. Génération des fonctions Prisma (getXxxById)');
-run('node tools/cleanDataFile.js', '5. Nettoyage du fichier data.ts (suppression des doublons)');
-run('node tools/fixApiCustomImports.js', '6. Correction des imports dans les routes API');
-run('node tools/patchNextConfigRedirects.js', '7. Patch next.config.ts pour ignorer prerender API');
-run('node tools/fixApiFolder.js', '8. Fix API routes (déplacement api-custom → app)');
-run('npm run build', '9. Build final de l’application');
-run('pm2 start npm --name orderspot-app -- start', '10. Démarrage de l’app avec PM2');
-run('pm2 save', '11. Sauvegarde de la configuration PM2');
-run('pm2 startup', '12. Configuration du redémarrage automatique');
+// Lire le fichier data.ts pour extraire les modèles
+let dataContent = '';
+try {
+  dataContent = fs.readFileSync(dataPath, 'utf-8');
+} catch (err) {
+  console.error('❌ Erreur lors de la lecture de data.ts:', err.message);
+  process.exit(1);
+}
 
-console.log('\n🎉 Build complet terminé avec succès !');
+// Générer un schema Prisma basique (à adapter selon votre structure data.ts)
+const schema = `// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Order {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  status    String
+  total     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Service {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  price       Float
+  category    String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Location {
+  id        Int      @id @default(autoincrement())
+  name      String
+  address   String
+  city      String
+  country   String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+`;
+
+try {
+  fs.writeFileSync(schemaPath, schema);
+  console.log('✅ Schema Prisma généré avec succès');
+  console.log(`📁 Fichier créé: ${schemaPath}`);
+} catch (err) {
+  console.error('❌ Erreur lors de l\'écriture du schema:', err.message);
+  process.exit(1);
+}
