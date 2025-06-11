@@ -1,3 +1,5 @@
+# Remplacer par la version corrigée dans le repository Git
+cat > /data/orderspotpro/tools/build-server.js << 'EOF'
 const { execSync } = require('child_process');
 
 function run(cmd, desc) {
@@ -48,3 +50,18 @@ run('pm2 save', '11. Sauvegarde PM2');
 run('pm2 startup', '12. Configuration auto-restart');
 
 console.log('\n🎉 Build complet terminé avec succès !');
+EOF
+
+# Pousser la correction sur Git
+cd /data/orderspotpro
+git add tools/build-server.js
+git commit -m "🔧 Fix: Correction killPortIfOccupied -> stopPM2App"
+git push origin source
+
+# Tester la syntaxe après push
+echo "🧪 Test de syntaxe..."
+node -c tools/build-server.js
+
+# Si OK, relancer le script complet
+echo "✅ Syntaxe OK, relance du build..."
+/data/run-build-git.sh

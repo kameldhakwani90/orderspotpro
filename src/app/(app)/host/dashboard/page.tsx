@@ -276,15 +276,20 @@ export default function HostDashboardPage() {
 
     let itemIdToOrder: string | undefined;
     let itemPrice: number | undefined;
+    let itemCurrency: string | undefined;
 
     if (currentOrderType === 'service') {
         if (!selectedService) { toast({ title: "Missing Information", description: "Please select a service.", variant: "destructive" }); return; }
         itemIdToOrder = selectedService;
         itemPrice = selectedServiceDetails?.prix;
+        itemCurrency = selectedServiceDetails?.currency;
     } else { // food_beverage
-        if (!selectedMenuItemId) { toast({ title: "Missing Information", description: "Please select a menu item.", variant: "destructive" }); return; }
+        if (!selectedMenuItemId || !selectedMenuItemDetails) { toast({ title: "Missing Information", description: "Please select a menu item.", variant: "destructive" }); return; }
         itemIdToOrder = selectedMenuItemId;
-        itemPrice = selectedMenuItemDetails?.price;
+        // Recalculate price with quantity for food/beverage
+        const quantity = formData.quantity ? Number(formData.quantity) : 1;
+        itemPrice = selectedMenuItemDetails.price * quantity;
+        itemCurrency = selectedMenuItemDetails.currency;
     }
     if (!itemIdToOrder) { toast({title: "Item not selected", description: "Please select an item to order.", variant: "destructive"}); return; }
 
@@ -295,9 +300,10 @@ export default function HostDashboardPage() {
         chambreTableId: selectedLocation,
         serviceId: itemIdToOrder, 
         clientNom: clientNameToSubmit,
-        donneesFormulaire: currentOrderType === 'service' ? JSON.stringify(formData) : "{}", // TODO: MenuItem configuration data
+        donneesFormulaire: JSON.stringify(formData), 
         prixTotal: itemPrice, 
-        userId: selectedClient !== NO_CLIENT_SELECTED_VALUE ? selectedClient : undefined
+        userId: selectedClient !== NO_CLIENT_SELECTED_VALUE ? selectedClient : undefined,
+        currency: itemCurrency
       });
       toast({ title: "Order Created", description: `New order for ${clientNameToSubmit} has been submitted.` });
       fetchDashboardData(user.hostId); 
@@ -310,21 +316,68 @@ export default function HostDashboardPage() {
   };
   
   const triggerOrderSubmission = () => {
-    if (currentOrderType === 'service' && selectedServiceDetails?.formulaireId && dialogFormFields.length > 0 && dynamicFormRef.current) {
-      dynamicFormRef.current.submit(); 
-    } else if (currentOrderType === 'service' && selectedServiceDetails) {
-      handleActualOrderSubmit({}); 
-    } else if (currentOrderType === 'food_beverage' && selectedMenuItemDetails) {
-        // For now, MenuItem configuration is not handled in this dialog.
-        // If it were, we'd get data from its own form/options component.
-        handleActualOrderSubmit({}); 
+    let submissionData: Record<string, any> = {};
+    let canSubmit = true;
+
+    if (currentOrderType === 'service') {
+        if (selectedServiceDetails?.formulaireId && dialogFormFields.length > 0 && dynamicFormRef.current) {
+            // For services with forms, submission is handled by DynamicFormRenderer's internal RHF submit
+            dynamicFormRef.current.submit();
+            return; // Submission will be handled by the form's onSubmit
+        } else if (selectedServiceDetails) {
+            // Service without form, submissionData remains {}
+        } else {
+            canSubmit = false;
+        }
+    } else if (currentOrderType === 'food_beverage') {
+        if (selectedMenuItemDetails) {
+            // Add quantity and options to submissionData for food/beverage
+            const quantityInput = document.getElementById('itemQuantity') as HTMLInputElement;
+            const quantity = quantityInput ? parseInt(quantityInput.value, 10) : 1;
+            if (isNaN(quantity) || quantity < 1) {
+                toast({ title: "Invalid Quantity", description: "Please enter a valid quantity (at least 1).", variant: "destructive" });
+                return;
+            }
+            submissionData.quantity = quantity;
+            // Here, you would add logic to gather selected options if your MenuItemCard/Dialog had option selectors
+            submissionData.options = {}; // Placeholder for actual options
+        } else {
+            canSubmit = false;
+        }
     } else {
-      toast({ title: "Cannot Submit", description: "Please select an item or service first.", variant: "destructive"});
+        canSubmit = false;
+    }
+    
+    if (canSubmit) {
+        handleActualOrderSubmit(submissionData);
+    } else {
+        toast({ title: "Cannot Submit", description: "Please select an item or service first.", variant: "destructive"});
     }
   };
 
+
   const filteredDialogServices = selectedServiceCategory ? dialogServices.filter(s => s.categorieId === selectedServiceCategory) : dialogServices;
   const filteredDialogMenuItems = selectedMenuCategoryId ? dialogMenuItems.filter(item => item.menuCategoryId === selectedMenuCategoryId) : dialogMenuItems;
+  
+  let itemPriceForDisplay: number | undefined;
+  let itemCurrencyForDisplay: string | undefined;
+  let baseItemPrice: number | undefined; // For calculating total with quantity
+
+  if (currentOrderType === 'service' && selectedServiceDetails) {
+      itemPriceForDisplay = selectedServiceDetails.prix;
+      itemCurrencyForDisplay = selectedServiceDetails.currency || user?.hostDetails?.currency;
+  } else if (currentOrderType === 'food_beverage' && selectedMenuItemDetails) {
+      baseItemPrice = selectedMenuItemDetails.price;
+      itemCurrencyForDisplay = selectedMenuItemDetails.currency || user?.hostDetails?.currency;
+      const quantityInput = document.getElementById('itemQuantity') as HTMLInputElement;
+      const quantity = quantityInput ? parseInt(quantityInput.value, 10) : 1;
+      if (!isNaN(quantity) && quantity >= 1) {
+        itemPriceForDisplay = baseItemPrice * quantity;
+      } else {
+        itemPriceForDisplay = baseItemPrice; // Default to base price if quantity is invalid/not yet set
+      }
+  }
+
 
   const submitButtonDisabled = isSubmittingOrder || !selectedLocation ||
     (selectedClient === NO_CLIENT_SELECTED_VALUE && !manualClientName.trim()) ||
@@ -354,7 +407,7 @@ export default function HostDashboardPage() {
     <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-4xl font-bold tracking-tight text-foreground">Host Dashboard</h1>
+          <h1 className="text-4xl font-bold tracking-tight text-foreground">Dashboard</h1>
           <p className="text-lg text-muted-foreground">Manage your services and customer interactions.</p>
         </div>
         <Dialog open={isAddOrderDialogOpen} onOpenChange={handleAddOrderDialogChange}>
@@ -406,10 +459,10 @@ export default function HostDashboardPage() {
                       <div> <Label htmlFor="dialogService">Service *</Label>
                         <Select value={selectedService} onValueChange={setSelectedService} disabled={filteredDialogServices.length === 0 || !selectedServiceCategory}>
                           <SelectTrigger id="dialogService"><SelectValue placeholder="Select a service" /></SelectTrigger>
-                          <SelectContent> {filteredDialogServices.map(srv => <SelectItem key={srv.id} value={srv.id}>{srv.titre} {srv.prix !== undefined ? `($${srv.prix.toFixed(2)})` : ''}</SelectItem>)} {filteredDialogServices.length === 0 && <SelectItem value={NO_SERVICES_PLACEHOLDER_VALUE} disabled>No services in category</SelectItem>} </SelectContent>
+                          <SelectContent> {filteredDialogServices.map(srv => <SelectItem key={srv.id} value={srv.id}>{srv.titre} {srv.prix !== undefined ? `(${itemCurrencyForDisplay}${srv.prix.toFixed(2)})` : ''}</SelectItem>)} {filteredDialogServices.length === 0 && <SelectItem value={NO_SERVICES_PLACEHOLDER_VALUE} disabled>No services in category</SelectItem>} </SelectContent>
                         </Select>
                       </div>
-                      {selectedServiceDetails?.prix !== undefined && (<p className="text-lg font-semibold text-primary">Price: ${selectedServiceDetails.prix.toFixed(2)}</p>)}
+                      {itemPriceForDisplay !== undefined && (<p className="text-lg font-semibold text-primary">Price: {itemCurrencyForDisplay}{itemPriceForDisplay.toFixed(2)}</p>)}
                       {selectedServiceDetails?.formulaireId && dialogFormFields.length > 0 && (
                         <DynamicFormRenderer ref={dynamicFormRef} formName={`Order: ${selectedServiceDetails.titre}`} formDescription={"Additional Information"} fields={dialogFormFields} onSubmit={handleActualOrderSubmit} />
                       )}
@@ -433,10 +486,29 @@ export default function HostDashboardPage() {
                        <div> <Label htmlFor="dialogMenuItem">Menu Item *</Label>
                           <Select value={selectedMenuItemId} onValueChange={setSelectedMenuItemId} disabled={filteredDialogMenuItems.length === 0 || !selectedMenuCategoryId}>
                               <SelectTrigger id="dialogMenuItem"><SelectValue placeholder="Select an item" /></SelectTrigger>
-                              <SelectContent>{filteredDialogMenuItems.map(item => <SelectItem key={item.id} value={item.id}>{item.name} {item.price !== undefined ? `($${item.price.toFixed(2)})` : ''}</SelectItem>)} {filteredDialogMenuItems.length === 0 && <SelectItem value={NO_MENU_ITEMS_PLACEHOLDER_VALUE} disabled>No items in category</SelectItem>}</SelectContent>
+                              <SelectContent>{filteredDialogMenuItems.map(item => <SelectItem key={item.id} value={item.id}>{item.name} {item.price !== undefined ? `(${itemCurrencyForDisplay}${item.price.toFixed(2)})` : ''}</SelectItem>)} {filteredDialogMenuItems.length === 0 && <SelectItem value={NO_MENU_ITEMS_PLACEHOLDER_VALUE} disabled>No items in category</SelectItem>}</SelectContent>
                           </Select>
                        </div>
-                       {selectedMenuItemDetails?.price !== undefined && (<p className="text-lg font-semibold text-primary">Price: ${selectedMenuItemDetails.price.toFixed(2)}</p>)}
+                        {selectedMenuItemDetails && (
+                          <div>
+                            <Label htmlFor="itemQuantity">Quantity *</Label>
+                            <Input 
+                              id="itemQuantity" 
+                              type="number" 
+                              defaultValue="1" 
+                              min="1"
+                              onChange={(e) => {
+                                const quantity = parseInt(e.target.value, 10);
+                                if (!isNaN(quantity) && quantity >= 1) {
+                                  itemPriceForDisplay = (selectedMenuItemDetails.price || 0) * quantity;
+                                  // Force re-render or update state to show new price
+                                  setCurrentOrderType(ot => ot); // Simple way to trigger re-render
+                                }
+                              }}
+                            />
+                          </div>
+                        )}
+                       {itemPriceForDisplay !== undefined && (<p className="text-lg font-semibold text-primary">Total Price: {itemCurrencyForDisplay}{itemPriceForDisplay.toFixed(2)}</p>)}
                        {/* Placeholder for MenuItem configuration options if item.isConfigurable */}
                        {selectedMenuItemDetails?.isConfigurable && (
                            <p className="text-sm text-muted-foreground italic">Item configuration options will appear here in a future update. Current order will use base price.</p>
@@ -507,4 +579,3 @@ export default function HostDashboardPage() {
   );
 }
     
-
