@@ -1,4 +1,3 @@
-# Créer la version corrigée directement dans le repository Git
 cat > /data/orderspotpro/tools/build-server.js << 'EOF'
 const { execSync } = require('child_process');
 
@@ -51,9 +50,3 @@ run('pm2 startup', '12. Configuration auto-restart');
 
 console.log('\n🎉 Build complet terminé avec succès !');
 EOF
-
-# Tester la syntaxe
-node -c /data/orderspotpro/tools/build-server.js
-
-# Si OK, relancer le build
-/data/run-build-git.sh
