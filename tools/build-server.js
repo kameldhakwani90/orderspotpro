@@ -1,25 +1,25 @@
-# Remplacer par la version corrigée dans le repository Git
+# Créer la version corrigée directement dans le repository Git
 cat > /data/orderspotpro/tools/build-server.js << 'EOF'
 const { execSync } = require('child_process');
 
 function run(cmd, desc) {
-  console.log(`\n🔧 ${desc}...`);
+  console.log('\n🔧 ' + desc + '...');
   try {
     execSync(cmd, { stdio: 'inherit' });
-    console.log(`✅ ${desc} terminé.`);
+    console.log('✅ ' + desc + ' terminé.');
   } catch (err) {
-    console.error(`❌ Erreur pendant : ${desc}`);
+    console.error('❌ Erreur pendant : ' + desc);
     process.exit(1);
   }
 }
 
 function stopPM2App(appName) {
   try {
-    console.log(`\n🛑 Arrêt de l'application PM2: ${appName}...`);
-    execSync(`pm2 delete ${appName}`, { stdio: 'pipe' });
-    console.log(`✅ Application ${appName} stoppée.`);
+    console.log('\n🛑 Arrêt de l\'application PM2: ' + appName + '...');
+    execSync('pm2 delete ' + appName, { stdio: 'pipe' });
+    console.log('✅ Application ' + appName + ' stoppée.');
   } catch (err) {
-    console.log(`ℹ️ Application ${appName} n'était pas active ou déjà stoppée.`);
+    console.log('ℹ️ Application ' + appName + ' n\'était pas active ou déjà stoppée.');
   }
   
   console.log('⏳ Attente de 2 secondes pour libérer le port...');
@@ -52,16 +52,8 @@ run('pm2 startup', '12. Configuration auto-restart');
 console.log('\n🎉 Build complet terminé avec succès !');
 EOF
 
-# Pousser la correction sur Git
-cd /data/orderspotpro
-git add tools/build-server.js
-git commit -m "🔧 Fix: Correction killPortIfOccupied -> stopPM2App"
-git push origin source
+# Tester la syntaxe
+node -c /data/orderspotpro/tools/build-server.js
 
-# Tester la syntaxe après push
-echo "🧪 Test de syntaxe..."
-node -c tools/build-server.js
-
-# Si OK, relancer le script complet
-echo "✅ Syntaxe OK, relance du build..."
+# Si OK, relancer le build
 /data/run-build-git.sh
