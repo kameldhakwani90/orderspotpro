@@ -28,11 +28,7 @@ function stopPM2App(appName) {
 }
 
 console.log("🚀 Démarrage du process de build complet Orderspot.pro");
-
-// 0. Sécurité : arrêt propre de l'app existante
 stopPM2App("orderspot-app");
-
-// 1 → 12 : Workflow R&D complet
 run("node tools/generatePrismaSchema.js", "1. Génération du schema.prisma");
 run("npx prisma generate", "2. Génération du client Prisma");
 run("npx prisma migrate dev --name auto", "3. Migration de la base de données");
@@ -41,9 +37,8 @@ run("node tools/cleanDataFile.js", "5. Nettoyage du fichier data.ts");
 run("node tools/fixApiCustomImports.js", "6. Correction des imports API");
 run("node tools/patchNextConfigRedirects.js", "7. Patch next.config.ts");
 run("node tools/fixApiFolder.js", "8. Fix API routes");
-run("npm run build", "9. Build final de l'application");
+run("npm run build", "9. Build final de l application");
 run("pm2 start npm --name orderspot-app -- start", "10. Démarrage avec PM2");
 run("pm2 save", "11. Sauvegarde PM2");
 run("pm2 startup", "12. Configuration auto-restart");
-
 console.log("\n🎉 Build complet terminé avec succès !");
