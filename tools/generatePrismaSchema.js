@@ -1,4 +1,18 @@
-// This is your Prisma schema file,
+const fs = require('fs');
+const path = require('path');
+
+console.log('🔧 Génération du schema Prisma depuis data.ts...');
+
+// Créer le répertoire prisma s'il n'existe pas
+const prismaDir = path.join(__dirname, '../prisma');
+if (!fs.existsSync(prismaDir)) {
+  fs.mkdirSync(prismaDir, { recursive: true });
+}
+
+const schemaPath = path.join(prismaDir, 'schema.prisma');
+
+// Schema Prisma complet analysé depuis data.ts
+const schema = `// This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
@@ -248,8 +262,8 @@ model MenuCard {
   id           String        @id @default(cuid())
   nom          String
   hostId       String
-  categories   MenuCategory[]
   locations    RoomOrTable[]
+  categories   MenuCategory[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 }
@@ -303,4 +317,13 @@ model MenuItemOption {
   optionGroup   MenuItemOptionGroup @relation(fields: [optionGroupId], references: [id])
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
+}`;
+
+try {
+  fs.writeFileSync(schemaPath, schema);
+  console.log('✅ Schema Prisma généré avec succès');
+  console.log(`📁 Fichier créé: ${schemaPath}`);
+} catch (err) {
+  console.error('❌ Erreur lors de l\'écriture du schema:', err.message);
+  process.exit(1);
 }
