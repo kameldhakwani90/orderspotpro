@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('🔧 Génération des hooks React...');
+console.log('🔧 Génération DYNAMIQUE des hooks React...');
 
 const prismaServicePath = path.join(__dirname, '../src/lib/prisma-service.ts');
 const hooksDir = path.join(__dirname, '../src/hooks');
@@ -13,10 +13,11 @@ if (!fs.existsSync(prismaServicePath)) {
 
 const prismaServiceContent = fs.readFileSync(prismaServicePath, 'utf-8');
 
-function extractModelsFromPrismaService(content) {
-  console.log('🔍 Extraction des modèles...');
-  const getAllRegex = /export async function getAll(\w+)s\(\)/g;
+function extractDynamicModels(content) {
+  console.log('🔍 Extraction DYNAMIQUE des modèles...');
   const models = new Set();
+  
+  const getAllRegex = /export async function getAll(\w+)s\(\)/g;
   let match;
   
   while ((match = getAllRegex.exec(content)) !== null) {
@@ -28,7 +29,7 @@ function extractModelsFromPrismaService(content) {
   return Array.from(models);
 }
 
-function generateHookContent(modelName) {
+function generateDynamicHookContent(modelName) {
   const camelModel = modelName.charAt(0).toLowerCase() + modelName.slice(1);
   const pluralModel = modelName.toLowerCase() + 's';
   
@@ -185,7 +186,7 @@ export function use${modelName}s(): Use${modelName}sReturn {
 }`;
 }
 
-function createHooks(models) {
+function createDynamicHooks(models) {
   if (!fs.existsSync(hooksDir)) {
     fs.mkdirSync(hooksDir, { recursive: true });
     console.log(`📁 Répertoire créé: ${hooksDir}`);
@@ -195,31 +196,31 @@ function createHooks(models) {
   
   models.forEach(modelName => {
     const hookFile = path.join(hooksDir, `use${modelName}s.ts`);
-    const hookContent = generateHookContent(modelName);
+    const hookContent = generateDynamicHookContent(modelName);
     
     fs.writeFileSync(hookFile, hookContent, 'utf-8');
-    console.log(`✅ Hook créé: use${modelName}s → ${hookFile}`);
+    console.log(`✅ Hook créé: use${modelName}s`);
     hooksCreated++;
   });
   
   return hooksCreated;
 }
 
-function createIndexFile(models) {
+function createDynamicIndexFile(models) {
   const indexPath = path.join(hooksDir, 'index.ts');
   
-  let indexContent = '// Export de tous les hooks\n// Généré automatiquement\n\n';
+  let indexContent = '// Export de tous les hooks - Généré automatiquement\n\n';
   
   models.forEach(modelName => {
     indexContent += `export { use${modelName}s } from './use${modelName}s';\n`;
   });
   
   fs.writeFileSync(indexPath, indexContent, 'utf-8');
-  console.log(`✅ Index créé: ${indexPath}`);
+  console.log(`✅ Index créé`);
 }
 
 try {
-  const models = extractModelsFromPrismaService(prismaServiceContent);
+  const models = extractDynamicModels(prismaServiceContent);
   
   if (models.length === 0) {
     console.error('❌ Aucun modèle trouvé');
@@ -228,10 +229,10 @@ try {
   
   console.log(`🔍 ${models.length} modèles détectés`);
   
-  const hooksCreated = createHooks(models);
-  createIndexFile(models);
+  const hooksCreated = createDynamicHooks(models);
+  createDynamicIndexFile(models);
   
-  console.log(`\n🎉 ${hooksCreated} hooks React créés !`);
+  console.log(`\n🎉 ${hooksCreated} hooks React créés DYNAMIQUEMENT !`);
   
 } catch (error) {
   console.error('❌ Erreur:', error);
