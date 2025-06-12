@@ -11,7 +11,7 @@ if (!fs.existsSync(prismaDir)) {
 
 const schemaPath = path.join(prismaDir, 'schema.prisma');
 
-// Schema Prisma complet analysé depuis data.ts
+// Schema Prisma complet avec TOUTES relations bidirectionnelles et noms uniques
 const schema = `// This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
@@ -32,7 +32,7 @@ model User {
   role         String        // 'admin', 'host', 'client'
   motDePasse   String
   hostId       String?       // Si role = 'host', référence vers Host
-  host         Host?         @relation(fields: [hostId], references: [hostId])
+  host         Host?         @relation("UserHost", fields: [hostId], references: [hostId])
   orders       Order[]       @relation("UserOrders")
   reservations Reservation[] @relation("UserReservations")
   clients      Client[]      @relation("UserClients")
@@ -47,19 +47,19 @@ model Host {
   nom                       String
   email                     String
   globalSiteId              String?
-  reservationPageSettings   Json? // ReservationPageSettings as JSON
-  loyaltySettings          Json? // LoyaltySettings as JSON
-  users                    User[]
-  sites                    Site[]
-  roomsOrTables            RoomOrTable[]
-  services                 Service[]
-  categories               ServiceCategory[]
-  customForms              CustomForm[]
-  orders                   Order[]
-  reservations             Reservation[]
-  clients                  Client[]
+  reservationPageSettings   Json?
+  loyaltySettings          Json?
+  users                    User[]                   @relation("UserHost")
+  sites                    Site[]                   @relation("SiteHost")
+  roomsOrTables            RoomOrTable[]            @relation("RoomTableHost")
+  services                 Service[]                @relation("ServiceHost")
+  categories               ServiceCategory[]        @relation("CategoryHost")
+  customForms              CustomForm[]             @relation("FormHost")
+  orders                   Order[]                  @relation("HostOrders")
+  reservations             Reservation[]            @relation("HostReservations")
+  clients                  Client[]                 @relation("HostClients")
   tags                     Tag[]                    @relation("HostTags")
-  menuCards                MenuCard[]
+  menuCards                MenuCard[]               @relation("HostMenuCards")
   createdAt                DateTime                 @default(now())
   updatedAt                DateTime                 @updatedAt
 }
@@ -70,8 +70,8 @@ model Site {
   globalSiteId    String        @unique
   nom             String
   hostId          String
-  host            Host          @relation(fields: [hostId], references: [hostId])
-  roomsOrTables   RoomOrTable[]
+  host            Host          @relation("SiteHost", fields: [hostId], references: [hostId])
+  roomsOrTables   RoomOrTable[] @relation("SiteRooms")
   tags            Tag[]         @relation("SiteTags")
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -97,14 +97,13 @@ model RoomOrTable {
   tagIds                String[]      // Array of tag IDs
   menuCardId            String?
   currency              String        @default("EUR")
-  host                  Host          @relation(fields: [hostId], references: [hostId])
-  site                  Site?         @relation(fields: [globalSiteId], references: [globalSiteId])
+  host                  Host          @relation("RoomTableHost", fields: [hostId], references: [hostId])
+  site                  Site?         @relation("SiteRooms", fields: [globalSiteId], references: [globalSiteId])
   parentLocation        RoomOrTable?  @relation("LocationHierarchy", fields: [parentLocationId], references: [id])
   childLocations        RoomOrTable[] @relation("LocationHierarchy")
-  menuCard              MenuCard?     @relation(fields: [menuCardId], references: [id])
-  services              Service[]     @relation("LocationServices")
-  orders                Order[]
-  reservations          Reservation[]
+  menuCard              MenuCard?     @relation("RoomMenuCard", fields: [menuCardId], references: [id])
+  orders                Order[]       @relation("LocationOrders")
+  reservations          Reservation[] @relation("LocationReservations")
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 }
@@ -123,11 +122,10 @@ model Service {
   targetLocationIds String[]         // Array of location IDs
   loginRequired     Boolean          @default(false)
   currency          String           @default("EUR")
-  host              Host             @relation(fields: [hostId], references: [hostId])
-  category          ServiceCategory  @relation(fields: [categorieId], references: [id])
-  customForm        CustomForm?      @relation(fields: [formulaireId], references: [id])
-  locations         RoomOrTable[]    @relation("LocationServices")
-  orders            Order[]
+  host              Host             @relation("ServiceHost", fields: [hostId], references: [hostId])
+  category          ServiceCategory  @relation("ServiceCategory", fields: [categorieId], references: [id])
+  customForm        CustomForm?      @relation("ServiceForm", fields: [formulaireId], references: [id])
+  orders            Order[]          @relation("ServiceOrders")
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 }
@@ -137,8 +135,8 @@ model ServiceCategory {
   id        String    @id @default(cuid())
   nom       String
   hostId    String
-  host      Host      @relation(fields: [hostId], references: [hostId])
-  services  Service[]
+  host      Host      @relation("CategoryHost", fields: [hostId], references: [hostId])
+  services  Service[] @relation("ServiceCategory")
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
@@ -148,9 +146,9 @@ model CustomForm {
   id        String      @id @default(cuid())
   titre     String
   hostId    String
-  fields    FormField[] // Related form fields
-  host      Host        @relation(fields: [hostId], references: [hostId])
-  services  Service[]
+  fields    FormField[] @relation("FormFields")
+  host      Host        @relation("FormHost", fields: [hostId], references: [hostId])
+  services  Service[]   @relation("ServiceForm")
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 }
@@ -163,7 +161,7 @@ model FormField {
   obligatoire  Boolean    @default(false)
   options      String[]   // Array of options for select fields
   customFormId String
-  customForm   CustomForm @relation(fields: [customFormId], references: [id])
+  customForm   CustomForm @relation("FormFields", fields: [customFormId], references: [id])
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 }
@@ -186,11 +184,11 @@ model Order {
   pointsGagnes        Int?         @default(0)
   currency            String       @default("EUR")
   paiements           Json[]       // Array of payment objects as JSON
-  service             Service      @relation(fields: [serviceId], references: [id])
-  host                Host         @relation(fields: [hostId], references: [hostId])
-  location            RoomOrTable? @relation(fields: [chambreTableId], references: [id])
+  service             Service      @relation("ServiceOrders", fields: [serviceId], references: [id])
+  host                Host         @relation("HostOrders", fields: [hostId], references: [hostId])
+  location            RoomOrTable? @relation("LocationOrders", fields: [chambreTableId], references: [id])
   user                User?        @relation("UserOrders", fields: [userId], references: [id])
-  client              Client?      @relation(fields: [clientId], references: [id])
+  client              Client?      @relation("ClientOrders", fields: [clientId], references: [id])
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
 }
@@ -208,10 +206,10 @@ model Client {
   derniereVisite      DateTime?
   nombreVisites       Int           @default(0)
   notes               String?
-  host                Host          @relation(fields: [hostId], references: [hostId])
+  host                Host          @relation("HostClients", fields: [hostId], references: [hostId])
   user                User?         @relation("UserClients", fields: [userId], references: [id])
-  orders              Order[]
-  reservations        Reservation[]
+  orders              Order[]       @relation("ClientOrders")
+  reservations        Reservation[] @relation("ClientReservations")
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 }
@@ -237,9 +235,9 @@ model Reservation {
   onlineCheckinData     Json?        // OnlineCheckinData as JSON
   notes                 String?
   paiements             Json[]       // Array of payment objects as JSON
-  host                  Host         @relation(fields: [hostId], references: [hostId])
-  location              RoomOrTable  @relation(fields: [locationId], references: [id])
-  client                Client?      @relation(fields: [clientId], references: [id])
+  host                  Host         @relation("HostReservations", fields: [hostId], references: [hostId])
+  location              RoomOrTable  @relation("LocationReservations", fields: [locationId], references: [id])
+  client                Client?      @relation("ClientReservations", fields: [clientId], references: [id])
   user                  User?        @relation("UserReservations", fields: [userId], references: [id])
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
@@ -263,8 +261,9 @@ model MenuCard {
   id           String        @id @default(cuid())
   nom          String
   hostId       String
-  locations    RoomOrTable[]
-  categories   MenuCategory[]
+  host         Host          @relation("HostMenuCards", fields: [hostId], references: [hostId])
+  locations    RoomOrTable[] @relation("RoomMenuCard")
+  categories   MenuCategory[] @relation("MenuCardCategories")
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 }
@@ -274,8 +273,8 @@ model MenuCategory {
   id         String     @id @default(cuid())
   nom        String
   menuCardId String
-  items      MenuItem[]
-  menuCard   MenuCard   @relation(fields: [menuCardId], references: [id])
+  items      MenuItem[] @relation("CategoryItems")
+  menuCard   MenuCard   @relation("MenuCardCategories", fields: [menuCardId], references: [id])
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 }
@@ -289,8 +288,8 @@ model MenuItem {
   image          String?
   available      Boolean             @default(true)
   categoryId     String
-  optionGroups   MenuItemOptionGroup[]
-  category       MenuCategory        @relation(fields: [categoryId], references: [id])
+  optionGroups   MenuItemOptionGroup[] @relation("ItemOptionGroups")
+  category       MenuCategory        @relation("CategoryItems", fields: [categoryId], references: [id])
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 }
@@ -302,8 +301,8 @@ model MenuItemOptionGroup {
   required   Boolean          @default(false)
   maxChoices Int?
   menuItemId String
-  options    MenuItemOption[]
-  menuItem   MenuItem         @relation(fields: [menuItemId], references: [id])
+  options    MenuItemOption[] @relation("GroupOptions")
+  menuItem   MenuItem         @relation("ItemOptionGroups", fields: [menuItemId], references: [id])
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
 }
@@ -315,7 +314,7 @@ model MenuItemOption {
   prixExtra     Float               @default(0)
   available     Boolean             @default(true)
   optionGroupId String
-  optionGroup   MenuItemOptionGroup @relation(fields: [optionGroupId], references: [id])
+  optionGroup   MenuItemOptionGroup @relation("GroupOptions", fields: [optionGroupId], references: [id])
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 }`;
