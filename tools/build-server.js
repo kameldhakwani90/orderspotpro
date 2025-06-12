@@ -108,7 +108,7 @@ run("node tools/cleanDataFile.js", "5. Nettoyage du fichier data.ts");
 run("node tools/migrateDataToPrisma.js", "6. Migration data.ts vers prisma-service.ts");
 
 // 8. Correction des imports API
-run("node tools/fixApiCustomImports.js", "7. Correction des imports API");
+// run("node tools/fixApiCustomImports.js", "7. Correction des imports API");
 
 // 9. Configuration Next.js
 run("node tools/patchNextConfigRedirects.js", "8. Patch next.config.ts");
