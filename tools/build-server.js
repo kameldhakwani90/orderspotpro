@@ -122,7 +122,7 @@ run("npm run build", "10. Build final de l application");
 // 12-14. Démarrage et configuration PM2
 run("pm2 start npm --name orderspot-app -- start", "11. Démarrage avec PM2");
 run("pm2 save", "12. Sauvegarde PM2");
-run("pm2 startup", "13. Configuration auto-restart");
+// run("pm2 startup", "13. Configuration auto-restart");
 
 console.log("\n🎉 Build complet terminé avec succès !");
 console.log("🌐 Application disponible sur port 3001");
