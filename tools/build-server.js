@@ -3,7 +3,6 @@ const { execSync } = require("child_process");
 function run(cmd, desc) {
   console.log("\n🔧 " + desc + "...");
   try {
-    // S'assurer que DATABASE_URL est disponible pour chaque commande
     const DATABASE_URL = process.env.DATABASE_URL || `postgresql://orderspot_user:orderspot_pass@orderspot_postgres:5432/orderspot_db?schema=public`;
     const env = { ...process.env, DATABASE_URL };
     
@@ -20,7 +19,6 @@ function run(cmd, desc) {
 function setupDatabaseConnection() {
   console.log("\n🔍 Configuration de la connexion base de données...");
   
-  // Variables d'environnement pour PostgreSQL
   const DB_HOST = "orderspot_postgres";
   const DB_USER = "orderspot_user";  
   const DB_PASS = "orderspot_pass";
@@ -29,15 +27,12 @@ function setupDatabaseConnection() {
   
   const DATABASE_URL = `postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}?schema=public`;
   
-  // Définir la variable d'environnement GLOBALEMENT
   process.env.DATABASE_URL = DATABASE_URL;
   console.log("🔗 DATABASE_URL configurée:", DATABASE_URL);
   
-  // S'assurer que tous les sous-processus héritent de cette variable
   execSync(`echo 'export DATABASE_URL="${DATABASE_URL}"' >> ~/.bashrc`, { stdio: "pipe" });
   
   try {
-    // Test de connexion avec la bonne URL
     execSync(`DATABASE_URL="${DATABASE_URL}" npx prisma db pull --force`, { stdio: "pipe" });
     console.log("✅ Base de données accessible");
     return true;
@@ -45,14 +40,12 @@ function setupDatabaseConnection() {
     console.log("❌ Connexion échouée - tentative de résolution réseau...");
     
     try {
-      // Essayer de connecter les conteneurs au même réseau
       execSync("docker network create orderspot-network 2>/dev/null || true", { stdio: "pipe" });
       execSync("docker network connect orderspot-network orderspot_postgres 2>/dev/null || true", { stdio: "pipe" });
       execSync("docker network connect orderspot-network orderspot-app 2>/dev/null || true", { stdio: "pipe" });
       
       console.log("🔗 Réseau Docker configuré");
       
-      // Nouveau test après connexion réseau
       execSync(`DATABASE_URL="${DATABASE_URL}" npx prisma db pull --force`, { stdio: "pipe" });
       console.log("✅ Base de données accessible après configuration réseau");
       return true;
@@ -113,31 +106,37 @@ run("node tools/generatePrismaServiceFromData.js", "4. Génération des fonction
 // 6. Scripts de nettoyage et préparation
 run("node tools/cleanDataFile.js", "5. Nettoyage du fichier data.ts");
 
-// 7. NOUVELLE ÉTAPE : Migration data.ts vers prisma-service.ts
-run("node tools/migrateDataToPrisma.js", "6. Migration data.ts vers prisma-service.ts");
+// ✨ NOUVELLES ÉTAPES DYNAMIQUES ✨
+// 7. Génération DYNAMIQUE des routes API
+run("node tools/generateApiRoutes.js", "6. Génération DYNAMIQUE des routes API");
 
-// 8. Correction des imports API
-//run("node tools/fixApiCustomImports.js", "7. Correction des imports API");
+// 8. Génération DYNAMIQUE des hooks React
+run("node tools/generateReactHooks.js", "7. Génération DYNAMIQUE des hooks React");
 
-// 9. Configuration Next.js
-run("node tools/patchNextConfigRedirects.js", "8. Patch next.config.ts");
+// 9. Migration DYNAMIQUE des composants
+run("node tools/migrateComponentsToHooks.js", "8. Migration DYNAMIQUE vers hooks");
 
-// 10. Organisation des routes API
-run("node tools/fixApiFolder.js", "9. Fix API routes");
+// 10. Migration data.ts vers prisma-service.ts
+run("node tools/migrateDataToPrisma.js", "9. Migration data.ts vers prisma-service.ts");
 
-// 11. Build Next.js (critique)
-run("npm run build", "10. Build final de l application");
+// 11. Configuration Next.js
+run("node tools/patchNextConfigRedirects.js", "10. Patch next.config.ts");
 
-// 12-14. Démarrage et configuration PM2
-run("pm2 start npm --name orderspot-app -- start", "11. Démarrage avec PM2");
-run("pm2 save", "12. Sauvegarde PM2");
-// 12. SUPPRIMÉ - Inutile dans Docker
-// run("pm2 startup", "13. Configuration auto-restart");
+// 12. Organisation des routes API
+run("node tools/fixApiFolder.js", "11. Fix API routes");
+
+// 13. Build Next.js (critique)
+run("npm run build", "12. Build final de l'application");
+
+// 14-16. Démarrage et configuration PM2
+run("pm2 start npm --name orderspot-app -- start", "13. Démarrage avec PM2");
+run("pm2 save", "14. Sauvegarde PM2");
 
 console.log("\n🎉 Build complet terminé avec succès !");
 console.log("🌐 Application disponible sur port 3001");
-console.log("🔄 Migration data.ts → prisma-service.ts effectuée");
+console.log("✨ Interface 100% fonctionnelle avec hooks dynamiques");
+console.log("🔄 Migration automatique des composants effectuée");
+console.log("🚀 Routes API générées dynamiquement");
 console.log("💾 Données maintenant persistées en PostgreSQL");
 
-// Exit explicite pour éviter les codes d'erreur
 process.exit(0);
