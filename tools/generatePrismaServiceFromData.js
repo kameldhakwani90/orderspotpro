@@ -1,70 +1,322 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('🔍 Génération de prisma-service.ts depuis schema.prisma...');
+console.log('🚀 Génération ULTRA-DYNAMIQUE de prisma-service.ts...');
 
+const dataPath = path.join(__dirname, '../src/lib/data.ts');
 const schemaPath = path.join(__dirname, '../prisma/schema.prisma');
 const outputPath = path.join(__dirname, '../src/lib/prisma-service.ts');
 
-// Vérifier que le schema Prisma existe
-if (!fs.existsSync(schemaPath)) {
-  console.error('❌ Fichier schema.prisma introuvable. Exécutez generatePrismaSchema.js d\'abord.');
+// Vérifications de base
+if (!fs.existsSync(dataPath)) {
+  console.error('❌ data.ts introuvable');
   process.exit(1);
 }
 
-console.log('📖 Lecture du schema Prisma...');
+if (!fs.existsSync(schemaPath)) {
+  console.error('❌ schema.prisma introuvable');
+  process.exit(1);
+}
 
-// Lire le schema Prisma complet
-const schemaContent = fs.readFileSync(schemaPath, 'utf-8');
+console.log('🔍 Phase 1: Analyse dynamique des besoins...');
 
-// Fonction robuste pour extraire TOUS les modèles
-function extractAllModels(content) {
-  console.log('🔍 Extraction des modèles depuis le schema...');
+// ====================================
+// PHASE 1: ANALYSER LES BESOINS (data.ts)
+// ====================================
+
+function extractNeededFunctions(dataContent) {
+  console.log('📖 Extraction des fonctions depuis data.ts...');
   
-  // Regex plus robuste pour capturer les modèles
-  const modelRegex = /^\s*model\s+(\w+)\s*\{/gm;
+  const functions = new Set();
+  
+  // Toutes les patterns possibles d'export
+  const patterns = [
+    /export\s+(?:async\s+)?function\s+(\w+)/g,
+    /export\s+(?:const|let)\s+(\w+)\s*=/g,
+    /export\s*\{\s*([^}]+)\s*\}/g
+  ];
+  
+  patterns.forEach(pattern => {
+    let match;
+    while ((match = pattern.exec(dataContent)) !== null) {
+      if (match[1].includes(',')) {
+        // Export multiple: export { func1, func2 }
+        match[1].split(',').forEach(func => {
+          const cleanFunc = func.trim();
+          if (cleanFunc) {
+            functions.add(cleanFunc);
+            console.log(`  📦 ${cleanFunc}`);
+          }
+        });
+      } else {
+        functions.add(match[1]);
+        console.log(`  📦 ${match[1]}`);
+      }
+    }
+  });
+  
+  return Array.from(functions);
+}
+
+// ====================================
+// PHASE 2: ANALYSER L'EXISTANT (prisma-service.ts)
+// ====================================
+
+function extractExistingFunctions(serviceContent) {
+  console.log('📖 Analyse de l\'existant prisma-service.ts...');
+  
+  const existing = new Set();
+  
+  if (!serviceContent) {
+    console.log('  ℹ️ Aucun fichier existant, création complète');
+    return existing;
+  }
+  
+  const patterns = [
+    /export\s+(?:async\s+)?function\s+(\w+)/g,
+    /export\s+(?:const|let)\s+(\w+)\s*=/g
+  ];
+  
+  patterns.forEach(pattern => {
+    let match;
+    while ((match = pattern.exec(serviceContent)) !== null) {
+      existing.add(match[1]);
+      console.log(`  ✅ Existant: ${match[1]}`);
+    }
+  });
+  
+  return existing;
+}
+
+// ====================================
+// PHASE 3: ANALYSE INTELLIGENTE DES PATTERNS
+// ====================================
+
+function analyzeFunctionPattern(funcName) {
+  // Patterns de reconnaissance automatique
+  const patterns = [
+    { regex: /^get(\w+)ById$/, type: 'getById', model: (m) => m[1] },
+    { regex: /^get(\w+)By(\w+)$/, type: 'getByField', model: (m) => m[1], field: (m) => m[2] },
+    { regex: /^getAll(\w+)s?$/, type: 'getAll', model: (m) => m[1] },
+    { regex: /^get(\w+)s$/, type: 'getAll', model: (m) => m[1] },
+    { regex: /^create(\w+)$/, type: 'create', model: (m) => m[1] },
+    { regex: /^add(\w+)$/, type: 'create', model: (m) => m[1] },
+    { regex: /^update(\w+)$/, type: 'update', model: (m) => m[1] },
+    { regex: /^edit(\w+)$/, type: 'update', model: (m) => m[1] },
+    { regex: /^delete(\w+)$/, type: 'delete', model: (m) => m[1] },
+    { regex: /^remove(\w+)$/, type: 'delete', model: (m) => m[1] }
+  ];
+  
+  for (const pattern of patterns) {
+    const match = funcName.match(pattern.regex);
+    if (match) {
+      const result = {
+        original: funcName,
+        type: pattern.type,
+        model: pattern.model(match)
+      };
+      
+      if (pattern.field) {
+        result.field = pattern.field(match);
+      }
+      
+      return result;
+    }
+  }
+  
+  return null;
+}
+
+// ====================================
+// PHASE 4: GÉNÉRATION INTELLIGENTE
+// ====================================
+
+function generateFunctionCode(analysis, schemaModels) {
+  const { original, type, model, field } = analysis;
+  
+  // Vérifier si le modèle existe dans le schema
+  if (!schemaModels.includes(model)) {
+    console.log(`  ⚠️ Modèle ${model} non trouvé dans schema, ignoré`);
+    return null;
+  }
+  
+  const camelModel = model.charAt(0).toLowerCase() + model.slice(1);
+  
+  switch (type) {
+    case 'getById':
+      return `export async function ${original}(id: string) {
+  try {
+    return await prisma.${camelModel}.findUnique({ 
+      where: { id: id }
+    });
+  } catch (error) {
+    console.error('Erreur ${original}:', error);
+    throw error;
+  }
+}`;
+
+    case 'getByField':
+      const lowerField = field.toLowerCase();
+      return `export async function ${original}(${lowerField}: string) {
+  try {
+    return await prisma.${camelModel}.findUnique({ 
+      where: { ${lowerField}: ${lowerField} }
+    });
+  } catch (error) {
+    console.error('Erreur ${original}:', error);
+    throw error;
+  }
+}`;
+
+    case 'getAll':
+      return `export async function ${original}() {
+  try {
+    return await prisma.${camelModel}.findMany({
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+  } catch (error) {
+    console.error('Erreur ${original}:', error);
+    throw error;
+  }
+}`;
+
+    case 'create':
+      return `export async function ${original}(data: any) {
+  try {
+    return await prisma.${camelModel}.create({ data });
+  } catch (error) {
+    console.error('Erreur ${original}:', error);
+    throw error;
+  }
+}`;
+
+    case 'update':
+      return `export async function ${original}(id: string, data: any) {
+  try {
+    return await prisma.${camelModel}.update({ 
+      where: { id: id },
+      data
+    });
+  } catch (error) {
+    console.error('Erreur ${original}:', error);
+    throw error;
+  }
+}`;
+
+    case 'delete':
+      return `export async function ${original}(id: string) {
+  try {
+    return await prisma.${camelModel}.delete({ 
+      where: { id: id }
+    });
+  } catch (error) {
+    console.error('Erreur ${original}:', error);
+    throw error;
+  }
+}`;
+
+    default:
+      return null;
+  }
+}
+
+// ====================================
+// EXTRACTION DES MODÈLES DU SCHEMA
+// ====================================
+
+function extractSchemaModels(schemaContent) {
+  console.log('🔍 Extraction des modèles depuis schema.prisma...');
+  
   const models = [];
+  const modelRegex = /model\s+(\w+)\s*\{/g;
   let match;
   
-  // Reset regex pour recommencer depuis le début
-  modelRegex.lastIndex = 0;
-  
-  while ((match = modelRegex.exec(content)) !== null) {
-    const modelName = match[1];
-    models.push(modelName);
-    console.log(`  ✅ Modèle trouvé: ${modelName}`);
+  while ((match = modelRegex.exec(schemaContent)) !== null) {
+    models.push(match[1]);
+    console.log(`  ✅ Modèle: ${match[1]}`);
   }
   
   return models;
 }
 
-// Extraire tous les modèles
-const modelNames = extractAllModels(schemaContent);
+// ====================================
+// EXÉCUTION PRINCIPALE
+// ====================================
 
-if (modelNames.length === 0) {
-  console.error('❌ Aucun modèle trouvé dans schema.prisma');
-  console.error('Contenu du schema (premières lignes):');
-  console.error(schemaContent.split('\n').slice(0, 20).join('\n'));
-  process.exit(1);
-}
-
-console.log(`🔍 Modèles trouvés: ${modelNames.join(', ')}`);
-console.log(`📊 Total: ${modelNames.length} modèles`);
-
-// Validation minimum
-if (modelNames.length < 10) {
-  console.error(`❌ ERREUR: Seulement ${modelNames.length} modèles trouvés (minimum 10 attendus)`);
-  console.error('Le schema Prisma semble incomplet ou corrompu');
-  process.exit(1);
-}
-
-// Générer les imports et setup
-let content = `// Généré automatiquement depuis schema.prisma
-// Ne pas modifier manuellement ce fichier
+try {
+  // Lire les fichiers
+  const dataContent = fs.readFileSync(dataPath, 'utf-8');
+  const schemaContent = fs.readFileSync(schemaPath, 'utf-8');
+  
+  let existingContent = '';
+  if (fs.existsSync(outputPath)) {
+    existingContent = fs.readFileSync(outputPath, 'utf-8');
+  }
+  
+  // Phase 1: Analyser les besoins
+  const neededFunctions = extractNeededFunctions(dataContent);
+  console.log(`📊 ${neededFunctions.length} fonctions nécessaires dans data.ts`);
+  
+  // Phase 2: Analyser l'existant
+  const existingFunctions = extractExistingFunctions(existingContent);
+  console.log(`📊 ${existingFunctions.size} fonctions déjà présentes`);
+  
+  // Phase 3: Calculer les manquantes
+  const missingFunctions = neededFunctions.filter(func => !existingFunctions.has(func));
+  console.log(`📊 ${missingFunctions.length} fonctions à générer`);
+  
+  if (missingFunctions.length === 0) {
+    console.log('✅ Aucune fonction manquante, prisma-service.ts est à jour !');
+    process.exit(0);
+  }
+  
+  // Phase 4: Extraire les modèles du schema
+  const schemaModels = extractSchemaModels(schemaContent);
+  console.log(`📊 ${schemaModels.length} modèles disponibles`);
+  
+  // Phase 5: Analyser et générer
+  console.log('🔧 Génération des fonctions manquantes...');
+  
+  const generatedFunctions = [];
+  const aliasesToCreate = [];
+  
+  missingFunctions.forEach(funcName => {
+    const analysis = analyzeFunctionPattern(funcName);
+    
+    if (analysis) {
+      const code = generateFunctionCode(analysis, schemaModels);
+      if (code) {
+        generatedFunctions.push(code);
+        console.log(`  ✅ Généré: ${funcName} (${analysis.type} pour ${analysis.model})`);
+      }
+    } else {
+      // Fonction non reconnue, créer un alias intelligent
+      const possibleAlias = neededFunctions.find(existing => 
+        existing.toLowerCase().includes(funcName.toLowerCase()) ||
+        funcName.toLowerCase().includes(existing.toLowerCase())
+      );
+      
+      if (possibleAlias && possibleAlias !== funcName) {
+        aliasesToCreate.push(`export const ${funcName} = ${possibleAlias};`);
+        console.log(`  🔗 Alias: ${funcName} → ${possibleAlias}`);
+      } else {
+        console.log(`  ⚠️ Non reconnu: ${funcName} (ignoré)`);
+      }
+    }
+  });
+  
+  // Phase 6: Construire le nouveau contenu
+  let newContent = '';
+  
+  if (!existingContent) {
+    // Première génération complète
+    newContent = `// Généré automatiquement - Version ultra-dynamique
+// Analyse: data.ts → Détection patterns → Génération intelligente
 
 import { PrismaClient } from '@prisma/client';
 
-// Instance Prisma globale
 declare global {
   var prisma: PrismaClient | undefined;
 }
@@ -76,155 +328,51 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // ============================================
-// FONCTIONS CRUD GÉNÉRÉES AUTOMATIQUEMENT
+// FONCTIONS GÉNÉRÉES AUTOMATIQUEMENT
 // ============================================
 
 `;
+  } else {
+    // Mode incrémental - garder l'existant
+    newContent = existingContent;
+    
+    if (!newContent.includes('// NOUVELLES FONCTIONS AJOUTÉES')) {
+      newContent += `\n\n// ============================================
+// NOUVELLES FONCTIONS AJOUTÉES AUTOMATIQUEMENT
+// ============================================
 
-// Générer les fonctions CRUD pour chaque modèle
-modelNames.forEach(modelName => {
-  console.log(`🔧 Génération des fonctions pour ${modelName}...`);
-  
-  // Nom en camelCase pour Prisma
-  const camelName = modelName.charAt(0).toLowerCase() + modelName.slice(1);
-  
-  // === FONCTIONS DE LECTURE ===
-  
-  // Fonction findById
-  content += `// =============== ${modelName.toUpperCase()} ===============\n\n`;
-  
-  content += `export async function get${modelName}ById(id: string) {\n`;
-  content += `  try {\n`;
-  content += `    return await prisma.${camelName}.findUnique({ \n`;
-  content += `      where: { id: id },\n`;
-  content += `      include: {\n`;
-  content += `        // Ajoutez ici les relations à inclure si nécessaire\n`;
-  content += `      }\n`;
-  content += `    });\n`;
-  content += `  } catch (error) {\n`;
-  content += `    console.error('Erreur get${modelName}ById:', error);\n`;
-  content += `    throw error;\n`;
-  content += `  }\n`;
-  content += `}\n\n`;
-  
-  // Fonction findMany (getAll)
-  content += `export async function getAll${modelName}s() {\n`;
-  content += `  try {\n`;
-  content += `    return await prisma.${camelName}.findMany({\n`;
-  content += `      include: {\n`;
-  content += `        // Ajoutez ici les relations à inclure si nécessaire\n`;
-  content += `      },\n`;
-  content += `      orderBy: {\n`;
-  content += `        createdAt: 'desc'\n`;
-  content += `      }\n`;
-  content += `    });\n`;
-  content += `  } catch (error) {\n`;
-  content += `    console.error('Erreur getAll${modelName}s:', error);\n`;
-  content += `    throw error;\n`;
-  content += `  }\n`;
-  content += `}\n\n`;
-  
-  // === FONCTIONS DE CRÉATION ===
-  
-  content += `export async function create${modelName}(data: any) {\n`;
-  content += `  try {\n`;
-  content += `    return await prisma.${camelName}.create({ \n`;
-  content += `      data,\n`;
-  content += `      include: {\n`;
-  content += `        // Ajoutez ici les relations à inclure si nécessaire\n`;
-  content += `      }\n`;
-  content += `    });\n`;
-  content += `  } catch (error) {\n`;
-  content += `    console.error('Erreur create${modelName}:', error);\n`;
-  content += `    throw error;\n`;
-  content += `  }\n`;
-  content += `}\n\n`;
-  
-  // === FONCTIONS DE MISE À JOUR ===
-  
-  content += `export async function update${modelName}(id: string, data: any) {\n`;
-  content += `  try {\n`;
-  content += `    return await prisma.${camelName}.update({ \n`;
-  content += `      where: { id: id },\n`;
-  content += `      data,\n`;
-  content += `      include: {\n`;
-  content += `        // Ajoutez ici les relations à inclure si nécessaire\n`;
-  content += `      }\n`;
-  content += `    });\n`;
-  content += `  } catch (error) {\n`;
-  content += `    console.error('Erreur update${modelName}:', error);\n`;
-  content += `    throw error;\n`;
-  content += `  }\n`;
-  content += `}\n\n`;
-  
-  // === FONCTIONS DE SUPPRESSION ===
-  
-  content += `export async function delete${modelName}(id: string) {\n`;
-  content += `  try {\n`;
-  content += `    return await prisma.${camelName}.delete({ \n`;
-  content += `      where: { id: id }\n`;
-  content += `    });\n`;
-  content += `  } catch (error) {\n`;
-  content += `    console.error('Erreur delete${modelName}:', error);\n`;
-  content += `    throw error;\n`;
-  content += `  }\n`;
-  content += `}\n\n`;
-  
-  // === ALIASES POUR COMPATIBILITÉ ===
-  
-  // Ajouter des aliases pour les anciennes fonctions data.ts
-  const aliases = {
-    'User': ['getUsers', 'addUser'],
-    'Host': ['getHosts', 'addHost'],
-    'Client': ['getClients', 'addClient'],
-    'Order': ['getOrders', 'addOrder'],
-    'Service': ['getServices', 'addService'],
-    'Reservation': ['getReservations', 'addReservation'],
-    'Site': ['getSites'],
-    'RoomOrTable': ['getRoomsOrTables'],
-    'Tag': ['getTags'],
-    'MenuCard': ['getMenuCards']
-  };
-  
-  if (aliases[modelName]) {
-    content += `// Aliases pour compatibilité avec data.ts\n`;
-    aliases[modelName].forEach(alias => {
-      if (alias.startsWith('get') && alias.endsWith('s')) {
-        content += `export const ${alias} = getAll${modelName}s;\n`;
-      } else if (alias.startsWith('add')) {
-        content += `export const ${alias} = create${modelName};\n`;
-      }
-    });
-    content += `\n`;
+`;
+    }
   }
-});
-
-// Ajouter des fonctions utilitaires
-content += `// ============================================
-// FONCTIONS UTILITAIRES
+  
+  // Ajouter les nouvelles fonctions
+  if (generatedFunctions.length > 0) {
+    newContent += generatedFunctions.join('\n\n') + '\n\n';
+  }
+  
+  // Ajouter les alias
+  if (aliasesToCreate.length > 0) {
+    newContent += '// Aliases intelligents\n';
+    newContent += aliasesToCreate.join('\n') + '\n\n';
+  }
+  
+  // Ajouter les utilitaires si première génération
+  if (!existingContent) {
+    newContent += `// ============================================
+// UTILITAIRES
 // ============================================
 
 export async function connectToDatabase() {
   try {
     await prisma.$connect();
-    console.log('✅ Connexion à la base de données établie');
+    console.log('✅ Connexion DB établie');
     return true;
   } catch (error) {
-    console.error('❌ Erreur de connexion à la base:', error);
+    console.error('❌ Erreur connexion DB:', error);
     return false;
   }
 }
 
-export async function disconnectFromDatabase() {
-  try {
-    await prisma.$disconnect();
-    console.log('✅ Déconnexion de la base de données');
-  } catch (error) {
-    console.error('❌ Erreur lors de la déconnexion:', error);
-  }
-}
-
-// Fonction de test de santé de la base
 export async function healthCheck() {
   try {
     await prisma.$queryRaw\`SELECT 1\`;
@@ -234,29 +382,24 @@ export async function healthCheck() {
   }
 }
 `;
-
-// Créer le répertoire de destination s'il n'existe pas
-const outputDir = path.dirname(outputPath);
-if (!fs.existsSync(outputDir)) {
-  fs.mkdirSync(outputDir, { recursive: true });
-  console.log(`📁 Répertoire créé: ${outputDir}`);
-}
-
-// Écrire le fichier
-try {
-  fs.writeFileSync(outputPath, content, 'utf-8');
-  console.log('✅ prisma-service.ts généré avec succès');
-  console.log(`📁 Fichier créé: ${outputPath}`);
-  console.log(`📊 Fonctions générées pour ${modelNames.length} modèles:`);
+  }
   
-  // Résumé des fonctions générées
-  modelNames.forEach(model => {
-    console.log(`  - get${model}ById, getAll${model}s, create${model}, update${model}, delete${model}`);
-  });
+  // Phase 7: Écrire le fichier
+  const outputDir = path.dirname(outputPath);
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
   
-  console.log(`\n🎉 Total: ${modelNames.length * 5} fonctions CRUD générées !`);
+  fs.writeFileSync(outputPath, newContent, 'utf-8');
+  
+  console.log('\n🎉 Génération ULTRA-DYNAMIQUE terminée !');
+  console.log(`📁 Fichier: ${outputPath}`);
+  console.log(`✅ ${generatedFunctions.length} nouvelles fonctions`);
+  console.log(`🔗 ${aliasesToCreate.length} nouveaux aliases`);
+  console.log('🧠 Analyse intelligente des patterns réussie');
+  console.log('🔄 Prochaine fois: mode incrémental automatique');
   
 } catch (error) {
-  console.error('❌ Erreur lors de l\'écriture du fichier:', error);
+  console.error('❌ Erreur:', error);
   process.exit(1);
 }
