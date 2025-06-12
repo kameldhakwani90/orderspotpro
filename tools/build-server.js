@@ -102,7 +102,7 @@ run("npx prisma generate", "2. Génération du client Prisma");
 setupDatabaseConnection();
 
 // 4. Migration de la base de données (OBLIGATOIRE)
-run("npx prisma migrate dev --name auto", "3. Migration de la base de données");
+run("npx prisma db push --force-reset", "3. Reset et migration de la base de données");
 
 // 5. Génération des services Prisma (OBLIGATOIRE) 
 run("node tools/generatePrismaServiceFromData.js", "4. Génération des fonctions Prisma");
