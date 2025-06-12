@@ -3,10 +3,16 @@ const { execSync } = require("child_process");
 function run(cmd, desc) {
   console.log("\n🔧 " + desc + "...");
   try {
-    execSync(cmd, { stdio: "inherit" });
+    // S'assurer que DATABASE_URL est disponible pour chaque commande
+    const DATABASE_URL = process.env.DATABASE_URL || `postgresql://orderspot_user:orderspot_pass@orderspot_postgres:5432/orderspot_db?schema=public`;
+    const env = { ...process.env, DATABASE_URL };
+    
+    execSync(cmd, { stdio: "inherit", env });
     console.log("✅ " + desc + " terminé.");
   } catch (err) {
     console.error("❌ Erreur pendant : " + desc);
+    console.error("Command:", cmd);
+    console.error("DATABASE_URL:", process.env.DATABASE_URL);
     process.exit(1);
   }
 }
@@ -23,13 +29,16 @@ function setupDatabaseConnection() {
   
   const DATABASE_URL = `postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}?schema=public`;
   
-  // Définir la variable d'environnement
+  // Définir la variable d'environnement GLOBALEMENT
   process.env.DATABASE_URL = DATABASE_URL;
-  console.log("🔗 DATABASE_URL configurée");
+  console.log("🔗 DATABASE_URL configurée:", DATABASE_URL);
+  
+  // S'assurer que tous les sous-processus héritent de cette variable
+  execSync(`echo 'export DATABASE_URL="${DATABASE_URL}"' >> ~/.bashrc`, { stdio: "pipe" });
   
   try {
-    // Test de connexion
-    execSync("npx prisma db pull --force", { stdio: "pipe" });
+    // Test de connexion avec la bonne URL
+    execSync(`DATABASE_URL="${DATABASE_URL}" npx prisma db pull --force`, { stdio: "pipe" });
     console.log("✅ Base de données accessible");
     return true;
   } catch (err) {
@@ -44,7 +53,7 @@ function setupDatabaseConnection() {
       console.log("🔗 Réseau Docker configuré");
       
       // Nouveau test après connexion réseau
-      execSync("npx prisma db pull --force", { stdio: "pipe" });
+      execSync(`DATABASE_URL="${DATABASE_URL}" npx prisma db pull --force`, { stdio: "pipe" });
       console.log("✅ Base de données accessible après configuration réseau");
       return true;
       
@@ -52,13 +61,13 @@ function setupDatabaseConnection() {
       console.log("🔧 Tentative de push/reset de la base...");
       
       try {
-        execSync("npx prisma db push --force-reset", { stdio: "pipe" });
+        execSync(`DATABASE_URL="${DATABASE_URL}" npx prisma db push --force-reset`, { stdio: "pipe" });
         console.log("✅ Base de données réinitialisée avec succès");
         return true;
       } catch (err3) {
         console.error("❌ ERREUR CRITIQUE : Impossible d'accéder à PostgreSQL");
+        console.error("URL utilisée:", DATABASE_URL);
         console.error("Vérifiez que le conteneur orderspot_postgres est démarré");
-        console.error("Commande : docker ps | grep orderspot_postgres");
         process.exit(1);
       }
     }
@@ -108,7 +117,7 @@ run("node tools/cleanDataFile.js", "5. Nettoyage du fichier data.ts");
 run("node tools/migrateDataToPrisma.js", "6. Migration data.ts vers prisma-service.ts");
 
 // 8. Correction des imports API
-// run("node tools/fixApiCustomImports.js", "7. Correction des imports API");
+run("node tools/fixApiCustomImports.js", "7. Correction des imports API");
 
 // 9. Configuration Next.js
 run("node tools/patchNextConfigRedirects.js", "8. Patch next.config.ts");
@@ -122,6 +131,7 @@ run("npm run build", "10. Build final de l application");
 // 12-14. Démarrage et configuration PM2
 run("pm2 start npm --name orderspot-app -- start", "11. Démarrage avec PM2");
 run("pm2 save", "12. Sauvegarde PM2");
+// 12. SUPPRIMÉ - Inutile dans Docker
 // run("pm2 startup", "13. Configuration auto-restart");
 
 console.log("\n🎉 Build complet terminé avec succès !");
