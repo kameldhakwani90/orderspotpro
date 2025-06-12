@@ -1,20 +1,14 @@
 const { execSync } = require("child_process");
 
-function run(cmd, desc, optional = false) {
+function run(cmd, desc) {
   console.log("\n🔧 " + desc + "...");
   try {
     execSync(cmd, { stdio: "inherit" });
     console.log("✅ " + desc + " terminé.");
   } catch (err) {
-    if (optional) {
-      console.log("⚠️ " + desc + " échoué (optionnel, continuer)");
-      return false;
-    } else {
-      console.error("❌ Erreur pendant : " + desc);
-      process.exit(1);
-    }
+    console.error("❌ Erreur pendant : " + desc);
+    process.exit(1);
   }
-  return true;
 }
 
 function setupDatabaseConnection() {
@@ -101,28 +95,39 @@ run("npx prisma generate", "2. Génération du client Prisma");
 // 3. Configuration et connexion obligatoire à la base de données
 setupDatabaseConnection();
 
-// 4. Migration de la base de données (OBLIGATOIRE)
+// 4. Reset et migration de la base de données (OBLIGATOIRE)
 run("npx prisma db push --force-reset", "3. Reset et migration de la base de données");
 
 // 5. Génération des services Prisma (OBLIGATOIRE) 
 run("node tools/generatePrismaServiceFromData.js", "4. Génération des fonctions Prisma");
 
-// 5-8. Scripts de nettoyage et préparation (toujours nécessaires)
-run("node tools/cleanDataFile.js", "5. Nettoyage du fichier data.ts", true);
-run("node tools/fixApiCustomImports.js", "6. Correction des imports API", true);
-run("node tools/patchNextConfigRedirects.js", "7. Patch next.config.ts", true);
-run("node tools/fixApiFolder.js", "8. Fix API routes", true);
+// 6. Scripts de nettoyage et préparation
+run("node tools/cleanDataFile.js", "5. Nettoyage du fichier data.ts");
 
-// 9. Build Next.js (critique)
-run("npm run build", "9. Build final de l application");
+// 7. NOUVELLE ÉTAPE : Migration data.ts vers prisma-service.ts
+run("node tools/migrateDataToPrisma.js", "6. Migration data.ts vers prisma-service.ts");
 
-// 10-12. Démarrage et configuration PM2
-run("pm2 start npm --name orderspot-app -- start", "10. Démarrage avec PM2");
-run("pm2 save", "11. Sauvegarde PM2", true);
-run("pm2 startup", "12. Configuration auto-restart", true);
+// 8. Correction des imports API
+run("node tools/fixApiCustomImports.js", "7. Correction des imports API");
+
+// 9. Configuration Next.js
+run("node tools/patchNextConfigRedirects.js", "8. Patch next.config.ts");
+
+// 10. Organisation des routes API
+run("node tools/fixApiFolder.js", "9. Fix API routes");
+
+// 11. Build Next.js (critique)
+run("npm run build", "10. Build final de l application");
+
+// 12-14. Démarrage et configuration PM2
+run("pm2 start npm --name orderspot-app -- start", "11. Démarrage avec PM2");
+run("pm2 save", "12. Sauvegarde PM2");
+run("pm2 startup", "13. Configuration auto-restart");
 
 console.log("\n🎉 Build complet terminé avec succès !");
 console.log("🌐 Application disponible sur port 3001");
+console.log("🔄 Migration data.ts → prisma-service.ts effectuée");
+console.log("💾 Données maintenant persistées en PostgreSQL");
 
 // Exit explicite pour éviter les codes d'erreur
 process.exit(0);
