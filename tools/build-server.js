@@ -88,8 +88,8 @@ console.log("🚀 Démarrage du process de build complet Orderspot.pro");
 // 0. Sécurité : arrêt propre de l'app existante
 stopPM2App("orderspot-app");
 
-// 1. Génération du schema Prisma (toujours nécessaire)
-run("node tools/generatePrismaSchema.js", "1. Génération du schema.prisma");
+// 1. ✨ GÉNÉRATION SYSTÈME COMPLET (UNIFIÉ) ✨
+run("node tools/generateCompleteSystem.js", "1. Génération SYSTÈME COMPLET (schema + service)");
 
 // 2. Génération du client Prisma (toujours nécessaire)
 run("npx prisma generate", "2. Génération du client Prisma");
@@ -100,37 +100,34 @@ setupDatabaseConnection();
 // 4. Reset et migration de la base de données (OBLIGATOIRE)
 run("npx prisma db push --force-reset", "3. Reset et migration de la base de données");
 
-// 5. Génération des services Prisma (OBLIGATOIRE) 
-run("node tools/generatePrismaServiceFromData.js", "4. Génération des fonctions Prisma");
-
-// 6. Scripts de nettoyage et préparation
-run("node tools/cleanDataFile.js", "5. Nettoyage du fichier data.ts");
+// 5. Scripts de nettoyage et préparation
+run("node tools/cleanDataFile.js", "4. Nettoyage du fichier data.ts");
 
 // ✨ NOUVELLES ÉTAPES DYNAMIQUES ✨
-// 7. Génération DYNAMIQUE des routes API
-run("node tools/generateApiRoutes.js", "6. Génération DYNAMIQUE des routes API");
+// 6. Génération DYNAMIQUE des routes API
+run("node tools/generateApiRoutes.js", "5. Génération DYNAMIQUE des routes API");
 
-// 8. Génération DYNAMIQUE des hooks React
-run("node tools/generateReactHooks.js", "7. Génération DYNAMIQUE des hooks React");
+// 7. Génération DYNAMIQUE des hooks React
+run("node tools/generateReactHooks.js", "6. Génération DYNAMIQUE des hooks React");
 
-// 9. Migration DYNAMIQUE des composants
-run("node tools/migrateComponentsToHooks.js", "8. Migration DYNAMIQUE vers hooks");
+// 8. Migration DYNAMIQUE des composants
+run("node tools/migrateComponentsToHooks.js", "7. Migration DYNAMIQUE vers hooks");
 
-// 10. Migration data.ts vers prisma-service.ts
-run("node tools/migrateDataToPrisma.js", "9. Migration data.ts vers prisma-service.ts");
+// 9. Migration data.ts vers prisma-service.ts
+run("node tools/migrateDataToPrisma.js", "8. Migration data.ts vers prisma-service.ts");
 
-// 11. Configuration Next.js
-run("node tools/patchNextConfigRedirects.js", "10. Patch next.config.ts");
+// 10. Configuration Next.js
+run("node tools/patchNextConfigRedirects.js", "9. Patch next.config.ts");
 
-// 12. Organisation des routes API
-run("node tools/fixApiFolder.js", "11. Fix API routes");
+// 11. Organisation des routes API
+run("node tools/fixApiFolder.js", "10. Fix API routes");
 
-// 13. Build Next.js (critique)
-run("npm run build", "12. Build final de l'application");
+// 12. Build Next.js (critique)
+run("npm run build", "11. Build final de l'application");
 
-// 14-16. Démarrage et configuration PM2
-run("pm2 start npm --name orderspot-app -- start", "13. Démarrage avec PM2");
-run("pm2 save", "14. Sauvegarde PM2");
+// 13-14. Démarrage et configuration PM2
+run("pm2 start npm --name orderspot-app -- start", "12. Démarrage avec PM2");
+run("pm2 save", "13. Sauvegarde PM2");
 
 console.log("\n🎉 Build complet terminé avec succès !");
 console.log("🌐 Application disponible sur port 3001");
@@ -138,5 +135,6 @@ console.log("✨ Interface 100% fonctionnelle avec hooks dynamiques");
 console.log("🔄 Migration automatique des composants effectuée");
 console.log("🚀 Routes API générées dynamiquement");
 console.log("💾 Données maintenant persistées en PostgreSQL");
+console.log("🎯 SYSTÈME ULTRA-DYNAMIQUE : 100% basé sur data.ts !");
 
 process.exit(0);
