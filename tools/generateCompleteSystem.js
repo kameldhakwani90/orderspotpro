@@ -2,111 +2,251 @@ const fs = require('fs');
 const path = require('path');
 
 console.log('🚀 Génération SYSTÈME COMPLET ultra-dynamique...');
-console.log('📋 Schema Prisma + Service + Types - 100% basé sur data.ts');
 
 const dataPath = path.join(__dirname, '../src/lib/data.ts');
-const schemaPath = path.join(__dirname, '../prisma/schema.prisma');
+const typesPath = path.join(__dirname, '../src/lib/types.ts');
+const schemaPath = path.join(__dirname, './prisma/schema.prisma');
 const servicePath = path.join(__dirname, '../src/lib/prisma-service.ts');
 
-// Vérifications
 if (!fs.existsSync(dataPath)) {
   console.error('❌ data.ts introuvable');
   process.exit(1);
 }
 
-console.log('🔍 Phase 1: Analyse COMPLÈTE de data.ts...');
+if (!fs.existsSync(typesPath)) {
+  console.error('❌ types.ts introuvable');
+  process.exit(1);
+}
 
-// ====================================
-// PHASE 1: ANALYSE ULTRA-DYNAMIQUE DE DATA.TS
-// ====================================
+console.log('🔍 Analyse COMPLÈTE de data.ts + types.ts...');
 
-function analyzeDataFile(content) {
-  console.log('📖 Analyse ultra-dynamique de data.ts...');
+function analyzeTypesFile(content) {
+  console.log('📖 Extraction des types depuis types.ts...');
   
-  const result = {
-    models: new Map(),
-    functions: new Set(),
-    interfaces: new Set()
-  };
+  const models = new Map();
   
-  // 1. Extraire les interfaces TypeScript
-  const interfaceRegex = /interface\s+(\w+)\s*\{([^}]+)\}/g;
+  // ✅ REGEX CORRIGÉES - Plus permissives pour capturer les interfaces multi-lignes
+  console.log('🔍 Recherche des interfaces...');
+  
+  // Supprimer les commentaires pour éviter les faux positifs
+  const cleanContent = content.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  
+  // Regex pour capturer les interfaces complètes (avec accolades imbriquées)
+  const interfacePattern = /export\s+interface\s+(\w+)\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/gs;
+  const typePattern = /export\s+type\s+(\w+)\s*=\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/gs;
+  
   let match;
   
-  while ((match = interfaceRegex.exec(content)) !== null) {
-    const interfaceName = match[1];
-    const fields = match[2];
-    
-    result.interfaces.add(interfaceName);
-    
-    // Analyser les champs de l'interface
-    const fieldLines = fields.split('\n').filter(line => line.trim());
-    const parsedFields = [];
-    
-    fieldLines.forEach(line => {
-      const fieldMatch = line.match(/(\w+)[\?]?\s*:\s*([^;]+)/);
-      if (fieldMatch) {
-        const fieldName = fieldMatch[1];
-        const fieldType = fieldMatch[2].trim();
-        
-        parsedFields.push({
-          name: fieldName,
-          type: fieldType,
-          optional: line.includes('?'),
-          isArray: fieldType.includes('[]'),
-          isDate: fieldType.includes('Date'),
-          isJson: fieldType.includes('Json') || fieldType.includes('object'),
-          isRelation: fieldType.match(/^[A-Z]\w+$/) && !['String', 'Number', 'Boolean', 'Date'].includes(fieldType)
-        });
-      }
-    });
-    
-    result.models.set(interfaceName, {
-      name: interfaceName,
-      fields: parsedFields
-    });
-    
-    console.log(`  📋 Interface ${interfaceName}: ${parsedFields.length} champs`);
+  // Traiter les interfaces
+  while ((match = interfacePattern.exec(cleanContent)) !== null) {
+    const typeName = match[1];
+    const typeBody = match[2];
+    console.log(`  📋 Interface trouvée: ${typeName}`);
+    processTypeDefinition(typeName, typeBody, models);
   }
   
-  // 2. Extraire les arrays de données (usersInMemory, etc.)
-  const dataArrayRegex = /let\s+(\w+)InMemory\s*:\s*(\w+)\[\]\s*=/g;
+  // Reset pour les types
+  typePattern.lastIndex = 0;
+  while ((match = typePattern.exec(cleanContent)) !== null) {
+    const typeName = match[1];
+    const typeBody = match[2];
+    console.log(`  📋 Type trouvé: ${typeName}`);
+    processTypeDefinition(typeName, typeBody, models);
+  }
+  
+  // Si aucune interface trouvée, essayer une approche plus simple ligne par ligne
+  if (models.size === 0) {
+    console.log('⚠️  Aucune interface trouvée avec regex, essai méthode alternative...');
+    analyzeTypesLineByLine(content, models);
+  }
+  
+  return models;
+}
+
+function analyzeTypesLineByLine(content, models) {
+  const lines = content.split('\n');
+  let currentInterface = null;
+  let braceLevel = 0;
+  let interfaceContent = '';
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Détecter le début d'une interface
+    const interfaceMatch = line.match(/export\s+interface\s+(\w+)\s*\{?/);
+    if (interfaceMatch) {
+      currentInterface = interfaceMatch[1];
+      braceLevel = (line.match(/\{/g) || []).length - (line.match(/\}/g) || []).length;
+      interfaceContent = '';
+      console.log(`  📋 Interface détectée: ${currentInterface}`);
+      continue;
+    }
+    
+    // Si on est dans une interface
+    if (currentInterface) {
+      interfaceContent += line + '\n';
+      braceLevel += (line.match(/\{/g) || []).length - (line.match(/\}/g) || []).length;
+      
+      // Fin de l'interface
+      if (braceLevel <= 0) {
+        processTypeDefinition(currentInterface, interfaceContent, models);
+        currentInterface = null;
+        interfaceContent = '';
+      }
+    }
+  }
+}
+
+function processTypeDefinition(typeName, typeBody, models) {
+  // Filtrer les types qui ne sont pas des modèles de données
+  const skipTypes = ['UserRole', 'Icon', 'LucideIcon', 'MenuPermissions'];
+  if (skipTypes.some(skip => typeName.includes(skip))) {
+    console.log(`  ⏭️  Ignoré: ${typeName} (pas un modèle de données)`);
+    return;
+  }
+  
+  const fields = [];
+  const fieldLines = typeBody.split('\n')
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('//') && !line.startsWith('*') && line !== '}');
+  
+  fieldLines.forEach(line => {
+    // ✅ REGEX AMÉLIORÉE pour capturer plus de patterns
+    const patterns = [
+      /(\w+)(\?)?\s*:\s*([^;,\n]+)/,          // standard: nom?: type
+      /(\w+)\s*:\s*([^;,\n]+)/,               // sans optionnel
+      /"?(\w+)"?\s*:\s*([^;,\n]+)/            // avec guillemets
+    ];
+    
+    let fieldMatch = null;
+    for (const pattern of patterns) {
+      fieldMatch = line.match(pattern);
+      if (fieldMatch) break;
+    }
+    
+    if (fieldMatch) {
+      const fieldName = fieldMatch[1];
+      const isOptional = fieldMatch[2] === '?' || line.includes('?');
+      const fieldType = (fieldMatch[3] || fieldMatch[2]).trim().replace(/[;,]$/, '');
+      
+      // Ignorer certains champs métiers spécifiques
+      if (['menuPermissions', 'employeeType'].includes(fieldName)) {
+        console.log(`    ⏭️  Champ ignoré: ${fieldName}`);
+        return;
+      }
+      
+      const typeInfo = analyzeFieldType(fieldType);
+      
+      fields.push({
+        name: fieldName,
+        type: fieldType,
+        optional: isOptional,
+        ...typeInfo
+      });
+      
+      console.log(`    - ${fieldName}: ${fieldType}${isOptional ? ' (optional)' : ''}`);
+    }
+  });
+  
+  if (fields.length > 0) {
+    models.set(typeName, {
+      name: typeName,
+      fields: fields
+    });
+    console.log(`  ✅ Modèle ajouté: ${typeName} (${fields.length} champs)`);
+  }
+}
+
+function analyzeFieldType(fieldType) {
+  const cleanType = fieldType.toLowerCase();
+  
+  return {
+    isArray: fieldType.includes('[]') || fieldType.includes('Array<'),
+    isDate: cleanType.includes('date') || fieldType === 'Date',
+    isJson: cleanType.includes('json') || cleanType.includes('any') || cleanType.includes('object') || cleanType.includes('record<') || fieldType.includes('{'),
+    isString: cleanType.includes('string') || fieldType.includes('"'),
+    isNumber: cleanType.includes('number') || cleanType.includes('int') || cleanType.includes('float'),
+    isBoolean: cleanType.includes('boolean'),
+    isUnion: fieldType.includes('|'),
+    isOptional: fieldType.includes('undefined') || fieldType.includes('null')
+  };
+}
+
+function analyzeDataFile(content) {
+  console.log('📖 Extraction des fonctions depuis data.ts...');
+  
+  const functions = new Set();
+  const dataArrays = new Map();
+  
+  // Arrays de données
+  const dataArrayRegex = /(?:let|const)\s+(\w+)InMemory\s*:\s*(\w+)\[\]\s*=/g;
+  let match;
+  
   while ((match = dataArrayRegex.exec(content)) !== null) {
     const arrayName = match[1];
     const typeName = match[2];
-    
-    if (result.models.has(typeName)) {
-      console.log(`  📦 Données: ${arrayName}InMemory → ${typeName}`);
-    }
+    dataArrays.set(arrayName, typeName);
+    console.log(`  📦 Array: ${arrayName}InMemory → ${typeName}`);
   }
   
-  // 3. Extraire toutes les fonctions exportées
+  // Fonctions exportées
   const functionPatterns = [
     /export\s+(?:async\s+)?function\s+(\w+)/g,
-    /export\s+(?:const|let)\s+(\w+)\s*=/g
+    /export\s+const\s+(\w+)\s*=\s*(?:async\s+)?\(/g
   ];
   
   functionPatterns.forEach(pattern => {
     let match;
     while ((match = pattern.exec(content)) !== null) {
-      result.functions.add(match[1]);
+      functions.add(match[1]);
       console.log(`  🔧 Fonction: ${match[1]}`);
     }
   });
   
-  return result;
+  return { functions, dataArrays };
 }
 
-// ====================================
-// PHASE 2: GÉNÉRATION SCHEMA PRISMA DYNAMIQUE
-// ====================================
-
-function generateDynamicPrismaSchema(analysis) {
-  console.log('🏗️ Génération schema Prisma DYNAMIQUE...');
+function mapToPrismaType(tsType, field) {
+  // Gérer les unions d'abord
+  if (field.isUnion) {
+    const types = tsType.split('|').map(t => t.trim());
+    const nonNullTypes = types.filter(t => t !== 'null' && t !== 'undefined');
+    if (nonNullTypes.length === 1) {
+      return mapToPrismaType(nonNullTypes[0], { ...field, isUnion: false });
+    }
+  }
   
-  let schema = `// Généré automatiquement depuis data.ts - ULTRA DYNAMIQUE
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+  // Types de base
+  if (field.isDate) return 'DateTime';
+  if (field.isJson) return 'Json';
+  if (field.isBoolean) return 'Boolean';
+  
+  if (field.isNumber) {
+    return tsType.includes('float') || tsType.includes('Float') ? 'Float' : 'Int';
+  }
+  
+  if (field.isString || tsType.includes('"')) return 'String';
+  
+  // Arrays
+  if (field.isArray) {
+    if (field.isString) return 'String[]';
+    if (field.isNumber) return 'Int[]';
+    return 'Json'; // Pour les arrays complexes
+  }
+  
+  // Types custom (enum ou relation)
+  if (tsType.match(/^[A-Z]\w+$/)) {
+    return 'String'; // Foreign key pour relations
+  }
+  
+  // Fallback sécurisé
+  return 'String';
+}
 
+function generatePrismaSchema(models) {
+  console.log('🏗️ Génération schema Prisma...');
+  
+  let schema = `// Généré automatiquement depuis types.ts
 generator client {
   provider = "prisma-client-js"
 }
@@ -118,40 +258,26 @@ datasource db {
 
 `;
   
-  // Générer chaque modèle dynamiquement
-  analysis.models.forEach((model, modelName) => {
+  models.forEach((model, modelName) => {
     console.log(`  🔧 Génération modèle: ${modelName}`);
     
-    schema += `// ${modelName} model - Généré depuis interface\n`;
-    schema += `model ${modelName} {\n`;
+    schema += `// ${modelName} - Généré depuis interface TypeScript\nmodel ${modelName} {\n`;
     
-    // Champs de base (toujours présents)
-    schema += `  id        String   @id @default(cuid())\n`;
+    // ID automatique (sauf si déjà présent)
+    const hasId = model.fields.some(f => f.name === 'id');
+    if (!hasId) {
+      schema += `  id        String   @id @default(cuid())\n`;
+    }
     
-    // Analyser chaque champ de l'interface
+    // Champs du modèle
     model.fields.forEach(field => {
-      if (field.name === 'id') return; // Déjà ajouté
-      
-      let prismaType = mapToPrismaType(field.type, field.isArray);
+      let prismaType = mapToPrismaType(field.type, field);
       let attributes = '';
       
-      // Gestion des types spéciaux
-      if (field.name === 'email') {
-        attributes = ' @unique';
-      }
-      
-      if (field.optional) {
-        prismaType += '?';
-      }
-      
-      if (field.isArray) {
-        // Les arrays sont gérés différemment selon le type
-        if (field.type.includes('String')) {
-          prismaType = 'String[]';
-        } else if (field.type.includes('Json')) {
-          prismaType = 'Json[]';
-        }
-      }
+      // Attributs spéciaux
+      if (field.name === 'email') attributes = ' @unique';
+      if (field.name === 'id' && prismaType === 'String') attributes = ' @id @default(cuid())';
+      if (field.optional || field.isOptional) prismaType += '?';
       
       schema += `  ${field.name.padEnd(12)} ${prismaType.padEnd(12)}${attributes}\n`;
     });
@@ -159,47 +285,16 @@ datasource db {
     // Timestamps automatiques
     schema += `  createdAt DateTime @default(now())\n`;
     schema += `  updatedAt DateTime @updatedAt\n`;
-    
     schema += `}\n\n`;
   });
   
   return schema;
 }
 
-function mapToPrismaType(tsType, isArray) {
-  // Mapping TypeScript → Prisma
-  const typeMap = {
-    'string': 'String',
-    'String': 'String',
-    'number': isArray ? 'Int[]' : 'Int',
-    'Int': isArray ? 'Int[]' : 'Int',
-    'float': isArray ? 'Float[]' : 'Float',
-    'Float': isArray ? 'Float[]' : 'Float',
-    'boolean': 'Boolean',
-    'Boolean': 'Boolean',
-    'Date': 'DateTime',
-    'DateTime': 'DateTime',
-    'object': 'Json',
-    'Json': 'Json',
-    'any': 'Json'
-  };
+function generatePrismaService(models, functions) {
+  console.log('🔧 Génération service Prisma...');
   
-  // Nettoyer le type (enlever [], ?, etc.)
-  const cleanType = tsType.replace(/[\[\]?]/g, '').trim();
-  
-  return typeMap[cleanType] || 'String';
-}
-
-// ====================================
-// PHASE 3: GÉNÉRATION SERVICE PRISMA DYNAMIQUE
-// ====================================
-
-function generateDynamicPrismaService(analysis) {
-  console.log('🔧 Génération service Prisma DYNAMIQUE...');
-  
-  let service = `// Généré automatiquement depuis data.ts - ULTRA DYNAMIQUE
-// Service Prisma complet avec toutes les fonctions détectées
-
+  let service = `// Service Prisma généré automatiquement
 import { PrismaClient } from '@prisma/client';
 
 declare global {
@@ -213,67 +308,22 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // ============================================
-// FONCTIONS CRUD GÉNÉRÉES DYNAMIQUEMENT
+// FONCTIONS CRUD GÉNÉRÉES AUTOMATIQUEMENT  
 // ============================================
 
 `;
   
-  // Générer les fonctions pour chaque modèle
-  analysis.models.forEach((model, modelName) => {
-    console.log(`  🔧 Génération service: ${modelName}`);
+  models.forEach((model, modelName) => {
+    console.log(`  🔧 Génération CRUD: ${modelName}`);
     
     const camelName = modelName.charAt(0).toLowerCase() + modelName.slice(1);
     
     service += `// =============== ${modelName.toUpperCase()} ===============\n\n`;
     
-    // Fonctions CRUD de base
-    service += generateCrudFunctions(modelName, camelName);
-    
-    // Fonctions spéciales détectées dans data.ts
-    service += generateSpecialFunctions(modelName, analysis.functions);
-    
-    service += `\n`;
-  });
-  
-  // Génération des aliases pour compatibilité
-  service += generateCompatibilityAliases(analysis);
-  
-  // Utilitaires
-  service += `
-// ============================================
-// UTILITAIRES
-// ============================================
-
-export async function connectToDatabase() {
+    // CRUD complet
+    service += `export async function get${modelName}ById(id: string) {
   try {
-    await prisma.$connect();
-    console.log('✅ Connexion DB établie');
-    return true;
-  } catch (error) {
-    console.error('❌ Erreur connexion DB:', error);
-    return false;
-  }
-}
-
-export async function healthCheck() {
-  try {
-    await prisma.$queryRaw\`SELECT 1\`;
-    return { status: 'ok', timestamp: new Date().toISOString() };
-  } catch (error) {
-    return { status: 'error', error: error.message, timestamp: new Date().toISOString() };
-  }
-}
-`;
-  
-  return service;
-}
-
-function generateCrudFunctions(modelName, camelName) {
-  return `export async function get${modelName}ById(id: string) {
-  try {
-    return await prisma.${camelName}.findUnique({ 
-      where: { id: id }
-    });
+    return await prisma.${camelName}.findUnique({ where: { id } });
   } catch (error) {
     console.error('Erreur get${modelName}ById:', error);
     throw error;
@@ -283,9 +333,7 @@ function generateCrudFunctions(modelName, camelName) {
 export async function getAll${modelName}s() {
   try {
     return await prisma.${camelName}.findMany({
-      orderBy: {
-        createdAt: 'desc'
-      }
+      orderBy: { createdAt: 'desc' }
     });
   } catch (error) {
     console.error('Erreur getAll${modelName}s:', error);
@@ -305,7 +353,7 @@ export async function create${modelName}(data: any) {
 export async function update${modelName}(id: string, data: any) {
   try {
     return await prisma.${camelName}.update({ 
-      where: { id: id },
+      where: { id },
       data
     });
   } catch (error) {
@@ -316,80 +364,47 @@ export async function update${modelName}(id: string, data: any) {
 
 export async function delete${modelName}(id: string) {
   try {
-    return await prisma.${camelName}.delete({ 
-      where: { id: id }
-    });
+    return await prisma.${camelName}.delete({ where: { id } });
   } catch (error) {
     console.error('Erreur delete${modelName}:', error);
     throw error;
   }
 }
 
-`;
-}
+// Aliases compatibilité
+export const get${modelName.toLowerCase()}s = getAll${modelName}s;
+export const add${modelName} = create${modelName};
 
-function generateSpecialFunctions(modelName, allFunctions) {
-  let special = '';
+`;
+  });
   
-  // Chercher des fonctions spéciales pour ce modèle
-  const modelLower = modelName.toLowerCase();
-  const specialFunctions = Array.from(allFunctions).filter(func => 
-    func.toLowerCase().includes(modelLower) && 
-    (func.includes('ByEmail') || func.includes('ByName') || func.includes('By'))
-  );
-  
-  specialFunctions.forEach(func => {
-    // Extraire le field depuis le nom de fonction
-    const byMatch = func.match(/By(\w+)$/);
-    if (byMatch) {
-      const field = byMatch[1].toLowerCase();
-      const camelName = modelName.charAt(0).toLowerCase() + modelName.slice(1);
-      
-      special += `export async function ${func}(${field}: string) {
+  // Utilitaires
+  service += `// ============================================
+// UTILITAIRES
+// ============================================
+
+export async function connectToDatabase() {
   try {
-    return await prisma.${camelName}.findUnique({ 
-      where: { ${field}: ${field} }
-    });
+    await prisma.$connect();
+    console.log('✅ Connexion DB établie');
+    return true;
   } catch (error) {
-    console.error('Erreur ${func}:', error);
-    throw error;
+    console.error('❌ Erreur connexion DB:', error);
+    return false;
   }
 }
 
-`;
-    }
-  });
-  
-  return special;
+export async function healthCheck() {
+  try {
+    await prisma.$queryRaw\\\`SELECT 1\\\`;
+    return { status: 'ok', timestamp: new Date().toISOString() };
+  } catch (error) {
+    return { status: 'error', error: error.message, timestamp: new Date().toISOString() };
+  }
 }
-
-function generateCompatibilityAliases(analysis) {
-  let aliases = `// ============================================
-// ALIASES POUR COMPATIBILITÉ
-// ============================================
-
 `;
   
-  // Générer des aliases pour les anciennes fonctions
-  analysis.models.forEach((model, modelName) => {
-    const pluralLower = modelName.toLowerCase() + 's';
-    
-    aliases += `// Aliases pour ${modelName}\n`;
-    aliases += `export const get${pluralLower} = getAll${modelName}s;\n`;
-    aliases += `export const add${modelName} = create${modelName};\n`;
-    
-    // Aliases spéciaux
-    if (modelName === 'User') {
-      aliases += `export const getUsers = getAllUsers;\n`;
-    }
-    if (modelName === 'Host') {
-      aliases += `export const getHosts = getAllHosts;\n`;
-    }
-    
-    aliases += `\n`;
-  });
-  
-  return aliases;
+  return service;
 }
 
 // ====================================
@@ -397,56 +412,61 @@ function generateCompatibilityAliases(analysis) {
 // ====================================
 
 try {
+  console.log('📖 Lecture des fichiers...');
+  
+  const typesContent = fs.readFileSync(typesPath, 'utf-8');
   const dataContent = fs.readFileSync(dataPath, 'utf-8');
   
-  // Phase 1: Analyser data.ts complètement
-  const analysis = analyzeDataFile(dataContent);
+  console.log('🔍 Analyse types.ts...');
+  const models = analyzeTypesFile(typesContent);
   
-  console.log(`📊 Résultats analyse:`);
-  console.log(`   - ${analysis.models.size} modèles détectés`);
-  console.log(`   - ${analysis.functions.size} fonctions détectées`);
-  console.log(`   - ${analysis.interfaces.size} interfaces trouvées`);
+  console.log('🔍 Analyse data.ts...');
+  const { functions, dataArrays } = analyzeDataFile(dataContent);
   
-  if (analysis.models.size === 0) {
-    console.error('❌ Aucun modèle trouvé dans data.ts');
+  console.log(`\n📊 Résultats analyse:`);
+  console.log(`   - ${models.size} modèles détectés`);
+  console.log(`   - ${functions.size} fonctions détectées`);
+  console.log(`   - ${dataArrays.size} arrays de données`);
+  
+  if (models.size === 0) {
+    console.error('❌ Aucun modèle trouvé dans types.ts');
+    console.error('💡 Vérifiez que les interfaces sont exportées avec "export interface"');
+    
+    // Debug - afficher un extrait
+    console.log('\n🔍 DEBUG - Extrait de types.ts:');
+    console.log(typesContent.substring(0, 500) + '...');
     process.exit(1);
   }
   
-  // Phase 2: Générer schema Prisma
-  console.log('\n🏗️ Phase 2: Génération schema Prisma...');
-  const prismaSchema = generateDynamicPrismaSchema(analysis);
+  // Afficher les modèles trouvés
+  console.log('\n📋 Modèles détectés:');
+  models.forEach((model, name) => {
+    console.log(`   - ${name} (${model.fields.length} champs)`);
+  });
   
-  // Créer le répertoire prisma
+  console.log('\n🏗️ Génération schema Prisma...');
+  const prismaSchema = generatePrismaSchema(models);
   const prismaDir = path.dirname(schemaPath);
   if (!fs.existsSync(prismaDir)) {
     fs.mkdirSync(prismaDir, { recursive: true });
   }
-  
   fs.writeFileSync(schemaPath, prismaSchema, 'utf-8');
-  console.log(`✅ Schema Prisma généré: ${schemaPath}`);
+  console.log(`✅ Schema: ${schemaPath}`);
   
-  // Phase 3: Générer service Prisma
-  console.log('\n🔧 Phase 3: Génération service Prisma...');
-  const prismaService = generateDynamicPrismaService(analysis);
-  
-  // Créer le répertoire lib
+  console.log('🔧 Génération service Prisma...');
+  const prismaService = generatePrismaService(models, functions);
   const serviceDir = path.dirname(servicePath);
   if (!fs.existsSync(serviceDir)) {
     fs.mkdirSync(serviceDir, { recursive: true });
   }
-  
   fs.writeFileSync(servicePath, prismaService, 'utf-8');
-  console.log(`✅ Service Prisma généré: ${servicePath}`);
+  console.log(`✅ Service: ${servicePath}`);
   
   console.log('\n🎉 SYSTÈME COMPLET généré avec succès !');
-  console.log('📋 Résumé:');
-  console.log(`   - Schema Prisma: ${analysis.models.size} modèles`);
-  console.log(`   - Service Prisma: ${analysis.models.size * 5} fonctions CRUD`);
-  console.log(`   - Fonctions spéciales: détectées automatiquement`);
-  console.log(`   - Aliases: générés pour compatibilité`);
-  console.log('\n🚀 100% basé sur data.ts - Aucun hardcoding !');
+  console.log('🚀 Prêt pour la migration Prisma !');
   
 } catch (error) {
-  console.error('❌ Erreur:', error);
+  console.error('❌ Erreur critique:', error.message);
+  console.error('Stack:', error.stack);
   process.exit(1);
 }
