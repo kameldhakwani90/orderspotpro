@@ -40,7 +40,12 @@ class EnterprisePrismaRelocator {
         { from: '../lib/prisma-service', to: '../server/prisma-service' },
         { from: './lib/prisma-service', to: './server/prisma-service' },
         { from: '../../lib/prisma-service', to: '../../server/prisma-service' },
-        { from: '../../../lib/prisma-service', to: '../../../server/prisma-service' }
+        { from: '../../../lib/prisma-service', to: '../../../server/prisma-service' },
+        // ✨ PATTERNS SPÉCIFIQUES POUR /tools/ (chemins relatifs scripts build)
+        { from: '../src/lib/prisma-service.ts', to: '../src/server/prisma-service.ts' },
+        { from: './src/lib/prisma-service.ts', to: './src/server/prisma-service.ts' },
+        { from: '../src/lib/prisma-service', to: '../src/server/prisma-service' },
+        { from: './src/lib/prisma-service', to: './src/server/prisma-service' }
       ],
       
       // Extensions de fichiers à traiter
