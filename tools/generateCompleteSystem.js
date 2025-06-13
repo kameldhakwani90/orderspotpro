@@ -396,7 +396,7 @@ export async function connectToDatabase() {
 
 export async function healthCheck() {
   try {
-    await prisma.$queryRaw\\\`SELECT 1\\\`;
+    await prisma.$queryRaw\`SELECT 1\`;
     return { status: 'ok', timestamp: new Date().toISOString() };
   } catch (error) {
     return { status: 'error', error: error.message, timestamp: new Date().toISOString() };
