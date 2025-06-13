@@ -88,6 +88,9 @@ console.log("🚀 Démarrage du process de build complet Orderspot.pro");
 // 0. Sécurité : arrêt propre de l'app existante
 stopPM2App("orderspot-app");
 
+// ✨ NOUVEAU : Setup environnement enterprise
+run("node tools/setupBuildEnvironment.js", "0. Setup environnement enterprise");
+
 // 1. ✨ GÉNÉRATION SYSTÈME COMPLET (UNIFIÉ) ✨
 run("node tools/generateCompleteSystem.js", "1. Génération SYSTÈME COMPLET (schema + service)");
 
