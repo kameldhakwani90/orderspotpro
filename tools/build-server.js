@@ -109,6 +109,9 @@ run("node tools/setupBuildEnvironment.js", "0.2 Setup environnement enterprise")
 // 1. ✨ Génération système complet (schema + service)
 run("node tools/generateCompleteSystem.js", "1. Génération SYSTÈME COMPLET");
 
+// ✨ NOUVEAU : Relocation automatique
+run("node tools/fixPrismaServiceLocation.js", "1.1 Relocation prisma-service");
+
 // 2. Génération du client Prisma
 run("npx prisma generate", "2. Génération du client Prisma");
 
