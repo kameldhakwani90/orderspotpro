@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('🔧 Génération DYNAMIQUE des routes API Next.js...');
+console.log('🔧 Génération DYNAMIQUE des routes API Next.js (SERVER-SIDE)...');
 
 const prismaServicePath = path.join(__dirname, '../src/lib/prisma-service.ts');
 const apiDir = path.join(__dirname, '../src/app/api');
@@ -57,9 +57,9 @@ function generateDynamicRouteContent(modelName, availableFunctions) {
   
   // Détecter dynamiquement les fonctions disponibles pour ce modèle
   const functions = {
-    getAll: availableFunctions.find(f => f === `getAll${modelName}s`),
+    getAll: availableFunctions.find(f => f === `getAll${modelName}s`) || availableFunctions.find(f => f === `get${pluralModel}`),
     getById: availableFunctions.find(f => f === `get${modelName}ById`),
-    create: availableFunctions.find(f => f === `create${modelName}`),
+    create: availableFunctions.find(f => f === `create${modelName}`) || availableFunctions.find(f => f === `add${modelName}`),
     update: availableFunctions.find(f => f === `update${modelName}`),
     delete: availableFunctions.find(f => f === `delete${modelName}`)
   };
@@ -68,10 +68,11 @@ function generateDynamicRouteContent(modelName, availableFunctions) {
   const importStatement = imports.length > 0 ? 
     `import {\n  ${imports.join(',\n  ')}\n} from '@/lib/prisma-service';` : '';
   
+  // ✅ CORRECTION MAJEURE - API Routes CÔTÉ SERVEUR (pas de "use client")
   return `import { NextRequest, NextResponse } from 'next/server';
 ${importStatement}
 
-// Routes API générées DYNAMIQUEMENT pour ${modelName}
+// API Route côté SERVEUR - Généré DYNAMIQUEMENT pour ${modelName}
 
 export async function GET(request: NextRequest) {
   try {
@@ -96,7 +97,10 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     console.error('Erreur GET /api/${pluralModel}:', error);
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Erreur serveur', 
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 });
   }
 }
 
@@ -107,13 +111,23 @@ export async function POST(request: NextRequest) {
     if (!data || typeof data !== 'object') {
       return NextResponse.json({ error: 'Données invalides' }, { status: 400 });
     }
-    const new${modelName} = await ${functions.create}(data);
+    
+    // Nettoyer les données (supprimer les champs auto-générés)
+    const cleanData = { ...data };
+    delete cleanData.id;
+    delete cleanData.createdAt;
+    delete cleanData.updatedAt;
+    
+    const new${modelName} = await ${functions.create}(cleanData);
     return NextResponse.json(new${modelName}, { status: 201 });
   } catch (error) {
     console.error('Erreur POST /api/${pluralModel}:', error);
-    return NextResponse.json({ error: 'Erreur création' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Erreur création',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 });
   }` : `
-  return NextResponse.json({ error: 'create non disponible' }, { status: 501 });`}
+  return NextResponse.json({ error: 'Création non disponible pour ${modelName}' }, { status: 501 });`}
 }
 
 export async function PUT(request: NextRequest) {
@@ -122,19 +136,30 @@ export async function PUT(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     if (!id) {
-      return NextResponse.json({ error: 'ID requis' }, { status: 400 });
+      return NextResponse.json({ error: 'ID requis pour la mise à jour' }, { status: 400 });
     }
+    
     const data = await request.json();
     if (!data || typeof data !== 'object') {
       return NextResponse.json({ error: 'Données invalides' }, { status: 400 });
     }
-    const updated${modelName} = await ${functions.update}(id, data);
+    
+    // Nettoyer les données
+    const cleanData = { ...data };
+    delete cleanData.id;
+    delete cleanData.createdAt;
+    delete cleanData.updatedAt;
+    
+    const updated${modelName} = await ${functions.update}(id, cleanData);
     return NextResponse.json(updated${modelName});
   } catch (error) {
     console.error('Erreur PUT /api/${pluralModel}:', error);
-    return NextResponse.json({ error: 'Erreur mise à jour' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Erreur mise à jour',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 });
   }` : `
-  return NextResponse.json({ error: 'update non disponible' }, { status: 501 });`}
+  return NextResponse.json({ error: 'Mise à jour non disponible pour ${modelName}' }, { status: 501 });`}
 }
 
 export async function DELETE(request: NextRequest) {
@@ -143,15 +168,22 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     if (!id) {
-      return NextResponse.json({ error: 'ID requis' }, { status: 400 });
+      return NextResponse.json({ error: 'ID requis pour la suppression' }, { status: 400 });
     }
+    
     await ${functions.delete}(id);
-    return NextResponse.json({ message: '${modelName} supprimé' });
+    return NextResponse.json({ 
+      message: '${modelName} supprimé avec succès',
+      id: id
+    });
   } catch (error) {
     console.error('Erreur DELETE /api/${pluralModel}:', error);
-    return NextResponse.json({ error: 'Erreur suppression' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Erreur suppression',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 });
   }` : `
-  return NextResponse.json({ error: 'delete non disponible' }, { status: 501 });`}
+  return NextResponse.json({ error: 'Suppression non disponible pour ${modelName}' }, { status: 501 });`}
 }`;
 }
 
@@ -173,8 +205,23 @@ function createDynamicApiRoutes(models, availableFunctions) {
     }
     
     const routeContent = generateDynamicRouteContent(modelName, availableFunctions);
+    
+    // ✅ VÉRIFIER SI LE FICHIER EXISTE DÉJÀ
+    if (fs.existsSync(routeFile)) {
+      const existingContent = fs.readFileSync(routeFile, 'utf-8');
+      
+      // Si le fichier contient des customisations (pas généré automatiquement)
+      if (!existingContent.includes('// API Route côté SERVEUR - Généré DYNAMIQUEMENT')) {
+        console.log(`⏭️  Route personnalisée préservée: /api/${pluralModel}`);
+        return; // Ne pas écraser
+      }
+      
+      console.log(`🔄 Route mise à jour: /api/${pluralModel} (SERVER-SIDE)`);
+    } else {
+      console.log(`✅ API Route créée: /api/${pluralModel} (SERVER-SIDE)`);
+    }
+    
     fs.writeFileSync(routeFile, routeContent, 'utf-8');
-    console.log(`✅ Route créée: /api/${pluralModel}`);
     routesCreated++;
   });
   
@@ -189,6 +236,7 @@ function createApiUtils() {
 export interface ApiResponse<T> {
   data?: T;
   error?: string;
+  details?: string;
   status: number;
 }
 
@@ -212,12 +260,18 @@ export class ApiClient {
       
       const data = await response.json();
       
+      if (!response.ok) {
+        console.error(\`API Error [\${response.status}] \${url}:\`, data);
+      }
+      
       return {
         data: response.ok ? data : undefined,
         error: response.ok ? undefined : data.error || 'Erreur inconnue',
+        details: data.details,
         status: response.status,
       };
     } catch (error) {
+      console.error('Network Error:', error);
       return {
         error: error instanceof Error ? error.message : 'Erreur réseau',
         status: 0,
@@ -248,17 +302,34 @@ export class ApiClient {
   }
 }
 
-export const apiClient = new ApiClient();`;
+export const apiClient = new ApiClient();
+
+// Utilitaires pour debugging
+export const debugApi = {
+  logRequest: (method: string, url: string, data?: any) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(\`🔍 API \${method} \${url}\`, data ? data : '');
+    }
+  },
+  
+  logResponse: (method: string, url: string, response: ApiResponse<any>) => {
+    if (process.env.NODE_ENV === 'development') {
+      const status = response.status;
+      const emoji = status >= 200 && status < 300 ? '✅' : '❌';
+      console.log(\`\${emoji} API \${method} \${url} [\${status}]\`, response.error || 'OK');
+    }
+  }
+};`;
 
   fs.writeFileSync(utilsPath, utilsContent, 'utf-8');
-  console.log(`✅ Utilitaires API créés`);
+  console.log(`✅ Utilitaires API créés avec debugging`);
 }
 
 try {
   const { models, allFunctions } = extractDynamicModelsAndFunctions(prismaServiceContent);
   
   if (models.length === 0) {
-    console.error('❌ Aucun modèle trouvé');
+    console.error('❌ Aucun modèle trouvé dans prisma-service.ts');
     process.exit(1);
   }
   
@@ -268,7 +339,8 @@ try {
   createApiUtils();
   
   console.log(`\n🎉 Génération DYNAMIQUE terminée !`);
-  console.log(`📊 ${routesCreated} routes API créées automatiquement`);
+  console.log(`📊 ${routesCreated} API routes SERVER-SIDE créées automatiquement`);
+  console.log(`✅ Toutes les routes utilisent Prisma côté SERVEUR (pas côté client)`);
   
 } catch (error) {
   console.error('❌ Erreur:', error);
