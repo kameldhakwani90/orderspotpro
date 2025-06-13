@@ -29,7 +29,8 @@ class EnterprisePrismaRelocator {
         '../src/server',            // Code serveur
         '../server',                // Server code alternatif
         '../src/lib/server',        // Lib serveur
-        '../lib/server'             // Server lib alternatif
+        '../lib/server',            // Server lib alternatif
+        '../tools'                  // ✨ NOUVEAU: Scripts de build
       ],
       
       // Patterns d'imports à corriger
