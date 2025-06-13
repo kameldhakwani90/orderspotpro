@@ -1,92 +1,284 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('🔧 Migration DYNAMIQUE des composants vers hooks...');
+console.log('🔄 Migration AUTOMATIQUE et DYNAMIQUE de TOUS les composants vers hooks...');
 
 const srcDir = path.join(__dirname, '../src');
 const prismaServicePath = path.join(__dirname, '../src/lib/prisma-service.ts');
-const excludeDirs = ['node_modules', '.git', '.next', 'dist', 'build'];
+const hooksDir = path.join(__dirname, '../src/hooks');
+const excludeDirs = ['node_modules', '.git', '.next', 'dist', 'build', 'hooks', 'lib'];
 
-function generateDynamicFunctionMapping() {
-  console.log('🔍 Génération DYNAMIQUE du mapping depuis prisma-service.ts...');
+// ====================================
+// GÉNÉRATION DYNAMIQUE DU MAPPING 
+// ====================================
+
+function generateDynamicMapping() {
+  console.log('🔍 Génération DYNAMIQUE du mapping depuis les fichiers existants...');
   
-  if (!fs.existsSync(prismaServicePath)) {
-    console.error('❌ prisma-service.ts introuvable');
-    return {};
-  }
-  
-  const content = fs.readFileSync(prismaServicePath, 'utf-8');
   const mapping = {};
   
-  // Extraire tous les modèles dynamiquement
+  // 1. Analyser prisma-service.ts pour les modèles
+  if (!fs.existsSync(prismaServicePath)) {
+    console.error('❌ prisma-service.ts introuvable');
+    return mapping;
+  }
+  
+  const prismaContent = fs.readFileSync(prismaServicePath, 'utf-8');
+  const models = new Set();
+  
+  // Détecter tous les modèles depuis getAll[Model]s
   const getAllRegex = /export async function getAll(\w+)s\(\)/g;
   let match;
   
-  while ((match = getAllRegex.exec(content)) !== null) {
-    const modelName = match[1];
-    const pluralModel = modelName.toLowerCase() + 's';
+  while ((match = getAllRegex.exec(prismaContent)) !== null) {
+    models.add(match[1]);
+  }
+  
+  console.log(`📊 ${models.size} modèles détectés: ${Array.from(models).join(', ')}`);
+  
+  // 2. Analyser les hooks existants pour confirmer
+  const availableHooks = new Set();
+  if (fs.existsSync(hooksDir)) {
+    const hookFiles = fs.readdirSync(hooksDir).filter(f => f.startsWith('use') && f.endsWith('.ts'));
+    hookFiles.forEach(file => {
+      const hookName = file.replace('.ts', '');
+      availableHooks.add(hookName);
+      
+      // Extraire le modèle du nom du hook: useHosts -> Host
+      const modelMatch = hookName.match(/^use(\w+)s?$/);
+      if (modelMatch) {
+        const modelName = modelMatch[1];
+        if (modelName.endsWith('s')) {
+          models.add(modelName.slice(0, -1)); // Enlever le 's'
+        } else {
+          models.add(modelName);
+        }
+      }
+    });
+  }
+  
+  console.log(`📊 ${availableHooks.size} hooks disponibles: ${Array.from(availableHooks).join(', ')}`);
+  
+  // 3. Générer le mapping dynamiquement
+  models.forEach(modelName => {
     const hookName = `use${modelName}s`;
+    const pluralLower = modelName.toLowerCase() + 's';
     
-    // Générer toutes les fonctions possibles pour ce modèle
-    const baseFunctions = [
+    // Vérifier si le hook existe
+    const hookExists = availableHooks.has(hookName);
+    if (!hookExists) {
+      console.log(`⚠️  Hook manquant: ${hookName} - sera ignoré`);
+      return;
+    }
+    
+    // Générer toutes les variations possibles de fonctions pour ce modèle
+    const functionVariations = [
+      // Patterns getAll
       `getAll${modelName}s`,
-      `get${modelName}ById`, 
+      `get${modelName}s`,
+      `get${pluralLower}`,
+      
+      // Patterns getById
+      `get${modelName}ById`,
+      `get${modelName}ByEmail`, // Pour User
+      `get${modelName}ByHostId`, // Pour relations
+      
+      // Patterns create/add
       `create${modelName}`,
-      `update${modelName}`,
-      `delete${modelName}`,
       `add${modelName}`,
+      `add${modelName}ToData`,
+      
+      // Patterns update
+      `update${modelName}`,
+      `update${modelName}InData`,
+      
+      // Patterns delete
+      `delete${modelName}`,
+      `delete${modelName}InData`,
+      `remove${modelName}`,
+      
+      // Aliases courants
+      ...(modelName === 'Host' ? ['addHost', 'getHosts'] : []),
+      ...(modelName === 'User' ? ['addUser', 'getUsers'] : []),
+      ...(modelName === 'Client' ? ['addClient', 'getClients'] : []),
+      ...(modelName === 'Order' ? ['addOrder', 'getOrders'] : []),
+      ...(modelName === 'Service' ? ['addService', 'getServices'] : []),
+      ...(modelName === 'Reservation' ? ['addReservation', 'getReservations'] : []),
     ];
     
-    // Ajouter des alias courants
-    const aliases = [
-      `get${pluralModel}`,
-      ...(modelName === 'User' ? [`getUserByEmail`, `getUsers`] : []),
-      ...(modelName === 'RoomOrTable' ? [`getRoomsOrTables`] : []),
-      ...(modelName === 'Tag' ? [`getTags`] : []),
-      ...(modelName === 'Host' ? [`getHosts`] : []),
-      ...(modelName === 'Client' ? [`getClients`] : []),
-      ...(modelName === 'Order' ? [`getOrders`] : []),
-      ...(modelName === 'Service' ? [`getServices`] : []),
-      ...(modelName === 'Reservation' ? [`getReservations`] : []),
-      ...(modelName === 'Site' ? [`getSites`] : []),
-    ];
-    
-    const allFunctions = [...baseFunctions, ...aliases];
-    
-    allFunctions.forEach(funcName => {
+    // Mapper chaque variation à la bonne propriété du hook
+    functionVariations.forEach(funcName => {
       let property;
       
-      // Détermine dynamiquement la propriété basée sur le pattern de fonction
-      if (funcName.startsWith('getAll') || funcName === `get${pluralModel}` || 
-          funcName === 'getTags' || funcName === 'getRoomsOrTables' ||
-          funcName === 'getHosts' || funcName === 'getClients' ||
-          funcName === 'getOrders' || funcName === 'getServices' ||
-          funcName === 'getReservations' || funcName === 'getSites' ||
-          funcName === 'getUsers') {
-        property = pluralModel;
-      } else if (funcName.includes('ById') || funcName.includes('ByEmail')) {
+      // Logique dynamique pour déterminer la propriété
+      if (funcName.includes('getAll') || funcName === `get${pluralLower}` || funcName === `get${modelName}s`) {
+        property = pluralLower; // ex: hosts, users, clients
+      } else if (funcName.includes('ById') || funcName.includes('ByEmail') || funcName.includes('ByHostId')) {
         property = `get${modelName}ById`;
-      } else if (funcName.startsWith('create') || funcName.startsWith('add')) {
+      } else if (funcName.includes('create') || funcName.includes('add')) {
         property = `add${modelName}`;
-      } else if (funcName.startsWith('update')) {
+      } else if (funcName.includes('update')) {
         property = `update${modelName}`;
-      } else if (funcName.startsWith('delete')) {
+      } else if (funcName.includes('delete') || funcName.includes('remove')) {
         property = `delete${modelName}`;
       } else {
-        property = funcName;
+        property = funcName; // fallback
       }
       
-      mapping[funcName] = { 
-        hook: hookName, 
-        property: property 
+      mapping[funcName] = {
+        hook: hookName,
+        property: property,
+        model: modelName
       };
     });
     
-    console.log(`  ✅ ${modelName}: ${allFunctions.length} fonctions mappées`);
-  }
+    console.log(`  ✅ ${modelName}: ${functionVariations.length} fonctions mappées vers ${hookName}`);
+  });
   
   return mapping;
 }
+
+// ====================================
+// ANALYSE ET TRANSFORMATION DES FICHIERS
+// ====================================
+
+function analyzeImports(content) {
+  const imports = {
+    prismaService: [],
+    otherImports: []
+  };
+  
+  // Détecter tous les imports depuis prisma-service
+  const importPatterns = [
+    /import\s*\{\s*([^}]+)\s*\}\s*from\s*['"]@\/lib\/prisma-service['"];?/g,
+    /import\s*\{\s*([^}]+)\s*\}\s*from\s*['"][^'"]*prisma-service['"];?/g
+  ];
+  
+  importPatterns.forEach(pattern => {
+    const matches = [...content.matchAll(pattern)];
+    matches.forEach(match => {
+      const functions = match[1]
+        .split(',')
+        .map(f => f.trim().replace(/\s+as\s+\w+/g, '')) // Enlever les alias "as xxx"
+        .filter(f => f.length > 0);
+      imports.prismaService.push(...functions);
+    });
+  });
+  
+  return imports;
+}
+
+function generateHookUsages(usedFunctions, mapping) {
+  const hookUsages = new Map();
+  const hookImports = new Set();
+  
+  usedFunctions.forEach(func => {
+    const mappingInfo = mapping[func];
+    if (mappingInfo) {
+      hookImports.add(mappingInfo.hook);
+      
+      if (!hookUsages.has(mappingInfo.hook)) {
+        hookUsages.set(mappingInfo.hook, new Set());
+      }
+      hookUsages.get(mappingInfo.hook).add(mappingInfo.property);
+    }
+  });
+  
+  return { hookImports: Array.from(hookImports), hookUsages };
+}
+
+function transformFileContent(content, filePath, mapping) {
+  let newContent = content;
+  let hasChanges = false;
+  
+  const imports = analyzeImports(content);
+  
+  if (imports.prismaService.length === 0) {
+    return { content: newContent, changed: false };
+  }
+  
+  console.log(`  🔍 ${path.relative(srcDir, filePath)}: ${imports.prismaService.length} fonctions Prisma détectées`);
+  
+  const { hookImports, hookUsages } = generateHookUsages(imports.prismaService, mapping);
+  
+  if (hookImports.length === 0) {
+    console.log(`  ⏭️  Aucun hook disponible pour les fonctions utilisées`);
+    return { content: newContent, changed: false };
+  }
+  
+  // 1. Supprimer les imports prisma-service
+  const prismaImportRegex = /import\s*\{\s*[^}]+\s*\}\s*from\s*['"][^'"]*prisma-service['"];?\n?/g;
+  newContent = newContent.replace(prismaImportRegex, '');
+  hasChanges = true;
+  
+  // 2. Ajouter "use client" si pas présent
+  if (!newContent.includes('"use client"') && !newContent.includes("'use client'")) {
+    newContent = '"use client";\n\n' + newContent;
+  }
+  
+  // 3. Ajouter les imports de hooks
+  const hookImportLine = `import { ${hookImports.join(', ')} } from '@/hooks';`;
+  
+  // Trouver où insérer l'import
+  const firstImportMatch = newContent.match(/^import\s/m);
+  if (firstImportMatch) {
+    const insertPosition = firstImportMatch.index;
+    newContent = newContent.slice(0, insertPosition) + hookImportLine + '\n' + newContent.slice(insertPosition);
+  } else {
+    // Insérer après "use client"
+    const useClientMatch = newContent.match(/['"]use client['"];\n*/);
+    if (useClientMatch) {
+      const insertPosition = useClientMatch.index + useClientMatch[0].length;
+      newContent = newContent.slice(0, insertPosition) + '\n' + hookImportLine + '\n' + newContent.slice(insertPosition);
+    }
+  }
+  
+  // 4. Ajouter les déclarations de hooks dans le composant
+  hookImports.forEach(hookName => {
+    const properties = Array.from(hookUsages.get(hookName));
+    const hookDeclaration = `  const { ${properties.join(', ')} } = ${hookName}();`;
+    
+    // Trouver le début du composant (function ou const)
+    const componentRegex = /(export\s+(?:default\s+)?function\s+\w+|const\s+\w+\s*=\s*\([^)]*\)\s*=>|function\s+\w+\s*\([^)]*\))/;
+    const componentMatch = newContent.match(componentRegex);
+    
+    if (componentMatch) {
+      const insertAfter = componentMatch.index + componentMatch[0].length;
+      const nextBraceIndex = newContent.indexOf('{', insertAfter);
+      
+      if (nextBraceIndex !== -1) {
+        // Vérifier si la déclaration n'existe pas déjà
+        if (!newContent.includes(hookDeclaration)) {
+          newContent = newContent.slice(0, nextBraceIndex + 1) + '\n' + hookDeclaration + '\n' + newContent.slice(nextBraceIndex + 1);
+        }
+      }
+    }
+  });
+  
+  // 5. Remplacer les appels de fonctions
+  imports.prismaService.forEach(func => {
+    const mappingInfo = mapping[func];
+    if (mappingInfo) {
+      // Remplacer les appels directs de fonction
+      const functionCallRegex = new RegExp(`\\b${escapeRegExp(func)}\\s*\\(`, 'g');
+      if (functionCallRegex.test(newContent)) {
+        newContent = newContent.replace(functionCallRegex, `${mappingInfo.property}(`);
+        hasChanges = true;
+        console.log(`    📝 ${func} → ${mappingInfo.property}`);
+      }
+    }
+  });
+  
+  return { content: newContent, changed: hasChanges };
+}
+
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// ====================================
+// TRAITEMENT RÉCURSIF DES RÉPERTOIRES
+// ====================================
 
 function shouldProcessFile(filePath) {
   const ext = path.extname(filePath);
@@ -97,109 +289,7 @@ function shouldSkipDirectory(dirName) {
   return excludeDirs.includes(dirName) || dirName.startsWith('.');
 }
 
-function analyzeImports(content) {
-  const imports = {
-    prismaService: [],
-    otherImports: []
-  };
-  
-  const prismaImportRegex = /import\s*\{\s*([^}]+)\s*\}\s*from\s*['"][^'"]*prisma-service['"]/g;
-  const matches = [...content.matchAll(prismaImportRegex)];
-  
-  matches.forEach(match => {
-    const functions = match[1]
-      .split(',')
-      .map(f => f.trim())
-      .filter(f => f.length > 0);
-    imports.prismaService.push(...functions);
-  });
-  
-  return imports;
-}
-
-function generateHookImports(usedFunctions, functionMapping) {
-  const hookImports = new Set();
-  const hookUsages = new Map();
-  
-  usedFunctions.forEach(func => {
-    const mapping = functionMapping[func];
-    if (mapping) {
-      hookImports.add(mapping.hook);
-      if (!hookUsages.has(mapping.hook)) {
-        hookUsages.set(mapping.hook, new Set());
-      }
-      hookUsages.get(mapping.hook).add(mapping.property);
-    }
-  });
-  
-  return { hookImports: Array.from(hookImports), hookUsages };
-}
-
-function transformFileContent(content, filePath, functionMapping) {
-  let newContent = content;
-  let hasChanges = false;
-  
-  const imports = analyzeImports(content);
-  
-  if (imports.prismaService.length === 0) {
-    return { content: newContent, changed: false };
-  }
-  
-  console.log(`  🔍 ${path.relative(srcDir, filePath)}: ${imports.prismaService.length} fonctions Prisma`);
-  
-  const { hookImports, hookUsages } = generateHookImports(imports.prismaService, functionMapping);
-  
-  if (hookImports.length === 0) {
-    return { content: newContent, changed: false };
-  }
-  
-  // 1. Supprimer les imports prisma-service
-  const prismaImportRegex = /import\s*\{\s*[^}]+\s*\}\s*from\s*['"][^'"]*prisma-service['"];?\n?/g;
-  newContent = newContent.replace(prismaImportRegex, '');
-  hasChanges = true;
-  
-  // 2. Ajouter les imports de hooks
-  const hookImportLines = hookImports.map(hook => `import { ${hook} } from '@/hooks';`).join('\n');
-  
-  const firstImportMatch = newContent.match(/^import\s/m);
-  if (firstImportMatch) {
-    const insertPosition = firstImportMatch.index;
-    newContent = newContent.slice(0, insertPosition) + hookImportLines + '\n' + newContent.slice(insertPosition);
-  } else {
-    newContent = `'use client';\n\n${hookImportLines}\n\n${newContent}`;
-  }
-  
-  // 3. Ajouter les déclarations de hooks
-  hookImports.forEach(hook => {
-    const functionRegex = /(export\s+(?:default\s+)?function\s+\w+|const\s+\w+\s*=\s*\([^)]*\)\s*=>|function\s+\w+\s*\([^)]*\))/;
-    const match = newContent.match(functionRegex);
-    
-    if (match) {
-      const hookDeclaration = `  const { ${Array.from(hookUsages.get(hook)).join(', ')} } = ${hook}();\n`;
-      
-      const insertAfter = match.index + match[0].length;
-      const nextBraceIndex = newContent.indexOf('{', insertAfter);
-      
-      if (nextBraceIndex !== -1) {
-        newContent = newContent.slice(0, nextBraceIndex + 1) + '\n' + hookDeclaration + newContent.slice(nextBraceIndex + 1);
-      }
-    }
-  });
-  
-  // 4. Remplacer les appels de fonctions
-  imports.prismaService.forEach(func => {
-    const mapping = functionMapping[func];
-    if (mapping) {
-      const functionCallRegex = new RegExp(`\\b${func}\\s*\\(`, 'g');
-      newContent = newContent.replace(functionCallRegex, `${mapping.property}(`);
-      hasChanges = true;
-    }
-  });
-  
-  return { content: newContent, changed: hasChanges };
-}
-
-function processDirectory(dirPath, functionMapping) {
+function processDirectory(dirPath, mapping) {
   let filesProcessed = 0;
   let filesChanged = 0;
   
@@ -214,14 +304,20 @@ function processDirectory(dirPath, functionMapping) {
     
     if (entry.isDirectory()) {
       if (!shouldSkipDirectory(entry.name)) {
-        const result = processDirectory(fullPath, functionMapping);
+        const result = processDirectory(fullPath, mapping);
         filesProcessed += result.filesProcessed;
         filesChanged += result.filesChanged;
       }
     } else if (entry.isFile() && shouldProcessFile(fullPath)) {
       try {
         const content = fs.readFileSync(fullPath, 'utf-8');
-        const { content: newContent, changed } = transformFileContent(content, fullPath, functionMapping);
+        
+        // Vérifier si le fichier contient des imports prisma-service
+        if (!content.includes('prisma-service')) {
+          return;
+        }
+        
+        const { content: newContent, changed } = transformFileContent(content, fullPath, mapping);
         
         filesProcessed++;
         
@@ -239,17 +335,26 @@ function processDirectory(dirPath, functionMapping) {
   return { filesProcessed, filesChanged };
 }
 
-// Exécution principale
+// ====================================
+// EXÉCUTION PRINCIPALE
+// ====================================
+
 try {
   console.log('🔍 Génération du mapping dynamique...');
-  const functionMapping = generateDynamicFunctionMapping();
+  const mapping = generateDynamicMapping();
   
-  if (Object.keys(functionMapping).length === 0) {
-    console.error('❌ Aucun mapping généré');
+  if (Object.keys(mapping).length === 0) {
+    console.error('❌ Aucun mapping généré - Vérifiez prisma-service.ts et les hooks');
     process.exit(1);
   }
   
-  console.log(`📊 ${Object.keys(functionMapping).length} fonctions mappées dynamiquement`);
+  console.log(`📊 ${Object.keys(mapping).length} fonctions mappées dynamiquement`);
+  
+  // Afficher un échantillon du mapping pour debug
+  console.log('\n📋 Échantillon du mapping généré:');
+  Object.entries(mapping).slice(0, 10).forEach(([func, info]) => {
+    console.log(`  ${func} → ${info.hook}.${info.property}`);
+  });
   
   const dirsToProcess = [
     path.join(srcDir, 'app'),
@@ -262,28 +367,34 @@ try {
   
   dirsToProcess.forEach(dir => {
     if (fs.existsSync(dir)) {
-      console.log(`📁 Traitement: ${path.relative(srcDir, dir)}`);
-      const result = processDirectory(dir, functionMapping);
+      console.log(`\n📁 Traitement: ${path.relative(srcDir, dir)}`);
+      const result = processDirectory(dir, mapping);
       totalFilesProcessed += result.filesProcessed;
       totalFilesChanged += result.filesChanged;
+      console.log(`  📊 ${result.filesChanged}/${result.filesProcessed} fichiers modifiés`);
     }
   });
   
-  console.log(`\n🎉 Migration DYNAMIQUE terminée !`);
-  console.log(`📊 Résultats:`);
+  console.log('\n' + '='.repeat(60));
+  console.log(`🎉 Migration DYNAMIQUE terminée !`);
+  console.log(`📊 Résultats finaux:`);
   console.log(`   - ${totalFilesProcessed} fichiers analysés`);
-  console.log(`   - ${totalFilesChanged} fichiers modifiés`);
-  console.log(`   - Migration 100% automatique basée sur prisma-service.ts`);
+  console.log(`   - ${totalFilesChanged} fichiers migrés automatiquement`);
+  console.log(`   - ${Object.keys(mapping).length} fonctions mappées dynamiquement`);
+  console.log(`\n✅ Migration 100% automatique et future-proof !`);
   
   if (totalFilesChanged > 0) {
-    console.log(`\n✅ Actions effectuées automatiquement:`);
-    console.log(`   - Remplacement imports prisma-service → hooks`);
-    console.log(`   - Ajout déclarations hooks dans composants`);
-    console.log(`   - Transformation appels de fonctions`);
-    console.log(`   - Mapping généré dynamiquement depuis Prisma`);
+    console.log(`\n🚀 Actions effectuées automatiquement:`);
+    console.log(`   ✓ Détection automatique des modèles depuis prisma-service.ts`);
+    console.log(`   ✓ Génération dynamique du mapping fonction → hook`);
+    console.log(`   ✓ Remplacement automatique imports prisma-service → hooks`);
+    console.log(`   ✓ Ajout automatique des déclarations de hooks`);
+    console.log(`   ✓ Transformation des appels de fonctions`);
+    console.log(`   ✓ Support automatique des futurs modèles !`);
   }
   
 } catch (error) {
-  console.error('❌ Erreur lors de la migration dynamique:', error);
+  console.error('❌ Erreur lors de la migration dynamique:', error.message);
+  console.error('Stack:', error.stack);
   process.exit(1);
 }
