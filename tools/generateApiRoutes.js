@@ -66,7 +66,7 @@ function generateDynamicRouteContent(modelName, availableFunctions) {
   
   const imports = Object.values(functions).filter(Boolean);
   const importStatement = imports.length > 0 ? 
-    `import {\n  ${imports.join(',\n  ')}\n} from '@/lib/prisma-service';` : '';
+    `import {\n  ${imports.join(',\n  ')}\n} from '@/server/prisma-service';` : '';
   
   // ✅ CORRECTION MAJEURE - API Routes CÔTÉ SERVEUR (pas de "use client")
   return `import { NextRequest, NextResponse } from 'next/server';
