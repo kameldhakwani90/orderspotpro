@@ -1,55 +1,65 @@
- 
-
 
 const fs = require('fs');
 const path = require('path');
 
-const viewsPath = './src/pages/';
-const apiMapping = {
-  host: '/api/hosts',
-  user: '/api/users',
-  product: '/api/products',
-};
+const viewsPath = './src/app';
+
+function findEntityFromFunctionName(fnName) {
+  // Ex: getAllUsers -> users
+  const match = fnName.match(/get(All)?([A-Z][a-zA-Z]+)/);
+  if (match) {
+    return match[2].charAt(0).toLowerCase() + match[2].slice(1);
+  }
+  return null;
+}
+
+function getApiRouteFromEntity(entityName) {
+  // Convert "user" -> "/api/users", "reservationSetting" -> "/api/reservation-settings"
+  return '/api/' + entityName
+    .replace(/[A-Z]/g, letter => '-' + letter.toLowerCase())
+    .replace(/^-/, '') + 's';
+}
 
 function migrateViewFile(filePath) {
-  const content = fs.readFileSync(filePath, 'utf-8');
+  let content = fs.readFileSync(filePath, 'utf-8');
 
-  // Cherche import de data.ts ou prisma-service.ts
-  const importRegex = /import\s+\{\s*(\w+)\s*\}\s+from\s+['"](?:..\/)*lib\/(?:data|prisma-service)['"]/g;
-  const matches = [...content.matchAll(importRegex)];
+  const prismaImportRegex = /import\s+\{([^}]+)\}\s+from\s+['"]@\/server\/prisma-service['"]/;
+  const match = content.match(prismaImportRegex);
+  if (!match) return;
 
-  if (matches.length === 0) return;
+  const importedFns = match[1].split(',').map(fn => fn.trim());
+  const lines = content.split('\n');
+  let newLines = lines.filter(line => !prismaImportRegex.test(line)); // remove prisma import
 
-  let newContent = content;
-  matches.forEach(match => {
-    const functionName = match[1];
-    const entityName = functionName.replace(/^getAll/i, '').toLowerCase();
-    const apiUrl = apiMapping[entityName];
+  let replacedAny = false;
 
-    if (apiUrl) {
-      // Remplacer import
-      newContent = newContent.replace(match[0], '');
-      // Remplacer appel à la fonction
-      const callRegex = new RegExp(`${functionName}\(\)`, 'g');
-      newContent = newContent.replace(callRegex, `fetch('${apiUrl}').then(res => res.json())`);
+  importedFns.forEach(fnName => {
+    const entity = findEntityFromFunctionName(fnName);
+    if (entity) {
+      const apiUrl = getApiRouteFromEntity(entity);
+      const fetchSnippet = `await fetch('${apiUrl}').then(res => res.json())`;
+      const fnCallRegex = new RegExp(`\\b${fnName}\\(\\)`, 'g');
+      const joined = newLines.join('\n').replace(fnCallRegex, fetchSnippet);
+      newLines = joined.split('\n');
+      replacedAny = true;
     }
   });
 
-  fs.writeFileSync(filePath, newContent, 'utf-8');
-  console.log(`✅ Migrated ${filePath}`);
+  if (replacedAny) {
+    fs.writeFileSync(filePath, newLines.join('\n'), 'utf-8');
+    console.log(`✅ Migrated: ${filePath}`);
+  }
 }
 
-function scanAndMigrate(dir) {
+function walk(dir) {
   fs.readdirSync(dir).forEach(file => {
     const fullPath = path.join(dir, file);
-    const stat = fs.statSync(fullPath);
-
-    if (stat.isDirectory()) {
-      scanAndMigrate(fullPath);
+    if (fs.statSync(fullPath).isDirectory()) {
+      walk(fullPath);
     } else if (file.endsWith('.tsx')) {
       migrateViewFile(fullPath);
     }
   });
 }
 
-scanAndMigrate(viewsPath);
+walk(viewsPath);
