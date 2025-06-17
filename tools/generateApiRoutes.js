@@ -3,7 +3,7 @@ const path = require('path');
 
 console.log('🔧 Génération DYNAMIQUE des routes API Next.js (SERVER-SIDE)...');
 
-const prismaServicePath = path.join(__dirname, '../src/server/prisma-service.ts');
+const prismaServicePath = path.join(__dirname, '../src/lib/prisma-service.ts');
 const apiDir = path.join(__dirname, '../src/app/api');
 
 if (!fs.existsSync(prismaServicePath)) {
