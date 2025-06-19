@@ -13,8 +13,9 @@ import { LogIn } from 'lucide-react';
 // New component to encapsulate the form and useSearchParams logic
 // New component to encapsulate the form and useSearchParams logic
 function LoginFormContent() {
-  const [email, setEmail] = useState('kamel@gmail.com');
-  const [password, setPassword] = useState('0000');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
@@ -24,17 +25,36 @@ function LoginFormContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     const success = await login(email, password);
-    if (success) {
-      const redirectUrl = searchParams.get('redirect_url');
-      if (redirectUrl) {
-        router.push(redirectUrl);
-      } else {
+    // if (success) {
+    //   const redirectUrl = searchParams.get('redirect_url');
+    //   if (redirectUrl) {
+    //     router.push(redirectUrl);
+    //   } else {
+    //     router.push('/dashboard');
+    //   }
+    //   toast({ title: "Login Successful", description: "Welcome back!" });
+    // } else {
+    //   toast({ title: "Login Failed", description: "Invalid email or password.", variant: "destructive" });
+    //   setLoading(false);
+    // }
+
+      try {
+      const success = await login(email, password);
+      
+      if (success) {
+        console.log('✅ Connexion réussie, redirection...');
         router.push('/dashboard');
+      } else {
+        setError('Email ou mot de passe incorrect');
+         toast({ title: "Login Failed", description: "Invalid email or password.", variant: "destructive" });
       }
-      toast({ title: "Login Successful", description: "Welcome back!" });
-    } else {
-      toast({ title: "Login Failed", description: "Invalid email or password.", variant: "destructive" });
+    } catch (err) {
+      setError('Erreur lors de la connexion');
+       toast({ title: "Login Failed", description: "Invalid email or password.", variant: "destructive" });
+      console.error('Erreur:', err);
+    } finally {
       setLoading(false);
     }
   };

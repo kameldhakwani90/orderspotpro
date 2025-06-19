@@ -42,6 +42,37 @@ export const mockClients = [
   }
 ];
 
+export const mockUsers = [
+  {
+    id: '1',
+    email: 'admin@orderspot.com',
+    name: 'Admin User',
+    role: 'admin',
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    id: '2',
+    email: 'user@orderspot.com',
+    name: 'Test User',
+    role: 'user',
+    createdAt: new Date(),
+    updatedAt: new Date()
+  }
+];
+
+export const mockSites = [
+  {
+    id: '1',
+    name: 'Site Principal',
+    url: 'https://orderspot.com',
+    hostId: '1',
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  }
+];
+
 export interface Product {
   id: string;
   name: string;
@@ -69,6 +100,26 @@ export interface Client {
   hostId: string;
 }
 
+export interface User {
+  id: string;
+  email: string;
+  name?: string;
+  role: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Site {
+  id: string;
+  name: string;
+  url: string;
+  hostId: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// FONCTIONS MANQUANTES AJOUTÉES
 export function getAllProducts(): Product[] {
   return mockProducts;
 }
@@ -81,8 +132,26 @@ export function getAllClients(): Client[] {
   return mockClients;
 }
 
+export function getAllUsers(): User[] {
+  return mockUsers;
+}
+
+export function getUserByEmail(email: string): User | undefined {
+  return mockUsers.find(user => user.email === email);
+}
+
+export function getUserById(id: string): User | undefined {
+  return mockUsers.find(user => user.id === id);
+}
+
+export function getSites(): Site[] {
+  return mockSites;
+}
+
 export default {
   products: mockProducts,
   hosts: mockHosts,
-  clients: mockClients
+  clients: mockClients,
+  users: mockUsers,
+  sites: mockSites
 };
