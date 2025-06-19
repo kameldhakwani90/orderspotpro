@@ -71,7 +71,7 @@ console.log("🚀 Démarrage du pipeline Orderspot.pro");
 stopPM2App("orderspot-app");
 
 // PHASE 2 — GÉNÉRATION COMPLÈTE DU SYSTÈME
-run("node tools/generateCompleteSystem.dynamic.js", "Génération système complet avec Prisma + API");
+run("node tools/generateCompleteSystem.js", "Génération système complet avec Prisma + API");
 
 // PHASE 3 — BUILD PRISMA
 setupDatabaseConnection();
