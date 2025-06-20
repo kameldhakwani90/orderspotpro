@@ -142,99 +142,87 @@ try {
   
   run("node tools/generateCompleteSystem.js", "Génération système complet 100% dynamique");
   
-  // PHASE 2 — VALIDATION ET RÉCUPÉRATION
+  // VÉRIFICATION IMMÉDIATE du fichier critique
+  const prismaServicePath = path.join(__dirname, '../src/lib/prisma-service.ts');
+  if (!fs.existsSync(prismaServicePath)) {
+    console.log("⚠️  ERREUR DÉTECTÉE: prisma-service.ts manquant après génération");
+    console.log("🔧 Création forcée du service Prisma...");
+    
+    // Créer le service directement ici
+    const typesPath = path.join(__dirname, '../src/lib/types.ts');
+    if (fs.existsSync(typesPath)) {
+      const typesContent = fs.readFileSync(typesPath, 'utf-8');
+      const interfaces = (typesContent.match(/export\s+interface\s+(\w+)/g) || [])
+        .map(match => match.replace(/export\s+interface\s+/, ''));
+      
+      console.log("📋 Interfaces détectées: " + interfaces.join(', '));
+      
+      const serviceLines = [
+        'import { PrismaClient } from "@prisma/client";',
+        '',
+        'export const prisma = globalThis.prisma || new PrismaClient();',
+        '',
+        'if (process.env.NODE_ENV !== "production") {',
+        '  globalThis.prisma = prisma;',
+        '}',
+        ''
+      ];
+      
+      interfaces.forEach(modelName => {
+        const camelName = modelName.charAt(0).toLowerCase() + modelName.slice(1);
+        
+        serviceLines.push(`export async function get${modelName}ById(id: number) {`);
+        serviceLines.push(`  return await prisma.${camelName}.findUnique({ where: { id } });`);
+        serviceLines.push('}');
+        serviceLines.push('');
+        
+        serviceLines.push(`export async function getAll${modelName}s() {`);
+        serviceLines.push(`  return await prisma.${camelName}.findMany({ orderBy: { createdAt: "desc" } });`);
+        serviceLines.push('}');
+        serviceLines.push('');
+        
+        serviceLines.push(`export async function create${modelName}(data: any) {`);
+        serviceLines.push('  const { id, createdAt, updatedAt, ...cleanData } = data;');
+        serviceLines.push(`  return await prisma.${camelName}.create({ data: cleanData });`);
+        serviceLines.push('}');
+        serviceLines.push('');
+        
+        serviceLines.push(`export const add${modelName} = create${modelName};`);
+        serviceLines.push('');
+      });
+      
+      serviceLines.push('export async function connectToDatabase() {');
+      serviceLines.push('  await prisma.$connect();');
+      serviceLines.push('  return true;');
+      serviceLines.push('}');
+      
+      const serviceDir = path.dirname(prismaServicePath);
+      if (!fs.existsSync(serviceDir)) {
+        fs.mkdirSync(serviceDir, { recursive: true });
+      }
+      
+      fs.writeFileSync(prismaServicePath, serviceLines.join('\n'), 'utf-8');
+      
+      if (fs.existsSync(prismaServicePath)) {
+        console.log("✅ Service Prisma créé en mode de récupération");
+      } else {
+        console.error("❌ Impossible de créer le service Prisma");
+        process.exit(1);
+      }
+    } else {
+      console.error("❌ types.ts introuvable, impossible de générer le service");
+      process.exit(1);
+    }
+  } else {
+    console.log("✅ Service Prisma généré correctement");
+  }
+  
+  // PHASE 2 — VALIDATION FINALE
   console.log("\n" + "=".repeat(60));
-  console.log("✅ PHASE 2: VALIDATION ET RÉCUPÉRATION");
+  console.log("✅ PHASE 2: VALIDATION FINALE");
   console.log("=".repeat(60));
   
   validateGeneratedFiles();
-  
-  // Vérification spéciale pour prisma-service.ts
-  const prismaServicePath = path.join(__dirname, '../src/lib/prisma-service.ts');
-  if (!fs.existsSync(prismaServicePath)) {
-    console.log("⚠️  prisma-service.ts manquant - génération de secours...");
-    
-    // Créer le script de secours s'il n'existe pas
-    const forceScriptPath = path.join(__dirname, 'tools/forceCreatePrismaService.js');
-    if (!fs.existsSync(forceScriptPath)) {
-      // Créer le script de secours
-      const forceScriptContent = `const fs = require('fs');
-const path = require('path');
-
-console.log('🚨 GÉNÉRATION FORCÉE du service Prisma...');
-
-const typesPath = path.join(__dirname, '../src/lib/types.ts');
-const servicePath = path.join(__dirname, '../src/lib/prisma-service.ts');
-
-function createMinimalService() {
-  if (!fs.existsSync(typesPath)) {
-    console.error('❌ types.ts introuvable');
-    return false;
-  }
-  
-  const typesContent = fs.readFileSync(typesPath, 'utf-8');
-  const interfaces = (typesContent.match(/export\\s+interface\\s+(\\w+)/g) || [])
-    .map(match => match.replace('export interface ', ''));
-  
-  console.log('📋 Interfaces:', interfaces.join(', '));
-  
-  const lines = [
-    'import { PrismaClient } from "@prisma/client";',
-    '',
-    'export const prisma = globalThis.prisma || new PrismaClient();',
-    '',
-    'if (process.env.NODE_ENV !== "production") {',
-    '  globalThis.prisma = prisma;',
-    '}',
-    ''
-  ];
-  
-  interfaces.forEach(modelName => {
-    const camelName = modelName.charAt(0).toLowerCase() + modelName.slice(1);
-    
-    lines.push(\`export async function get\${modelName}ById(id: number) {\`);
-    lines.push(\`  return await prisma.\${camelName}.findUnique({ where: { id } });\`);
-    lines.push('}');
-    lines.push('');
-    
-    lines.push(\`export async function getAll\${modelName}s() {\`);
-    lines.push(\`  return await prisma.\${camelName}.findMany({ orderBy: { createdAt: "desc" } });\`);
-    lines.push('}');
-    lines.push('');
-    
-    lines.push(\`export async function create\${modelName}(data: any) {\`);
-    lines.push('  const { id, createdAt, updatedAt, ...cleanData } = data;');
-    lines.push(\`  return await prisma.\${camelName}.create({ data: cleanData });\`);
-    lines.push('}');
-    lines.push('');
-    
-    lines.push(\`export const add\${modelName} = create\${modelName};\`);
-    lines.push('');
-  });
-  
-  const serviceDir = path.dirname(servicePath);
-  if (!fs.existsSync(serviceDir)) {
-    fs.mkdirSync(serviceDir, { recursive: true });
-  }
-  
-  fs.writeFileSync(servicePath, lines.join('\\n'), 'utf-8');
-  return fs.existsSync(servicePath);
-}
-
-try {
-  const success = createMinimalService();
-  console.log(success ? '✅ Service créé' : '❌ Échec');
-  process.exit(success ? 0 : 1);
-} catch (error) {
-  console.error('❌ Erreur:', error.message);
-  process.exit(1);
-}`;
-
-      fs.writeFileSync(forceScriptPath, forceScriptContent, 'utf-8');
-    }
-    
-    run("node tools/forceCreatePrismaService.js", "Génération service Prisma de secours");
-  }
 
   // PHASE 3 — CONFIGURATION PRISMA ET BASE DE DONNÉES
   console.log("\n" + "=".repeat(60));
