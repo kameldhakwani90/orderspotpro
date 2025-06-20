@@ -1,123 +1,74 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('🚀 Génération SYSTÈME COMPLET ultra-dynamique...');
+console.log('🚀 Génération 100% DYNAMIQUE du service Prisma...');
 
-// ✅ CHEMINS CORRIGÉS
 const dataPath = path.join(__dirname, '../src/lib/data.ts');
 const typesPath = path.join(__dirname, '../src/lib/types.ts');
-const schemaPath = path.join(__dirname, './prisma/schema.prisma'); // ✅ CORRECTION
 const servicePath = path.join(__dirname, '../src/lib/prisma-service.ts');
 
-if (!fs.existsSync(dataPath)) {
-  console.error('❌ data.ts introuvable');
-  process.exit(1);
-}
-
-if (!fs.existsSync(typesPath)) {
-  console.error('❌ types.ts introuvable');
-  process.exit(1);
-}
-
-console.log('🔍 Analyse COMPLÈTE de data.ts + types.ts...');
-
-function analyzeTypesFile(content) {
-  console.log('📖 Extraction des types depuis types.ts...');
+function extractAllInterfacesFromTypes(filePath) {
+  if (!fs.existsSync(filePath)) {
+    console.error('❌ types.ts introuvable');
+    return new Map();
+  }
   
-  const models = new Map();
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const interfaces = new Map();
   
-  // ✅ REGEX SIMPLIFIÉES ET PLUS ROBUSTES
+  console.log('📖 Extraction COMPLÈTE des interfaces depuis types.ts...');
+  
   const interfaceRegex = /export\s+interface\s+(\w+)\s*\{([^}]+)\}/gs;
-  const typeRegex = /export\s+type\s+(\w+)\s*=\s*\{([^}]+)\}/gs;
-  
-  // Traiter les interfaces
   let match;
+  
   while ((match = interfaceRegex.exec(content)) !== null) {
     const typeName = match[1];
     const typeBody = match[2];
-    processTypeDefinition(typeName, typeBody, models);
+    
+    const fields = [];
+    const fieldLines = typeBody.split('\n')
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith('//') && !line.startsWith('*'));
+    
+    fieldLines.forEach(line => {
+      const fieldMatch = line.match(/(\w+)(\?)?\s*:\s*([^;,\n]+)/);
+      if (fieldMatch) {
+        const fieldName = fieldMatch[1];
+        const isOptional = fieldMatch[2] === '?';
+        const fieldType = fieldMatch[3].trim().replace(/[;,]$/, '');
+        
+        fields.push({
+          name: fieldName,
+          type: fieldType,
+          optional: isOptional
+        });
+      }
+    });
+    
+    interfaces.set(typeName, {
+      name: typeName,
+      fields: fields
+    });
+    
+    console.log(`  📋 Interface: ${typeName} (${fields.length} champs)`);
   }
   
-  // Traiter les types
-  while ((match = typeRegex.exec(content)) !== null) {
-    const typeName = match[1];
-    const typeBody = match[2];
-    processTypeDefinition(typeName, typeBody, models);
+  return interfaces;
+}
+
+function analyzeDataFileForPatterns(filePath) {
+  if (!fs.existsSync(filePath)) {
+    console.warn('⚠️  data.ts introuvable - Service sans données initiales');
+    return { functions: new Set(), dataArrays: new Map() };
   }
   
-  return models;
-}
-
-function processTypeDefinition(typeName, typeBody, models) {
-  console.log(`  📋 Type trouvé: ${typeName}`);
-  
-  const fields = [];
-  const fieldLines = typeBody.split('\n')
-    .map(line => line.trim())
-    .filter(line => line && !line.startsWith('//') && !line.startsWith('*'));
-  
-  fieldLines.forEach(line => {
-    // ✅ REGEX AMÉLIORÉE pour les champs
-    const fieldMatch = line.match(/(\w+)(\?)?\s*:\s*([^;,\n]+)/);
-    if (fieldMatch) {
-      const fieldName = fieldMatch[1];
-      const isOptional = fieldMatch[2] === '?';
-      const fieldType = fieldMatch[3].trim().replace(/[;,]$/, '');
-      
-      // ✅ ANALYSE DE TYPE AMÉLIORÉE
-      const typeInfo = analyzeFieldType(fieldType);
-      
-      fields.push({
-        name: fieldName,
-        type: fieldType,
-        optional: isOptional,
-        ...typeInfo
-      });
-      
-      console.log(`    - ${fieldName}: ${fieldType}${isOptional ? ' (optional)' : ''}`);
-    }
-  });
-  
-  models.set(typeName, {
-    name: typeName,
-    fields: fields
-  });
-}
-
-// ✅ FONCTION D'ANALYSE DE TYPE AMÉLIORÉE
-function analyzeFieldType(fieldType) {
-  const cleanType = fieldType.toLowerCase();
-  
-  return {
-    isArray: fieldType.includes('[]') || fieldType.includes('Array<'),
-    isDate: cleanType.includes('date'),
-    isJson: cleanType.includes('json') || cleanType.includes('any') || cleanType.includes('object') || cleanType.includes('record<'),
-    isString: cleanType.includes('string'),
-    isNumber: cleanType.includes('number') || cleanType.includes('int') || cleanType.includes('float'),
-    isBoolean: cleanType.includes('boolean'),
-    isUnion: fieldType.includes('|'),
-    isOptional: fieldType.includes('undefined') || fieldType.includes('null')
-  };
-}
-
-function analyzeDataFile(content) {
-  console.log('📖 Extraction des fonctions depuis data.ts...');
-  
+  const content = fs.readFileSync(filePath, 'utf-8');
   const functions = new Set();
   const dataArrays = new Map();
   
-  // ✅ REGEX AMÉLIORÉE pour les arrays
-  const dataArrayRegex = /(?:let|const)\s+(\w+)InMemory\s*:\s*(\w+)\[\]\s*=/g;
-  let match;
+  console.log('📖 Analyse des patterns dans data.ts...');
   
-  while ((match = dataArrayRegex.exec(content)) !== null) {
-    const arrayName = match[1];
-    const typeName = match[2];
-    dataArrays.set(arrayName, typeName);
-    console.log(`  📦 Array: ${arrayName}InMemory → ${typeName}`);
-  }
-  
-  // ✅ EXTRACTION DE FONCTIONS AMÉLIORÉE
+  // Détecter toutes les fonctions exportées
   const functionPatterns = [
     /export\s+(?:async\s+)?function\s+(\w+)/g,
     /export\s+const\s+(\w+)\s*=\s*(?:async\s+)?\(/g
@@ -127,103 +78,205 @@ function analyzeDataFile(content) {
     let match;
     while ((match = pattern.exec(content)) !== null) {
       functions.add(match[1]);
-      console.log(`  🔧 Fonction: ${match[1]}`);
+      console.log(`  🔧 Fonction détectée: ${match[1]}`);
+    }
+  });
+  
+  // Détecter tous les arrays de données
+  const dataArrayPatterns = [
+    /export\s+(?:let|const)\s+(\w+)InMemory\s*:\s*(\w+)\[\]/g,
+    /export\s+(?:let|const)\s+(\w+)Data\s*:\s*(\w+)\[\]/g,
+    /export\s+(?:let|const)\s+(\w+)\s*:\s*(\w+)\[\]/g
+  ];
+  
+  dataArrayPatterns.forEach(pattern => {
+    let match;
+    while ((match = pattern.exec(content)) !== null) {
+      const arrayName = match[1];
+      const typeName = match[2];
+      dataArrays.set(arrayName, typeName);
+      console.log(`  📦 Array: ${arrayName} → ${typeName}`);
     }
   });
   
   return { functions, dataArrays };
 }
 
-// ✅ MAPPING PRISMA AMÉLIORÉ
-function mapToPrismaType(tsType, field) {
-  const cleanType = tsType.replace(/[\[\]?]/g, '').trim();
+function generateDynamicCrudFunctions(modelName, modelFields) {
+  const camelName = modelName.charAt(0).toLowerCase() + modelName.slice(1);
+  const pluralName = modelName.toLowerCase() + 's';
   
-  // Gérer les unions
-  if (field.isUnion) {
-    const types = tsType.split('|').map(t => t.trim());
-    const nonNullTypes = types.filter(t => t !== 'null' && t !== 'undefined');
-    if (nonNullTypes.length === 1) {
-      return mapToPrismaType(nonNullTypes[0], { ...field, isUnion: false });
+  let functions = `// =============== ${modelName.toUpperCase()} - Généré DYNAMIQUEMENT ===============\n\n`;
+  
+  // GET BY ID
+  functions += `export async function get${modelName}ById(id: string) {
+  try {
+    const ${camelName} = await prisma.${camelName}.findUnique({ 
+      where: { id: id }
+    });
+    
+    if (!${camelName}) {
+      console.warn(\`${modelName} avec ID \${id} non trouvé\`);
+      return null;
     }
+    
+    return ${camelName};
+  } catch (error) {
+    console.error('Erreur get${modelName}ById:', error);
+    throw error;
   }
-  
-  // Types de base
-  if (field.isDate) return 'DateTime';
-  if (field.isJson) return 'Json';
-  if (field.isBoolean) return 'Boolean';
-  if (field.isNumber) {
-    return cleanType.includes('float') || cleanType.includes('Float') ? 'Float' : 'Int';
-  }
-  if (field.isString) return 'String';
-  
-  // Arrays
-  if (field.isArray) {
-    if (field.isString) return 'String[]';
-    if (field.isNumber) return 'Int[]';
-    return 'Json'; // Pour les arrays complexes
-  }
-  
-  // Fallback
-  return 'String';
-}
-
-function generatePrismaSchema(models) {
-  console.log('🏗️ Génération schema Prisma...');
-  
-  let schema = `// Généré automatiquement depuis types.ts - ULTRA DYNAMIQUE
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 `;
-  
-  models.forEach((model, modelName) => {
-    console.log(`  🔧 Génération modèle: ${modelName}`);
-    
-    schema += `// ${modelName} model - Généré depuis interface\n`;
-    schema += `model ${modelName} {\n`;
-    
-    // ID obligatoire
-    schema += `  id        String   @id @default(cuid())\n`;
-    
-    // Champs détectés
-    model.fields.forEach(field => {
-      if (field.name === 'id') return;
-      
-      let prismaType = mapToPrismaType(field.type, field);
-      let attributes = '';
-      
-      if (field.name === 'email') attributes = ' @unique';
-      if (field.optional || field.isOptional) prismaType += '?';
-      
-      schema += `  ${field.name.padEnd(12)} ${prismaType.padEnd(12)}${attributes}\n`;
+
+  // GET ALL
+  functions += `export async function getAll${modelName}s() {
+  try {
+    const ${pluralName} = await prisma.${camelName}.findMany({
+      orderBy: {
+        createdAt: 'desc'
+      }
     });
     
-    // Timestamps
-    schema += `  createdAt DateTime @default(now())\n`;
-    schema += `  updatedAt DateTime @updatedAt\n`;
-    schema += `}\n\n`;
-  });
-  
-  return schema;
+    console.log(\`Récupération de \${${pluralName}.length} ${pluralName}\`);
+    return ${pluralName};
+  } catch (error) {
+    console.error('Erreur getAll${modelName}s:', error);
+    throw error;
+  }
 }
 
-function generatePrismaService(models, functions) {
-  console.log('🔧 Génération service Prisma...');
+`;
+
+  // CREATE
+  functions += `export async function create${modelName}(data: any) {
+  try {
+    // Nettoyer les données automatiquement
+    const cleanData = { ...data };
+    delete cleanData.id;
+    delete cleanData.createdAt;
+    delete cleanData.updatedAt;
+    
+    const new${modelName} = await prisma.${camelName}.create({ 
+      data: cleanData 
+    });
+    
+    console.log(\`${modelName} créé avec ID: \${new${modelName}.id}\`);
+    return new${modelName};
+  } catch (error) {
+    console.error('Erreur create${modelName}:', error);
+    throw error;
+  }
+}
+
+`;
+
+  // UPDATE
+  functions += `export async function update${modelName}(id: string, data: any) {
+  try {
+    // Nettoyer les données automatiquement
+    const cleanData = { ...data };
+    delete cleanData.id;
+    delete cleanData.createdAt;
+    delete cleanData.updatedAt;
+    
+    const updated${modelName} = await prisma.${camelName}.update({ 
+      where: { id: id },
+      data: cleanData
+    });
+    
+    console.log(\`${modelName} mis à jour: \${id}\`);
+    return updated${modelName};
+  } catch (error) {
+    console.error('Erreur update${modelName}:', error);
+    throw error;
+  }
+}
+
+`;
+
+  // DELETE
+  functions += `export async function delete${modelName}(id: string) {
+  try {
+    const deleted${modelName} = await prisma.${camelName}.delete({ 
+      where: { id: id }
+    });
+    
+    console.log(\`${modelName} supprimé: \${id}\`);
+    return deleted${modelName};
+  } catch (error) {
+    console.error('Erreur delete${modelName}:', error);
+    throw error;
+  }
+}
+
+`;
+
+  // Générer des fonctions spéciales basées sur les champs
+  modelFields.forEach(field => {
+    if (field.name === 'email' && field.type === 'string') {
+      functions += `export async function get${modelName}ByEmail(email: string) {
+  try {
+    const ${camelName} = await prisma.${camelName}.findUnique({ 
+      where: { email: email }
+    });
+    
+    return ${camelName};
+  } catch (error) {
+    console.error('Erreur get${modelName}ByEmail:', error);
+    throw error;
+  }
+}
+
+`;
+    }
+    
+    // Fonctions pour les relations (ex: getOrdersByHostId)
+    if (field.name.endsWith('Id') && field.name !== 'id') {
+      const relationField = field.name;
+      const functionName = `get${modelName}sBy${relationField.charAt(0).toUpperCase() + relationField.slice(1)}`;
+      
+      functions += `export async function ${functionName}(${relationField}: string) {
+  try {
+    const ${pluralName} = await prisma.${camelName}.findMany({ 
+      where: { ${relationField}: ${relationField} },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    return ${pluralName};
+  } catch (error) {
+    console.error('Erreur ${functionName}:', error);
+    throw error;
+  }
+}
+
+`;
+    }
+  });
   
-  let service = `// Généré automatiquement - ULTRA DYNAMIQUE
+  // Aliases pour compatibilité
+  functions += `// Aliases pour compatibilité avec l'ancien code\n`;
+  functions += `export const get${pluralName} = getAll${modelName}s;\n`;
+  functions += `export const add${modelName} = create${modelName};\n`;
+  functions += `export const ${pluralName} = getAll${modelName}s;\n\n`;
+  
+  return functions;
+}
+
+function generateCompletePrismaService(interfaces) {
+  console.log('🔧 Génération du service Prisma COMPLET et DYNAMIQUE...');
+  
+  let service = `// Service Prisma généré 100% DYNAMIQUEMENT depuis types.ts
 import { PrismaClient } from '@prisma/client';
 
 declare global {
   var prisma: PrismaClient | undefined;
 }
 
-export const prisma = globalThis.prisma || new PrismaClient();
+// Configuration Prisma optimisée
+export const prisma = globalThis.prisma || new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+});
 
 if (process.env.NODE_ENV !== 'production') {
   globalThis.prisma = prisma;
@@ -234,108 +287,16 @@ if (process.env.NODE_ENV !== 'production') {
 // ============================================
 
 `;
-  
-  models.forEach((model, modelName) => {
+
+  // Générer les fonctions CRUD pour chaque interface
+  interfaces.forEach((modelInfo, modelName) => {
     console.log(`  🔧 Génération service: ${modelName}`);
-    
-    const camelName = modelName.charAt(0).toLowerCase() + modelName.slice(1);
-    
-    service += `// =============== ${modelName.toUpperCase()} ===============\n\n`;
-    
-    // CRUD de base
-    service += `export async function get${modelName}ById(id: string) {
-  try {
-    return await prisma.${camelName}.findUnique({ 
-      where: { id: id }
-    });
-  } catch (error) {
-    console.error('Erreur get${modelName}ById:', error);
-    throw error;
-  }
-}
-
-export async function getAll${modelName}s() {
-  try {
-    return await prisma.${camelName}.findMany({
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
-  } catch (error) {
-    console.error('Erreur getAll${modelName}s:', error);
-    throw error;
-  }
-}
-
-export async function create${modelName}(data: any) {
-  try {
-    return await prisma.${camelName}.create({ data });
-  } catch (error) {
-    console.error('Erreur create${modelName}:', error);
-    throw error;
-  }
-}
-
-export async function update${modelName}(id: string, data: any) {
-  try {
-    return await prisma.${camelName}.update({ 
-      where: { id: id },
-      data
-    });
-  } catch (error) {
-    console.error('Erreur update${modelName}:', error);
-    throw error;
-  }
-}
-
-export async function delete${modelName}(id: string) {
-  try {
-    return await prisma.${camelName}.delete({ 
-      where: { id: id }
-    });
-  } catch (error) {
-    console.error('Erreur delete${modelName}:', error);
-    throw error;
-  }
-}
-
-`;
-    
-    // Fonctions spéciales détectées
-    const modelLower = modelName.toLowerCase();
-    const specialFunctions = Array.from(functions).filter(func => 
-      func.toLowerCase().includes(modelLower) && func.includes('By') && !func.includes('ById')
-    );
-    
-    specialFunctions.forEach(func => {
-      const byMatch = func.match(/By(\w+)$/);
-      if (byMatch) {
-        const field = byMatch[1].toLowerCase();
-        service += `export async function ${func}(${field}: string) {
-  try {
-    return await prisma.${camelName}.findUnique({ 
-      where: { ${field}: ${field} }
-    });
-  } catch (error) {
-    console.error('Erreur ${func}:', error);
-    throw error;
-  }
-}
-
-`;
-      }
-    });
-    
-    // Aliases compatibilité
-    const pluralLower = modelName.toLowerCase() + 's';
-    service += `// Aliases pour compatibilité\n`;
-    service += `export const get${pluralLower} = getAll${modelName}s;\n`;
-    service += `export const add${modelName} = create${modelName};\n\n`;
+    service += generateDynamicCrudFunctions(modelName, modelInfo.fields);
   });
   
-  // ✅ CORRECTION - Échapper les backquotes
+  // Fonctions utilitaires
   service += `// ============================================
-// UTILITAIRES
+// UTILITAIRES DE BASE DE DONNÉES
 // ============================================
 
 export async function connectToDatabase() {
@@ -349,66 +310,141 @@ export async function connectToDatabase() {
   }
 }
 
-export async function healthCheck() {
+export async function disconnectFromDatabase() {
   try {
-    await prisma.$queryRaw\\\`SELECT 1\\\`;
-    return { status: 'ok', timestamp: new Date().toISOString() };
+    await prisma.$disconnect();
+    console.log('✅ Déconnexion DB');
+    return true;
   } catch (error) {
-    return { status: 'error', error: error.message, timestamp: new Date().toISOString() };
+    console.error('❌ Erreur déconnexion DB:', error);
+    return false;
   }
 }
+
+export async function healthCheck() {
+  try {
+    await prisma.$queryRaw\`SELECT 1 as health\`;
+    return { 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      database: 'connected'
+    };
+  } catch (error) {
+    return { 
+      status: 'error', 
+      error: error.message, 
+      timestamp: new Date().toISOString(),
+      database: 'disconnected'
+    };
+  }
+}
+
+export async function resetDatabase() {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Reset de DB interdit en production');
+  }
+  
+  try {
+    console.log('🔄 Reset de la base de données...');
+    
+    // Supprimer toutes les données dans l'ordre inverse des dépendances
+    const models = [${Array.from(interfaces.keys()).map(name => `'${name.toLowerCase()}'`).join(', ')}];
+    
+    for (const model of models.reverse()) {
+      const count = await prisma[model].deleteMany();
+      console.log(\`  🗑️  \${model}: \${count.count} entrées supprimées\`);
+    }
+    
+    console.log('✅ Base de données réinitialisée');
+    return true;
+  } catch (error) {
+    console.error('❌ Erreur reset DB:', error);
+    throw error;
+  }
+}
+
+// ============================================
+// STATISTIQUES DYNAMIQUES
+// ============================================
+
+export async function getDatabaseStats() {
+  try {
+    const stats = {};
+    
+    ${Array.from(interfaces.keys()).map(modelName => {
+      const camelName = modelName.charAt(0).toLowerCase() + modelName.slice(1);
+      return `    stats.${camelName}Count = await prisma.${camelName}.count();`;
+    }).join('\n')}
+    
+    return {
+      ...stats,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('Erreur stats DB:', error);
+    throw error;
+  }
+}
+
+// Nettoyage automatique à la fermeture
+process.on('beforeExit', async () => {
+  await disconnectFromDatabase();
+});
+
+process.on('SIGINT', async () => {
+  await disconnectFromDatabase();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  await disconnectFromDatabase();
+  process.exit(0);
+});
 `;
   
   return service;
 }
 
 // ====================================
-// EXÉCUTION PRINCIPALE AVEC GESTION D'ERREURS
+// EXÉCUTION PRINCIPALE
 // ====================================
 
 try {
-  console.log('📖 Lecture des fichiers...');
+  console.log('📖 Lecture des fichiers source...');
   
-  const typesContent = fs.readFileSync(typesPath, 'utf-8');
-  const dataContent = fs.readFileSync(dataPath, 'utf-8');
+  const interfaces = extractAllInterfacesFromTypes(typesPath);
+  const { functions, dataArrays } = analyzeDataFileForPatterns(dataPath);
   
-  console.log('🔍 Analyse des types...');
-  const models = analyzeTypesFile(typesContent);
-  
-  console.log('🔍 Analyse des données...');
-  const { functions, dataArrays } = analyzeDataFile(dataContent);
-  
-  console.log(`📊 Résultats analyse:`);
-  console.log(`   - ${models.size} modèles détectés`);
-  console.log(`   - ${functions.size} fonctions détectées`);
-  console.log(`   - ${dataArrays.size} arrays de données`);
-  
-  if (models.size === 0) {
-    console.error('❌ Aucun modèle trouvé dans types.ts');
+  if (interfaces.size === 0) {
+    console.error('❌ Aucune interface trouvée dans types.ts');
     console.error('💡 Vérifiez que les interfaces sont bien exportées avec "export interface"');
     process.exit(1);
   }
   
-  console.log('🏗️ Génération du schema Prisma...');
-  const prismaSchema = generatePrismaSchema(models);
-  const prismaDir = path.dirname(schemaPath);
-  if (!fs.existsSync(prismaDir)) {
-    fs.mkdirSync(prismaDir, { recursive: true });
-  }
-  fs.writeFileSync(schemaPath, prismaSchema, 'utf-8');
-  console.log(`✅ Schema Prisma généré: ${schemaPath}`);
+  console.log(`📊 Résultats analyse:`);
+  console.log(`   - ${interfaces.size} interfaces détectées: ${Array.from(interfaces.keys()).join(', ')}`);
+  console.log(`   - ${functions.size} fonctions existantes dans data.ts`);
+  console.log(`   - ${dataArrays.size} arrays de données détectés`);
   
   console.log('🔧 Génération du service Prisma...');
-  const prismaService = generatePrismaService(models, functions);
+  const prismaService = generateCompletePrismaService(interfaces);
+  
+  // Créer le répertoire si nécessaire
   const serviceDir = path.dirname(servicePath);
   if (!fs.existsSync(serviceDir)) {
     fs.mkdirSync(serviceDir, { recursive: true });
   }
+  
   fs.writeFileSync(servicePath, prismaService, 'utf-8');
   console.log(`✅ Service Prisma généré: ${servicePath}`);
   
-  console.log('\n🎉 SYSTÈME COMPLET généré avec succès !');
-  console.log(`🚀 100% basé sur types.ts + data.ts !`);
+  console.log('\n🎉 SERVICE PRISMA 100% DYNAMIQUE généré avec succès !');
+  console.log(`🚀 Basé entièrement sur vos interfaces TypeScript !`);
+  console.log(`📋 Fonctions générées pour chaque modèle:`);
+  interfaces.forEach((_, modelName) => {
+    console.log(`   - get${modelName}ById, getAll${modelName}s`);
+    console.log(`   - create${modelName}, update${modelName}, delete${modelName}`);
+  });
   
 } catch (error) {
   console.error('❌ Erreur critique:', error.message);
