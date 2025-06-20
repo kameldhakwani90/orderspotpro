@@ -301,59 +301,52 @@ function generatePrismaModelDynamically(modelName, fields, relations, allRelatio
   let model = `// ${modelName} model - Généré DYNAMIQUEMENT\n`;
   model += `model ${modelName} {\n`;
   
-  // ID obligatoire avec auto-increment - plus compatible
+  // ID obligatoire avec auto-increment
   model += `  id        Int      @id @default(autoincrement())\n`;
   
   // Suivre les champs déjà ajoutés pour éviter les doublons
   const addedFields = new Set(['id']);
   
   // Champs de l'interface
-  fields.forEach(field => {
-    if (addedFields.has(field.name)) {
-      return; // Éviter les doublons
-    }
-    
-    let prismaType = mapToPrismaType(field.type, field.name, field.optional);
-    if (field.optional) prismaType += '?';
-    
-    let attributes = '';
-    if (field.name === 'email') attributes = ' @unique';
-    
-    // Ajuster les types de relations pour utiliser Int au lieu de String
-    if (field.name.endsWith('Id') && field.name !== 'id') {
-      prismaType = 'Int' + (field.optional ? '?' : '');
-    }
-    
-    model += `  ${field.name.padEnd(15)} ${prismaType.padEnd(12)}${attributes}\n`;
-    addedFields.add(field.name);
-  });
+  if (Array.isArray(fields)) {
+    fields.forEach(field => {
+      if (!field || !field.name || addedFields.has(field.name)) {
+        return; // Éviter les champs invalides ou doublons
+      }
+      
+      let prismaType = mapToPrismaType(field.type, field.name, field.optional);
+      if (field.optional) prismaType += '?';
+      
+      let attributes = '';
+      if (field.name === 'email') attributes = ' @unique';
+      
+      // Ajuster les types de relations pour utiliser Int
+      if (field.name.endsWith('Id') && field.name !== 'id') {
+        prismaType = 'Int' + (field.optional ? '?' : '');
+      }
+      
+      // Vérifier que le nom du champ est valide
+      if (field.name && field.name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
+        model += `  ${field.name.padEnd(15)} ${prismaType.padEnd(12)}${attributes}\n`;
+        addedFields.add(field.name);
+      }
+    });
+  }
   
-  // Relations détectées (belongsTo) - éviter les doublons
+  // Relations détectées (belongsTo) - simplifiées pour éviter erreurs
   if (Array.isArray(relations)) {
     relations.forEach(relation => {
-      if (relation.type === 'belongsTo') {
+      if (relation && relation.type === 'belongsTo' && relation.field) {
         const relatedField = relation.field.replace(/Id$/, '');
-        if (!addedFields.has(relatedField)) {
-          model += `  ${relatedField.padEnd(15)} ${relation.relatedModel}${relation.optional ? '?' : ''} @relation("${relation.relationName}", fields: [${relation.field}], references: [id])\n`;
+        if (!addedFields.has(relatedField) && relatedField.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
+          model += `  ${relatedField.padEnd(15)} ${relation.relatedModel}${relation.optional ? '?' : ''} @relation("${modelName}_${relation.relatedModel}", fields: [${relation.field}], references: [id])\n`;
           addedFields.add(relatedField);
         }
       }
     });
   }
   
-  // Relations inverses (hasMany) - éviter les doublons
-  const reverseRelations = findReverseRelations(modelName, allRelations);
-  reverseRelations.forEach(reverseRel => {
-    const pluralField = reverseRel.sourceModel.toLowerCase() + 's';
-    if (!addedFields.has(pluralField)) {
-      // Créer un nom de relation unique pour éviter les conflits
-      const uniqueRelationName = `${reverseRel.sourceModel}${modelName}`;
-      model += `  ${pluralField.padEnd(15)} ${reverseRel.sourceModel}[] @relation("${uniqueRelationName}")\n`;
-      addedFields.add(pluralField);
-    }
-  });
-  
-  // Timestamps - éviter les doublons
+  // Timestamps standard - toujours ajouter
   if (!addedFields.has('createdAt')) {
     model += `  createdAt DateTime @default(now())\n`;
     addedFields.add('createdAt');
