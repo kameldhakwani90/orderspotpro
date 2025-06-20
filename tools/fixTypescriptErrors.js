@@ -105,74 +105,73 @@ function fixTypescriptErrors(filePath, authMappings) {
   // 1. CORRECTIONS AUTH CONTEXT ET CONFLITS
   // ============================================
   
-  // Détecter et résoudre les conflits de noms de variables
-  function detectVariableConflicts() {
-    const lines = content.split('\n');
-    const conflicts = new Map();
-    
-    lines.forEach((line, index) => {
-      // Détecter const { var } = useAuth();
-      const authDestructMatch = line.match(/const\s*\{\s*([^}]+)\s*\}\s*=\s*useAuth\(\)/);
-      if (authDestructMatch) {
-        const authVars = authDestructMatch[1].split(',').map(v => {
-          const parts = v.trim().split(':');
-          return parts.length > 1 ? parts[1].trim() : parts[0].trim();
-        });
-        
-        authVars.forEach(varName => {
-          if (!conflicts.has(varName)) {
-            conflicts.set(varName, { authLine: index, useState: [] });
-          }
-        });
-      }
-      
-      // Détecter const [var, setVar] = useState();
-      const useStateMatch = line.match(/const\s*\[\s*(\w+)\s*,\s*\w+\s*\]\s*=\s*useState/);
-      if (useStateMatch) {
-        const varName = useStateMatch[1];
-        if (conflicts.has(varName)) {
-          conflicts.get(varName).useState.push(index);
-        }
-      }
-    });
-    
-    return conflicts;
-  }
+  // ============================================
+  // 1. RÉSOLUTION COMPLÈTE DES CONFLITS DE VARIABLES
+  // ============================================
   
-  function resolveVariableConflicts(conflicts) {
+  function fixAllVariableConflicts() {
     const lines = content.split('\n');
     let modified = false;
     
-    conflicts.forEach((conflictInfo, varName) => {
-      if (conflictInfo.useState.length > 0) {
-        console.log(`    ⚠️  Conflit détecté: variable '${varName}'`);
+    // Détecter toutes les variables depuis useAuth()
+    const authVars = new Set();
+    const useStateVars = new Set();
+    
+    lines.forEach((line, index) => {
+      // Variables depuis useAuth
+      const authMatch = line.match(/const\s*\{\s*([^}]+)\s*\}\s*=\s*useAuth\(\)/);
+      if (authMatch) {
+        const vars = authMatch[1].split(',').map(v => {
+          const parts = v.trim().split(':');
+          return parts.length > 1 ? parts[1].trim() : parts[0].trim();
+        });
+        vars.forEach(v => authVars.add(v));
+      }
+      
+      // Variables depuis useState
+      const stateMatch = line.match(/const\s*\[\s*(\w+)\s*,/);
+      if (stateMatch) {
+        useStateVars.add(stateMatch[1]);
+      }
+    });
+    
+    // Trouver les conflits
+    const conflicts = [...authVars].filter(v => useStateVars.has(v));
+    
+    if (conflicts.length > 0) {
+      console.log(`    ⚠️  Conflits détectés: ${conflicts.join(', ')}`);
+      
+      // Résoudre chaque conflit
+      conflicts.forEach(conflictVar => {
+        const newVarName = conflictVar + 'State';
         
-        // Renommer la variable useState pour éviter le conflit
-        conflictInfo.useState.forEach(lineIndex => {
-          const line = lines[lineIndex];
-          const newVarName = varName + 'State';
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
           
-          // Remplacer [loading, setLoading] → [loadingState, setLoadingState]
-          const newLine = line.replace(
-            new RegExp(`const\\s*\\[\\s*${varName}\\s*,\\s*(\\w+)\\s*\\]`), 
-            `const [${newVarName}, $1]`
-          );
-          
-          if (newLine !== line) {
-            lines[lineIndex] = newLine;
+          // Renommer dans useState: const [loading, setLoading] → const [loadingState, setLoadingState]
+          if (line.includes('useState') && line.includes(`[${conflictVar},`)) {
+            lines[i] = line.replace(
+              new RegExp(`\\[\\s*${conflictVar}\\s*,\\s*(\\w+)\\s*\\]`),
+              `[${newVarName}, $1]`
+            );
             modified = true;
-            console.log(`    🔧 Renommé: ${varName} → ${newVarName} (ligne ${lineIndex + 1})`);
+            console.log(`    🔧 useState renommé: ${conflictVar} → ${newVarName}`);
             
-            // Remplacer toutes les utilisations de l'ancienne variable
-            for (let i = lineIndex + 1; i < lines.length; i++) {
-              if (lines[i].includes(varName) && !lines[i].includes('useAuth') && !lines[i].includes('useState')) {
-                lines[i] = lines[i].replace(new RegExp(`\\b${varName}\\b`, 'g'), newVarName);
+            // Remplacer toutes les utilisations suivantes de cette variable useState
+            for (let j = i + 1; j < lines.length; j++) {
+              if (lines[j].includes(conflictVar) && 
+                  !lines[j].includes('useAuth') && 
+                  !lines[j].includes('useState')) {
+                // Éviter de remplacer dans les commentaires
+                if (!lines[j].trim().startsWith('//') && !lines[j].trim().startsWith('*')) {
+                  lines[j] = lines[j].replace(new RegExp(`\\b${conflictVar}\\b`, 'g'), newVarName);
+                }
               }
             }
           }
-        });
-      }
-    });
+        }
+      });
+    }
     
     if (modified) {
       content = lines.join('\n');
@@ -180,41 +179,38 @@ function fixTypescriptErrors(filePath, authMappings) {
     }
   }
   
-  // Résoudre les conflits AVANT les autres corrections
-  const conflicts = detectVariableConflicts();
-  if (conflicts.size > 0) {
-    resolveVariableConflicts(conflicts);
-  }
+  // Exécuter la résolution de conflits EN PREMIER
+  fixAllVariableConflicts();
   
   if (authMappings && Object.keys(authMappings).length > 0) {
-    // Corriger TOUTES les utilisations dans le fichier
+    // Corriger les propriétés auth (isLoading → loading)
     Object.entries(authMappings).forEach(([wrongProp, correctProp]) => {
-      // 1. Corriger les destructurations useAuth()
-      const destructRegex = new RegExp(`(const\\s*\\{[^}]*?)\\b${wrongProp}\\b([^}]*\\}\\s*=\\s*useAuth\\(\\)[^;]*;)`, 'g');
+      // 1. Dans la destructuration useAuth
+      const destructRegex = new RegExp(`(const\\s*\\{[^}]*?)\\b${wrongProp}\\b([^}]*\\}\\s*=\\s*useAuth\\(\\))`, 'g');
       if (destructRegex.test(content)) {
-        content = content.replace(destructRegex, (match, before, after) => {
-          return before + correctProp + after;
-        });
+        content = content.replace(destructRegex, `$1${correctProp}$2`);
         hasChanges = true;
         console.log(`    🔧 Auth destructuring: ${wrongProp} → ${correctProp}`);
       }
       
-      // 2. Remplacer TOUTES les autres utilisations de la mauvaise propriété
-      // Pattern: if (!isLoading && ...), [user, isLoading, router], etc.
-      const usageRegex = new RegExp(`\\b${wrongProp}\\b`, 'g');
-      const beforeReplace = content;
-      content = content.replace(usageRegex, correctProp);
-      
-      if (content !== beforeReplace) {
-        hasChanges = true;
-        console.log(`    🔧 Auth usage global: ${wrongProp} → ${correctProp}`);
+      // 2. Dans toutes les utilisations (sauf dans useState et commentaires)
+      const lines = content.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes(wrongProp) && 
+            !lines[i].includes('useState') && 
+            !lines[i].includes('const [') &&
+            !lines[i].trim().startsWith('//') && 
+            !lines[i].trim().startsWith('*')) {
+          const oldLine = lines[i];
+          lines[i] = lines[i].replace(new RegExp(`\\b${wrongProp}\\b`, 'g'), correctProp);
+          if (lines[i] !== oldLine) {
+            hasChanges = true;
+            console.log(`    🔧 Auth usage: ${wrongProp} → ${correctProp} (ligne ${i + 1})`);
+          }
+        }
       }
+      content = lines.join('\n');
     });
-    
-    // 3. Nettoyer les syntaxes doubles
-    content = content.replace(/:\s*(\w+):\s*(\w+)/g, ': $2');
-    content = content.replace(/loading:\s*loading/g, 'loading');
-    content = content.replace(/user:\s*user/g, 'user');
   }
   
   // ============================================
