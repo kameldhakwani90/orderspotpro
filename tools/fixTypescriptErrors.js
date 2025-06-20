@@ -189,19 +189,23 @@ function fixTypescriptErrors(filePath, authMappings) {
   if (authMappings && Object.keys(authMappings).length > 0) {
     // Corriger les destructurations useAuth() AVEC alias pour éviter conflits
     Object.entries(authMappings).forEach(([wrongProp, correctProp]) => {
-      // Pattern: const { user, isLoading } = useAuth(); → const { user, loading: authLoading } = useAuth();
-      const destructuringRegex = new RegExp(`(const\\s*\\{[^}]*?)\\b${wrongProp}\\b([^}]*\\}\\s*=\\s*useAuth\\(\\))`, 'g');
-      if (destructuringRegex.test(content)) {
-        // Utiliser un alias pour éviter les conflits
-        const aliasName = correctProp === 'loading' ? 'authLoading' : correctProp;
-        content = content.replace(destructuringRegex, `$1${correctProp}: ${aliasName}$2`);
+      // Pattern spécifique: const { user, isLoading } = useAuth();
+      const simpleDestructRegex = new RegExp(`(const\\s*\\{[^}]*?)\\b${wrongProp}\\b([^}]*\\}\\s*=\\s*useAuth\\(\\)[^;]*;)`, 'g');
+      
+      if (simpleDestructRegex.test(content)) {
+        // Solution simple: remplacer directement wrongProp par correctProp
+        content = content.replace(simpleDestructRegex, (match, before, after) => {
+          return before + correctProp + after;
+        });
         hasChanges = true;
-        console.log(`    🔧 Auth destructuring avec alias: ${wrongProp} → ${correctProp}: ${aliasName}`);
-        
-        // Remplacer les utilisations
-        content = content.replace(new RegExp(`\\b${wrongProp}\\b`, 'g'), aliasName);
+        console.log(`    🔧 Auth destructuring simple: ${wrongProp} → ${correctProp}`);
       }
     });
+    
+    // Nettoyer les syntaxes doubles causées par les remplacements multiples
+    content = content.replace(/:\s*(\w+):\s*(\w+)/g, ': $2');
+    content = content.replace(/loading:\s*loading/g, 'loading');
+    content = content.replace(/user:\s*user/g, 'user');
   }
   
   // ============================================
