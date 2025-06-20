@@ -187,22 +187,31 @@ function fixTypescriptErrors(filePath, authMappings) {
   }
   
   if (authMappings && Object.keys(authMappings).length > 0) {
-    // Corriger les destructurations useAuth() AVEC alias pour éviter conflits
+    // Corriger TOUTES les utilisations dans le fichier
     Object.entries(authMappings).forEach(([wrongProp, correctProp]) => {
-      // Pattern spécifique: const { user, isLoading } = useAuth();
-      const simpleDestructRegex = new RegExp(`(const\\s*\\{[^}]*?)\\b${wrongProp}\\b([^}]*\\}\\s*=\\s*useAuth\\(\\)[^;]*;)`, 'g');
-      
-      if (simpleDestructRegex.test(content)) {
-        // Solution simple: remplacer directement wrongProp par correctProp
-        content = content.replace(simpleDestructRegex, (match, before, after) => {
+      // 1. Corriger les destructurations useAuth()
+      const destructRegex = new RegExp(`(const\\s*\\{[^}]*?)\\b${wrongProp}\\b([^}]*\\}\\s*=\\s*useAuth\\(\\)[^;]*;)`, 'g');
+      if (destructRegex.test(content)) {
+        content = content.replace(destructRegex, (match, before, after) => {
           return before + correctProp + after;
         });
         hasChanges = true;
-        console.log(`    🔧 Auth destructuring simple: ${wrongProp} → ${correctProp}`);
+        console.log(`    🔧 Auth destructuring: ${wrongProp} → ${correctProp}`);
+      }
+      
+      // 2. Remplacer TOUTES les autres utilisations de la mauvaise propriété
+      // Pattern: if (!isLoading && ...), [user, isLoading, router], etc.
+      const usageRegex = new RegExp(`\\b${wrongProp}\\b`, 'g');
+      const beforeReplace = content;
+      content = content.replace(usageRegex, correctProp);
+      
+      if (content !== beforeReplace) {
+        hasChanges = true;
+        console.log(`    🔧 Auth usage global: ${wrongProp} → ${correctProp}`);
       }
     });
     
-    // Nettoyer les syntaxes doubles causées par les remplacements multiples
+    // 3. Nettoyer les syntaxes doubles
     content = content.replace(/:\s*(\w+):\s*(\w+)/g, ': $2');
     content = content.replace(/loading:\s*loading/g, 'loading');
     content = content.replace(/user:\s*user/g, 'user');
