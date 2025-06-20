@@ -465,8 +465,7 @@ function createMigrateAuthScript() {
     "    \"    throw new Error('useAuth must be used within an AuthProvider');\",",
     "    \"  }\",",
     "    \"  return context;\",",
-    "    \"}\",",
-  ];",
+    "    \"}\""",
   "  ",
   "  const contextDir = path.dirname(authContextPath);",
   "  if (!fs.existsSync(contextDir)) {",
@@ -485,32 +484,32 @@ function createMigrateAuthScript() {
   "    return;",
   "  }",
   "  ",
-  "  console.log('🔄 Nettoyage next.config.js...');",
-  "  ",
-  "  let content = fs.readFileSync(nextConfigPath, 'utf-8');",
-  "  ",
-  "  // Supprimer experimental.appDir",
-  "  content = content.replace(/experimental:\\\\s*\\\\{\\\\s*appDir:\\\\s*true\\\\s*,?\\\\s*\\\\},?\\\\s*/g, '');",
-  "  content = content.replace(/,\\\\s*\\\\}/g, '\\\\n}');",
-  "  content = content.replace(/\\\\{\\\\s*,/g, '{');",
-  "  ",
-  "  fs.writeFileSync(nextConfigPath, content, 'utf-8');",
+  "  console.log('🔄 Nettoyage next.config.js...');
+  
+  let content = fs.readFileSync(nextConfigPath, 'utf-8');
+  
+  // Supprimer experimental.appDir
+  content = content.replace(/experimental:\\s*\\{\\s*appDir:\\s*true\\s*,?\\s*\\},?\\s*/g, '');
+  content = content.replace(/,\\s*\\}/g, '\\n}');
+  content = content.replace(/\\{\\s*,/g, '{');
+  
+  fs.writeFileSync(nextConfigPath, content, 'utf-8');",
   "  console.log('✅ next.config.js nettoyé');",
   "}",
   "",
   "try {",
   "  updateAuthContext();",
   "  updateNextConfig();",
-  "  console.log('✅ Migration auth terminée avec succès !');",
-  "  console.log('📋 Actions effectuées:');",
-  "  console.log('   ✓ AuthContext migré vers API');",
-  "  console.log('   ✓ next.config.js nettoyé');",
-  "  console.log('🔐 L\\'authentification utilise maintenant l\\'API !');",
-  "  ",
-  "} catch (error) {",
-  "  console.error('❌ Erreur migration auth:', error.message);",
-  "  process.exit(1);",
-  "}"
+  "  console.log('✅ Migration auth terminée avec succès !');
+  console.log('📋 Actions effectuées:');
+  console.log('   ✓ AuthContext migré vers API');
+  console.log('   ✓ next.config.js nettoyé');
+  console.log('🔐 L\\'authentification utilise maintenant l\\'API !');
+  
+} catch (error) {
+  console.error('❌ Erreur migration auth:', error.message);
+  process.exit(1);
+}
   ];
 
   const scriptPath = path.join(__dirname, 'migrateAuthToApi.js');
