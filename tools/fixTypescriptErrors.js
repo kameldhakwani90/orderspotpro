@@ -102,26 +102,104 @@ function fixTypescriptErrors(filePath, authMappings) {
   let hasChanges = false;
   
   // ============================================
-  // 1. CORRECTIONS AUTH CONTEXT
+  // 1. CORRECTIONS AUTH CONTEXT ET CONFLITS
   // ============================================
   
-  if (authMappings && Object.keys(authMappings).length > 0) {
-    // Corriger les destructurations useAuth()
-    Object.entries(authMappings).forEach(([wrongProp, correctProp]) => {
-      // Pattern: const { user, isLoading } = useAuth();
-      const destructuringRegex = new RegExp(`(const\\s*\\{[^}]*?)\\b${wrongProp}\\b([^}]*\\}\\s*=\\s*useAuth\\(\\))`, 'g');
-      if (destructuringRegex.test(content)) {
-        content = content.replace(destructuringRegex, `$1${correctProp}$2`);
-        hasChanges = true;
-        console.log(`    🔧 Auth destructuring: ${wrongProp} → ${correctProp}`);
+  // Détecter et résoudre les conflits de noms de variables
+  function detectVariableConflicts() {
+    const lines = content.split('\n');
+    const conflicts = new Map();
+    
+    lines.forEach((line, index) => {
+      // Détecter const { var } = useAuth();
+      const authDestructMatch = line.match(/const\s*\{\s*([^}]+)\s*\}\s*=\s*useAuth\(\)/);
+      if (authDestructMatch) {
+        const authVars = authDestructMatch[1].split(',').map(v => {
+          const parts = v.trim().split(':');
+          return parts.length > 1 ? parts[1].trim() : parts[0].trim();
+        });
+        
+        authVars.forEach(varName => {
+          if (!conflicts.has(varName)) {
+            conflicts.set(varName, { authLine: index, useState: [] });
+          }
+        });
       }
       
-      // Pattern: Utilisation directe dans le code
-      const usageRegex = new RegExp(`\\b${wrongProp}\\b(?=\\s*[\\)\\],;\\s]|$)`, 'g');
-      if (usageRegex.test(content)) {
-        content = content.replace(usageRegex, correctProp);
+      // Détecter const [var, setVar] = useState();
+      const useStateMatch = line.match(/const\s*\[\s*(\w+)\s*,\s*\w+\s*\]\s*=\s*useState/);
+      if (useStateMatch) {
+        const varName = useStateMatch[1];
+        if (conflicts.has(varName)) {
+          conflicts.get(varName).useState.push(index);
+        }
+      }
+    });
+    
+    return conflicts;
+  }
+  
+  function resolveVariableConflicts(conflicts) {
+    const lines = content.split('\n');
+    let modified = false;
+    
+    conflicts.forEach((conflictInfo, varName) => {
+      if (conflictInfo.useState.length > 0) {
+        console.log(`    ⚠️  Conflit détecté: variable '${varName}'`);
+        
+        // Renommer la variable useState pour éviter le conflit
+        conflictInfo.useState.forEach(lineIndex => {
+          const line = lines[lineIndex];
+          const newVarName = varName + 'State';
+          
+          // Remplacer [loading, setLoading] → [loadingState, setLoadingState]
+          const newLine = line.replace(
+            new RegExp(`const\\s*\\[\\s*${varName}\\s*,\\s*(\\w+)\\s*\\]`), 
+            `const [${newVarName}, $1]`
+          );
+          
+          if (newLine !== line) {
+            lines[lineIndex] = newLine;
+            modified = true;
+            console.log(`    🔧 Renommé: ${varName} → ${newVarName} (ligne ${lineIndex + 1})`);
+            
+            // Remplacer toutes les utilisations de l'ancienne variable
+            for (let i = lineIndex + 1; i < lines.length; i++) {
+              if (lines[i].includes(varName) && !lines[i].includes('useAuth') && !lines[i].includes('useState')) {
+                lines[i] = lines[i].replace(new RegExp(`\\b${varName}\\b`, 'g'), newVarName);
+              }
+            }
+          }
+        });
+      }
+    });
+    
+    if (modified) {
+      content = lines.join('\n');
+      hasChanges = true;
+    }
+  }
+  
+  // Résoudre les conflits AVANT les autres corrections
+  const conflicts = detectVariableConflicts();
+  if (conflicts.size > 0) {
+    resolveVariableConflicts(conflicts);
+  }
+  
+  if (authMappings && Object.keys(authMappings).length > 0) {
+    // Corriger les destructurations useAuth() AVEC alias pour éviter conflits
+    Object.entries(authMappings).forEach(([wrongProp, correctProp]) => {
+      // Pattern: const { user, isLoading } = useAuth(); → const { user, loading: authLoading } = useAuth();
+      const destructuringRegex = new RegExp(`(const\\s*\\{[^}]*?)\\b${wrongProp}\\b([^}]*\\}\\s*=\\s*useAuth\\(\\))`, 'g');
+      if (destructuringRegex.test(content)) {
+        // Utiliser un alias pour éviter les conflits
+        const aliasName = correctProp === 'loading' ? 'authLoading' : correctProp;
+        content = content.replace(destructuringRegex, `$1${correctProp}: ${aliasName}$2`);
         hasChanges = true;
-        console.log(`    🔧 Auth usage: ${wrongProp} → ${correctProp}`);
+        console.log(`    🔧 Auth destructuring avec alias: ${wrongProp} → ${correctProp}: ${aliasName}`);
+        
+        // Remplacer les utilisations
+        content = content.replace(new RegExp(`\\b${wrongProp}\\b`, 'g'), aliasName);
       }
     });
   }
