@@ -111,7 +111,7 @@ function updateAuthContext() {
     const firstImportIndex = content.indexOf('import');
     if (firstImportIndex !== -1) {
       content = content.slice(0, firstImportIndex) + 
-               \\`import { authenticate, apiClient } from '@/lib/api-utils';\\n\\` +
+               "import { authenticate, apiClient } from '@/lib/api-utils';\\n" +
                content.slice(firstImportIndex);
     }
   }
