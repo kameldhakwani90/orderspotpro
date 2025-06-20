@@ -559,15 +559,10 @@ try {
   // PHASE 5 - Migration données
   runScript('migrateDataToPrisma.js', 'Migration imports data vers prisma-service');
   
-  // PHASE 6 - Nettoyage et organisation
-  if (fs.existsSync(path.join(__dirname, 'fixPrismaServiceLocation.js'))) {
-    runScript('fixPrismaServiceLocation.js', 'Organisation fichiers Prisma');
-  }
+  // PHASE 6 - Validation AVANT relocation
+  console.log('\n🔍 Validation avant relocation...');
   
-  // PHASE 7 - Validation finale
-  console.log('\n🔍 Validation du système généré...');
-  
-  const generatedFiles = [
+  const criticalFiles = [
     'prisma/schema.prisma',
     'src/lib/prisma-service.ts',
     'src/app/api/users/route.ts',
@@ -575,8 +570,70 @@ try {
     'src/lib/api-utils.ts'
   ];
   
+  let allCriticalGenerated = true;
+  criticalFiles.forEach(file => {
+    const fullPath = path.join(__dirname, '..', file);
+    if (fs.existsSync(fullPath)) {
+      console.log(`✅ ${file}`);
+    } else {
+      console.error(`❌ Manquant: ${file}`);
+      allCriticalGenerated = false;
+    }
+  });
+  
+  if (!allCriticalGenerated) {
+    console.error('❌ Fichiers critiques manquants - Arrêt avant relocation');
+    process.exit(1);
+  }
+  
+  // PHASE 7 - Nettoyage et organisation (optionnel)
+  if (fs.existsSync(path.join(__dirname, 'fixPrismaServiceLocation.js'))) {
+    console.log('\n🔧 Organisation entreprise des fichiers...');
+    runScript('fixPrismaServiceLocation.js', 'Organisation fichiers Prisma');
+  }
+  
+  // PHASE 8 - Validation finale post-relocation
+  console.log('\n🔍 Validation du système généré...');
+  
+  const generatedFiles = [
+    'prisma/schema.prisma',
+    'src/app/api/users/route.ts',
+    'src/app/api/auth/route.ts',
+    'src/lib/api-utils.ts'
+  ];
+  
+  // Chercher prisma-service.ts dans plusieurs emplacements possibles
+  const possiblePrismaServicePaths = [
+    'src/lib/prisma-service.ts',
+    'src/server/prisma-service.ts',
+    'src/services/prisma-service.ts'
+  ];
+  
+  let prismaServiceFound = false;
+  let prismaServiceLocation = '';
+  
+  for (const servicePath of possiblePrismaServicePaths) {
+    const fullPath = path.join(__dirname, '..', servicePath);
+    if (fs.existsSync(fullPath)) {
+      prismaServiceFound = true;
+      prismaServiceLocation = servicePath;
+      break;
+    }
+  }
+  
+  if (prismaServiceFound) {
+    console.log(`✅ ${prismaServiceLocation}`);
+    generatedFiles.push(prismaServiceLocation);
+  } else {
+    console.error('❌ Manquant: prisma-service.ts (cherché dans lib/, server/, services/)');
+  }
+  
   let allGenerated = true;
   generatedFiles.forEach(file => {
+    if (file.includes('prisma-service.ts')) {
+      return; // Déjà traité ci-dessus
+    }
+    
     const fullPath = path.join(__dirname, '..', file);
     if (fs.existsSync(fullPath)) {
       console.log(`✅ ${file}`);
@@ -586,12 +643,33 @@ try {
     }
   });
   
-  if (!allGenerated) {
+  if (!allGenerated || !prismaServiceFound) {
     console.error('❌ Certains fichiers n\'ont pas été générés correctement');
+    
+    // Diagnostic détaillé
+    console.log('\n🔍 Diagnostic détaillé:');
+    console.log('📁 Contenu de src/lib/:');
+    const libDir = path.join(__dirname, '../src/lib');
+    if (fs.existsSync(libDir)) {
+      fs.readdirSync(libDir).forEach(file => {
+        console.log(`  - ${file}`);
+      });
+    }
+    
+    console.log('📁 Contenu de src/server/ (si existe):');
+    const serverDir = path.join(__dirname, '../src/server');
+    if (fs.existsSync(serverDir)) {
+      fs.readdirSync(serverDir).forEach(file => {
+        console.log(`  - ${file}`);
+      });
+    } else {
+      console.log('  (répertoire n\'existe pas)');
+    }
+    
     process.exit(1);
   }
   
-  // PHASE 8 - Correction des erreurs TypeScript
+  // PHASE 9 - Correction des erreurs TypeScript
   console.log('\n🔧 Correction des erreurs TypeScript...');
   if (fs.existsSync(path.join(__dirname, 'fixTypescriptErrors.js'))) {
     runScript('fixTypescriptErrors.js', 'Correction erreurs TypeScript');
