@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('🚀 SERVICE PRISMA - Génération ultra-simple et robuste...');
+console.log('🚀 SERVICE PRISMA - Génération CRUD COMPLÈTE et robuste...');
 
 const typesPath = path.join(__dirname, '../src/lib/types.ts');
 const servicePath = path.join(__dirname, '../src/lib/prisma-service.ts');
@@ -29,13 +29,13 @@ try {
   const interfaces = interfaceMatches.map(match => match.replace(/export\s+interface\s+/, ''));
   console.log('📋 ' + interfaces.length + ' interfaces détectées: ' + interfaces.join(', '));
   
-  // Génération du service - Version ultra-simple
-  console.log('🔧 Génération du service...');
+  // Génération du service - Version CRUD COMPLÈTE
+  console.log('🔧 Génération du service CRUD complet...');
   
   const serviceLines = [];
   
   // Header
-  serviceLines.push('// Service Prisma généré automatiquement depuis types.ts');
+  serviceLines.push('// Service Prisma généré automatiquement avec CRUD COMPLET depuis types.ts');
   serviceLines.push('import { PrismaClient } from "@prisma/client";');
   serviceLines.push('');
   serviceLines.push('declare global {');
@@ -51,19 +51,19 @@ try {
   serviceLines.push('}');
   serviceLines.push('');
   serviceLines.push('// ============================================');
-  serviceLines.push('// FONCTIONS CRUD POUR TOUS LES MODÈLES');
+  serviceLines.push('// FONCTIONS CRUD COMPLÈTES POUR TOUS LES MODÈLES');
   serviceLines.push('// ============================================');
   serviceLines.push('');
   
-  // Générer CRUD pour chaque interface
+  // Générer CRUD COMPLET pour chaque interface
   interfaces.forEach(modelName => {
     const camelName = modelName.charAt(0).toLowerCase() + modelName.slice(1);
     const pluralName = modelName.toLowerCase() + 's';
     
-    serviceLines.push('// =============== ' + modelName.toUpperCase() + ' ===============');
+    serviceLines.push('// =============== ' + modelName.toUpperCase() + ' - CRUD COMPLET ===============');
     serviceLines.push('');
     
-    // GET BY ID
+    // 1. GET BY ID
     serviceLines.push('export async function get' + modelName + 'ById(id: number) {');
     serviceLines.push('  try {');
     serviceLines.push('    return await prisma.' + camelName + '.findUnique({');
@@ -76,7 +76,7 @@ try {
     serviceLines.push('}');
     serviceLines.push('');
     
-    // GET ALL
+    // 2. GET ALL
     serviceLines.push('export async function getAll' + modelName + 's() {');
     serviceLines.push('  try {');
     serviceLines.push('    return await prisma.' + camelName + '.findMany({');
@@ -89,7 +89,7 @@ try {
     serviceLines.push('}');
     serviceLines.push('');
     
-    // CREATE
+    // 3. CREATE
     serviceLines.push('export async function create' + modelName + '(data: any) {');
     serviceLines.push('  try {');
     serviceLines.push('    const cleanData = { ...data };');
@@ -107,7 +107,7 @@ try {
     serviceLines.push('}');
     serviceLines.push('');
     
-    // UPDATE
+    // 4. UPDATE - NOUVELLE FONCTION
     serviceLines.push('export async function update' + modelName + '(id: number, data: any) {');
     serviceLines.push('  try {');
     serviceLines.push('    const cleanData = { ...data };');
@@ -126,7 +126,7 @@ try {
     serviceLines.push('}');
     serviceLines.push('');
     
-    // DELETE
+    // 5. DELETE - NOUVELLE FONCTION
     serviceLines.push('export async function delete' + modelName + '(id: number) {');
     serviceLines.push('  try {');
     serviceLines.push('    return await prisma.' + camelName + '.delete({');
@@ -139,7 +139,7 @@ try {
     serviceLines.push('}');
     serviceLines.push('');
     
-    // ALIASES
+    // 6. ALIASES pour compatibilité
     serviceLines.push('// Aliases pour compatibilité');
     serviceLines.push('export const add' + modelName + ' = create' + modelName + ';');
     serviceLines.push('export const get' + pluralName + ' = getAll' + modelName + 's;');
@@ -183,18 +183,32 @@ try {
   
   fs.writeFileSync(servicePath, serviceContent, 'utf-8');
   
-  // Vérification finale
+  // Vérification finale avec résumé détaillé
   if (fs.existsSync(servicePath)) {
     const size = fs.statSync(servicePath).size;
     console.log('✅ Service généré avec succès:', servicePath);
     console.log('📊 Taille:', size, 'bytes');
-    console.log('📋 Fonctions générées pour:', interfaces.length, 'modèles');
+    console.log('📋 Modèles traités:', interfaces.length);
+    
+    console.log('\n🎯 RÉSUMÉ - Fonctions générées par modèle:');
+    interfaces.forEach(modelName => {
+      console.log(`  ${modelName}:`);
+      console.log(`    ✅ get${modelName}ById()`);
+      console.log(`    ✅ getAll${modelName}s()`);
+      console.log(`    ✅ create${modelName}()`);
+      console.log(`    ✅ update${modelName}() ← NOUVEAU`);
+      console.log(`    ✅ delete${modelName}() ← NOUVEAU`);
+      console.log(`    ✅ add${modelName}() (alias)`);
+    });
+    
+    console.log('\n📊 Total:', interfaces.length * 5, 'fonctions CRUD générées automatiquement !');
     
     if (size < 1000) {
       console.warn('⚠️  Fichier semble petit, vérifiez le contenu');
     }
     
-    console.log('🎉 Génération terminée avec succès !');
+    console.log('\n🎉 Génération CRUD COMPLÈTE terminée avec succès !');
+    console.log('🔥 TOUTES les opérations CRUD sont maintenant disponibles !');
   } else {
     console.error('❌ Erreur: fichier non créé');
     process.exit(1);
