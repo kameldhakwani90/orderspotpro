@@ -203,6 +203,72 @@ function generatePrismaModelDynamically(modelName, fields, relations, allRelatio
   return model;
 }
 
+function validateAndCleanSchema(schema) {
+  console.log('🔍 Validation et nettoyage du schema...');
+  
+  const lines = schema.split('\n');
+  const cleanedLines = [];
+  const models = new Map();
+  
+  let currentModel = null;
+  let currentModelFields = new Set();
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
+    // Détecter le début d'un modèle
+    const modelMatch = line.match(/^model\s+(\w+)\s*\{/);
+    if (modelMatch) {
+      currentModel = modelMatch[1];
+      currentModelFields = new Set();
+      cleanedLines.push(line);
+      continue;
+    }
+    
+    // Détecter la fin d'un modèle
+    if (line.trim() === '}' && currentModel) {
+      cleanedLines.push(line);
+      currentModel = null;
+      currentModelFields = new Set();
+      continue;
+    }
+    
+    // Si on est dans un modèle, vérifier les doublons de champs
+    if (currentModel) {
+      const fieldMatch = line.match(/^\s+(\w+)\s+/);
+      if (fieldMatch) {
+        const fieldName = fieldMatch[1];
+        
+        if (currentModelFields.has(fieldName)) {
+          console.log(`  ⚠️  Champ dupliqué supprimé: ${currentModel}.${fieldName}`);
+          continue; // Ignorer ce champ dupliqué
+        }
+        
+        currentModelFields.add(fieldName);
+      }
+    }
+    
+    cleanedLines.push(line);
+  }
+  
+  const cleanedSchema = cleanedLines.join('\n');
+  
+  // Vérification finale
+  const duplicateCheck = /^\s*(\w+)\s+.*\n[\s\S]*?^\s*\1\s+/gm;
+  const duplicates = cleanedSchema.match(duplicateCheck);
+  
+  if (duplicates) {
+    console.warn('⚠️  Doublons potentiels détectés, nettoyage supplémentaire...');
+    return cleanedSchema.replace(duplicateCheck, (match, fieldName) => {
+      console.log(`  🔧 Suppression doublon: ${fieldName}`);
+      return match.split('\n')[0] + '\n'; // Garder seulement la première occurrence
+    });
+  }
+  
+  console.log('✅ Schema validé et nettoyé');
+  return cleanedSchema;
+}
+
 function generateCompletePrismaSchema(interfaces) {
   console.log('🏗️ Génération COMPLÈTEMENT DYNAMIQUE du schema...');
   
@@ -227,7 +293,8 @@ datasource db {
     schema += '\n';
   });
   
-  return schema;
+  // Valider et nettoyer le schema avant de le retourner
+  return validateAndCleanSchema(schema);
 }
 
 function generatePrismaModelDynamically(modelName, fields, relations, allRelations) {
@@ -237,9 +304,14 @@ function generatePrismaModelDynamically(modelName, fields, relations, allRelatio
   // ID obligatoire avec auto-increment - plus compatible
   model += `  id        Int      @id @default(autoincrement())\n`;
   
+  // Suivre les champs déjà ajoutés pour éviter les doublons
+  const addedFields = new Set(['id']);
+  
   // Champs de l'interface
   fields.forEach(field => {
-    if (field.name === 'id') return; // Éviter les doublons
+    if (addedFields.has(field.name)) {
+      return; // Éviter les doublons
+    }
     
     let prismaType = mapToPrismaType(field.type, field.name, field.optional);
     if (field.optional) prismaType += '?';
@@ -253,28 +325,44 @@ function generatePrismaModelDynamically(modelName, fields, relations, allRelatio
     }
     
     model += `  ${field.name.padEnd(15)} ${prismaType.padEnd(12)}${attributes}\n`;
+    addedFields.add(field.name);
   });
   
-  // Relations détectées (belongsTo)
+  // Relations détectées (belongsTo) - éviter les doublons
   if (Array.isArray(relations)) {
     relations.forEach(relation => {
       if (relation.type === 'belongsTo') {
         const relatedField = relation.field.replace(/Id$/, '');
-        model += `  ${relatedField.padEnd(15)} ${relation.relatedModel}${relation.optional ? '?' : ''} @relation("${relation.relationName}", fields: [${relation.field}], references: [id])\n`;
+        if (!addedFields.has(relatedField)) {
+          model += `  ${relatedField.padEnd(15)} ${relation.relatedModel}${relation.optional ? '?' : ''} @relation("${relation.relationName}", fields: [${relation.field}], references: [id])\n`;
+          addedFields.add(relatedField);
+        }
       }
     });
   }
   
-  // Relations inverses (hasMany)
+  // Relations inverses (hasMany) - éviter les doublons
   const reverseRelations = findReverseRelations(modelName, allRelations);
   reverseRelations.forEach(reverseRel => {
     const pluralField = reverseRel.sourceModel.toLowerCase() + 's';
-    model += `  ${pluralField.padEnd(15)} ${reverseRel.sourceModel}[] @relation("${reverseRel.relationName}")\n`;
+    if (!addedFields.has(pluralField)) {
+      // Créer un nom de relation unique pour éviter les conflits
+      const uniqueRelationName = `${reverseRel.sourceModel}${modelName}`;
+      model += `  ${pluralField.padEnd(15)} ${reverseRel.sourceModel}[] @relation("${uniqueRelationName}")\n`;
+      addedFields.add(pluralField);
+    }
   });
   
-  // Timestamps
-  model += `  createdAt DateTime @default(now())\n`;
-  model += `  updatedAt DateTime @updatedAt\n`;
+  // Timestamps - éviter les doublons
+  if (!addedFields.has('createdAt')) {
+    model += `  createdAt DateTime @default(now())\n`;
+    addedFields.add('createdAt');
+  }
+  if (!addedFields.has('updatedAt')) {
+    model += `  updatedAt DateTime @updatedAt\n`;
+    addedFields.add('updatedAt');
+  }
+  
   model += `}\n`;
   
   return model;
