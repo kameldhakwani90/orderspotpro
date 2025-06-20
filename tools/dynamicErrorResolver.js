@@ -113,38 +113,61 @@ function fixMissingExports() {
       functions.push(match[1]);
     }
     
-    // Générer aliases manquants
-    const aliasesToAdd = [];
+    console.log('📋 Fonctions existantes:', functions.slice(0, 10).join(', ') + '...');
     
-    // addHost = createHost si createHost existe mais pas addHost
-    if (functions.includes('createHost') && !functions.includes('addHost')) {
-      aliasesToAdd.push('export const addHost = createHost;');
-    }
-    
-    if (functions.includes('createUser') && !functions.includes('addUser')) {
-      aliasesToAdd.push('export const addUser = createUser;');
-    }
-    
-    // Ajouter tous les aliases create → add
+    // Détecter les modèles depuis getAll[Model]s
+    const models = new Set();
     functions.forEach(func => {
-      if (func.startsWith('create') && !func.includes('create')) {
-        const modelName = func.replace('create', '');
-        const addFunction = 'add' + modelName;
-        if (!functions.includes(addFunction)) {
-          aliasesToAdd.push(`export const ${addFunction} = ${func};`);
-        }
+      const getAllMatch = func.match(/^getAll(\w+)s$/);
+      if (getAllMatch) {
+        models.add(getAllMatch[1]);
       }
     });
     
-    if (aliasesToAdd.length > 0 && !content.includes('// ALIASES AUTOMATIQUES')) {
-      content += '\n// ALIASES AUTOMATIQUES\n' + aliasesToAdd.join('\n') + '\n';
+    console.log('📊 Modèles détectés:', Array.from(models).join(', '));
+    
+    // Générer TOUS les aliases nécessaires pour chaque modèle
+    const aliasesToAdd = [];
+    
+    models.forEach(modelName => {
+      const expectedFunctions = [
+        { expected: `update${modelName}`, actual: `update${modelName}` },
+        { expected: `delete${modelName}`, actual: `delete${modelName}` },
+        { expected: `add${modelName}`, actual: `create${modelName}` },
+        { expected: `get${modelName}ById`, actual: `get${modelName}ById` }
+      ];
+      
+      expectedFunctions.forEach(({ expected, actual }) => {
+        // Si la fonction attendue n'existe pas mais l'actuelle oui
+        if (!functions.includes(expected) && functions.includes(actual)) {
+          aliasesToAdd.push(`export const ${expected} = ${actual};`);
+          console.log(`  🔗 Alias généré: ${expected} → ${actual}`);
+        }
+      });
+    });
+    
+    // Ajouter les aliases au service
+    if (aliasesToAdd.length > 0) {
+      if (!content.includes('// ALIASES AUTOMATIQUES GÉNÉRÉS')) {
+        content += '\n// ALIASES AUTOMATIQUES GÉNÉRÉS\n';
+      }
+      
+      // Éviter les doublons
+      aliasesToAdd.forEach(alias => {
+        if (!content.includes(alias)) {
+          content += alias + '\n';
+        }
+      });
+      
       fs.writeFileSync(servicePath, content, 'utf-8');
-      console.log(`  ✅ ${aliasesToAdd.length} alias ajoutés`);
+      console.log(`  ✅ ${aliasesToAdd.length} alias ajoutés à prisma-service.ts`);
       return true;
+    } else {
+      console.log('  ⏭️  Tous les exports sont déjà présents');
     }
     
   } catch (error) {
-    console.log('  ⚠️  Erreur:', error.message);
+    console.log('  ❌ Erreur:', error.message);
   }
   
   return false;
