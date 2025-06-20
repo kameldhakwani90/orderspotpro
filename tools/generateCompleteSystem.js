@@ -80,6 +80,171 @@ function createMissingDirectories() {
   });
 }
 
+function createMigrateAuthScript() {
+  console.log('📝 Création du script migrateAuthToApi.js...');
+  
+  const scriptContent = `const fs = require('fs');
+const path = require('path');
+
+console.log('🔐 Migration DYNAMIQUE de l\\'authentification vers API...');
+
+const authContextPath = path.join(__dirname, '../src/context/AuthContext.tsx');
+const loginPagePath = path.join(__dirname, '../src/app/login/page.tsx');
+
+function updateAuthContext() {
+  if (!fs.existsSync(authContextPath)) {
+    console.warn('⚠️  AuthContext.tsx non trouvé - création automatique...');
+    createAuthContext();
+    return;
+  }
+  
+  console.log('🔄 Mise à jour AuthContext pour utiliser l\\'API...');
+  
+  let content = fs.readFileSync(authContextPath, 'utf-8');
+  
+  // Supprimer les imports de data statique
+  content = content.replace(/import\\s+\\{[^}]*\\}\\s+from\\s+['"]@\\/lib\\/data['"];?\\s*/g, '');
+  content = content.replace(/import\\s+\\{[^}]*\\}\\s+from\\s+['"][^'"]*data['"];?\\s*/g, '');
+  
+  // Ajouter l'import de l'API client
+  if (!content.includes('api-utils')) {
+    const firstImportIndex = content.indexOf('import');
+    if (firstImportIndex !== -1) {
+      content = content.slice(0, firstImportIndex) + 
+               \\`import { authenticate, apiClient } from '@/lib/api-utils';\\n\\` +
+               content.slice(firstImportIndex);
+    }
+  }
+  
+  fs.writeFileSync(authContextPath, content, 'utf-8');
+  console.log('✅ AuthContext mis à jour pour utiliser l\\'API');
+}
+
+function createAuthContext() {
+  const authContextContent = \\`'use client';
+
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { authenticate, apiClient } from '@/lib/api-utils';
+
+interface User {
+  id: string;
+  email: string;
+  nom: string;
+  role: string;
+  hostId?: string;
+  host?: any;
+  [key: string]: any;
+}
+
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => void;
+  clearError: () => void;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (error) {
+        localStorage.removeItem('user');
+      }
+    }
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await authenticate(email, password, 'login');
+      
+      if (response.error) {
+        setError(response.error);
+        return false;
+      }
+      
+      if (response.data?.user) {
+        setUser(response.data.user);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        return true;
+      }
+      
+      setError('Réponse invalide du serveur');
+      return false;
+    } catch (error) {
+      setError('Erreur de connexion');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = () => {
+    setUser(null);
+    setError(null);
+    localStorage.removeItem('user');
+  };
+
+  const clearError = () => {
+    setError(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      error,
+      login,
+      logout,
+      clearError
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}\\`;
+
+  const contextDir = path.dirname(authContextPath);
+  if (!fs.existsSync(contextDir)) {
+    fs.mkdirSync(contextDir, { recursive: true });
+  }
+
+  fs.writeFileSync(authContextPath, authContextContent, 'utf-8');
+  console.log('✅ AuthContext créé avec connexion API');
+}
+
+try {
+  updateAuthContext();
+  console.log('✅ Migration auth terminée');
+} catch (error) {
+  console.error('❌ Erreur migration auth:', error.message);
+  process.exit(1);
+}`;
+
+  const scriptPath = path.join(__dirname, 'migrateAuthToApi.js');
+  fs.writeFileSync(scriptPath, scriptContent, 'utf-8');
+  console.log('✅ Script migrateAuthToApi.js créé');
+}
+
 function setupEnvironmentVariables() {
   console.log('🔧 Configuration des variables d\'environnement...');
   
@@ -146,7 +311,13 @@ try {
   runScript('generateApiRoutes.js', 'Génération routes API DYNAMIQUES');
   
   // PHASE 3 - Migration Auth
-  runScript('migrateAuthToApi.js', 'Migration authentification vers API');
+  if (fs.existsSync(path.join(__dirname, 'migrateAuthToApi.js'))) {
+    runScript('migrateAuthToApi.js', 'Migration authentification vers API');
+  } else {
+    console.log('⚠️  migrateAuthToApi.js non trouvé - création automatique...');
+    createMigrateAuthScript();
+    runScript('migrateAuthToApi.js', 'Migration authentification vers API');
+  }
   
   // PHASE 4 - Hooks et Components
   runScript('generateReactHooks.js', 'Génération hooks React DYNAMIQUES');
