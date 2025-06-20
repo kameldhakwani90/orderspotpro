@@ -1,20 +1,207 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('🔧 Génération du schema Prisma depuis data.ts...');
+console.log('🔧 Génération COMPLÈTEMENT DYNAMIQUE du schema Prisma...');
 
-// Créer le répertoire prisma s'il n'existe pas
-const prismaDir = path.join(__dirname, '../prisma');
-if (!fs.existsSync(prismaDir)) {
-  fs.mkdirSync(prismaDir, { recursive: true });
+// Lecture des fichiers source
+const dataPath = path.join(__dirname, '../src/lib/data.ts');
+const typesPath = path.join(__dirname, '../src/lib/types.ts');
+
+if (!fs.existsSync(dataPath)) {
+  console.error('❌ data.ts introuvable');
+  process.exit(1);
 }
 
-const schemaPath = path.join(prismaDir, 'schema.prisma');
+if (!fs.existsSync(typesPath)) {
+  console.error('❌ types.ts introuvable');
+  process.exit(1);
+}
 
-// Schema Prisma complet avec TOUTES relations bidirectionnelles et noms uniques
-const schema = `// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+function extractAllInterfaces(filePath) {
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const interfaces = new Map();
+  
+  // Regex pour extraire TOUTES les interfaces
+  const interfaceRegex = /export\s+interface\s+(\w+)\s*\{([^}]+)\}/gs;
+  let match;
+  
+  while ((match = interfaceRegex.exec(content)) !== null) {
+    const typeName = match[1];
+    const typeBody = match[2];
+    
+    const fields = [];
+    const fieldLines = typeBody.split('\n')
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith('//'));
+    
+    fieldLines.forEach(line => {
+      const fieldMatch = line.match(/(\w+)(\?)?\s*:\s*([^;,\n]+)/);
+      if (fieldMatch) {
+        const fieldName = fieldMatch[1];
+        const isOptional = fieldMatch[2] === '?';
+        const fieldType = fieldMatch[3].trim().replace(/[;,]$/, '');
+        
+        fields.push({
+          name: fieldName,
+          type: fieldType,
+          optional: isOptional
+        });
+      }
+    });
+    
+    interfaces.set(typeName, fields);
+    console.log(`  📋 Interface: ${typeName} (${fields.length} champs)`);
+  }
+  
+  return interfaces;
+}
 
+function detectRelations(interfaces) {
+  console.log('🔍 Détection DYNAMIQUE des relations...');
+  const relations = new Map();
+  
+  interfaces.forEach((fields, modelName) => {
+    const modelRelations = [];
+    
+    fields.forEach(field => {
+      // Détecter les IDs de relation (ex: hostId, userId)
+      if (field.name.endsWith('Id') && field.name !== 'id') {
+        const relatedModel = field.name.replace(/Id$/, '');
+        const capitalizedModel = relatedModel.charAt(0).toUpperCase() + relatedModel.slice(1);
+        
+        // Vérifier si le modèle cible existe
+        if (interfaces.has(capitalizedModel)) {
+          modelRelations.push({
+            type: 'belongsTo',
+            field: field.name,
+            relatedModel: capitalizedModel,
+            relationName: `${modelName}${capitalizedModel}`,
+            optional: field.optional
+          });
+          console.log(`    🔗 ${modelName}.${field.name} → ${capitalizedModel}`);
+        }
+      }
+      
+      // Détecter les arrays de IDs (ex: tagIds: string[])
+      if (field.name.endsWith('Ids') && field.type.includes('[]')) {
+        const relatedModel = field.name.replace(/Ids$/, '');
+        const capitalizedModel = relatedModel.charAt(0).toUpperCase() + relatedModel.slice(1);
+        
+        if (interfaces.has(capitalizedModel)) {
+          modelRelations.push({
+            type: 'hasMany',
+            field: field.name,
+            relatedModel: capitalizedModel,
+            relationName: `${modelName}${capitalizedModel}s`,
+            optional: field.optional
+          });
+          console.log(`    🔗 ${modelName}.${field.name} → ${capitalizedModel}[]`);
+        }
+      }
+    });
+    
+    relations.set(modelName, modelRelations);
+  });
+  
+  return relations;
+}
+
+function mapToPrismaType(tsType, fieldName, isOptional) {
+  const cleanType = tsType.replace(/[\[\]?]/g, '').trim();
+  
+  // Types de base
+  if (cleanType === 'string' || cleanType === 'String') return 'String';
+  if (cleanType === 'number' || cleanType === 'Number') {
+    // Détecter automatiquement Float vs Int
+    if (fieldName.toLowerCase().includes('prix') || 
+        fieldName.toLowerCase().includes('price') ||
+        fieldName.toLowerCase().includes('montant') ||
+        fieldName.toLowerCase().includes('taux')) {
+      return 'Float';
+    }
+    return 'Int';
+  }
+  if (cleanType === 'boolean' || cleanType === 'Boolean') return 'Boolean';
+  if (cleanType === 'Date' || cleanType === 'DateTime') return 'DateTime';
+  
+  // Arrays
+  if (tsType.includes('[]')) {
+    if (cleanType === 'string') return 'String[]';
+    if (cleanType === 'number') return 'Int[]';
+    return 'Json'; // Pour les arrays complexes
+  }
+  
+  // Types complexes ou unions
+  if (tsType.includes('|') || cleanType === 'any' || cleanType === 'object') return 'Json';
+  
+  // Par défaut
+  return 'String';
+}
+
+function generatePrismaModelDynamically(modelName, fields, relations) {
+  let model = `// ${modelName} model - Généré DYNAMIQUEMENT\n`;
+  model += `model ${modelName} {\n`;
+  
+  // ID obligatoire
+  model += `  id        String   @id @default(cuid())\n`;
+  
+  // Champs de l'interface
+  fields.forEach(field => {
+    if (field.name === 'id') return; // Éviter les doublons
+    
+    let prismaType = mapToPrismaType(field.type, field.name, field.optional);
+    if (field.optional) prismaType += '?';
+    
+    let attributes = '';
+    if (field.name === 'email') attributes = ' @unique';
+    
+    model += `  ${field.name.padEnd(15)} ${prismaType.padEnd(12)}${attributes}\n`;
+  });
+  
+  // Relations détectées
+  relations.forEach(relation => {
+    if (relation.type === 'belongsTo') {
+      const relatedField = relation.field.replace(/Id$/, '');
+      model += `  ${relatedField.padEnd(15)} ${relation.relatedModel}${relation.optional ? '?' : ''} @relation("${relation.relationName}", fields: [${relation.field}], references: [id])\n`;
+    }
+  });
+  
+  // Relations inverses (hasMany)
+  const reverseRelations = findReverseRelations(modelName, relations);
+  reverseRelations.forEach(reverseRel => {
+    const pluralField = reverseRel.sourceModel.toLowerCase() + 's';
+    model += `  ${pluralField.padEnd(15)} ${reverseRel.sourceModel}[] @relation("${reverseRel.relationName}")\n`;
+  });
+  
+  // Timestamps
+  model += `  createdAt DateTime @default(now())\n`;
+  model += `  updatedAt DateTime @updatedAt\n`;
+  model += `}\n`;
+  
+  return model;
+}
+
+function findReverseRelations(targetModel, allRelations) {
+  const reverseRels = [];
+  
+  allRelations.forEach((relations, sourceModel) => {
+    relations.forEach(relation => {
+      if (relation.relatedModel === targetModel && relation.type === 'belongsTo') {
+        reverseRels.push({
+          sourceModel: sourceModel,
+          relationName: relation.relationName
+        });
+      }
+    });
+  });
+  
+  return reverseRels;
+}
+
+function generateCompletePrismaSchema(interfaces) {
+  console.log('🏗️ Génération COMPLÈTEMENT DYNAMIQUE du schema...');
+  
+  let schema = `// Schema Prisma généré COMPLÈTEMENT DYNAMIQUEMENT depuis types.ts
 generator client {
   provider = "prisma-client-js"
 }
@@ -24,306 +211,46 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User model - Base users (admin, host, client)
-model User {
-  id           String        @id @default(cuid())
-  email        String        @unique
-  nom          String
-  role         String        // 'admin', 'host', 'client'
-  motDePasse   String
-  hostId       String?       // Si role = 'host', référence vers Host
-  host         Host?         @relation("UserHost", fields: [hostId], references: [hostId])
-  orders       Order[]       @relation("UserOrders")
-  reservations Reservation[] @relation("UserReservations")
-  clients      Client[]      @relation("UserClients")
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+`;
+
+  const relations = detectRelations(interfaces);
+  
+  // Générer tous les modèles dynamiquement
+  interfaces.forEach((fields, modelName) => {
+    const modelRelations = relations.get(modelName) || [];
+    schema += generatePrismaModelDynamically(modelName, fields, modelRelations);
+    schema += '\n';
+  });
+  
+  return schema;
 }
 
-// Host model - Establishments (hotels, restaurants)
-model Host {
-  id                        String                   @id @default(cuid())
-  hostId                    String                   @unique
-  nom                       String
-  email                     String
-  globalSiteId              String?
-  reservationPageSettings   Json?
-  loyaltySettings          Json?
-  users                    User[]                   @relation("UserHost")
-  sites                    Site[]                   @relation("SiteHost")
-  roomsOrTables            RoomOrTable[]            @relation("RoomTableHost")
-  services                 Service[]                @relation("ServiceHost")
-  categories               ServiceCategory[]        @relation("CategoryHost")
-  customForms              CustomForm[]             @relation("FormHost")
-  orders                   Order[]                  @relation("HostOrders")
-  reservations             Reservation[]            @relation("HostReservations")
-  clients                  Client[]                 @relation("HostClients")
-  tags                     Tag[]                    @relation("HostTags")
-  menuCards                MenuCard[]               @relation("HostMenuCards")
-  createdAt                DateTime                 @default(now())
-  updatedAt                DateTime                 @updatedAt
+// Créer le répertoire prisma
+const prismaDir = path.join(__dirname, '../prisma');
+if (!fs.existsSync(prismaDir)) {
+  fs.mkdirSync(prismaDir, { recursive: true });
+  console.log(`📁 Répertoire créé: ${prismaDir}`);
 }
-
-// Site model - Physical locations within a host
-model Site {
-  id              String        @id @default(cuid())
-  globalSiteId    String        @unique
-  nom             String
-  hostId          String
-  host            Host          @relation("SiteHost", fields: [hostId], references: [hostId])
-  roomsOrTables   RoomOrTable[] @relation("SiteRooms")
-  tags            Tag[]         @relation("SiteTags")
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-}
-
-// RoomOrTable model - Rooms and Tables
-model RoomOrTable {
-  id                    String        @id @default(cuid())
-  nom                   String
-  type                  String        // 'Chambre', 'Table', 'Site'
-  hostId                String
-  globalSiteId          String?
-  parentLocationId      String?
-  urlPersonnalise       String?
-  capacity              Int?
-  prixParNuit           Float?
-  prixFixeReservation   Float?
-  pricingModel          String?       // 'perPerson', 'perRoom'
-  description           String?
-  imageUrls             String[]      // Array of image URLs
-  imageAiHint           String?
-  amenityIds            String[]      // Array of amenity IDs
-  tagIds                String[]      // Array of tag IDs
-  menuCardId            String?
-  currency              String        @default("EUR")
-  host                  Host          @relation("RoomTableHost", fields: [hostId], references: [hostId])
-  site                  Site?         @relation("SiteRooms", fields: [globalSiteId], references: [globalSiteId])
-  parentLocation        RoomOrTable?  @relation("LocationHierarchy", fields: [parentLocationId], references: [id])
-  childLocations        RoomOrTable[] @relation("LocationHierarchy")
-  menuCard              MenuCard?     @relation("RoomMenuCard", fields: [menuCardId], references: [id])
-  orders                Order[]       @relation("LocationOrders")
-  reservations          Reservation[] @relation("LocationReservations")
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
-}
-
-// Service model - Services offered
-model Service {
-  id                String           @id @default(cuid())
-  titre             String
-  description       String?
-  image             String?
-  dataAiHint        String?          @map("data-ai-hint")
-  categorieId       String
-  hostId            String
-  formulaireId      String?
-  prix              Float?
-  targetLocationIds String[]         // Array of location IDs
-  loginRequired     Boolean          @default(false)
-  currency          String           @default("EUR")
-  host              Host             @relation("ServiceHost", fields: [hostId], references: [hostId])
-  category          ServiceCategory  @relation("ServiceCategory", fields: [categorieId], references: [id])
-  customForm        CustomForm?      @relation("ServiceForm", fields: [formulaireId], references: [id])
-  orders            Order[]          @relation("ServiceOrders")
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-}
-
-// ServiceCategory model - Service categories
-model ServiceCategory {
-  id        String    @id @default(cuid())
-  nom       String
-  hostId    String
-  host      Host      @relation("CategoryHost", fields: [hostId], references: [hostId])
-  services  Service[] @relation("ServiceCategory")
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-}
-
-// CustomForm model - Forms for services
-model CustomForm {
-  id        String      @id @default(cuid())
-  titre     String
-  hostId    String
-  fields    FormField[] @relation("FormFields")
-  host      Host        @relation("FormHost", fields: [hostId], references: [hostId])
-  services  Service[]   @relation("ServiceForm")
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-}
-
-// FormField model - Individual form fields
-model FormField {
-  id           String     @id @default(cuid())
-  nom          String
-  type         String     // 'text', 'select', 'number', etc.
-  obligatoire  Boolean    @default(false)
-  options      String[]   // Array of options for select fields
-  customFormId String
-  customForm   CustomForm @relation("FormFields", fields: [customFormId], references: [id])
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-}
-
-// Order model - Service orders
-model Order {
-  id                  String       @id @default(cuid())
-  serviceId           String
-  hostId              String
-  chambreTableId      String?
-  clientNom           String?
-  userId              String?
-  clientId            String?
-  donneesFormulaire   String?      // JSON string
-  dateHeure           DateTime
-  status              String       // 'pending', 'confirmed', 'completed', 'cancelled'
-  prixTotal           Float
-  montantPaye         Float        @default(0)
-  soldeDu             Float?
-  pointsGagnes        Int?         @default(0)
-  currency            String       @default("EUR")
-  paiements           Json[]       // Array of payment objects as JSON
-  service             Service      @relation("ServiceOrders", fields: [serviceId], references: [id])
-  host                Host         @relation("HostOrders", fields: [hostId], references: [hostId])
-  location            RoomOrTable? @relation("LocationOrders", fields: [chambreTableId], references: [id])
-  user                User?        @relation("UserOrders", fields: [userId], references: [id])
-  client              Client?      @relation("ClientOrders", fields: [clientId], references: [id])
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
-}
-
-// Client model - Customer profiles
-model Client {
-  id                  String        @id @default(cuid())
-  nom                 String
-  email               String?
-  telephone           String?
-  typeClient          String        // 'individuel', 'groupe', 'entreprise'
-  hostId              String
-  userId              String?
-  totalPointsFidelite Int           @default(0)
-  derniereVisite      DateTime?
-  nombreVisites       Int           @default(0)
-  notes               String?
-  host                Host          @relation("HostClients", fields: [hostId], references: [hostId])
-  user                User?         @relation("UserClients", fields: [userId], references: [id])
-  orders              Order[]       @relation("ClientOrders")
-  reservations        Reservation[] @relation("ClientReservations")
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-}
-
-// Reservation model - Room and table reservations
-model Reservation {
-  id                    String       @id @default(cuid())
-  hostId                String
-  locationId            String
-  type                  String       // 'Chambre', 'Table'
-  clientName            String
-  clientId              String?
-  userId                String?
-  dateArrivee           String       // Date string (YYYY-MM-DD)
-  dateDepart            String?      // Date string (YYYY-MM-DD) - optional for tables
-  nombrePersonnes       Int
-  status                String       // 'pending', 'confirmed', 'checked-in', 'completed', 'cancelled'
-  prixTotal             Float
-  montantPaye           Float        @default(0)
-  soldeDu               Float?
-  currency              String       @default("EUR")
-  onlineCheckinStatus   String?      @default("not-started")
-  onlineCheckinData     Json?        // OnlineCheckinData as JSON
-  notes                 String?
-  paiements             Json[]       // Array of payment objects as JSON
-  host                  Host         @relation("HostReservations", fields: [hostId], references: [hostId])
-  location              RoomOrTable  @relation("LocationReservations", fields: [locationId], references: [id])
-  client                Client?      @relation("ClientReservations", fields: [clientId], references: [id])
-  user                  User?        @relation("UserReservations", fields: [userId], references: [id])
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
-}
-
-// Tag model - Tags for locations and services  
-model Tag {
-  id        String   @id @default(cuid())
-  nom       String
-  couleur   String?
-  hostId    String
-  siteId    String?
-  host      Host     @relation("HostTags", fields: [hostId], references: [hostId])
-  site      Site?    @relation("SiteTags", fields: [siteId], references: [globalSiteId])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// MenuCard model - Menu cards for locations
-model MenuCard {
-  id           String        @id @default(cuid())
-  nom          String
-  hostId       String
-  host         Host          @relation("HostMenuCards", fields: [hostId], references: [hostId])
-  locations    RoomOrTable[] @relation("RoomMenuCard")
-  categories   MenuCategory[] @relation("MenuCardCategories")
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-}
-
-// MenuCategory model - Categories within menu cards
-model MenuCategory {
-  id         String     @id @default(cuid())
-  nom        String
-  menuCardId String
-  items      MenuItem[] @relation("CategoryItems")
-  menuCard   MenuCard   @relation("MenuCardCategories", fields: [menuCardId], references: [id])
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-}
-
-// MenuItem model - Individual menu items
-model MenuItem {
-  id             String              @id @default(cuid())
-  nom            String
-  description    String?
-  prix           Float
-  image          String?
-  available      Boolean             @default(true)
-  categoryId     String
-  optionGroups   MenuItemOptionGroup[] @relation("ItemOptionGroups")
-  category       MenuCategory        @relation("CategoryItems", fields: [categoryId], references: [id])
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-}
-
-// MenuItemOptionGroup model - Option groups for menu items
-model MenuItemOptionGroup {
-  id         String           @id @default(cuid())
-  nom        String
-  required   Boolean          @default(false)
-  maxChoices Int?
-  menuItemId String
-  options    MenuItemOption[] @relation("GroupOptions")
-  menuItem   MenuItem         @relation("ItemOptionGroups", fields: [menuItemId], references: [id])
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
-}
-
-// MenuItemOption model - Individual options within option groups
-model MenuItemOption {
-  id            String              @id @default(cuid())
-  nom           String
-  prixExtra     Float               @default(0)
-  available     Boolean             @default(true)
-  optionGroupId String
-  optionGroup   MenuItemOptionGroup @relation("GroupOptions", fields: [optionGroupId], references: [id])
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-}`;
 
 try {
+  const interfaces = extractAllInterfaces(typesPath);
+  
+  if (interfaces.size === 0) {
+    console.error('❌ Aucune interface trouvée dans types.ts');
+    process.exit(1);
+  }
+  
+  console.log(`📊 ${interfaces.size} interfaces détectées: ${Array.from(interfaces.keys()).join(', ')}`);
+  
+  const schema = generateCompletePrismaSchema(interfaces);
+  const schemaPath = path.join(prismaDir, 'schema.prisma');
+  
   fs.writeFileSync(schemaPath, schema);
-  console.log('✅ Schema Prisma généré avec succès');
+  console.log('✅ Schema Prisma généré COMPLÈTEMENT DYNAMIQUEMENT');
   console.log(`📁 Fichier créé: ${schemaPath}`);
+  console.log(`🎯 100% basé sur vos interfaces TypeScript !`);
+  
 } catch (err) {
-  console.error('❌ Erreur lors de l\'écriture du schema:', err.message);
+  console.error('❌ Erreur lors de la génération du schema:', err.message);
   process.exit(1);
 }
