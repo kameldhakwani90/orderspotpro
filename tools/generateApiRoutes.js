@@ -1,99 +1,97 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('🔧 Génération DYNAMIQUE des routes API Next.js (SERVER-SIDE)...');
+console.log('🔧 Génération 100% DYNAMIQUE des routes API Next.js...');
 
-const prismaServicePath = path.join(__dirname, '../src/lib/prisma-service.ts');
+const typesPath = path.join(__dirname, '../src/lib/types.ts');
+const dataPath = path.join(__dirname, '../src/lib/data.ts');
 const apiDir = path.join(__dirname, '../src/app/api');
 
-if (!fs.existsSync(prismaServicePath)) {
-  console.error('❌ Fichier prisma-service.ts introuvable');
-  process.exit(1);
-}
-
-const prismaServiceContent = fs.readFileSync(prismaServicePath, 'utf-8');
-
-function extractDynamicModelsAndFunctions(content) {
-  console.log('🔍 Extraction DYNAMIQUE des modèles et fonctions...');
+function extractAllModelsFromTypes() {
+  if (!fs.existsSync(typesPath)) {
+    console.error('❌ types.ts introuvable');
+    return [];
+  }
   
-  const result = {
-    models: new Set(),
-    allFunctions: new Set()
-  };
+  const content = fs.readFileSync(typesPath, 'utf-8');
+  const models = [];
   
-  // Extraire TOUS les exports de fonctions
-  const exportRegex = /export async function (\w+)\(/g;
+  const interfaceRegex = /export\s+interface\s+(\w+)\s*\{/g;
   let match;
   
-  while ((match = exportRegex.exec(content)) !== null) {
-    const funcName = match[1];
-    result.allFunctions.add(funcName);
-    
-    // Détecter les modèles depuis getAll[Model]s
-    const getAllMatch = funcName.match(/^getAll(\w+)s$/);
-    if (getAllMatch) {
-      const modelName = getAllMatch[1];
-      result.models.add(modelName);
-      console.log(`  ✅ Modèle détecté: ${modelName}`);
-    }
+  while ((match = interfaceRegex.exec(content)) !== null) {
+    const modelName = match[1];
+    models.push(modelName);
+    console.log(`  ✅ Modèle API détecté: ${modelName}`);
   }
   
-  // Extraire aussi les alias exports
-  const aliasRegex = /export const (\w+) = /g;
-  while ((match = aliasRegex.exec(content)) !== null) {
-    result.allFunctions.add(match[1]);
-  }
-  
-  console.log(`📊 ${result.models.size} modèles, ${result.allFunctions.size} fonctions totales`);
-  return { 
-    models: Array.from(result.models), 
-    allFunctions: Array.from(result.allFunctions) 
-  };
+  return models;
 }
 
-function generateDynamicRouteContent(modelName, availableFunctions) {
+function extractAvailableDataArrays() {
+  if (!fs.existsSync(dataPath)) {
+    console.warn('⚠️  data.ts introuvable - API sans données initiales');
+    return new Map();
+  }
+  
+  const content = fs.readFileSync(dataPath, 'utf-8');
+  const dataArrays = new Map();
+  
+  // Détecter tous les patterns d'arrays de données
+  const patterns = [
+    /export\s+(?:let|const)\s+(\w+)InMemory\s*:\s*(\w+)\[\]/g,
+    /export\s+(?:let|const)\s+(\w+)Data\s*:\s*(\w+)\[\]/g,
+    /export\s+(?:let|const)\s+(\w+)\s*:\s*(\w+)\[\]/g
+  ];
+  
+  patterns.forEach(pattern => {
+    let match;
+    while ((match = pattern.exec(content)) !== null) {
+      const arrayName = match[1];
+      const typeName = match[2];
+      dataArrays.set(typeName, arrayName);
+      console.log(`  📦 Array de données: ${arrayName} → ${typeName}`);
+    }
+  });
+  
+  return dataArrays;
+}
+
+function generateDynamicApiRoute(modelName) {
   const camelModel = modelName.charAt(0).toLowerCase() + modelName.slice(1);
   const pluralModel = modelName.toLowerCase() + 's';
   
-  // Détecter dynamiquement les fonctions disponibles pour ce modèle
-  const functions = {
-    getAll: availableFunctions.find(f => f === `getAll${modelName}s`) || availableFunctions.find(f => f === `get${pluralModel}`),
-    getById: availableFunctions.find(f => f === `get${modelName}ById`),
-    create: availableFunctions.find(f => f === `create${modelName}`) || availableFunctions.find(f => f === `add${modelName}`),
-    update: availableFunctions.find(f => f === `update${modelName}`),
-    delete: availableFunctions.find(f => f === `delete${modelName}`)
-  };
-  
-  const imports = Object.values(functions).filter(Boolean);
-  const importStatement = imports.length > 0 ? 
-    `import {\n  ${imports.join(',\n  ')}\n} from '@/server/prisma-service';` : '';
-  
-  // ✅ CORRECTION MAJEURE - API Routes CÔTÉ SERVEUR (pas de "use client")
   return `import { NextRequest, NextResponse } from 'next/server';
-${importStatement}
+import { prisma } from '@/lib/prisma-service';
 
-// API Route côté SERVEUR - Généré DYNAMIQUEMENT pour ${modelName}
+// API Route 100% DYNAMIQUE pour ${modelName}
+// Généré automatiquement depuis types.ts
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     
-    if (id && ${functions.getById ? 'true' : 'false'}) {
-      ${functions.getById ? `
-      const ${camelModel} = await ${functions.getById}(id);
+    if (id) {
+      // Récupérer un ${modelName} par ID
+      const ${camelModel} = await prisma.${camelModel}.findUnique({ 
+        where: { id: id }
+      });
+      
       if (!${camelModel}) {
         return NextResponse.json({ error: '${modelName} non trouvé' }, { status: 404 });
       }
-      return NextResponse.json(${camelModel});` : 
-      `return NextResponse.json({ error: 'getById non disponible' }, { status: 501 });`}
-    } else if (${functions.getAll ? 'true' : 'false'}) {
-      ${functions.getAll ? `
-      const ${pluralModel} = await ${functions.getAll}();
-      return NextResponse.json(${pluralModel});` :
-      `return NextResponse.json({ error: 'getAll non disponible' }, { status: 501 });`}
+      
+      return NextResponse.json(${camelModel});
     } else {
-      return NextResponse.json({ error: 'Aucune fonction de lecture disponible' }, { status: 501 });
+      // Récupérer tous les ${pluralModel}
+      const ${pluralModel} = await prisma.${camelModel}.findMany({
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+      
+      return NextResponse.json(${pluralModel});
     }
   } catch (error) {
     console.error('Erreur GET /api/${pluralModel}:', error);
@@ -105,9 +103,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  ${functions.create ? `
   try {
     const data = await request.json();
+    
     if (!data || typeof data !== 'object') {
       return NextResponse.json({ error: 'Données invalides' }, { status: 400 });
     }
@@ -118,7 +116,10 @@ export async function POST(request: NextRequest) {
     delete cleanData.createdAt;
     delete cleanData.updatedAt;
     
-    const new${modelName} = await ${functions.create}(cleanData);
+    const new${modelName} = await prisma.${camelModel}.create({ 
+      data: cleanData 
+    });
+    
     return NextResponse.json(new${modelName}, { status: 201 });
   } catch (error) {
     console.error('Erreur POST /api/${pluralModel}:', error);
@@ -126,15 +127,14 @@ export async function POST(request: NextRequest) {
       error: 'Erreur création',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     }, { status: 500 });
-  }` : `
-  return NextResponse.json({ error: 'Création non disponible pour ${modelName}' }, { status: 501 });`}
+  }
 }
 
 export async function PUT(request: NextRequest) {
-  ${functions.update ? `
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    
     if (!id) {
       return NextResponse.json({ error: 'ID requis pour la mise à jour' }, { status: 400 });
     }
@@ -150,7 +150,11 @@ export async function PUT(request: NextRequest) {
     delete cleanData.createdAt;
     delete cleanData.updatedAt;
     
-    const updated${modelName} = await ${functions.update}(id, cleanData);
+    const updated${modelName} = await prisma.${camelModel}.update({
+      where: { id: id },
+      data: cleanData
+    });
+    
     return NextResponse.json(updated${modelName});
   } catch (error) {
     console.error('Erreur PUT /api/${pluralModel}:', error);
@@ -158,20 +162,22 @@ export async function PUT(request: NextRequest) {
       error: 'Erreur mise à jour',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     }, { status: 500 });
-  }` : `
-  return NextResponse.json({ error: 'Mise à jour non disponible pour ${modelName}' }, { status: 501 });`}
+  }
 }
 
 export async function DELETE(request: NextRequest) {
-  ${functions.delete ? `
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    
     if (!id) {
       return NextResponse.json({ error: 'ID requis pour la suppression' }, { status: 400 });
     }
     
-    await ${functions.delete}(id);
+    await prisma.${camelModel}.delete({
+      where: { id: id }
+    });
+    
     return NextResponse.json({ 
       message: '${modelName} supprimé avec succès',
       id: id
@@ -182,19 +188,123 @@ export async function DELETE(request: NextRequest) {
       error: 'Erreur suppression',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     }, { status: 500 });
-  }` : `
-  return NextResponse.json({ error: 'Suppression non disponible pour ${modelName}' }, { status: 501 });`}
+  }
 }`;
 }
 
-function createDynamicApiRoutes(models, availableFunctions) {
+function createAuthApiRoute() {
+  const authContent = `import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma-service';
+
+// API Route d'authentification - Généré dynamiquement
+
+export async function POST(request: NextRequest) {
+  try {
+    const { email, motDePasse, action } = await request.json();
+    
+    if (action === 'login') {
+      // Connexion
+      const user = await prisma.user.findUnique({
+        where: { email: email },
+        include: {
+          host: true
+        }
+      });
+      
+      if (!user || user.motDePasse !== motDePasse) {
+        return NextResponse.json({ error: 'Email ou mot de passe incorrect' }, { status: 401 });
+      }
+      
+      // Retourner les infos utilisateur sans le mot de passe
+      const { motDePasse: _, ...userWithoutPassword } = user;
+      
+      return NextResponse.json({ 
+        user: userWithoutPassword,
+        message: 'Connexion réussie'
+      });
+    }
+    
+    if (action === 'register') {
+      // Inscription
+      const existingUser = await prisma.user.findUnique({
+        where: { email: email }
+      });
+      
+      if (existingUser) {
+        return NextResponse.json({ error: 'Un utilisateur avec cet email existe déjà' }, { status: 400 });
+      }
+      
+      const newUser = await prisma.user.create({
+        data: {
+          email: email,
+          motDePasse: motDePasse,
+          nom: email.split('@')[0], // Nom par défaut
+          role: 'client' // Rôle par défaut
+        }
+      });
+      
+      const { motDePasse: _, ...userWithoutPassword } = newUser;
+      
+      return NextResponse.json({ 
+        user: userWithoutPassword,
+        message: 'Inscription réussie'
+      }, { status: 201 });
+    }
+    
+    return NextResponse.json({ error: 'Action non reconnue' }, { status: 400 });
+    
+  } catch (error) {
+    console.error('Erreur API auth:', error);
+    return NextResponse.json({ 
+      error: 'Erreur serveur',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 });
+  }
+}`;
+
+  return authContent;
+}
+
+function createStatusApiRoute() {
+  const statusContent = `import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma-service';
+
+// API Route de status - Généré dynamiquement
+
+export async function GET(request: NextRequest) {
+  try {
+    // Test de connexion à la base de données
+    await prisma.$queryRaw\`SELECT 1\`;
+    
+    return NextResponse.json({
+      status: 'ok',
+      database: 'connected',
+      timestamp: new Date().toISOString(),
+      message: 'API fonctionnelle'
+    });
+  } catch (error) {
+    console.error('Erreur status:', error);
+    return NextResponse.json({
+      status: 'error',
+      database: 'disconnected',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    }, { status: 500 });
+  }
+}`;
+
+  return statusContent;
+}
+
+function createAllApiRoutes(models) {
   if (!fs.existsSync(apiDir)) {
     fs.mkdirSync(apiDir, { recursive: true });
-    console.log(`📁 Répertoire créé: ${apiDir}`);
+    console.log(`📁 Répertoire API créé: ${apiDir}`);
   }
   
   let routesCreated = 0;
   
+  // Créer les routes pour chaque modèle
   models.forEach(modelName => {
     const pluralModel = modelName.toLowerCase() + 's';
     const routeDir = path.join(apiDir, pluralModel);
@@ -204,26 +314,36 @@ function createDynamicApiRoutes(models, availableFunctions) {
       fs.mkdirSync(routeDir, { recursive: true });
     }
     
-    const routeContent = generateDynamicRouteContent(modelName, availableFunctions);
-    
-    // ✅ VÉRIFIER SI LE FICHIER EXISTE DÉJÀ
-    if (fs.existsSync(routeFile)) {
-      const existingContent = fs.readFileSync(routeFile, 'utf-8');
-      
-      // Si le fichier contient des customisations (pas généré automatiquement)
-      if (!existingContent.includes('// API Route côté SERVEUR - Généré DYNAMIQUEMENT')) {
-        console.log(`⏭️  Route personnalisée préservée: /api/${pluralModel}`);
-        return; // Ne pas écraser
-      }
-      
-      console.log(`🔄 Route mise à jour: /api/${pluralModel} (SERVER-SIDE)`);
-    } else {
-      console.log(`✅ API Route créée: /api/${pluralModel} (SERVER-SIDE)`);
-    }
-    
+    const routeContent = generateDynamicApiRoute(modelName);
     fs.writeFileSync(routeFile, routeContent, 'utf-8');
+    
+    console.log(`✅ API Route créée: /api/${pluralModel}`);
     routesCreated++;
   });
+  
+  // Créer la route d'authentification
+  const authDir = path.join(apiDir, 'auth');
+  const authFile = path.join(authDir, 'route.ts');
+  
+  if (!fs.existsSync(authDir)) {
+    fs.mkdirSync(authDir, { recursive: true });
+  }
+  
+  fs.writeFileSync(authFile, createAuthApiRoute(), 'utf-8');
+  console.log(`✅ API Route créée: /api/auth`);
+  routesCreated++;
+  
+  // Créer la route de status
+  const statusDir = path.join(apiDir, 'status');
+  const statusFile = path.join(statusDir, 'route.ts');
+  
+  if (!fs.existsSync(statusDir)) {
+    fs.mkdirSync(statusDir, { recursive: true });
+  }
+  
+  fs.writeFileSync(statusFile, createStatusApiRoute(), 'utf-8');
+  console.log(`✅ API Route créée: /api/status`);
+  routesCreated++;
   
   return routesCreated;
 }
@@ -232,6 +352,8 @@ function createApiUtils() {
   const utilsPath = path.join(__dirname, '../src/lib/api-utils.ts');
   
   const utilsContent = `'use client';
+
+// Utilitaires API - Généré automatiquement
 
 export interface ApiResponse<T> {
   data?: T;
@@ -304,43 +426,39 @@ export class ApiClient {
 
 export const apiClient = new ApiClient();
 
-// Utilitaires pour debugging
-export const debugApi = {
-  logRequest: (method: string, url: string, data?: any) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(\`🔍 API \${method} \${url}\`, data ? data : '');
-    }
-  },
-  
-  logResponse: (method: string, url: string, response: ApiResponse<any>) => {
-    if (process.env.NODE_ENV === 'development') {
-      const status = response.status;
-      const emoji = status >= 200 && status < 300 ? '✅' : '❌';
-      console.log(\`\${emoji} API \${method} \${url} [\${status}]\`, response.error || 'OK');
-    }
-  }
-};`;
+// Fonction d'authentification
+export async function authenticate(email: string, motDePasse: string, action: 'login' | 'register' = 'login') {
+  return apiClient.post('/auth', { email, motDePasse, action });
+}`;
 
   fs.writeFileSync(utilsPath, utilsContent, 'utf-8');
-  console.log(`✅ Utilitaires API créés avec debugging`);
+  console.log(`✅ Utilitaires API créés`);
 }
 
 try {
-  const { models, allFunctions } = extractDynamicModelsAndFunctions(prismaServiceContent);
+  const models = extractAllModelsFromTypes();
+  const dataArrays = extractAvailableDataArrays();
   
   if (models.length === 0) {
-    console.error('❌ Aucun modèle trouvé dans prisma-service.ts');
+    console.error('❌ Aucun modèle trouvé dans types.ts');
     process.exit(1);
   }
   
   console.log(`🔍 ${models.length} modèles détectés: ${models.join(', ')}`);
+  console.log(`📦 ${dataArrays.size} arrays de données disponibles`);
   
-  const routesCreated = createDynamicApiRoutes(models, allFunctions);
+  const routesCreated = createAllApiRoutes(models);
   createApiUtils();
   
-  console.log(`\n🎉 Génération DYNAMIQUE terminée !`);
-  console.log(`📊 ${routesCreated} API routes SERVER-SIDE créées automatiquement`);
-  console.log(`✅ Toutes les routes utilisent Prisma côté SERVEUR (pas côté client)`);
+  console.log(`\n🎉 Génération API 100% DYNAMIQUE terminée !`);
+  console.log(`📊 ${routesCreated} routes API créées automatiquement`);
+  console.log(`🎯 Toutes basées sur vos interfaces TypeScript !`);
+  console.log(`\n📋 Routes créées:`);
+  models.forEach(model => {
+    console.log(`   - /api/${model.toLowerCase()}s (CRUD complet)`);
+  });
+  console.log(`   - /api/auth (authentification)`);
+  console.log(`   - /api/status (health check)`);
   
 } catch (error) {
   console.error('❌ Erreur:', error);
