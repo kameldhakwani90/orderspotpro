@@ -1,525 +1,451 @@
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
-console.log('🔧 Correction INTELLIGENTE des erreurs TypeScript...');
+console.log('🔧 Résolveur d\'erreurs ENTIÈREMENT DYNAMIQUE...');
 
-const srcDir = path.join(__dirname, '../src');
-
-// ====================================
-// DÉTECTION INTELLIGENTE DES PATTERNS AUTH
-// ====================================
-
-function analyzeAuthContext() {
-  console.log('🔍 Analyse du AuthContext généré...');
-  
-  const authContextPath = path.join(__dirname, '../src/context/AuthContext.tsx');
-  
-  if (!fs.existsSync(authContextPath)) {
-    console.log('⚠️  AuthContext.tsx introuvable');
-    return null;
+class DynamicErrorResolver {
+  constructor() {
+    this.srcDir = path.join(__dirname, '../src');
+    this.servicePath = path.join(__dirname, '../src/lib/prisma-service.ts');
+    this.errors = [];
+    this.fixes = [];
   }
-  
-  const authContent = fs.readFileSync(authContextPath, 'utf-8');
-  
-  // Extraire l'interface AuthContextType
-  const interfaceMatch = authContent.match(/interface AuthContextType\s*\{([^}]+)\}/s);
-  if (!interfaceMatch) {
-    console.log('⚠️  Interface AuthContextType non trouvée');
-    return null;
-  }
-  
-  const interfaceBody = interfaceMatch[1];
-  const properties = {};
-  
-  // Extraire toutes les propriétés
-  const propertyRegex = /(\w+)\s*:\s*([^;,\n]+)[;,]?/g;
-  let match;
-  
-  while ((match = propertyRegex.exec(interfaceBody)) !== null) {
-    const propName = match[1].trim();
-    const propType = match[2].trim();
-    properties[propName] = propType;
-    console.log(`  📝 Propriété AuthContext: ${propName}: ${propType}`);
-  }
-  
-  return properties;
-}
 
-function generateAuthPropertyMappings(authProperties) {
-  const mappings = {};
+  // ====================================
+  // EXTRACTION DYNAMIQUE DES ERREURS
+  // ====================================
   
-  if (!authProperties) return mappings;
-  
-  // Mappings courants pour les propriétés d'auth
-  const commonMappings = {
-    // Loading states
-    'isLoading': 'loading',
-    'isAuthLoading': 'loading',
-    'authLoading': 'loading',
+  extractCompilationErrors() {
+    console.log('🔍 Extraction des erreurs de compilation...');
     
-    // User states
-    'currentUser': 'user',
-    'authUser': 'user',
-    'loggedInUser': 'user',
-    
-    // Error states
-    'authError': 'error',
-    'loginError': 'error',
-    'errorMessage': 'error',
-    
-    // Function variations
-    'signIn': 'login',
-    'signin': 'login',
-    'authenticate': 'login',
-    'signOut': 'logout',
-    'signout': 'logout',
-    'logOut': 'logout',
-    'clearErrors': 'clearError',
-    'resetError': 'clearError'
-  };
-  
-  // Générer les mappings en vérifiant que la propriété cible existe
-  Object.entries(commonMappings).forEach(([from, to]) => {
-    if (authProperties[to]) {
-      mappings[from] = to;
-      console.log(`  🔗 Mapping auth: ${from} → ${to}`);
+    try {
+      // Lancer une compilation pour capturer les erreurs
+      execSync('npm run build', { cwd: path.join(__dirname, '..'), stdio: 'pipe' });
+      console.log('✅ Aucune erreur détectée');
+      return [];
+    } catch (error) {
+      const output = error.stdout ? error.stdout.toString() : error.stderr.toString();
+      return this.parseTypeScriptErrors(output);
     }
-  });
-  
-  return mappings;
-}
-
-// ====================================
-// CORRECTION AVANCÉE DES ERREURS TYPESCRIPT
-// ====================================
-
-function fixTypescriptErrors(filePath, authMappings) {
-  if (!fs.existsSync(filePath)) {
-    return false;
   }
   
-  let content = fs.readFileSync(filePath, 'utf-8');
-  let hasChanges = false;
-  
-  // ============================================
-  // 1. CORRECTIONS AUTH CONTEXT ET CONFLITS
-  // ============================================
-  
-  // ============================================
-  // 1. RÉSOLUTION COMPLÈTE DES CONFLITS DE VARIABLES
-  // ============================================
-  
-  function fixAllVariableConflicts() {
-    const lines = content.split('\n');
-    let modified = false;
+  parseTypeScriptErrors(output) {
+    const errors = [];
+    const lines = output.split('\n');
     
-    // Détecter toutes les variables depuis useAuth()
-    const authVars = new Set();
-    const useStateVars = new Set();
+    let currentError = null;
     
-    lines.forEach((line, index) => {
-      // Variables depuis useAuth
-      const authMatch = line.match(/const\s*\{\s*([^}]+)\s*\}\s*=\s*useAuth\(\)/);
-      if (authMatch) {
-        const vars = authMatch[1].split(',').map(v => {
-          const parts = v.trim().split(':');
-          return parts.length > 1 ? parts[1].trim() : parts[0].trim();
-        });
-        vars.forEach(v => authVars.add(v));
+    lines.forEach(line => {
+      // Détecter début d'erreur TypeScript
+      const errorMatch = line.match(/^(.+\.tsx?):(\d+):(\d+)$/);
+      if (errorMatch) {
+        if (currentError) errors.push(currentError);
+        currentError = {
+          file: errorMatch[1],
+          line: parseInt(errorMatch[2]),
+          column: parseInt(errorMatch[3]),
+          type: 'unknown',
+          details: []
+        };
       }
       
-      // Variables depuis useState
-      const stateMatch = line.match(/const\s*\[\s*(\w+)\s*,/);
-      if (stateMatch) {
-        useStateVars.add(stateMatch[1]);
+      // Type d'erreur
+      if (line.includes('Type error:') && currentError) {
+        currentError.type = 'type_error';
+        currentError.message = line.replace('Type error:', '').trim();
+      }
+      
+      // Erreur d'import manquant
+      if (line.includes('has no exported member') && currentError) {
+        currentError.type = 'missing_export';
+        const memberMatch = line.match(/'([^']+)'/g);
+        if (memberMatch && memberMatch.length >= 2) {
+          currentError.missingMember = memberMatch[1].replace(/'/g, '');
+          currentError.module = memberMatch[0].replace(/'/g, '');
+        }
+      }
+      
+      // Erreur de variable non trouvée
+      if (line.includes('Cannot find name') && currentError) {
+        currentError.type = 'undefined_variable';
+        const varMatch = line.match(/Cannot find name '([^']+)'/);
+        if (varMatch) {
+          currentError.undefinedVar = varMatch[1];
+          const suggestionMatch = line.match(/Did you mean '([^']+)'/);
+          if (suggestionMatch) {
+            currentError.suggestion = suggestionMatch[1];
+          }
+        }
+      }
+      
+      // Conflit de variable
+      if (line.includes('Duplicate identifier') && currentError) {
+        currentError.type = 'duplicate_identifier';
+        const dupMatch = line.match(/Duplicate identifier '([^']+)'/);
+        if (dupMatch) {
+          currentError.duplicateVar = dupMatch[1];
+        }
+      }
+      
+      if (currentError) {
+        currentError.details.push(line);
       }
     });
     
-    // Trouver les conflits
-    const conflicts = [...authVars].filter(v => useStateVars.has(v));
+    if (currentError) errors.push(currentError);
     
-    if (conflicts.length > 0) {
-      console.log(`    ⚠️  Conflits détectés: ${conflicts.join(', ')}`);
+    console.log(`📊 ${errors.length} erreur(s) détectée(s)`);
+    errors.forEach(err => {
+      console.log(`  - ${err.type}: ${err.file}:${err.line}`);
+    });
+    
+    return errors;
+  }
+
+  // ====================================
+  // ANALYSE DYNAMIQUE DES FICHIERS
+  // ====================================
+  
+  analyzeFileImports(filePath) {
+    if (!fs.existsSync(filePath)) return { imports: [], exports: [] };
+    
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const imports = [];
+    const exports = [];
+    
+    // Extraire tous les imports
+    const importRegex = /import\s*\{\s*([^}]+)\s*\}\s*from\s*['"]([^'"]+)['"]/g;
+    let match;
+    
+    while ((match = importRegex.exec(content)) !== null) {
+      const importedItems = match[1].split(',').map(item => {
+        const trimmed = item.trim();
+        const aliasMatch = trimmed.match(/(\w+)\s+as\s+(\w+)/);
+        return aliasMatch ? 
+          { original: aliasMatch[1], alias: aliasMatch[2] } : 
+          { original: trimmed, alias: trimmed };
+      });
       
-      // Résoudre chaque conflit
-      conflicts.forEach(conflictVar => {
-        const newVarName = conflictVar + 'State';
-        
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-          
-          // Renommer dans useState: const [loading, setLoading] → const [loadingState, setLoadingState]
-          if (line.includes('useState') && line.includes(`[${conflictVar},`)) {
-            lines[i] = line.replace(
-              new RegExp(`\\[\\s*${conflictVar}\\s*,\\s*(\\w+)\\s*\\]`),
-              `[${newVarName}, $1]`
-            );
-            modified = true;
-            console.log(`    🔧 useState renommé: ${conflictVar} → ${newVarName}`);
-            
-            // Remplacer toutes les utilisations suivantes de cette variable useState
-            for (let j = i + 1; j < lines.length; j++) {
-              if (lines[j].includes(conflictVar) && 
-                  !lines[j].includes('useAuth') && 
-                  !lines[j].includes('useState')) {
-                // Éviter de remplacer dans les commentaires
-                if (!lines[j].trim().startsWith('//') && !lines[j].trim().startsWith('*')) {
-                  lines[j] = lines[j].replace(new RegExp(`\\b${conflictVar}\\b`, 'g'), newVarName);
-                }
-              }
-            }
-          }
-        }
+      imports.push({
+        module: match[2],
+        items: importedItems
       });
     }
     
-    if (modified) {
-      content = lines.join('\n');
-      hasChanges = true;
+    // Extraire tous les exports
+    const exportRegex = /export\s+(?:async\s+)?(?:function|const|class)\s+(\w+)/g;
+    while ((match = exportRegex.exec(content)) !== null) {
+      exports.push(match[1]);
     }
+    
+    return { imports, exports };
   }
   
-  // Exécuter la résolution de conflits EN PREMIER
-  fixAllVariableConflicts();
-  
-  if (authMappings && Object.keys(authMappings).length > 0) {
-    // Corriger les propriétés auth (isLoading → loading)
-    Object.entries(authMappings).forEach(([wrongProp, correctProp]) => {
-      // 1. Dans la destructuration useAuth
-      const destructRegex = new RegExp(`(const\\s*\\{[^}]*?)\\b${wrongProp}\\b([^}]*\\}\\s*=\\s*useAuth\\(\\))`, 'g');
-      if (destructRegex.test(content)) {
-        content = content.replace(destructRegex, `$1${correctProp}$2`);
-        hasChanges = true;
-        console.log(`    🔧 Auth destructuring: ${wrongProp} → ${correctProp}`);
+  analyzePrismaService() {
+    console.log('📋 Analyse dynamique de prisma-service.ts...');
+    
+    if (!fs.existsSync(this.servicePath)) {
+      console.error('❌ prisma-service.ts introuvable');
+      return { functions: [], models: [] };
+    }
+    
+    const content = fs.readFileSync(this.servicePath, 'utf-8');
+    const functions = [];
+    const models = new Set();
+    
+    // Extraire toutes les fonctions exportées
+    const functionRegex = /export\s+(?:async\s+)?(?:function|const)\s+(\w+)/g;
+    let match;
+    
+    while ((match = functionRegex.exec(content)) !== null) {
+      functions.push(match[1]);
+    }
+    
+    // Détecter les modèles depuis les patterns getAll[Model]s
+    functions.forEach(func => {
+      const getAllMatch = func.match(/^getAll(\w+)s$/);
+      if (getAllMatch) {
+        models.add(getAllMatch[1]);
       }
-      
-      // 2. Dans toutes les utilisations (sauf dans useState et commentaires)
-      const lines = content.split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes(wrongProp) && 
-            !lines[i].includes('useState') && 
-            !lines[i].includes('const [') &&
-            !lines[i].trim().startsWith('//') && 
-            !lines[i].trim().startsWith('*')) {
-          const oldLine = lines[i];
-          lines[i] = lines[i].replace(new RegExp(`\\b${wrongProp}\\b`, 'g'), correctProp);
-          if (lines[i] !== oldLine) {
-            hasChanges = true;
-            console.log(`    🔧 Auth usage: ${wrongProp} → ${correctProp} (ligne ${i + 1})`);
+    });
+    
+    console.log(`  📊 ${functions.length} fonctions, ${models.size} modèles`);
+    console.log(`  📋 Modèles: ${Array.from(models).join(', ')}`);
+    
+    return { functions, models: Array.from(models) };
+  }
+
+  // ====================================
+  // RÉSOLUTION DYNAMIQUE DES ERREURS
+  // ====================================
+  
+  resolveMissingExportError(error) {
+    console.log(`🔧 Résolution: ${error.missingMember} manquant...`);
+    
+    if (!error.module.includes('prisma-service')) return false;
+    
+    const { functions, models } = this.analyzePrismaService();
+    const missingMember = error.missingMember;
+    
+    // Stratégies de résolution intelligente
+    let resolvedFunction = null;
+    
+    // 1. Chercher une fonction similaire
+    const similarFunction = functions.find(func => 
+      func.toLowerCase().includes(missingMember.toLowerCase()) ||
+      missingMember.toLowerCase().includes(func.toLowerCase())
+    );
+    
+    if (similarFunction) {
+      resolvedFunction = similarFunction;
+      console.log(`  💡 Fonction similaire trouvée: ${similarFunction}`);
+    }
+    
+    // 2. Déduire depuis les patterns de modèles
+    if (!resolvedFunction) {
+      for (const model of models) {
+        const patterns = [
+          { pattern: `update${model}`, alternatives: [`update${model}`] },
+          { pattern: `delete${model}`, alternatives: [`delete${model}`] },
+          { pattern: `add${model}`, alternatives: [`create${model}`, `add${model}`] },
+          { pattern: `get${model}ById`, alternatives: [`get${model}ById`] }
+        ];
+        
+        const matchingPattern = patterns.find(p => p.pattern === missingMember);
+        if (matchingPattern) {
+          const availableAlternative = matchingPattern.alternatives.find(alt => 
+            functions.includes(alt)
+          );
+          
+          if (availableAlternative) {
+            resolvedFunction = availableAlternative;
+            console.log(`  🎯 Pattern résolu: ${missingMember} → ${availableAlternative}`);
+            break;
           }
         }
       }
-      content = lines.join('\n');
-    });
+    }
+    
+    // 3. Générer l'alias automatiquement
+    if (resolvedFunction && resolvedFunction !== missingMember) {
+      return this.addAliasToPrismaService(missingMember, resolvedFunction);
+    }
+    
+    return false;
   }
   
-  // ============================================
-  // 2. CORRECTIONS TYPESCRIPT GÉNÉRALES
-  // ============================================
-  
-  // Correction 1: Parameter 'prev' implicitly has an 'any' type
-  const prevTypePattern = /(\w+)\(prev\s*=>\s*\(\{\s*\.\.\.prev,/g;
-  if (prevTypePattern.test(content)) {
-    content = content.replace(prevTypePattern, '$1((prev: any) => ({ ...prev,');
-    hasChanges = true;
-    console.log(`    🔧 Corrigé type 'prev' implicite`);
-  }
-  
-  // Correction 2: currentSetter pattern spécifique
-  content = content.replace(
-    /currentSetter\(prev\s*=>\s*\(\{\s*\.\.\.prev,/g,
-    'currentSetter((prev: any) => ({ ...prev,'
-  );
-  
-  // Correction 3: useState sans types
-  content = content.replace(/useState\(\{\}\)/g, 'useState<any>({})');
-  content = content.replace(/useState\(null\)/g, 'useState<any>(null)');
-  content = content.replace(/useState\(\[\]\)/g, 'useState<any[]>([])');
-  
-  // Correction 4: Event handlers sans types
-  content = content.replace(
-    /const\s+(\w+)\s*=\s*\(e\)\s*=>/g,
-    'const $1 = (e: any) =>'
-  );
-  
-  // Correction 5: Props destructuring avec types manquants
-  content = content.replace(
-    /const\s*\{\s*([^}]+)\s*\}\s*=\s*useAuth\(\);/g,
-    'const { $1 } = useAuth() as any;'
-  );
-  
-  // ============================================
-  // 3. CORRECTIONS SPÉCIFIQUES AUX HOOKS
-  // ============================================
-  
-  // Corriger les hooks personnalisés sans types
-  const hookPattern = /const\s*\{\s*([^}]+)\s*\}\s*=\s*use(\w+)\(\);/g;
-  content = content.replace(hookPattern, 'const { $1 } = use$2() as any;');
-  
-  // ============================================
-  // 4. GÉNÉRATION DYNAMIQUE D'INTERFACES
-  // ============================================
-  
-  function generateDynamicInterfaces() {
-    // Lire types.ts pour extraire les vraies interfaces
-    const typesPath = path.join(__dirname, '../src/lib/types.ts');
-    if (!fs.existsSync(typesPath)) return '';
+  resolveUndefinedVariableError(error) {
+    console.log(`🔧 Résolution variable non définie: ${error.undefinedVar}...`);
     
-    const typesContent = fs.readFileSync(typesPath, 'utf-8');
-    const interfaces = [];
+    if (!fs.existsSync(error.file)) return false;
     
-    // Extraire toutes les interfaces exportées
-    const interfaceRegex = /export\s+interface\s+(\w+)\s*\{([^}]+)\}/gs;
-    let match;
+    let content = fs.readFileSync(error.file, 'utf-8');
+    const lines = content.split('\n');
     
-    while ((match = interfaceRegex.exec(typesContent)) !== null) {
-      const interfaceName = match[1];
-      const interfaceBody = match[2];
+    // Si une suggestion existe, l'appliquer
+    if (error.suggestion) {
+      console.log(`  💡 Application suggestion: ${error.undefinedVar} → ${error.suggestion}`);
       
-      // Créer une interface dynamique avec types flexibles
-      const flexibleInterface = `interface ${interfaceName} {
-  id?: string | number;
-${interfaceBody.split('\n').map(line => {
-  const trimmed = line.trim();
-  if (trimmed && !trimmed.startsWith('//')) {
-    // Rendre tous les champs optionnels et flexibles
-    return trimmed.includes(':') ? 
-      '  ' + trimmed.replace(/\??\s*:\s*[^;,]+/, '?: any') : 
-      '  ' + trimmed;
-  }
-  return '';
-}).filter(line => line).join('\n')}
-  [key: string]: any;
-}`;
+      // Remplacer toutes les occurrences
+      const newContent = content.replace(
+        new RegExp(`\\b${error.undefinedVar}\\b`, 'g'), 
+        error.suggestion
+      );
       
-      interfaces.push(flexibleInterface);
-    }
-    
-    return interfaces.length > 0 ? 
-      '// Interfaces générées dynamiquement depuis types.ts\n' + interfaces.join('\n\n') + '\n\n' :
-      '';
-  }
-  
-  if (content.includes('useState<') && !content.includes('interface') && !content.includes('type ')) {
-    const dynamicInterfaces = generateDynamicInterfaces();
-    
-    if (dynamicInterfaces) {
-      const firstImportIndex = content.indexOf('import');
-      if (firstImportIndex !== -1) {
-        content = content.slice(0, firstImportIndex) + dynamicInterfaces + content.slice(firstImportIndex);
-        hasChanges = true;
-        console.log(`    ✅ Ajouté interfaces dynamiques depuis types.ts`);
+      if (newContent !== content) {
+        fs.writeFileSync(error.file, newContent, 'utf-8');
+        console.log(`  ✅ Variable corrigée dans ${path.relative(this.srcDir, error.file)}`);
+        return true;
       }
     }
-  }
-  
-  // ============================================
-  // 5. CORRECTIONS NEXT.JS SPÉCIFIQUES
-  // ============================================
-  
-  // Corriger les imports Next.js
-  content = content.replace(
-    /import\s+\{\s*useRouter\s*\}\s*from\s+['"]next\/navigation['"];?/g,
-    "import { useRouter } from 'next/navigation';"
-  );
-  
-  // Vérifier si des changements ont été faits
-  if (hasChanges) {
-    fs.writeFileSync(filePath, content, 'utf-8');
-  }
-  
-  return hasChanges;
-}
-
-// ====================================
-// TRAITEMENT RÉCURSIF INTELLIGENT
-// ====================================
-
-function scanAndFixDirectory(dirPath, authMappings) {
-  if (!fs.existsSync(dirPath)) {
-    return 0;
-  }
-  
-  let fixedFiles = 0;
-  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-  
-  entries.forEach(entry => {
-    const fullPath = path.join(dirPath, entry.name);
     
-    if (entry.isDirectory()) {
-      const skipDirs = ['node_modules', '.git', '.next', 'dist', 'build'];
-      if (!skipDirs.includes(entry.name)) {
-        fixedFiles += scanAndFixDirectory(fullPath, authMappings);
-      }
-    } else if (entry.isFile() && /\.(tsx?|jsx?)$/.test(entry.name)) {
-      if (fixTypescriptErrors(fullPath, authMappings)) {
-        fixedFiles++;
-        console.log(`✅ Corrigé: ${path.relative(srcDir, fullPath)}`);
+    return false;
+  }
+  
+  resolveDuplicateIdentifierError(error) {
+    console.log(`🔧 Résolution conflit: ${error.duplicateVar}...`);
+    
+    if (!fs.existsSync(error.file)) return false;
+    
+    let content = fs.readFileSync(error.file, 'utf-8');
+    const lines = content.split('\n');
+    
+    // Stratégie: renommer la deuxième occurrence
+    let firstOccurrence = -1;
+    let secondOccurrence = -1;
+    
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes(error.duplicateVar)) {
+        if (firstOccurrence === -1) {
+          firstOccurrence = i;
+        } else if (secondOccurrence === -1) {
+          secondOccurrence = i;
+          break;
+        }
       }
     }
-  });
-  
-  return fixedFiles;
-}
-
-// ====================================
-// CRÉATION TSCONFIG OPTIMISÉ
-// ====================================
-
-function createTsConfigIfMissing() {
-  const tsConfigPath = path.join(__dirname, '../tsconfig.json');
-  
-  if (!fs.existsSync(tsConfigPath)) {
-    console.log('📝 Création tsconfig.json optimisé...');
     
-    const tsConfig = {
-      "compilerOptions": {
-        "target": "es5",
-        "lib": ["dom", "dom.iterable", "es6"],
-        "allowJs": true,
-        "skipLibCheck": true,
-        "strict": false,                    // ← Crucial pour éviter les erreurs
-        "noEmit": true,
-        "esModuleInterop": true,
-        "module": "esnext",
-        "moduleResolution": "bundler",
-        "resolveJsonModule": true,
-        "isolatedModules": true,
-        "jsx": "preserve",
-        "incremental": true,
-        "plugins": [
-          {
-            "name": "next"
+    if (secondOccurrence !== -1) {
+      const newVarName = error.duplicateVar + 'State';
+      
+      // Renommer dans useState: const [loading, ...] → const [loadingState, ...]
+      if (lines[secondOccurrence].includes('useState')) {
+        lines[secondOccurrence] = lines[secondOccurrence].replace(
+          new RegExp(`\\b${error.duplicateVar}\\b`),
+          newVarName
+        );
+        
+        // Remplacer toutes les utilisations suivantes
+        for (let i = secondOccurrence + 1; i < lines.length; i++) {
+          if (lines[i].includes(error.duplicateVar) && 
+              !lines[i].includes('useAuth') && 
+              !lines[i].includes('useState')) {
+            lines[i] = lines[i].replace(
+              new RegExp(`\\b${error.duplicateVar}\\b`, 'g'),
+              newVarName
+            );
           }
-        ],
-        "baseUrl": ".",
-        "paths": {
-          "@/*": ["./src/*"]
-        },
-        // Options supplémentaires pour éviter les erreurs
-        "noImplicitAny": false,
-        "noImplicitReturns": false,
-        "noImplicitThis": false,
-        "noUnusedLocals": false,
-        "noUnusedParameters": false
-      },
-      "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-      "exclude": ["node_modules"]
-    };
-    
-    fs.writeFileSync(tsConfigPath, JSON.stringify(tsConfig, null, 2), 'utf-8');
-    console.log('✅ tsconfig.json créé avec strict: false');
-  } else {
-    // Vérifier et mettre à jour si nécessaire
-    try {
-      const existing = JSON.parse(fs.readFileSync(tsConfigPath, 'utf-8'));
-      if (existing.compilerOptions && existing.compilerOptions.strict !== false) {
-        existing.compilerOptions.strict = false;
-        existing.compilerOptions.noImplicitAny = false;
-        fs.writeFileSync(tsConfigPath, JSON.stringify(existing, null, 2), 'utf-8');
-        console.log('✅ tsconfig.json mis à jour (strict: false)');
+        }
+        
+        const newContent = lines.join('\n');
+        fs.writeFileSync(error.file, newContent, 'utf-8');
+        console.log(`  ✅ Conflit résolu: ${error.duplicateVar} → ${newVarName}`);
+        return true;
       }
+    }
+    
+    return false;
+  }
+  
+  addAliasToPrismaService(aliasName, targetFunction) {
+    console.log(`🔗 Ajout alias: ${aliasName} → ${targetFunction}`);
+    
+    let content = fs.readFileSync(this.servicePath, 'utf-8');
+    
+    // Vérifier si l'alias existe déjà
+    if (content.includes(`export const ${aliasName}`)) {
+      console.log('  ⏭️  Alias déjà présent');
+      return true;
+    }
+    
+    // Ajouter l'alias à la fin
+    const aliasLine = `export const ${aliasName} = ${targetFunction};`;
+    
+    if (!content.includes('// ALIASES DYNAMIQUES')) {
+      content += '\n// ALIASES DYNAMIQUES GÉNÉRÉS AUTOMATIQUEMENT\n';
+    }
+    
+    content += aliasLine + '\n';
+    
+    fs.writeFileSync(this.servicePath, content, 'utf-8');
+    console.log(`  ✅ Alias ajouté à prisma-service.ts`);
+    
+    return true;
+  }
+
+  // ====================================
+  // EXÉCUTION PRINCIPALE
+  // ====================================
+  
+  async resolveAllErrors() {
+    console.log('🚀 Démarrage résolution automatique...\n');
+    
+    // 1. Extraire toutes les erreurs
+    this.errors = this.extractCompilationErrors();
+    
+    if (this.errors.length === 0) {
+      console.log('✅ Aucune erreur à résoudre !');
+      return true;
+    }
+    
+    // 2. Résoudre chaque erreur automatiquement
+    let resolvedCount = 0;
+    
+    for (const error of this.errors) {
+      console.log(`\n🔧 Traitement: ${error.type} dans ${path.relative(this.srcDir, error.file)}`);
+      
+      let resolved = false;
+      
+      switch (error.type) {
+        case 'missing_export':
+          resolved = this.resolveMissingExportError(error);
+          break;
+          
+        case 'undefined_variable':
+          resolved = this.resolveUndefinedVariableError(error);
+          break;
+          
+        case 'duplicate_identifier':
+          resolved = this.resolveDuplicateIdentifierError(error);
+          break;
+          
+        default:
+          console.log(`  ⚠️  Type d'erreur non géré: ${error.type}`);
+      }
+      
+      if (resolved) {
+        resolvedCount++;
+        console.log(`  ✅ Erreur résolue automatiquement`);
+      } else {
+        console.log(`  ❌ Impossible de résoudre automatiquement`);
+      }
+    }
+    
+    console.log(`\n📊 Résolution terminée: ${resolvedCount}/${this.errors.length} erreur(s) résolue(s)`);
+    
+    // 3. Test final
+    if (resolvedCount > 0) {
+      console.log('\n🔍 Test de compilation final...');
+      try {
+        execSync('npm run build', { cwd: path.join(__dirname, '..'), stdio: 'pipe' });
+        console.log('🎉 Build réussi ! Toutes les erreurs sont résolues.');
+        return true;
+      } catch (error) {
+        console.log('⚠️  Il reste des erreurs après résolution automatique.');
+        return false;
+      }
+    }
+    
+    return resolvedCount === this.errors.length;
+  }
+}
+
+// ====================================
+// EXÉCUTION SI SCRIPT APPELÉ DIRECTEMENT
+// ====================================
+
+if (require.main === module) {
+  (async () => {
+    try {
+      console.log('🛡️ Initialisation résolveur d\'erreurs...');
+      
+      const resolver = new DynamicErrorResolver();
+      const success = await resolver.resolveAllErrors();
+      
+      if (success) {
+        console.log('\n🎉 RÉSOLUTION AUTOMATIQUE RÉUSSIE !');
+        console.log('✅ Application prête pour le déploiement');
+        process.exit(0);
+      } else {
+        console.log('\n⚠️  RÉSOLUTION PARTIELLE');
+        console.log('📋 Certaines erreurs nécessitent une intervention manuelle');
+        process.exit(1);
+      }
+      
     } catch (error) {
-      console.log('⚠️  Erreur lecture tsconfig.json, conservation de l\'existant');
+      console.error('\n❌ ERREUR CRITIQUE dans le résolveur dynamique:');
+      console.error(`Message: ${error.message}`);
+      console.error(`Stack: ${error.stack}`);
+      
+      console.log('\n🔍 Diagnostic:');
+      console.log('- Vérifiez que npm/node fonctionne correctement');
+      console.log('- Vérifiez les permissions des fichiers');
+      console.log('- Vérifiez que src/lib/prisma-service.ts existe');
+      
+      process.exit(1);
     }
-  }
+  })();
 }
 
-// ====================================
-// CORRECTION SPÉCIFIQUE AUTH CONTEXT
-// ====================================
-
-function fixAuthContextIfNeeded() {
-  console.log('🔧 Vérification et correction AuthContext...');
-  
-  const authContextPath = path.join(__dirname, '../src/context/AuthContext.tsx');
-  
-  if (!fs.existsSync(authContextPath)) {
-    console.log('⚠️  AuthContext.tsx introuvable - sera créé par migrateAuthToApi.js');
-    return;
-  }
-  
-  let content = fs.readFileSync(authContextPath, 'utf-8');
-  let hasChanges = false;
-  
-  // S'assurer que l'interface est complète
-  if (!content.includes('loading: boolean')) {
-    console.log('⚠️  Propriété loading manquante dans AuthContextType');
-  }
-  
-  // Ajouter des alias pour compatibilité
-  const aliasSection = `
-// Alias pour compatibilité
-export const useAuthCompat = () => {
-  const auth = useAuth();
-  return {
-    ...auth,
-    isLoading: auth.loading,
-    currentUser: auth.user,
-    authError: auth.error
-  };
-};`;
-  
-  if (!content.includes('useAuthCompat')) {
-    content += aliasSection;
-    hasChanges = true;
-    console.log('✅ Ajouté alias de compatibilité useAuthCompat');
-  }
-  
-  if (hasChanges) {
-    fs.writeFileSync(authContextPath, content, 'utf-8');
-  }
-}
-
-// ====================================
-// EXÉCUTION PRINCIPALE
-// ====================================
-
-try {
-  console.log('🚀 Démarrage correction TypeScript intelligente...\n');
-  
-  // 1. Créer/optimiser tsconfig.json
-  createTsConfigIfMissing();
-  
-  // 2. Analyser AuthContext pour générer les mappings
-  console.log('📊 Analyse AuthContext...');
-  const authProperties = analyzeAuthContext();
-  const authMappings = generateAuthPropertyMappings(authProperties);
-  
-  console.log(`📋 ${Object.keys(authMappings).length} mappings auth générés`);
-  
-  // 3. Corriger AuthContext si nécessaire
-  fixAuthContextIfNeeded();
-  
-  // 4. Scanner et corriger tous les fichiers
-  console.log('\n🔍 Scan et correction des erreurs TypeScript...');
-  const fixedFiles = scanAndFixDirectory(srcDir, authMappings);
-  
-  // 5. Correction spécifique du fichier dashboard mentionné dans l'erreur
-  const dashboardPath = path.join(__dirname, '../src/app/(app)/admin/dashboard/page.tsx');
-  if (fs.existsSync(dashboardPath)) {
-    console.log('\n🎯 Correction spécifique du dashboard...');
-    if (fixTypescriptErrors(dashboardPath, authMappings)) {
-      console.log('✅ Dashboard corrigé');
-    }
-  }
-  
-  console.log('\n' + '='.repeat(50));
-  console.log(`🎉 Correction TypeScript INTELLIGENTE terminée !`);
-  console.log(`📊 ${fixedFiles} fichier(s) corrigé(s)`);
-  
-  if (Object.keys(authMappings).length > 0) {
-    console.log('\n🔐 Corrections AuthContext:');
-    Object.entries(authMappings).forEach(([from, to]) => {
-      console.log(`   ${from} → ${to}`);
-    });
-  }
-  
-  console.log('\n✅ Le build Next.js devrait maintenant passer !');
-  console.log('🚀 Application prête pour le déploiement');
-  
-} catch (error) {
-  console.error('❌ Erreur lors de la correction TypeScript:', error.message);
-  console.error('Stack:', error.stack);
-  process.exit(1);
-}
+module.exports = DynamicErrorResolver;
