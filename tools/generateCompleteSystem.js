@@ -55,7 +55,27 @@ function runScript(scriptName, description) {
   } catch (error) {
     console.error(`❌ Erreur pendant : ${description}`);
     console.error(`Script: ${scriptName}`);
-    console.error(`Erreur: ${error.message}`);
+    console.error(`Code d'erreur: ${error.status}`);
+    
+    // Diagnostic supplémentaire pour les scripts critiques
+    if (scriptName.includes('generatePrismaServiceFromData')) {
+      console.log('\n🔍 Diagnostic prisma-service:');
+      const servicePath = path.join(__dirname, '../src/lib/prisma-service.ts');
+      console.log(`- Service existe: ${fs.existsSync(servicePath)}`);
+      if (fs.existsSync(servicePath)) {
+        const size = fs.statSync(servicePath).size;
+        console.log(`- Taille: ${size} bytes`);
+      }
+      
+      const typesPath = path.join(__dirname, '../src/lib/types.ts');
+      console.log(`- types.ts existe: ${fs.existsSync(typesPath)}`);
+      if (fs.existsSync(typesPath)) {
+        const content = fs.readFileSync(typesPath, 'utf-8');
+        const interfaceCount = (content.match(/export\s+interface\s+\w+/g) || []).length;
+        console.log(`- Interfaces détectées: ${interfaceCount}`);
+      }
+    }
+    
     process.exit(1);
   }
 }
