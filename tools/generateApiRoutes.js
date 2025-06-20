@@ -70,9 +70,15 @@ import { prisma } from '@/lib/prisma-service';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    const idParam = searchParams.get('id');
     
-    if (id) {
+    if (idParam) {
+      // Convertir l'ID en nombre
+      const id = parseInt(idParam, 10);
+      if (isNaN(id)) {
+        return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+      }
+      
       // Récupérer un ${modelName} par ID
       const ${camelModel} = await prisma.${camelModel}.findUnique({ 
         where: { id: id }
@@ -133,10 +139,15 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    const idParam = searchParams.get('id');
     
-    if (!id) {
+    if (!idParam) {
       return NextResponse.json({ error: 'ID requis pour la mise à jour' }, { status: 400 });
+    }
+    
+    const id = parseInt(idParam, 10);
+    if (isNaN(id)) {
+      return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
     }
     
     const data = await request.json();
@@ -168,10 +179,15 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    const idParam = searchParams.get('id');
     
-    if (!id) {
+    if (!idParam) {
       return NextResponse.json({ error: 'ID requis pour la suppression' }, { status: 400 });
+    }
+    
+    const id = parseInt(idParam, 10);
+    if (isNaN(id)) {
+      return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
     }
     
     await prisma.${camelModel}.delete({
