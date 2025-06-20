@@ -230,6 +230,56 @@ datasource db {
   return schema;
 }
 
+function generatePrismaModelDynamically(modelName, fields, relations, allRelations) {
+  let model = `// ${modelName} model - Généré DYNAMIQUEMENT\n`;
+  model += `model ${modelName} {\n`;
+  
+  // ID obligatoire avec auto-increment - plus compatible
+  model += `  id        Int      @id @default(autoincrement())\n`;
+  
+  // Champs de l'interface
+  fields.forEach(field => {
+    if (field.name === 'id') return; // Éviter les doublons
+    
+    let prismaType = mapToPrismaType(field.type, field.name, field.optional);
+    if (field.optional) prismaType += '?';
+    
+    let attributes = '';
+    if (field.name === 'email') attributes = ' @unique';
+    
+    // Ajuster les types de relations pour utiliser Int au lieu de String
+    if (field.name.endsWith('Id') && field.name !== 'id') {
+      prismaType = 'Int' + (field.optional ? '?' : '');
+    }
+    
+    model += `  ${field.name.padEnd(15)} ${prismaType.padEnd(12)}${attributes}\n`;
+  });
+  
+  // Relations détectées (belongsTo)
+  if (Array.isArray(relations)) {
+    relations.forEach(relation => {
+      if (relation.type === 'belongsTo') {
+        const relatedField = relation.field.replace(/Id$/, '');
+        model += `  ${relatedField.padEnd(15)} ${relation.relatedModel}${relation.optional ? '?' : ''} @relation("${relation.relationName}", fields: [${relation.field}], references: [id])\n`;
+      }
+    });
+  }
+  
+  // Relations inverses (hasMany)
+  const reverseRelations = findReverseRelations(modelName, allRelations);
+  reverseRelations.forEach(reverseRel => {
+    const pluralField = reverseRel.sourceModel.toLowerCase() + 's';
+    model += `  ${pluralField.padEnd(15)} ${reverseRel.sourceModel}[] @relation("${reverseRel.relationName}")\n`;
+  });
+  
+  // Timestamps
+  model += `  createdAt DateTime @default(now())\n`;
+  model += `  updatedAt DateTime @updatedAt\n`;
+  model += `}\n`;
+  
+  return model;
+}
+
 // Créer le répertoire prisma
 const prismaDir = path.join(__dirname, '../prisma');
 if (!fs.existsSync(prismaDir)) {
