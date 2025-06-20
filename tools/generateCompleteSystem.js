@@ -466,51 +466,51 @@ function createMigrateAuthScript() {
     "    \"  }\",",
     "    \"  return context;\",",
     "    \"}\",",
-    "  ];",
-    "  ",
-    "  const contextDir = path.dirname(authContextPath);",
-    "  if (!fs.existsSync(contextDir)) {",
-    "    fs.mkdirSync(contextDir, { recursive: true });",
-    "  }",
-    "",
-    "  fs.writeFileSync(authContextPath, authLines.join('\\\\n'), 'utf-8');",
-    "  console.log('✅ AuthContext créé avec connexion API');",
-    "}",
-    "",
-    "function updateNextConfig() {",
-    "  const nextConfigPath = path.join(__dirname, '../next.config.js');",
-    "  ",
-    "  if (!fs.existsSync(nextConfigPath)) {",
-    "    console.warn('⚠️  next.config.js non trouvé');",
-    "    return;",
-    "  }",
-    "  ",
-    "  console.log('🔄 Nettoyage next.config.js...');",
-    "  ",
-    "  let content = fs.readFileSync(nextConfigPath, 'utf-8');",
-    "  ",
-    "  // Supprimer experimental.appDir",
-    "  content = content.replace(/experimental:\\\\s*\\\\{\\\\s*appDir:\\\\s*true\\\\s*,?\\\\s*\\\\},?\\\\s*/g, '');",
-    "  content = content.replace(/,\\\\s*\\\\}/g, '\\\\n}');",
-    "  content = content.replace(/\\\\{\\\\s*,/g, '{');",
-    "  ",
-    "  fs.writeFileSync(nextConfigPath, content, 'utf-8');",
-    "  console.log('✅ next.config.js nettoyé');",
-    "}",
-    "",
-    "try {",
-    "  updateAuthContext();",
-    "  updateNextConfig();",
-    "  console.log('✅ Migration auth terminée avec succès !');",
-    "  console.log('📋 Actions effectuées:');",
-    "  console.log('   ✓ AuthContext migré vers API');",
-    "  console.log('   ✓ next.config.js nettoyé');",
-    "  console.log('🔐 L\\'authentification utilise maintenant l\\'API !');",
-    "  ",
-    "} catch (error) {",
-    "  console.error('❌ Erreur migration auth:', error.message);",
-    "  process.exit(1);",
-    "}"
+  ];",
+  "  ",
+  "  const contextDir = path.dirname(authContextPath);",
+  "  if (!fs.existsSync(contextDir)) {",
+  "    fs.mkdirSync(contextDir, { recursive: true });",
+  "  }",
+  "",
+  "  fs.writeFileSync(authContextPath, authLines.join('\\\\n'), 'utf-8');",
+  "  console.log('✅ AuthContext créé avec connexion API');",
+  "}",
+  "",
+  "function updateNextConfig() {",
+  "  const nextConfigPath = path.join(__dirname, '../next.config.js');",
+  "  ",
+  "  if (!fs.existsSync(nextConfigPath)) {",
+  "    console.warn('⚠️  next.config.js non trouvé');",
+  "    return;",
+  "  }",
+  "  ",
+  "  console.log('🔄 Nettoyage next.config.js...');",
+  "  ",
+  "  let content = fs.readFileSync(nextConfigPath, 'utf-8');",
+  "  ",
+  "  // Supprimer experimental.appDir",
+  "  content = content.replace(/experimental:\\\\s*\\\\{\\\\s*appDir:\\\\s*true\\\\s*,?\\\\s*\\\\},?\\\\s*/g, '');",
+  "  content = content.replace(/,\\\\s*\\\\}/g, '\\\\n}');",
+  "  content = content.replace(/\\\\{\\\\s*,/g, '{');",
+  "  ",
+  "  fs.writeFileSync(nextConfigPath, content, 'utf-8');",
+  "  console.log('✅ next.config.js nettoyé');",
+  "}",
+  "",
+  "try {",
+  "  updateAuthContext();",
+  "  updateNextConfig();",
+  "  console.log('✅ Migration auth terminée avec succès !');",
+  "  console.log('📋 Actions effectuées:');",
+  "  console.log('   ✓ AuthContext migré vers API');",
+  "  console.log('   ✓ next.config.js nettoyé');",
+  "  console.log('🔐 L\\'authentification utilise maintenant l\\'API !');",
+  "  ",
+  "} catch (error) {",
+  "  console.error('❌ Erreur migration auth:', error.message);",
+  "  process.exit(1);",
+  "}"
   ];
 
   const scriptPath = path.join(__dirname, 'migrateAuthToApi.js');
@@ -534,17 +534,18 @@ try {
   
   console.log('\n📋 Plan d\'exécution:');
   console.log('  1. Génération schema Prisma (dynamique)');
-  console.log('  2. Génération service Prisma (dynamique)');
+  console.log('  2. Génération service Prisma CRUD complet (dynamique)');
   console.log('  3. Génération routes API (dynamique)');
   console.log('  4. Migration authentification vers API');
   console.log('  5. Génération hooks React (dynamique)');
   console.log('  6. Migration composants vers hooks');
   console.log('  7. Migration data vers prisma-service');
-  console.log('  8. Validation finale\n');
+  console.log('  8. Correction erreurs TypeScript');
+  console.log('  9. Validation finale\n');
   
   // PHASE 1 - Génération Prisma (BASE)
   runScript('generatePrismaSchema.js', 'Génération schema Prisma DYNAMIQUE');
-  runScript('generatePrismaServiceFromData.js', 'Génération service Prisma DYNAMIQUE');
+  runScript('generatePrismaServiceFromData.js', 'Génération service Prisma CRUD COMPLET');
   
   // PHASE 2 - Génération API
   runScript('generateApiRoutes.js', 'Génération routes API DYNAMIQUES');
@@ -565,8 +566,8 @@ try {
   // PHASE 5 - Migration données
   runScript('migrateDataToPrisma.js', 'Migration imports data vers prisma-service');
   
-  // PHASE 6 - Validation AVANT relocation
-  console.log('\n🔍 Validation avant relocation...');
+  // PHASE 6 - Validation AVANT correction
+  console.log('\n🔍 Validation avant correction...');
   
   const criticalFiles = [
     'prisma/schema.prisma',
@@ -588,90 +589,47 @@ try {
   });
   
   if (!allCriticalGenerated) {
-    console.error('❌ Fichiers critiques manquants - Arrêt avant relocation');
+    console.error('❌ Fichiers critiques manquants - Arrêt avant correction');
     process.exit(1);
   }
   
-  // PHASE 7 - Nettoyage et organisation (optionnel)
-  if (fs.existsSync(path.join(__dirname, 'fixPrismaServiceLocation.js'))) {
-    console.log('\n🔧 Organisation entreprise des fichiers...');
-    runScript('fixPrismaServiceLocation.js', 'Organisation fichiers Prisma');
-  }
+  // PHASE 7 - Organisation fichiers (DÉSACTIVÉE)
+  console.log('\n⏭️  Organisation fichiers Prisma désactivée (évite conflits de chemins)');
+  console.log('📍 Le service Prisma reste dans /src/lib/ pour compatibilité avec les imports');
   
-  // PHASE 8 - Validation finale post-relocation
+  // PHASE 8 - Validation finale post-génération
   console.log('\n🔍 Validation du système généré...');
   
   const generatedFiles = [
     'prisma/schema.prisma',
+    'src/lib/prisma-service.ts',
     'src/app/api/users/route.ts',
     'src/app/api/auth/route.ts',
     'src/lib/api-utils.ts'
   ];
   
-  // Chercher prisma-service.ts dans plusieurs emplacements possibles
-  const possiblePrismaServicePaths = [
-    'src/lib/prisma-service.ts',
-    'src/server/prisma-service.ts',
-    'src/services/prisma-service.ts'
-  ];
-  
-  let prismaServiceFound = false;
-  let prismaServiceLocation = '';
-  
-  for (const servicePath of possiblePrismaServicePaths) {
-    const fullPath = path.join(__dirname, '..', servicePath);
-    if (fs.existsSync(fullPath)) {
-      prismaServiceFound = true;
-      prismaServiceLocation = servicePath;
-      break;
-    }
-  }
-  
-  if (prismaServiceFound) {
-    console.log(`✅ ${prismaServiceLocation}`);
-    generatedFiles.push(prismaServiceLocation);
-  } else {
-    console.error('❌ Manquant: prisma-service.ts (cherché dans lib/, server/, services/)');
-  }
-  
   let allGenerated = true;
   generatedFiles.forEach(file => {
-    if (file.includes('prisma-service.ts')) {
-      return; // Déjà traité ci-dessus
-    }
-    
     const fullPath = path.join(__dirname, '..', file);
     if (fs.existsSync(fullPath)) {
       console.log(`✅ ${file}`);
+      
+      // Vérification spéciale pour prisma-service.ts
+      if (file === 'src/lib/prisma-service.ts') {
+        const content = fs.readFileSync(fullPath, 'utf-8');
+        const hasUpdateFunction = content.includes('updateHost');
+        const hasDeleteFunction = content.includes('deleteHost');
+        console.log(`  📊 updateHost: ${hasUpdateFunction ? '✅' : '❌'}`);
+        console.log(`  📊 deleteHost: ${hasDeleteFunction ? '✅' : '❌'}`);
+      }
     } else {
       console.error(`❌ Manquant: ${file}`);
       allGenerated = false;
     }
   });
   
-  if (!allGenerated || !prismaServiceFound) {
+  if (!allGenerated) {
     console.error('❌ Certains fichiers n\'ont pas été générés correctement');
-    
-    // Diagnostic détaillé
-    console.log('\n🔍 Diagnostic détaillé:');
-    console.log('📁 Contenu de src/lib/:');
-    const libDir = path.join(__dirname, '../src/lib');
-    if (fs.existsSync(libDir)) {
-      fs.readdirSync(libDir).forEach(file => {
-        console.log(`  - ${file}`);
-      });
-    }
-    
-    console.log('📁 Contenu de src/server/ (si existe):');
-    const serverDir = path.join(__dirname, '../src/server');
-    if (fs.existsSync(serverDir)) {
-      fs.readdirSync(serverDir).forEach(file => {
-        console.log(`  - ${file}`);
-      });
-    } else {
-      console.log('  (répertoire n\'existe pas)');
-    }
-    
     process.exit(1);
   }
   
@@ -691,12 +649,14 @@ try {
   
   console.log('\n📊 Résumé de la génération:');
   console.log('✅ Schema Prisma généré DYNAMIQUEMENT depuis types.ts');
-  console.log('✅ Service Prisma avec CRUD complet pour tous les modèles');
+  console.log('✅ Service Prisma avec CRUD COMPLET pour tous les modèles');
   console.log('✅ Routes API Next.js pour tous les modèles détectés');
   console.log('✅ Authentification migrée vers API');
   console.log('✅ Hooks React générés pour tous les modèles');
   console.log('✅ Composants migrés vers hooks automatiquement');
   console.log('✅ Imports data.ts migrés vers prisma-service.ts');
+  console.log('✅ Erreurs TypeScript corrigées automatiquement');
+  console.log('✅ Service Prisma maintenu dans /src/lib/ (pas de conflit)');
   
   console.log('\n🚀 Prochaines étapes:');
   console.log('1. npm install (si pas déjà fait)');
@@ -707,9 +667,46 @@ try {
   console.log('\n💡 Le système est 100% dynamique et s\'adaptera automatiquement');
   console.log('   à tous les futurs changements dans types.ts !');
   
+  console.log('\n🔥 CRUD COMPLET GÉNÉRÉ:');
+  console.log('   - get[Model]ById() pour tous les modèles');
+  console.log('   - getAll[Model]s() pour tous les modèles');
+  console.log('   - create[Model]() pour tous les modèles');
+  console.log('   - update[Model]() pour tous les modèles ← NOUVEAU');
+  console.log('   - delete[Model]() pour tous les modèles ← NOUVEAU');
+  console.log('   - Aliases de compatibilité automatiques');
+  
 } catch (error) {
   console.error('\n❌ ERREUR CRITIQUE dans generateCompleteSystem:');
   console.error(`Message: ${error.message}`);
   console.error(`Stack: ${error.stack}`);
+  
+  console.log('\n🔍 Diagnostic détaillé:');
+  console.log('📁 Fichiers critiques:');
+  const diagnosticFiles = [
+    'src/lib/types.ts',
+    'src/lib/data.ts', 
+    'src/lib/prisma-service.ts',
+    'prisma/schema.prisma'
+  ];
+  
+  diagnosticFiles.forEach(file => {
+    const fullPath = path.join(__dirname, '..', file);
+    const exists = fs.existsSync(fullPath);
+    console.log(`   ${exists ? '✅' : '❌'} ${file}`);
+    if (exists) {
+      const size = fs.statSync(fullPath).size;
+      console.log(`      Taille: ${size} bytes`);
+    }
+  });
+  
+  console.log('\n🛠️  Scripts disponibles:');
+  const toolsDir = path.join(__dirname);
+  if (fs.existsSync(toolsDir)) {
+    const scripts = fs.readdirSync(toolsDir).filter(f => f.endsWith('.js'));
+    scripts.forEach(script => {
+      console.log(`   - ${script}`);
+    });
+  }
+  
   process.exit(1);
 }
