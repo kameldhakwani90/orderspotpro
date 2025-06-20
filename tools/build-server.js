@@ -356,9 +356,16 @@ try {
     run("npx prisma generate", "Génération client Prisma");
   }
 
-  // PHASE 4 — BUILD ET DÉMARRAGE
+  // PHASE 4 — CORRECTION GÉNÉRIQUE DES EXPORTS MANQUANTS
   console.log("\n" + "=".repeat(60));
-  console.log("🚀 PHASE 4: BUILD ET DÉMARRAGE");
+  console.log("🔧 PHASE 4: CORRECTION EXPORTS MANQUANTS");
+  console.log("=".repeat(60));
+  
+  run("node tools/genericMissingExportsFixer.js", "Correction générique exports manquants");
+
+  // PHASE 5 — BUILD ET DÉMARRAGE
+  console.log("\n" + "=".repeat(60));
+  console.log("🚀 PHASE 5: BUILD ET DÉMARRAGE");
   console.log("=".repeat(60));
   
   run("npm run build", "Build Next.js final");
@@ -377,6 +384,7 @@ try {
   console.log("✅ Authentification fonctionnelle");
   console.log("✅ Hooks React pour tous les modèles");
   console.log("✅ Migration automatique des composants");
+  console.log("✅ Correction automatique des exports manquants");
   
   if (!dbConnected) {
     console.log("\n⚠️  ATTENTION: Base de données non accessible");
@@ -390,11 +398,12 @@ try {
   console.error(`Message: ${error.message}`);
   console.error(`Stack: ${error.stack}`);
   
-  console.log("\n🔧 Tentative de diagnostic...");
+  console.log("\n🔍 Tentative de diagnostic...");
   console.log("📁 Vérifiez que ces fichiers existent:");
   console.log("   - src/lib/types.ts");
   console.log("   - src/lib/data.ts");
   console.log("   - tools/generateCompleteSystem.js");
+  console.log("   - tools/genericMissingExportsFixer.js");
   
   process.exit(1);
 }
