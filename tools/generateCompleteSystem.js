@@ -60,6 +60,32 @@ function runScript(scriptName, description) {
   }
 }
 
+function createSimpleAuthMigration() {
+  const authContextPath = path.join(__dirname, '../src/context/AuthContext.tsx');
+  const nextConfigPath = path.join(__dirname, '../next.config.js');
+  
+  // Créer le répertoire context s'il n'existe pas
+  const contextDir = path.dirname(authContextPath);
+  if (!fs.existsSync(contextDir)) {
+    fs.mkdirSync(contextDir, { recursive: true });
+  }
+  
+  // Contenu AuthContext simple
+  const authContent = "'use client';\n\nimport React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';\n\ninterface User {\n  id: string;\n  email: string;\n  nom: string;\n  role: string;\n  hostId?: string;\n  host?: any;\n  [key: string]: any;\n}\n\ninterface AuthContextType {\n  user: User | null;\n  loading: boolean;\n  error: string | null;\n  login: (email: string, password: string) => Promise<boolean>;\n  logout: () => void;\n  clearError: () => void;\n}\n\nconst AuthContext = createContext<AuthContextType | undefined>(undefined);\n\nexport function AuthProvider({ children }: { children: ReactNode }) {\n  const [user, setUser] = useState<User | null>(null);\n  const [loading, setLoading] = useState(false);\n  const [error, setError] = useState<string | null>(null);\n\n  useEffect(() => {\n    const savedUser = localStorage.getItem('user');\n    if (savedUser) {\n      try {\n        setUser(JSON.parse(savedUser));\n      } catch (error) {\n        localStorage.removeItem('user');\n      }\n    }\n  }, []);\n\n  const login = async (email: string, password: string) => {\n    try {\n      setLoading(true);\n      setError(null);\n      \n      const response = await fetch('/api/auth', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ email, motDePasse: password, action: 'login' })\n      });\n      \n      const data = await response.json();\n      \n      if (!response.ok || data.error) {\n        setError(data.error || 'Erreur de connexion');\n        return false;\n      }\n      \n      if (data.user) {\n        setUser(data.user);\n        localStorage.setItem('user', JSON.stringify(data.user));\n        return true;\n      }\n      \n      setError('Réponse invalide du serveur');\n      return false;\n    } catch (error) {\n      setError('Erreur de connexion');\n      return false;\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  const logout = () => {\n    setUser(null);\n    setError(null);\n    localStorage.removeItem('user');\n  };\n\n  const clearError = () => {\n    setError(null);\n  };\n\n  return (\n    <AuthContext.Provider value={{\n      user,\n      loading,\n      error,\n      login,\n      logout,\n      clearError\n    }}>\n      {children}\n    </AuthContext.Provider>\n  );\n}\n\nexport function useAuth() {\n  const context = useContext(AuthContext);\n  if (context === undefined) {\n    throw new Error('useAuth must be used within an AuthProvider');\n  }\n  return context;\n}";
+  
+  fs.writeFileSync(authContextPath, authContent, 'utf-8');
+  console.log('✅ AuthContext créé avec API');
+  
+  // Nettoyer next.config.js
+  if (fs.existsSync(nextConfigPath)) {
+    let content = fs.readFileSync(nextConfigPath, 'utf-8');
+    content = content.replace(/experimental:\s*\{\s*appDir:\s*true\s*,?\s*\},?\s*/g, '');
+    content = content.replace(/,\s*\}/g, '\n}');
+    fs.writeFileSync(nextConfigPath, content, 'utf-8');
+    console.log('✅ next.config.js nettoyé');
+  }
+}
+
 function createMissingDirectories() {
   console.log('📁 Création des répertoires nécessaires...');
   
@@ -310,14 +336,9 @@ try {
   // PHASE 2 - Génération API
   runScript('generateApiRoutes.js', 'Génération routes API DYNAMIQUES');
   
-  // PHASE 3 - Migration Auth
-  if (fs.existsSync(path.join(__dirname, 'migrateAuthToApi.js'))) {
-    runScript('migrateAuthToApi.js', 'Migration authentification vers API');
-  } else {
-    console.log('⚠️  migrateAuthToApi.js non trouvé - création automatique...');
-    createMigrateAuthScript();
-    runScript('migrateAuthToApi.js', 'Migration authentification vers API');
-  }
+  // PHASE 3 - Migration Auth - Solution simple
+  console.log('\n🔐 Migration authentification vers API...');
+  createSimpleAuthMigration();
   
   // PHASE 4 - Hooks et Components
   runScript('generateReactHooks.js', 'Génération hooks React DYNAMIQUES');
