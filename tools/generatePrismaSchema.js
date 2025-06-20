@@ -138,7 +138,27 @@ function mapToPrismaType(tsType, fieldName, isOptional) {
   return 'String';
 }
 
-function generatePrismaModelDynamically(modelName, fields, relations) {
+function findReverseRelations(targetModel, allRelations) {
+  const reverseRels = [];
+  
+  // allRelations est une Map, pas un array
+  allRelations.forEach((relations, sourceModel) => {
+    if (Array.isArray(relations)) {
+      relations.forEach(relation => {
+        if (relation.relatedModel === targetModel && relation.type === 'belongsTo') {
+          reverseRels.push({
+            sourceModel: sourceModel,
+            relationName: relation.relationName
+          });
+        }
+      });
+    }
+  });
+  
+  return reverseRels;
+}
+
+function generatePrismaModelDynamically(modelName, fields, relations, allRelations) {
   let model = `// ${modelName} model - Généré DYNAMIQUEMENT\n`;
   model += `model ${modelName} {\n`;
   
@@ -158,16 +178,18 @@ function generatePrismaModelDynamically(modelName, fields, relations) {
     model += `  ${field.name.padEnd(15)} ${prismaType.padEnd(12)}${attributes}\n`;
   });
   
-  // Relations détectées
-  relations.forEach(relation => {
-    if (relation.type === 'belongsTo') {
-      const relatedField = relation.field.replace(/Id$/, '');
-      model += `  ${relatedField.padEnd(15)} ${relation.relatedModel}${relation.optional ? '?' : ''} @relation("${relation.relationName}", fields: [${relation.field}], references: [id])\n`;
-    }
-  });
+  // Relations détectées (belongsTo)
+  if (Array.isArray(relations)) {
+    relations.forEach(relation => {
+      if (relation.type === 'belongsTo') {
+        const relatedField = relation.field.replace(/Id$/, '');
+        model += `  ${relatedField.padEnd(15)} ${relation.relatedModel}${relation.optional ? '?' : ''} @relation("${relation.relationName}", fields: [${relation.field}], references: [id])\n`;
+      }
+    });
+  }
   
   // Relations inverses (hasMany)
-  const reverseRelations = findReverseRelations(modelName, relations);
+  const reverseRelations = findReverseRelations(modelName, allRelations);
   reverseRelations.forEach(reverseRel => {
     const pluralField = reverseRel.sourceModel.toLowerCase() + 's';
     model += `  ${pluralField.padEnd(15)} ${reverseRel.sourceModel}[] @relation("${reverseRel.relationName}")\n`;
@@ -179,23 +201,6 @@ function generatePrismaModelDynamically(modelName, fields, relations) {
   model += `}\n`;
   
   return model;
-}
-
-function findReverseRelations(targetModel, allRelations) {
-  const reverseRels = [];
-  
-  allRelations.forEach((relations, sourceModel) => {
-    relations.forEach(relation => {
-      if (relation.relatedModel === targetModel && relation.type === 'belongsTo') {
-        reverseRels.push({
-          sourceModel: sourceModel,
-          relationName: relation.relationName
-        });
-      }
-    });
-  });
-  
-  return reverseRels;
 }
 
 function generateCompletePrismaSchema(interfaces) {
@@ -218,7 +223,7 @@ datasource db {
   // Générer tous les modèles dynamiquement
   interfaces.forEach((fields, modelName) => {
     const modelRelations = relations.get(modelName) || [];
-    schema += generatePrismaModelDynamically(modelName, fields, modelRelations);
+    schema += generatePrismaModelDynamically(modelName, fields, modelRelations, relations);
     schema += '\n';
   });
   
