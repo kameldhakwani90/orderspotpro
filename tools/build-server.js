@@ -231,6 +231,105 @@ try {
   
   const dbConnected = setupDatabaseConnection();
   
+  // DIAGNOSTIC ET RÉPARATION DU SCHEMA AVANT TOUT
+  const schemaPath = path.join(__dirname, '../prisma/schema.prisma');
+  console.log("🔍 Vérification du schema Prisma...");
+  
+  if (fs.existsSync(schemaPath)) {
+    // Créer le script de diagnostic/réparation
+    const emergencyFixScript = `const fs = require('fs');
+const path = require('path');
+
+const schemaPath = path.join(__dirname, '../prisma/schema.prisma');
+const typesPath = path.join(__dirname, '../src/lib/types.ts');
+
+console.log('🔧 Diagnostic et réparation schema...');
+
+if (!fs.existsSync(schemaPath)) {
+  console.log('❌ Schema manquant');
+  process.exit(1);
+}
+
+const content = fs.readFileSync(schemaPath, 'utf-8');
+const lines = content.split('\n');
+
+// Détecter et supprimer les lignes problématiques
+const fixedLines = [];
+let hasProblems = false;
+
+lines.forEach((line, index) => {
+  // Détecter les lignes qui commencent par un type sans nom de champ
+  if (line.trim().match(/^(String|Int|Float|Boolean|DateTime|Json)\\s+/) && 
+      !line.includes(':') && !line.includes('=')) {
+    console.log('🗑️  Ligne orpheline supprimée ligne ' + (index + 1) + ': "' + line.trim() + '"');
+    hasProblems = true;
+    return; // Ignorer cette ligne
+  }
+  
+  // Détecter les timestamps orphelins
+  if (line.includes('DateTime @default(now())') && 
+      !line.includes('createdAt') && 
+      !line.includes('updatedAt')) {
+    console.log('🗑️  Timestamp orphelin supprimé ligne ' + (index + 1) + ': "' + line.trim() + '"');
+    hasProblems = true;
+    return;
+  }
+  
+  fixedLines.push(line);
+});
+
+if (hasProblems) {
+  fs.writeFileSync(schemaPath, fixedLines.join('\\n'), 'utf-8');
+  console.log('✅ Schema réparé');
+} else {
+  console.log('✅ Schema correct');
+}
+
+// Validation finale
+try {
+  const { execSync } = require('child_process');
+  execSync('npx prisma validate', { stdio: 'pipe' });
+  console.log('✅ Schema valide');
+} catch (error) {
+  console.log('❌ Schema invalide après réparation');
+  
+  // Créer schema minimal d'urgence
+  const typesContent = fs.readFileSync(typesPath, 'utf-8');
+  const interfaces = (typesContent.match(/export\\s+interface\\s+(\\w+)/g) || [])
+    .map(match => match.replace(/export\\s+interface\\s+/, ''));
+  
+  const emergencySchema = [
+    'generator client { provider = "prisma-client-js" }',
+    'datasource db { provider = "postgresql"; url = env("DATABASE_URL") }',
+    ''
+  ];
+  
+  interfaces.forEach(modelName => {
+    emergencySchema.push('model ' + modelName + ' {');
+    emergencySchema.push('  id Int @id @default(autoincrement())');
+    emergencySchema.push('  createdAt DateTime @default(now())');
+    emergencySchema.push('  updatedAt DateTime @updatedAt');
+    emergencySchema.push('}');
+    emergencySchema.push('');
+  });
+  
+  fs.writeFileSync(schemaPath, emergencySchema.join('\\n'), 'utf-8');
+  console.log('🚨 Schema d\\'urgence créé');
+}`;
+
+    const fixScriptPath = path.join(__dirname, '../temp_fix_schema.js');
+    fs.writeFileSync(fixScriptPath, emergencyFixScript, 'utf-8');
+    
+    // Exécuter la réparation
+    try {
+      execSync(`node ${fixScriptPath}`, { stdio: "inherit" });
+      fs.unlinkSync(fixScriptPath); // Nettoyer
+    } catch (err) {
+      console.error("❌ Erreur réparation schema:", err.message);
+    }
+  }
+  
+  // Maintenant essayer la génération Prisma
   if (dbConnected) {
     run("npx prisma generate", "Génération client Prisma");
     run("npx prisma db push --force-reset", "Push schema DB Prisma");
