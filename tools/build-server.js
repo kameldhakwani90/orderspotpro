@@ -142,6 +142,9 @@ try {
   
   run("node tools/generateCompleteSystem.js", "Génération système complet 100% dynamique");
   
+  // CORRECTION IMMÉDIATE du schema si nécessaire
+  run("node tools/fixSchemaGeneration.js", "Correction relations schema Prisma");
+  
   // VÉRIFICATION IMMÉDIATE du fichier critique
   const prismaServicePath = path.join(__dirname, '../src/lib/prisma-service.ts');
   if (!fs.existsSync(prismaServicePath)) {
@@ -363,6 +366,13 @@ try {
   
   run("node tools/genericMissingExportsFixer.js", "Correction générique exports manquants");
 
+  // PHASE 4.5 — SYNCHRONISATION TYPES/SCHEMA (NOUVEAU)
+  console.log("\n" + "=".repeat(60));
+  console.log("🔧 PHASE 4.5: SYNCHRONISATION TYPES/SCHEMA");
+  console.log("=".repeat(60));
+  
+  run("node tools/fixTypesMismatch.js", "Synchronisation Types/Schema");
+
   // PHASE 5 — BUILD ET DÉMARRAGE
   console.log("\n" + "=".repeat(60));
   console.log("🚀 PHASE 5: BUILD ET DÉMARRAGE");
@@ -385,6 +395,7 @@ try {
   console.log("✅ Hooks React pour tous les modèles");
   console.log("✅ Migration automatique des composants");
   console.log("✅ Correction automatique des exports manquants");
+  console.log("✅ Synchronisation automatique Types/Schema");
   
   if (!dbConnected) {
     console.log("\n⚠️  ATTENTION: Base de données non accessible");
@@ -404,6 +415,7 @@ try {
   console.log("   - src/lib/data.ts");
   console.log("   - tools/generateCompleteSystem.js");
   console.log("   - tools/genericMissingExportsFixer.js");
+  console.log("   - tools/fixTypesMismatch.js");
   
   process.exit(1);
 }
