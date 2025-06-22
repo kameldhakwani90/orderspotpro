@@ -141,6 +141,13 @@ try {
   console.log("=".repeat(60));
   
   run("node tools/generateCompleteSystem.js", "Génération système complet 100% dynamique");
+
+  // PHASE 1.5 — NETTOYAGE DES SOURCES
+console.log("\n" + "=".repeat(60));
+console.log("🧹 PHASE 1.5: NETTOYAGE DES SOURCES");
+console.log("=".repeat(60));
+
+run("node tools/cleanSourceFiles.js", "Nettoyage des fichiers sources");
   
   // VÉRIFICATION IMMÉDIATE du fichier critique
   const prismaServicePath = path.join(__dirname, '../src/lib/prisma-service.ts');
