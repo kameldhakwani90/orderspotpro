@@ -379,6 +379,7 @@ try {
   console.log("=".repeat(60));
   
   run("node tools/fixMissingTypesImports.js", "Correction imports types manquants");
+  run("node tools/fixLucideImports.js", "Correction imports lucide-react");
 
   // PHASE 5 — BUILD ET DÉMARRAGE
   console.log("\n" + "=".repeat(60));
