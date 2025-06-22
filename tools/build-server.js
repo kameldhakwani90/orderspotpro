@@ -114,13 +114,13 @@ function installDependencies() {
 }
 
 function createCorrectSchema() {
-  console.log("\n🔧 Vérification schema Prisma...");
+  console.log("\n🔧 Création schema Prisma ROBUSTE...");
   
   const schemaPath = path.join(__dirname, '../prisma/schema.prisma');
   const typesPath = path.join(__dirname, '../src/lib/types.ts');
   
   if (!fs.existsSync(typesPath)) {
-    console.error("❌ types.ts introuvable - schema par défaut");
+    console.error("❌ types.ts introuvable");
     return;
   }
   
@@ -128,72 +128,89 @@ function createCorrectSchema() {
   const interfaces = (typesContent.match(/export\s+interface\s+(\w+)/g) || [])
     .map(match => match.replace(/export\s+interface\s+/, ''));
   
-  if (interfaces.length === 0) {
-    console.log("⚠️  Aucune interface trouvée dans types.ts");
-    return;
-  }
+  console.log(`📋 ${interfaces.length} interfaces: ${interfaces.join(', ')}`);
   
-  console.log(`📋 ${interfaces.length} interfaces détectées: ${interfaces.join(', ')}`);
+  // TOUJOURS recréer pour éviter corruption
+  const schemaLines = [
+    '// Schema Prisma - Généré automatiquement',
+    'generator client {',
+    '  provider = "prisma-client-js"',
+    '}',
+    '',
+    'datasource db {',
+    '  provider = "postgresql"',
+    '  url = env("DATABASE_URL")',
+    '}',
+    ''
+  ];
   
-  // Créer schema correct si manquant ou invalide
-  let needsSchema = false;
-  
-  if (!fs.existsSync(schemaPath)) {
-    needsSchema = true;
-    console.log("📝 Schema manquant - création nécessaire");
-  } else {
-    const existingSchema = fs.readFileSync(schemaPath, 'utf-8');
-    const hasProblems = existingSchema.includes('DateTime @default(now())') && 
-                       !existingSchema.includes('createdAt DateTime @default(now())');
+  // Générer modèles proprement
+  interfaces.forEach(interfaceName => {
+    if (!interfaceName || interfaceName.length === 0) return;
     
-    if (hasProblems) {
-      needsSchema = true;
-      console.log("🔧 Schema corrompu détecté - recréation nécessaire");
-    }
-  }
-  
-  if (needsSchema) {
-    const schemaLines = [
-      'generator client {',
-      '  provider = "prisma-client-js"',
-      '}',
-      '',
-      'datasource db {',
-      '  provider = "postgresql"',
-      '  url = env("DATABASE_URL")',
-      '}',
-      ''
-    ];
+    schemaLines.push(`model ${interfaceName} {`);
+    schemaLines.push('  id        Int      @id @default(autoincrement())');
     
-    interfaces.forEach(interfaceName => {
-      schemaLines.push(`model ${interfaceName} {`);
-      schemaLines.push('  id        Int      @id @default(autoincrement())');
-      
-      if (interfaceName.toLowerCase().includes('user')) {
-        schemaLines.push('  email     String?  @unique');
-        schemaLines.push('  nom       String?');
-      } else if (interfaceName.toLowerCase().includes('host')) {
-        schemaLines.push('  nom       String?');
-        schemaLines.push('  email     String?');
-      } else {
-        schemaLines.push('  nom       String?');
-      }
-      
-      schemaLines.push('  createdAt DateTime @default(now())');
-      schemaLines.push('  updatedAt DateTime @updatedAt');
-      schemaLines.push('}');
-      schemaLines.push('');
-    });
-    
-    const prismaDir = path.dirname(schemaPath);
-    if (!fs.existsSync(prismaDir)) {
-      fs.mkdirSync(prismaDir, { recursive: true });
+    // Champs spécifiques par type
+    if (interfaceName.toLowerCase().includes('user')) {
+      schemaLines.push('  email     String?  @unique');
+      schemaLines.push('  nom       String?');
+      schemaLines.push('  role      String?');
+    } else if (interfaceName.toLowerCase().includes('host')) {
+      schemaLines.push('  nom       String?');
+      schemaLines.push('  email     String?');
+    } else if (interfaceName.toLowerCase().includes('message')) {
+      schemaLines.push('  contenu   String?');
+      schemaLines.push('  auteur    String?');
+    } else {
+      schemaLines.push('  nom       String?');
     }
     
-    fs.writeFileSync(schemaPath, schemaLines.join('\n'), 'utf-8');
-    console.log("✅ Schema Prisma créé/corrigé");
+    // Timestamps OBLIGATOIRES
+    schemaLines.push('  createdAt DateTime @default(now())');
+    schemaLines.push('  updatedAt DateTime @updatedAt');
+    schemaLines.push('}');
+    schemaLines.push('');
+  });
+  
+  // Créer répertoire + écrire fichier
+  const prismaDir = path.dirname(schemaPath);
+  if (!fs.existsSync(prismaDir)) {
+    fs.mkdirSync(prismaDir, { recursive: true });
+  }
+  
+  const finalSchema = schemaLines.join('\n');
+  fs.writeFileSync(schemaPath, finalSchema, 'utf-8');
+  
+  // VALIDATION immédiate
+  const writtenContent = fs.readFileSync(schemaPath, 'utf-8');
+  const hasOrphanLines = writtenContent.match(/^\s*DateTime\s+@default/m);
+  
+  if (hasOrphanLines) {
+    console.error("❌ Schema encore corrompu - création manuelle");
+    
+    // Schema minimal de secours
+    const emergencySchema = `generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String?  @unique
+  nom       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}`;
+    
+    fs.writeFileSync(schemaPath, emergencySchema, 'utf-8');
+    console.log("🚨 Schema d'urgence appliqué");
   } else {
-    console.log("✅ Schema Prisma existant valide");
+    console.log("✅ Schema Prisma créé proprement");
   }
 }
 
