@@ -252,44 +252,31 @@ function fixLucideVersion() {
   // 4. FIX NEXT.JS CONFIG
   // ====================================
   
-  fixNextConfig() {
-    console.log('\n🔧 4. Configuration Next.js...');
-    
-    const configPath = path.join(this.rootDir, 'next.config.js');
-    
-    const correctConfig = `/** @type {import('next').NextConfig} */
+fixNextConfig() {
+  console.log('\n🔧 4. Configuration Next.js...');
+  
+  const configPath = path.join(this.rootDir, 'next.config.js');
+  
+  const correctConfig = `/** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   
-  // Désactiver l'optimisation problématique
   experimental: {
-    optimizePackageImports: ['@/components/ui', '@/lib', '@/hooks']
+    optimizePackageImports: [] // DÉSACTIVÉ pour éviter bugs lucide
   },
   
   // Configuration webpack pour éviter les erreurs
-  webpack: (config, { isServer }) => {
-    // Fix pour lucide-react
-    config.module.rules.push({
-      test: /\\.m?js$/,
-      resolve: {
-        fullySpecified: false
-      }
-    });
-    
+  webpack: (config) => {
     // Ignorer certains warnings
     config.ignoreWarnings = [
       { module: /lucide-react/ },
       { module: /__barrel_optimize__/ }
     ];
-    
     return config;
   },
   
-  // Transpiler les packages problématiques
-  transpilePackages: ['lucide-react'],
-  
-  // Désactiver strict mode pour éviter certaines erreurs
+  // TypeScript config
   typescript: {
     ignoreBuildErrors: false
   }
@@ -297,9 +284,9 @@ const nextConfig = {
 
 module.exports = nextConfig`;
 
-    fs.writeFileSync(configPath, correctConfig);
-    console.log('  ✅ next.config.js optimisé');
-  }
+  fs.writeFileSync(configPath, correctConfig);
+  console.log('  ✅ next.config.js optimisé');
+}
 
   // ====================================
   // 5. CREATE TSCONFIG IF MISSING
