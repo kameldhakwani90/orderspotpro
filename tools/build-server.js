@@ -382,6 +382,13 @@ try {
   run("node tools/fixMissingTypesImports.js", "Correction imports types manquants");
   run("node tools/dynamicErrorResolver.js", "Résolution complète des erreurs");
 
+  // PHASE 4.8 — FIX FINAL LUCIDE-REACT
+  console.log("\n" + "=".repeat(60));
+  console.log("🔧 PHASE 4.8: FIX FINAL LUCIDE-REACT");
+  console.log("=".repeat(60));
+
+  run("node tools/intelligentLucideFix.js", "Fix final lucide-react");
+  
   // PHASE 5 — BUILD ET DÉMARRAGE
   console.log("\n" + "=".repeat(60));
   console.log("🚀 PHASE 5: BUILD ET DÉMARRAGE");
