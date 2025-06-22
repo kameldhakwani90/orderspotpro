@@ -1,4 +1,3 @@
-
 const { execSync } = require("child_process");
 const fs = require('fs');
 const path = require('path');
@@ -107,7 +106,7 @@ function installDependencies() {
   
   // Forcer version lucide-react compatible
   console.log("🔧 Installation lucide-react version compatible...");
-  run('npm install [email protected] --save', "Installation lucide-react compatible");
+  run('npm install lucide-react@0.263.1 --save', "Installation lucide-react compatible");
   
   // Installation avec legacy-peer-deps pour éviter les conflits
   console.log("📦 Installation avec --legacy-peer-deps...");
