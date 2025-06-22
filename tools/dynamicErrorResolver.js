@@ -19,107 +19,57 @@ class DynamicErrorResolver {
   fixLucideBarrelImports() {
     console.log('\n🔧 1. Correction imports lucide-react...');
     
-    const scanDir = (dir) => {
-      if (!fs.existsSync(dir)) return;
+    try {
+      // MÉTHODE 1: sed direct sur TOUS les fichiers
+      console.log('  📝 Remplacement avec sed...');
+      execSync(`find ${this.srcDir} -name "*.tsx" -o -name "*.ts" | xargs sed -i 's/__barrel_optimize__[^"]*!=!lucide-react/lucide-react/g'`, { stdio: 'inherit' });
       
-      const entries = fs.readdirSync(dir, { withFileTypes: true });
-      entries.forEach(entry => {
-        const fullPath = path.join(dir, entry.name);
-        
-        if (entry.isDirectory() && !['node_modules', '.git', '.next'].includes(entry.name)) {
-          scanDir(fullPath);
-        } else if (entry.isFile() && /\.(tsx?|jsx?)$/.test(entry.name)) {
+      // MÉTHODE 2: perl pour être sûr
+      console.log('  📝 Double vérification avec perl...');
+      execSync(`find ${this.srcDir} -name "*.tsx" -o -name "*.ts" | xargs perl -i -pe 's/"__barrel_optimize__[^"]+"/\"lucide-react\"/g'`, { stdio: 'inherit' });
+      
+      // MÉTHODE 3: Vérification et correction ciblée des fichiers problématiques connus
+      console.log('  📝 Correction ciblée des fichiers problématiques...');
+      const problemFiles = [
+        'app/(app)/host/clients/page.tsx',
+        'app/(app)/host/clients/file/[clientId]/page.tsx'
+      ];
+      
+      problemFiles.forEach(file => {
+        const fullPath = path.join(this.srcDir, file);
+        if (fs.existsSync(fullPath)) {
           let content = fs.readFileSync(fullPath, 'utf-8');
           const originalContent = content;
           
-          // MÉTHODE 1: Remplacement direct et agressif de TOUTE la chaîne __barrel_optimize__
+          // Remplacer TOUTES les formes possibles
           content = content.replace(
-            /"__barrel_optimize__\?names=[^"]+!=!lucide-react"/g,
-            '"lucide-react"'
-          );
-          content = content.replace(
-            /'__barrel_optimize__\?names=[^']+!=!lucide-react'/g,
-            "'lucide-react'"
+            /import\s*\{([^}]+)\}\s*from\s*["']__barrel_optimize__[^"']+["']/g,
+            (match, icons) => `import { ${icons} } from "lucide-react"`
           );
           
-          // MÉTHODE 2: Analyse ligne par ligne pour être SÛR
-          const lines = content.split('\n');
-          const fixedLines = lines.map((line, index) => {
-            // Si la ligne contient __barrel_optimize__ ET lucide-react
-            if (line.includes('__barrel_optimize__') && line.includes('lucide-react')) {
-              console.log(`  🔍 Ligne problématique trouvée (${path.basename(fullPath)}:${index + 1})`);
-              
-              // Extraire TOUT ce qui est entre { et } pour les imports
-              const importMatch = line.match(/import\s*\{([^}]+)\}\s*from/);
-              if (importMatch) {
-                const icons = importMatch[1];
-                // Reconstruire la ligne COMPLÈTEMENT
-                const newLine = `import { ${icons} } from 'lucide-react';`;
-                console.log(`  📝 Remplacé par: ${newLine}`);
-                return newLine;
-              }
-              
-              // Si on n'a pas pu extraire, remplacer brutalement
-              return line.replace(/__barrel_optimize__[^"']+/, 'lucide-react');
-            }
-            return line;
-          });
-          
-          content = fixedLines.join('\n');
-          
-          // MÉTHODE 3: Vérification finale - s'il reste ENCORE du __barrel_optimize__
-          if (content.includes('__barrel_optimize__')) {
-            console.log(`  ⚠️  __barrel_optimize__ persiste dans ${path.basename(fullPath)}, nettoyage forcé...`);
-            
-            // Extraction brutale de tous les imports lucide
-            const allLucideImports = new Set();
-            const importRegex = /import\s*\{([^}]+)\}\s*from\s*["'][^"']*lucide[^"']*["']/g;
-            let match;
-            
-            while ((match = importRegex.exec(originalContent)) !== null) {
-              const icons = match[1].split(',').map(i => i.trim());
-              icons.forEach(icon => allLucideImports.add(icon));
-            }
-            
-            if (allLucideImports.size > 0) {
-              // Remplacer TOUS les imports lucide par un seul import propre
-              content = content.replace(
-                /import\s*\{[^}]+\}\s*from\s*["'][^"']*__barrel_optimize__[^"']*["'];?/g,
-                ''
-              );
-              
-              // Ajouter un import unique et propre en haut du fichier
-              const cleanImport = `import { ${Array.from(allLucideImports).join(', ')} } from 'lucide-react';`;
-              
-              // Trouver où insérer (après 'use client' ou au début)
-              const useClientMatch = content.match(/^['"]use client['"];?\s*$/m);
-              if (useClientMatch) {
-                const insertPos = useClientMatch.index + useClientMatch[0].length;
-                content = content.slice(0, insertPos) + '\n' + cleanImport + content.slice(insertPos);
-              } else {
-                content = cleanImport + '\n' + content;
-              }
-            }
-          }
-          
-          // Sauvegarder si des changements ont été faits
           if (content !== originalContent) {
             fs.writeFileSync(fullPath, content);
+            console.log(`  ✅ Corrigé: ${file}`);
             this.fixedFiles++;
-            console.log(`  ✅ Corrigé: ${path.relative(this.srcDir, fullPath)}`);
-            
-            // Vérification finale
-            const finalContent = fs.readFileSync(fullPath, 'utf-8');
-            if (finalContent.includes('__barrel_optimize__')) {
-              console.error(`  ❌ ERREUR: __barrel_optimize__ toujours présent dans ${fullPath}`);
-              this.detectedIssues.push(`__barrel_optimize__ persiste dans ${fullPath}`);
-            }
           }
         }
       });
-    };
-    
-    scanDir(this.srcDir);
+      
+      // Vérification finale
+      console.log('  🔍 Vérification finale...');
+      const checkResult = execSync(`grep -r "__barrel_optimize__" ${this.srcDir} --include="*.tsx" --include="*.ts" || echo "CLEAN"`, { encoding: 'utf-8' });
+      
+      if (checkResult.trim() === 'CLEAN') {
+        console.log('  ✅ SUCCÈS: Aucun __barrel_optimize__ trouvé !');
+      } else {
+        console.log('  ⚠️  __barrel_optimize__ persiste dans certains fichiers');
+        this.detectedIssues.push('__barrel_optimize__ persiste après correction');
+      }
+      
+    } catch (error) {
+      console.error('  ❌ Erreur correction lucide:', error.message);
+      // Ne pas faire exit(1) pour continuer les autres corrections
+    }
   }
 
   // ====================================
