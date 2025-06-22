@@ -378,6 +378,13 @@ try {
   run("node tools/fixMissingTypesImports.js", "Correction imports types manquants");
   run("node tools/dynamicErrorResolver.js", "Résolution complète des erreurs");
 
+  // PHASE 4.7 — CONFIGURATION NEXT.JS
+  console.log("\n" + "=".repeat(60));
+  console.log("🔧 PHASE 4.7: CONFIGURATION NEXT.JS");
+  console.log("=".repeat(60));
+
+  run("node tools/fixNextConfigBarrel.js", "Configuration Next.js - barrel optimization");
+ 
   // PHASE 5 — BUILD ET DÉMARRAGE
   console.log("\n" + "=".repeat(60));
   console.log("🚀 PHASE 5: BUILD ET DÉMARRAGE");
