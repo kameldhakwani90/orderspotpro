@@ -12,6 +12,11 @@ class DynamicErrorResolver {
     this.detectedIssues = [];
   }
 
+// Version lucide-react compatible FORCÉE
+function fixLucideVersion() {
+  console.log('🔧 Fix version lucide-react...');
+  execSync('npm install [email protected] --save', { stdio: 'inherit' });
+} 
   // ====================================
   // 1. FIX LUCIDE-REACT BARREL IMPORTS
   // ====================================
