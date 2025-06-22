@@ -134,6 +134,7 @@ try {
   
   stopPM2App("orderspot-app");
   installDependencies();
+  run("node tools/fixDependencies.js", "Installation versions compatibles");
 
   // PHASE 1 — GÉNÉRATION COMPLÈTE DU SYSTÈME DYNAMIQUE
   console.log("\n" + "=".repeat(60));
