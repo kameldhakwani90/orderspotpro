@@ -156,6 +156,31 @@ try {
   
   const dbConnected = setupDatabaseConnection();
   
+  // CORRECTION D'URGENCE DU SCHEMA AVANT PRISMA GENERATE
+  console.log("\n🚨 Correction d'urgence du schema Prisma...");
+  const schemaPath = path.join(__dirname, '../prisma/schema.prisma');
+  if (fs.existsSync(schemaPath)) {
+    let schemaContent = fs.readFileSync(schemaPath, 'utf-8');
+    const lines = schemaContent.split('\n');
+    const cleanedLines = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      // Supprimer les lignes orphelines comme "DateTime @default(now())" sans nom
+      if (line.trim() === 'DateTime @default(now())' || 
+          line.trim() === 'String' || 
+          line.trim() === 'Int' || 
+          line.trim() === 'Boolean') {
+        console.log(`  🗑️ Ligne orpheline supprimée: "${line.trim()}" (ligne ${i + 1})`);
+        continue;
+      }
+      cleanedLines.push(line);
+    }
+    
+    fs.writeFileSync(schemaPath, cleanedLines.join('\n'));
+    console.log("✅ Schema nettoyé");
+  }
+  
   if (dbConnected) {
     run("npx prisma generate", "Génération client Prisma");
     run("npx prisma db push --force-reset", "Push schema DB Prisma");
