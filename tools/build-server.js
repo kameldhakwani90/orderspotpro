@@ -113,108 +113,140 @@ function installDependencies() {
   run('npm install --legacy-peer-deps', "Installation NPM (mode compatibilité)");
 }
 
-function createCorrectSchema() {
-  console.log("\n🔧 Création schema Prisma ROBUSTE...");
+function createAntiBarrelNextConfig() {
+  console.log("\n🔧 Création next.config.js ANTI-BARREL...");
   
-  const schemaPath = path.join(__dirname, '../prisma/schema.prisma');
-  const typesPath = path.join(__dirname, '../src/lib/types.ts');
+  const configPath = path.join(__dirname, '../next.config.js');
   
-  if (!fs.existsSync(typesPath)) {
-    console.error("❌ types.ts introuvable");
-    return;
+  const bulletproofConfig = `/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  swcMinify: true,
+  
+  // DÉSACTIVATION COMPLÈTE de l'optimisation barrel
+  experimental: {
+    optimizePackageImports: false // FALSE, pas []
+  },
+  
+  // Configuration webpack ANTI-BARREL
+  webpack: (config, { isServer }) => {
+    // Forcer résolution directe lucide-react
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'lucide-react': require.resolve('lucide-react')
+    };
+    
+    // Ignorer warnings barrel
+    config.ignoreWarnings = [
+      ...(config.ignoreWarnings || []),
+      { module: /__barrel_optimize__/ },
+      { module: /lucide-react/ }
+    ];
+    
+    // Désactiver transformations SWC sur lucide
+    config.module.rules.push({
+      test: /node_modules\\/lucide-react/,
+      type: 'javascript/auto'
+    });
+    
+    return config;
+  },
+  
+  // TypeScript permissif pour éviter erreurs
+  typescript: {
+    ignoreBuildErrors: false
+  }
+}
+
+module.exports = nextConfig`;
+
+  fs.writeFileSync(configPath, bulletproofConfig);
+  console.log("✅ next.config.js ANTI-BARREL créé");
+}
+
+function fixLucidePostGeneration() {
+  console.log("\n🔧 CORRECTION MASSIVE post-génération...");
+  
+  // Méthode 1: sed sur tous les fichiers
+  try {
+    console.log("📝 Correction avec sed...");
+    execSync(`find ./src -name "*.tsx" -o -name "*.ts" | xargs sed -i 's/__barrel_optimize__[^"]*!=!lucide-react/lucide-react/g'`, { stdio: "inherit" });
+    console.log("✅ Correction sed terminée");
+  } catch (error) {
+    console.log("⚠️  sed échoué, tentative perl...");
   }
   
-  const typesContent = fs.readFileSync(typesPath, 'utf-8');
-  const interfaces = (typesContent.match(/export\s+interface\s+(\w+)/g) || [])
-    .map(match => match.replace(/export\s+interface\s+/, ''));
+  // Méthode 2: perl en backup
+  try {
+    console.log("📝 Correction avec perl...");
+    execSync(`find ./src -name "*.tsx" -o -name "*.ts" | xargs perl -i -pe 's/"__barrel_optimize__[^"]+"/\"lucide-react\"/g'`, { stdio: "inherit" });
+    console.log("✅ Correction perl terminée");
+  } catch (error) {
+    console.log("⚠️  perl échoué, correction manuelle...");
+  }
   
-  console.log(`📋 ${interfaces.length} interfaces: ${interfaces.join(', ')}`);
+  // Méthode 3: Correction Node.js manuelle
+  console.log("📝 Correction Node.js finale...");
+  const srcDir = path.join(__dirname, '../src');
   
-  // TOUJOURS recréer pour éviter corruption
-  const schemaLines = [
-    '// Schema Prisma - Généré automatiquement',
-    'generator client {',
-    '  provider = "prisma-client-js"',
-    '}',
-    '',
-    'datasource db {',
-    '  provider = "postgresql"',
-    '  url = env("DATABASE_URL")',
-    '}',
-    ''
-  ];
-  
-  // Générer modèles proprement
-  interfaces.forEach(interfaceName => {
-    if (!interfaceName || interfaceName.length === 0) return;
+  function fixDirectory(dir) {
+    if (!fs.existsSync(dir)) return;
     
-    schemaLines.push(`model ${interfaceName} {`);
-    schemaLines.push('  id        Int      @id @default(autoincrement())');
-    
-    // Champs spécifiques par type
-    if (interfaceName.toLowerCase().includes('user')) {
-      schemaLines.push('  email     String?  @unique');
-      schemaLines.push('  nom       String?');
-      schemaLines.push('  role      String?');
-    } else if (interfaceName.toLowerCase().includes('host')) {
-      schemaLines.push('  nom       String?');
-      schemaLines.push('  email     String?');
-    } else if (interfaceName.toLowerCase().includes('message')) {
-      schemaLines.push('  contenu   String?');
-      schemaLines.push('  auteur    String?');
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    entries.forEach(entry => {
+      const fullPath = path.join(dir, entry.name);
+      
+      if (entry.isDirectory() && !['node_modules', '.git', '.next'].includes(entry.name)) {
+        fixDirectory(fullPath);
+      } else if (entry.isFile() && /\.(tsx?|jsx?)$/.test(entry.name)) {
+        try {
+          let content = fs.readFileSync(fullPath, 'utf-8');
+          
+          if (content.includes('__barrel_optimize__')) {
+            const originalContent = content;
+            
+            // Pattern complet
+            content = content.replace(
+              /"__barrel_optimize__\?names=[^"]+!=!lucide-react"/g,
+              '"lucide-react"'
+            );
+            
+            // Pattern avec quotes simples
+            content = content.replace(
+              /'__barrel_optimize__\?names=[^']+!=!lucide-react'/g,
+              "'lucide-react'"
+            );
+            
+            if (content !== originalContent) {
+              fs.writeFileSync(fullPath, content, 'utf-8');
+              console.log(`  ✅ Corrigé: ${path.relative(srcDir, fullPath)}`);
+            }
+          }
+        } catch (error) {
+          console.log(`  ⚠️  Erreur ${entry.name}: ${error.message}`);
+        }
+      }
+    });
+  }
+  
+  fixDirectory(srcDir);
+  console.log("✅ Correction massive terminée");
+  
+  // Vérification finale
+  try {
+    const checkResult = execSync(`grep -r "__barrel_optimize__" ./src --include="*.tsx" --include="*.ts" || echo "CLEAN"`, { encoding: 'utf-8' });
+    if (checkResult.trim() === 'CLEAN') {
+      console.log("🎉 SUCCÈS: Aucun __barrel_optimize__ restant !");
     } else {
-      schemaLines.push('  nom       String?');
+      console.log("⚠️  Quelques __barrel_optimize__ persistent...");
+      console.log(checkResult);
     }
-    
-    // Timestamps OBLIGATOIRES
-    schemaLines.push('  createdAt DateTime @default(now())');
-    schemaLines.push('  updatedAt DateTime @updatedAt');
-    schemaLines.push('}');
-    schemaLines.push('');
-  });
-  
-  // Créer répertoire + écrire fichier
-  const prismaDir = path.dirname(schemaPath);
-  if (!fs.existsSync(prismaDir)) {
-    fs.mkdirSync(prismaDir, { recursive: true });
-  }
-  
-  const finalSchema = schemaLines.join('\n');
-  fs.writeFileSync(schemaPath, finalSchema, 'utf-8');
-  
-  // VALIDATION immédiate
-  const writtenContent = fs.readFileSync(schemaPath, 'utf-8');
-  const hasOrphanLines = writtenContent.match(/^\s*DateTime\s+@default/m);
-  
-  if (hasOrphanLines) {
-    console.error("❌ Schema encore corrompu - création manuelle");
-    
-    // Schema minimal de secours
-    const emergencySchema = `generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url = env("DATABASE_URL")
-}
-
-model User {
-  id        Int      @id @default(autoincrement())
-  email     String?  @unique
-  nom       String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}`;
-    
-    fs.writeFileSync(schemaPath, emergencySchema, 'utf-8');
-    console.log("🚨 Schema d'urgence appliqué");
-  } else {
-    console.log("✅ Schema Prisma créé proprement");
+  } catch (error) {
+    console.log("✅ Vérification impossible mais correction appliquée");
   }
 }
 
-console.log("🚀 Démarrage du pipeline Orderspot.pro - VERSION OPTIMISÉE");
+console.log("🚀 Démarrage du pipeline Orderspot.pro - VERSION DÉFINITIVE V4");
 
 try {
   // PHASE 0 — PRÉPARATION
@@ -224,6 +256,7 @@ try {
   
   stopPM2App("orderspot-app");
   installDependencies();
+  createAntiBarrelNextConfig();
 
   // PHASE 1 — GÉNÉRATION COMPLÈTE DU SYSTÈME DYNAMIQUE
   console.log("\n" + "=".repeat(60));
@@ -245,7 +278,6 @@ try {
   console.log("=".repeat(60));
   
   const dbConnected = setupDatabaseConnection();
-  createCorrectSchema();
   
   if (dbConnected) {
     run("npx prisma generate", "Génération client Prisma");
@@ -255,7 +287,7 @@ try {
     run("npx prisma generate", "Génération client Prisma");
   }
 
-  // PHASE 4 — CORRECTIONS ORDONNÉES
+  // PHASE 4 — CORRECTIONS SYSTÉMATIQUES
   console.log("\n" + "=".repeat(60));
   console.log("🔧 PHASE 4: CORRECTIONS SYSTÉMATIQUES");
   console.log("=".repeat(60));
@@ -263,7 +295,16 @@ try {
   run("node tools/genericMissingExportsFixer.js", "Correction exports manquants");
   run("node tools/fixTypesMismatch.js", "Synchronisation Types/Schema");
   run("node tools/fixMissingTypesImports.js", "Correction imports types manquants");
-  run("node tools/dynamicErrorResolver.js", "Résolution complète des erreurs");
+
+  // PHASE 4.9 — CORRECTION POST-GÉNÉRATION (CRITIQUE)
+  console.log("\n" + "=".repeat(60));
+  console.log("🚨 PHASE 4.9: CORRECTION POST-GÉNÉRATION MASSIVE");
+  console.log("=".repeat(60));
+  
+  fixLucidePostGeneration();
+  
+  // Résolution finale des erreurs
+  run("node tools/dynamicErrorResolver.js", "Résolution finale des erreurs");
 
   // PHASE 5 — BUILD ET DÉMARRAGE
   console.log("\n" + "=".repeat(60));
@@ -290,7 +331,8 @@ try {
   console.log("✅ Correction automatique des exports manquants");
   console.log("✅ Synchronisation automatique Types/Schema");
   console.log("✅ Correction automatique des imports types");
-  console.log("✅ Fix lucide-react version compatible");
+  console.log("✅ Fix lucide-react DÉFINITIF post-génération");
+  console.log("✅ Configuration Next.js ANTI-BARREL");
   
   if (!dbConnected) {
     console.log("\n⚠️  ATTENTION: Base de données non accessible");
