@@ -30,53 +30,90 @@ class DynamicErrorResolver {
           scanDir(fullPath);
         } else if (entry.isFile() && /\.(tsx?|jsx?)$/.test(entry.name)) {
           let content = fs.readFileSync(fullPath, 'utf-8');
-          let hasChanges = false;
+          const originalContent = content;
           
-          // Pattern complexe pour TOUS les types d'imports lucide problématiques
-          const patterns = [
-            // Barrel optimization pattern
+          // MÉTHODE 1: Remplacement direct et agressif de TOUTE la chaîne __barrel_optimize__
+          content = content.replace(
             /"__barrel_optimize__\?names=[^"]+!=!lucide-react"/g,
+            '"lucide-react"'
+          );
+          content = content.replace(
             /'__barrel_optimize__\?names=[^']+!=!lucide-react'/g,
-            // Import avec alias complexes
-            /from\s+["']lucide-react["']\s*;?\s*import\s*{[^}]+}\s*from\s*["']__barrel[^"']+["']/g
-          ];
+            "'lucide-react'"
+          );
           
-          patterns.forEach(pattern => {
-            if (pattern.test(content)) {
-              // Extraire les icônes utilisées
-              const iconMatch = content.match(/import\s*\{([^}]+)\}\s*from\s*["'][^"']*lucide[^"']*["']/);
-              if (iconMatch) {
-                const icons = iconMatch[1];
-                // Remplacer par import simple
-                const newImport = `import { ${icons} } from 'lucide-react'`;
-                content = content.replace(iconMatch[0], newImport);
-                hasChanges = true;
-              }
-            }
-          });
-          
-          // Fix plus agressif : remplacer TOUTE ligne contenant __barrel_optimize__
+          // MÉTHODE 2: Analyse ligne par ligne pour être SÛR
           const lines = content.split('\n');
-          const fixedLines = lines.map(line => {
+          const fixedLines = lines.map((line, index) => {
+            // Si la ligne contient __barrel_optimize__ ET lucide-react
             if (line.includes('__barrel_optimize__') && line.includes('lucide-react')) {
-              // Extraire les icônes de la ligne
-              const iconsMatch = line.match(/import\s*\{([^}]+)\}/);
-              if (iconsMatch) {
-                return `import { ${iconsMatch[1]} } from 'lucide-react';`;
+              console.log(`  🔍 Ligne problématique trouvée (${path.basename(fullPath)}:${index + 1})`);
+              
+              // Extraire TOUT ce qui est entre { et } pour les imports
+              const importMatch = line.match(/import\s*\{([^}]+)\}\s*from/);
+              if (importMatch) {
+                const icons = importMatch[1];
+                // Reconstruire la ligne COMPLÈTEMENT
+                const newLine = `import { ${icons} } from 'lucide-react';`;
+                console.log(`  📝 Remplacé par: ${newLine}`);
+                return newLine;
               }
+              
+              // Si on n'a pas pu extraire, remplacer brutalement
+              return line.replace(/__barrel_optimize__[^"']+/, 'lucide-react');
             }
             return line;
           });
           
-          if (lines.join('\n') !== fixedLines.join('\n')) {
-            content = fixedLines.join('\n');
-            hasChanges = true;
+          content = fixedLines.join('\n');
+          
+          // MÉTHODE 3: Vérification finale - s'il reste ENCORE du __barrel_optimize__
+          if (content.includes('__barrel_optimize__')) {
+            console.log(`  ⚠️  __barrel_optimize__ persiste dans ${path.basename(fullPath)}, nettoyage forcé...`);
+            
+            // Extraction brutale de tous les imports lucide
+            const allLucideImports = new Set();
+            const importRegex = /import\s*\{([^}]+)\}\s*from\s*["'][^"']*lucide[^"']*["']/g;
+            let match;
+            
+            while ((match = importRegex.exec(originalContent)) !== null) {
+              const icons = match[1].split(',').map(i => i.trim());
+              icons.forEach(icon => allLucideImports.add(icon));
+            }
+            
+            if (allLucideImports.size > 0) {
+              // Remplacer TOUS les imports lucide par un seul import propre
+              content = content.replace(
+                /import\s*\{[^}]+\}\s*from\s*["'][^"']*__barrel_optimize__[^"']*["'];?/g,
+                ''
+              );
+              
+              // Ajouter un import unique et propre en haut du fichier
+              const cleanImport = `import { ${Array.from(allLucideImports).join(', ')} } from 'lucide-react';`;
+              
+              // Trouver où insérer (après 'use client' ou au début)
+              const useClientMatch = content.match(/^['"]use client['"];?\s*$/m);
+              if (useClientMatch) {
+                const insertPos = useClientMatch.index + useClientMatch[0].length;
+                content = content.slice(0, insertPos) + '\n' + cleanImport + content.slice(insertPos);
+              } else {
+                content = cleanImport + '\n' + content;
+              }
+            }
           }
           
-          if (hasChanges) {
+          // Sauvegarder si des changements ont été faits
+          if (content !== originalContent) {
             fs.writeFileSync(fullPath, content);
             this.fixedFiles++;
             console.log(`  ✅ Corrigé: ${path.relative(this.srcDir, fullPath)}`);
+            
+            // Vérification finale
+            const finalContent = fs.readFileSync(fullPath, 'utf-8');
+            if (finalContent.includes('__barrel_optimize__')) {
+              console.error(`  ❌ ERREUR: __barrel_optimize__ toujours présent dans ${fullPath}`);
+              this.detectedIssues.push(`__barrel_optimize__ persiste dans ${fullPath}`);
+            }
           }
         }
       });
