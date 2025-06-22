@@ -126,8 +126,12 @@ function installDependencies() {
   
   // Réinstaller
   console.log("📦 Installation des dépendances...");
-  execSync('rm -rf node_modules package-lock.json', { stdio: 'pipe' });
-  execSync('npm install', { stdio: 'inherit' });
+  try {
+    execSync('rm -rf node_modules package-lock.json', { stdio: 'pipe' });
+  } catch (e) {
+    // Ignorer si n'existe pas
+  }
+  run('npm install', "Installation NPM avec versions compatibles");
 }
 
 console.log("🚀 Démarrage du pipeline Orderspot.pro - VERSION DYNAMIQUE");
