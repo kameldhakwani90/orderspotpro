@@ -366,12 +366,19 @@ try {
   
   run("node tools/genericMissingExportsFixer.js", "Correction générique exports manquants");
 
-  // PHASE 4.5 — SYNCHRONISATION TYPES/SCHEMA (NOUVEAU)
+  // PHASE 4.5 — SYNCHRONISATION TYPES/SCHEMA
   console.log("\n" + "=".repeat(60));
   console.log("🔧 PHASE 4.5: SYNCHRONISATION TYPES/SCHEMA");
   console.log("=".repeat(60));
   
   run("node tools/fixTypesMismatch.js", "Synchronisation Types/Schema");
+
+  // PHASE 4.6 — CORRECTION IMPORTS MANQUANTS
+  console.log("\n" + "=".repeat(60));
+  console.log("🔧 PHASE 4.6: CORRECTION IMPORTS TYPES");
+  console.log("=".repeat(60));
+  
+  run("node tools/fixMissingTypesImports.js", "Correction imports types manquants");
 
   // PHASE 5 — BUILD ET DÉMARRAGE
   console.log("\n" + "=".repeat(60));
@@ -396,6 +403,7 @@ try {
   console.log("✅ Migration automatique des composants");
   console.log("✅ Correction automatique des exports manquants");
   console.log("✅ Synchronisation automatique Types/Schema");
+  console.log("✅ Correction automatique des imports types");
   
   if (!dbConnected) {
     console.log("\n⚠️  ATTENTION: Base de données non accessible");
@@ -416,6 +424,8 @@ try {
   console.log("   - tools/generateCompleteSystem.js");
   console.log("   - tools/genericMissingExportsFixer.js");
   console.log("   - tools/fixTypesMismatch.js");
+  console.log("   - tools/fixSchemaGeneration.js");
+  console.log("   - tools/fixMissingTypesImports.js");
   
   process.exit(1);
 }
