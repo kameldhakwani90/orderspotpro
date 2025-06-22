@@ -111,27 +111,21 @@ function installDependencies() {
   }
   
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+  const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
   
-  // Forcer les bonnes versions
-  packageJson.dependencies = {
-    ...packageJson.dependencies,
-    "next": "13.4.19",
-    "react": "18.2.0", 
-    "react-dom": "18.2.0",
-    "lucide-react": "0.263.1"
-  };
+  const requiredDeps = ['@prisma/client', 'prisma'];
+  const missingDeps = requiredDeps.filter(dep => !dependencies[dep]);
   
-  fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
-  console.log("✅ package.json mis à jour avec versions compatibles");
-  
-  // Réinstaller
-  console.log("📦 Installation des dépendances...");
-  try {
-    execSync('rm -rf node_modules package-lock.json', { stdio: 'pipe' });
-  } catch (e) {
-    // Ignorer si n'existe pas
+  if (missingDeps.length > 0) {
+    console.log(`📦 Installation des dépendances manquantes: ${missingDeps.join(', ')}`);
+    run(`npm install ${missingDeps.join(' ')}`, "Installation dépendances");
+  } else {
+    console.log("✅ Toutes les dépendances requises sont présentes");
   }
-  run('npm install', "Installation NPM avec versions compatibles");
+  
+  // Forcer l'installation avec legacy-peer-deps pour éviter les conflits
+  console.log("📦 Installation avec --legacy-peer-deps...");
+  run('npm install --legacy-peer-deps', "Installation NPM (mode compatibilité)");
 }
 
 console.log("🚀 Démarrage du pipeline Orderspot.pro - VERSION DYNAMIQUE");
