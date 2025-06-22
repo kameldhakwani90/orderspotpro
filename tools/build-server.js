@@ -111,17 +111,23 @@ function installDependencies() {
   }
   
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-  const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
   
-  const requiredDeps = ['@prisma/client', 'prisma'];
-  const missingDeps = requiredDeps.filter(dep => !dependencies[dep]);
+  // Forcer les bonnes versions
+  packageJson.dependencies = {
+    ...packageJson.dependencies,
+    "next": "13.4.19",
+    "react": "18.2.0", 
+    "react-dom": "18.2.0",
+    "lucide-react": "0.263.1"
+  };
   
-  if (missingDeps.length > 0) {
-    console.log(`📦 Installation des dépendances manquantes: ${missingDeps.join(', ')}`);
-    run(`npm install ${missingDeps.join(' ')}`, "Installation dépendances");
-  } else {
-    console.log("✅ Toutes les dépendances requises sont présentes");
-  }
+  fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+  console.log("✅ package.json mis à jour avec versions compatibles");
+  
+  // Réinstaller
+  console.log("📦 Installation des dépendances...");
+  execSync('rm -rf node_modules package-lock.json', { stdio: 'pipe' });
+  execSync('npm install', { stdio: 'inherit' });
 }
 
 console.log("🚀 Démarrage du pipeline Orderspot.pro - VERSION DYNAMIQUE");
@@ -134,7 +140,6 @@ try {
   
   stopPM2App("orderspot-app");
   installDependencies();
-  run("node tools/fixDependencies.js", "Installation versions compatibles");
 
   // PHASE 1 — GÉNÉRATION COMPLÈTE DU SYSTÈME DYNAMIQUE
   console.log("\n" + "=".repeat(60));
@@ -142,13 +147,6 @@ try {
   console.log("=".repeat(60));
   
   run("node tools/generateCompleteSystem.js", "Génération système complet 100% dynamique");
-
-  // PHASE 1.5 — NETTOYAGE DES SOURCES
-console.log("\n" + "=".repeat(60));
-console.log("🧹 PHASE 1.5: NETTOYAGE DES SOURCES");
-console.log("=".repeat(60));
-
-run("node tools/cleanSourceFiles.js", "Nettoyage des fichiers sources");
   
   // VÉRIFICATION IMMÉDIATE du fichier critique
   const prismaServicePath = path.join(__dirname, '../src/lib/prisma-service.ts');
@@ -386,13 +384,6 @@ run("node tools/cleanSourceFiles.js", "Nettoyage des fichiers sources");
   run("node tools/fixMissingTypesImports.js", "Correction imports types manquants");
   run("node tools/dynamicErrorResolver.js", "Résolution complète des erreurs");
 
-  // PHASE 4.7 — CONFIGURATION NEXT.JS
-  console.log("\n" + "=".repeat(60));
-  console.log("🔧 PHASE 4.7: CONFIGURATION NEXT.JS");
-  console.log("=".repeat(60));
-
-  run("node tools/fixNextConfigBarrel.js", "Configuration Next.js - barrel optimization");
- 
   // PHASE 5 — BUILD ET DÉMARRAGE
   console.log("\n" + "=".repeat(60));
   console.log("🚀 PHASE 5: BUILD ET DÉMARRAGE");
