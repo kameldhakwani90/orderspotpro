@@ -39,7 +39,7 @@ function runScript(scriptName, description) {
   } catch (error) {
     console.error("❌ Erreur pendant : " + description);
     console.error("Script: " + scriptName);
-    console.error("Code d'erreur: " + error.status);
+    console.error("Code d'erreur: " + (error.status || 'unknown'));
     
     // Ne pas arrêter pour les scripts non critiques
     if (isNonCriticalScript(scriptName)) {
@@ -87,285 +87,252 @@ function createMissingScript(scriptName, scriptPath) {
 }
 
 function createCompleteSystemScript() {
-  return `const fs = require('fs');
-const path = require('path');
-
-console.log('🚀 Génération système complet - Version simplifiée');
-
-// Vérifier que les fichiers source existent
-const typesPath = './src/lib/types.ts';
-const dataPath = './src/lib/data.ts';
-
-if (!fs.existsSync(typesPath)) {
-  console.log('📝 Création de types.ts minimal...');
-  fs.mkdirSync(path.dirname(typesPath), { recursive: true });
-  
-  const typesContent = \`// Types pour OrderSpot Pro
-export interface Product {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-  description?: string;
-  isActive: boolean;
-}
-
-export interface Host {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  address?: string;
-  isActive: boolean;
-}
-
-export interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  hostId: string;
-}
-
-export interface Order {
-  id: string;
-  orderNumber: string;
-  userId: string;
-  total: number;
-  status: string;
-}
-
-export interface User {
-  id: string;
-  email: string;
-  name?: string;
-  role: string;
-}
-\`;
-  
-  fs.writeFileSync(typesPath, typesContent);
-  console.log('✅ types.ts créé');
-}
-
-if (!fs.existsSync(dataPath)) {
-  console.log('📝 Création de data.ts minimal...');
-  fs.mkdirSync(path.dirname(dataPath), { recursive: true });
-  
-  const dataContent = \`// Données pour OrderSpot Pro
-export const mockProducts = [
-  {
-    id: '1',
-    name: 'Café Expresso',
-    price: 2.50,
-    category: 'boissons',
-    description: 'Café expresso italien',
-    isActive: true
-  }
-];
-
-export const mockHosts = [
-  {
-    id: '1',
-    name: 'Restaurant Le Gourmet',
-    email: 'contact@legourmet.com',
-    phone: '+33123456789',
-    address: '123 Rue de la Paix, Paris',
-    isActive: true
-  }
-];
-
-export const mockClients = [
-  {
-    id: '1',
-    name: 'Jean Durand',
-    email: 'jean.durand@email.com',
-    phone: '+33611223344',
-    hostId: '1'
-  }
-];
-
-export function getAllProducts() {
-  return mockProducts;
-}
-
-export function getAllHosts() {
-  return mockHosts;
-}
-
-export function getAllClients() {
-  return mockClients;
-}
-\`;
-  
-  fs.writeFileSync(dataPath, dataContent);
-  console.log('✅ data.ts créé');
-}
-
-console.log('✅ Système complet généré avec succès');
-`;
+  return 'const fs = require(\'fs\');\n' +
+    'const path = require(\'path\');\n\n' +
+    'console.log(\'🚀 Génération système complet - Version simplifiée\');\n\n' +
+    '// Vérifier que les fichiers source existent\n' +
+    'const typesPath = \'./src/lib/types.ts\';\n' +
+    'const dataPath = \'./src/lib/data.ts\';\n\n' +
+    'if (!fs.existsSync(typesPath)) {\n' +
+    '  console.log(\'📝 Création de types.ts minimal...\');\n' +
+    '  fs.mkdirSync(path.dirname(typesPath), { recursive: true });\n' +
+    '  \n' +
+    '  const typesContent = `// Types pour OrderSpot Pro\n' +
+    'export interface Product {\n' +
+    '  id: string;\n' +
+    '  name: string;\n' +
+    '  price: number;\n' +
+    '  category: string;\n' +
+    '  description?: string;\n' +
+    '  isActive: boolean;\n' +
+    '}\n\n' +
+    'export interface Host {\n' +
+    '  id: string;\n' +
+    '  name: string;\n' +
+    '  email: string;\n' +
+    '  phone?: string;\n' +
+    '  address?: string;\n' +
+    '  isActive: boolean;\n' +
+    '}\n\n' +
+    'export interface Client {\n' +
+    '  id: string;\n' +
+    '  name: string;\n' +
+    '  email: string;\n' +
+    '  phone?: string;\n' +
+    '  hostId: string;\n' +
+    '}\n\n' +
+    'export interface Order {\n' +
+    '  id: string;\n' +
+    '  orderNumber: string;\n' +
+    '  userId: string;\n' +
+    '  total: number;\n' +
+    '  status: string;\n' +
+    '}\n\n' +
+    'export interface User {\n' +
+    '  id: string;\n' +
+    '  email: string;\n' +
+    '  name?: string;\n' +
+    '  role: string;\n' +
+    '}\n' +
+    '`;\n' +
+    '  \n' +
+    '  fs.writeFileSync(typesPath, typesContent);\n' +
+    '  console.log(\'✅ types.ts créé\');\n' +
+    '}\n\n' +
+    'if (!fs.existsSync(dataPath)) {\n' +
+    '  console.log(\'📝 Création de data.ts minimal...\');\n' +
+    '  fs.mkdirSync(path.dirname(dataPath), { recursive: true });\n' +
+    '  \n' +
+    '  const dataContent = `// Données pour OrderSpot Pro\n' +
+    'export const mockProducts = [\n' +
+    '  {\n' +
+    '    id: \'1\',\n' +
+    '    name: \'Café Expresso\',\n' +
+    '    price: 2.50,\n' +
+    '    category: \'boissons\',\n' +
+    '    description: \'Café expresso italien\',\n' +
+    '    isActive: true\n' +
+    '  }\n' +
+    '];\n\n' +
+    'export const mockHosts = [\n' +
+    '  {\n' +
+    '    id: \'1\',\n' +
+    '    name: \'Restaurant Le Gourmet\',\n' +
+    '    email: \'contact@legourmet.com\',\n' +
+    '    phone: \'+33123456789\',\n' +
+    '    address: \'123 Rue de la Paix, Paris\',\n' +
+    '    isActive: true\n' +
+    '  }\n' +
+    '];\n\n' +
+    'export const mockClients = [\n' +
+    '  {\n' +
+    '    id: \'1\',\n' +
+    '    name: \'Jean Durand\',\n' +
+    '    email: \'jean.durand@email.com\',\n' +
+    '    phone: \'+33611223344\',\n' +
+    '    hostId: \'1\'\n' +
+    '  }\n' +
+    '];\n\n' +
+    'export function getAllProducts() {\n' +
+    '  return mockProducts;\n' +
+    '}\n\n' +
+    'export function getAllHosts() {\n' +
+    '  return mockHosts;\n' +
+    '}\n\n' +
+    'export function getAllClients() {\n' +
+    '  return mockClients;\n' +
+    '}\n' +
+    '`;\n' +
+    '  \n' +
+    '  fs.writeFileSync(dataPath, dataContent);\n' +
+    '  console.log(\'✅ data.ts créé\');\n' +
+    '}\n\n' +
+    'console.log(\'✅ Système complet généré avec succès\');\n';
 }
 
 function createGenericExportsFixerScript() {
-  return `console.log('🔧 Correction exports manquants - Version simplifiée');
-
-const fs = require('fs');
-const path = require('path');
-
-const servicePath = './src/lib/prisma-service.ts';
-
-if (fs.existsSync(servicePath)) {
-  let content = fs.readFileSync(servicePath, 'utf-8');
-  
-  // Ajouter des exports manquants courants
-  const missingExports = [
-    'export const updateHost = createHost;',
-    'export const deleteHost = createHost;',
-    'export const updateClient = createClient;',
-    'export const deleteClient = createClient;',
-    'export const updateProduct = createProduct;',
-    'export const deleteProduct = createProduct;'
-  ];
-  
-  missingExports.forEach(exportLine => {
-    if (!content.includes(exportLine)) {
-      content += '\\n' + exportLine;
-    }
-  });
-  
-  fs.writeFileSync(servicePath, content);
-  console.log('✅ Exports manquants ajoutés');
-} else {
-  console.log('⚠️ prisma-service.ts non trouvé, on continue...');
-}
-
-console.log('✅ Correction exports terminée');
-`;
+  return 'console.log(\'🔧 Correction exports manquants - Version simplifiée\');\n\n' +
+    'const fs = require(\'fs\');\n' +
+    'const path = require(\'path\');\n\n' +
+    'const servicePath = \'./src/lib/prisma-service.ts\';\n\n' +
+    'if (fs.existsSync(servicePath)) {\n' +
+    '  let content = fs.readFileSync(servicePath, \'utf-8\');\n' +
+    '  \n' +
+    '  // Ajouter des exports manquants courants\n' +
+    '  const missingExports = [\n' +
+    '    \'export const updateHost = createHost;\',\n' +
+    '    \'export const deleteHost = createHost;\',\n' +
+    '    \'export const updateClient = createClient;\',\n' +
+    '    \'export const deleteClient = createClient;\',\n' +
+    '    \'export const updateProduct = createProduct;\',\n' +
+    '    \'export const deleteProduct = createProduct;\'\n' +
+    '  ];\n' +
+    '  \n' +
+    '  missingExports.forEach(exportLine => {\n' +
+    '    if (!content.includes(exportLine)) {\n' +
+    '      content += \'\\n\' + exportLine;\n' +
+    '    }\n' +
+    '  });\n' +
+    '  \n' +
+    '  fs.writeFileSync(servicePath, content);\n' +
+    '  console.log(\'✅ Exports manquants ajoutés\');\n' +
+    '} else {\n' +
+    '  console.log(\'⚠️ prisma-service.ts non trouvé, on continue...\');\n' +
+    '}\n\n' +
+    'console.log(\'✅ Correction exports terminée\');\n';
 }
 
 function createTypesMismatchScript() {
-  return `console.log('🔧 Correction désynchronisations Types/Schema - Version simplifiée');
-
-// Script minimal qui ne fait rien mais évite l'erreur
-console.log('✅ Pas de désynchronisation détectée');
-console.log('✅ Types/Schema synchronisés');
-`;
+  return 'console.log(\'🔧 Correction désynchronisations Types/Schema - Version simplifiée\');\n\n' +
+    '// Script minimal qui ne fait rien mais évite l\'erreur\n' +
+    'console.log(\'✅ Pas de désynchronisation détectée\');\n' +
+    'console.log(\'✅ Types/Schema synchronisés\');\n';
 }
 
 function createMissingTypesImportsScript() {
-  return `console.log('🔧 Correction imports types manquants - Version simplifiée');
-
-const fs = require('fs');
-const path = require('path');
-
-// Scanner les fichiers pour ajouter des imports types si nécessaire
-function scanDirectory(dir) {
-  if (!fs.existsSync(dir)) return;
-  
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  
-  entries.forEach(entry => {
-    const fullPath = path.join(dir, entry.name);
-    
-    if (entry.isDirectory() && !['node_modules', '.git', '.next'].includes(entry.name)) {
-      scanDirectory(fullPath);
-    } else if (entry.isFile() && /\\.(tsx?|jsx?)$/.test(entry.name)) {
-      try {
-        let content = fs.readFileSync(fullPath, 'utf-8');
-        
-        // Ajouter import types si utilisé mais pas importé
-        if (content.includes(': Product') && !content.includes('import.*Product.*from')) {
-          if (!content.includes("import { Product")) {
-            content = "import { Product } from '@/lib/types';\\n" + content;
-            fs.writeFileSync(fullPath, content);
-            console.log('✅ Import Product ajouté à', entry.name);
-          }
-        }
-        
-        if (content.includes(': Host') && !content.includes('import.*Host.*from')) {
-          if (!content.includes("import { Host")) {
-            content = "import { Host } from '@/lib/types';\\n" + content;
-            fs.writeFileSync(fullPath, content);
-            console.log('✅ Import Host ajouté à', entry.name);
-          }
-        }
-      } catch (error) {
-        // Ignorer les erreurs de fichiers
-      }
-    }
-  });
-}
-
-scanDirectory('./src');
-console.log('✅ Imports types corrigés');
-`;
+  return 'console.log(\'🔧 Correction imports types manquants - Version simplifiée\');\n\n' +
+    'const fs = require(\'fs\');\n' +
+    'const path = require(\'path\');\n\n' +
+    '// Scanner les fichiers pour ajouter des imports types si nécessaire\n' +
+    'function scanDirectory(dir) {\n' +
+    '  if (!fs.existsSync(dir)) return;\n' +
+    '  \n' +
+    '  const entries = fs.readdirSync(dir, { withFileTypes: true });\n' +
+    '  \n' +
+    '  entries.forEach(entry => {\n' +
+    '    const fullPath = path.join(dir, entry.name);\n' +
+    '    \n' +
+    '    if (entry.isDirectory() && ![\'node_modules\', \'.git\', \'.next\'].includes(entry.name)) {\n' +
+    '      scanDirectory(fullPath);\n' +
+    '    } else if (entry.isFile() && /\\.(tsx?|jsx?)$/.test(entry.name)) {\n' +
+    '      try {\n' +
+    '        let content = fs.readFileSync(fullPath, \'utf-8\');\n' +
+    '        \n' +
+    '        // Ajouter import types si utilisé mais pas importé\n' +
+    '        if (content.includes(\': Product\') && !content.includes(\'import.*Product.*from\')) {\n' +
+    '          if (!content.includes("import { Product")) {\n' +
+    '            content = "import { Product } from \'@/lib/types\';\\n" + content;\n' +
+    '            fs.writeFileSync(fullPath, content);\n' +
+    '            console.log(\'✅ Import Product ajouté à\', entry.name);\n' +
+    '          }\n' +
+    '        }\n' +
+    '        \n' +
+    '        if (content.includes(\': Host\') && !content.includes(\'import.*Host.*from\')) {\n' +
+    '          if (!content.includes("import { Host")) {\n' +
+    '            content = "import { Host } from \'@/lib/types\';\\n" + content;\n' +
+    '            fs.writeFileSync(fullPath, content);\n' +
+    '            console.log(\'✅ Import Host ajouté à\', entry.name);\n' +
+    '          }\n' +
+    '        }\n' +
+    '      } catch (error) {\n' +
+    '        // Ignorer les erreurs de fichiers\n' +
+    '      }\n' +
+    '    }\n' +
+    '  });\n' +
+    '}\n\n' +
+    'scanDirectory(\'./src\');\n' +
+    'console.log(\'✅ Imports types corrigés\');\n';
 }
 
 function createDynamicErrorResolverScript() {
-  return `console.log('🔧 Résolution erreurs dynamique - Version simplifiée');
-
-const fs = require('fs');
-const path = require('path');
-
-// 1. Créer next.config.js s'il n'existe pas
-const nextConfigPath = './next.config.js';
-if (!fs.existsSync(nextConfigPath)) {
-  const nextConfig = \`/** @type {import('next').NextConfig} */
-const nextConfig = {
-  experimental: {
-    appDir: true,
-  },
-  typescript: {
-    ignoreBuildErrors: false
-  }
-}
-
-module.exports = nextConfig
-\`;
-  
-  fs.writeFileSync(nextConfigPath, nextConfig);
-  console.log('✅ next.config.js créé');
-}
-
-// 2. Créer tsconfig.json s'il n'existe pas
-const tsconfigPath = './tsconfig.json';
-if (!fs.existsSync(tsconfigPath)) {
-  const tsconfig = {
-    "compilerOptions": {
-      "target": "es5",
-      "lib": ["dom", "dom.iterable", "esnext"],
-      "allowJs": true,
-      "skipLibCheck": true,
-      "strict": false,
-      "noEmit": true,
-      "esModuleInterop": true,
-      "module": "esnext",
-      "moduleResolution": "bundler",
-      "resolveJsonModule": true,
-      "isolatedModules": true,
-      "jsx": "preserve",
-      "incremental": true,
-      "plugins": [{"name": "next"}],
-      "baseUrl": ".",
-      "paths": {
-        "@/*": ["./src/*"]
-      }
-    },
-    "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-    "exclude": ["node_modules"]
-  };
-  
-  fs.writeFileSync(tsconfigPath, JSON.stringify(tsconfig, null, 2));
-  console.log('✅ tsconfig.json créé');
-}
-
-console.log('✅ Erreurs résolues');
-`;
+  return 'console.log(\'🔧 Résolution erreurs dynamique - Version simplifiée\');\n\n' +
+    'const fs = require(\'fs\');\n' +
+    'const path = require(\'path\');\n\n' +
+    '// 1. Créer next.config.js s\'il n\'existe pas\n' +
+    'const nextConfigPath = \'./next.config.js\';\n' +
+    'if (!fs.existsSync(nextConfigPath)) {\n' +
+    '  const nextConfig = `/** @type {import(\'next\').NextConfig} */\n' +
+    'const nextConfig = {\n' +
+    '  experimental: {\n' +
+    '    appDir: true,\n' +
+    '  },\n' +
+    '  typescript: {\n' +
+    '    ignoreBuildErrors: false\n' +
+    '  }\n' +
+    '}\n\n' +
+    'module.exports = nextConfig\n' +
+    '`;\n' +
+    '  \n' +
+    '  fs.writeFileSync(nextConfigPath, nextConfig);\n' +
+    '  console.log(\'✅ next.config.js créé\');\n' +
+    '}\n\n' +
+    '// 2. Créer tsconfig.json s\'il n\'existe pas\n' +
+    'const tsconfigPath = \'./tsconfig.json\';\n' +
+    'if (!fs.existsSync(tsconfigPath)) {\n' +
+    '  const tsconfig = {\n' +
+    '    "compilerOptions": {\n' +
+    '      "target": "es5",\n' +
+    '      "lib": ["dom", "dom.iterable", "esnext"],\n' +
+    '      "allowJs": true,\n' +
+    '      "skipLibCheck": true,\n' +
+    '      "strict": false,\n' +
+    '      "noEmit": true,\n' +
+    '      "esModuleInterop": true,\n' +
+    '      "module": "esnext",\n' +
+    '      "moduleResolution": "bundler",\n' +
+    '      "resolveJsonModule": true,\n' +
+    '      "isolatedModules": true,\n' +
+    '      "jsx": "preserve",\n' +
+    '      "incremental": true,\n' +
+    '      "plugins": [{"name": "next"}],\n' +
+    '      "baseUrl": ".",\n' +
+    '      "paths": {\n' +
+    '        "@/*": ["./src/*"]\n' +
+    '      }\n' +
+    '    },\n' +
+    '    "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],\n' +
+    '    "exclude": ["node_modules"]\n' +
+    '  };\n' +
+    '  \n' +
+    '  fs.writeFileSync(tsconfigPath, JSON.stringify(tsconfig, null, 2));\n' +
+    '  console.log(\'✅ tsconfig.json créé\');\n' +
+    '}\n\n' +
+    'console.log(\'✅ Erreurs résolues\');\n';
 }
 
 function createGenericScript(scriptName) {
-  return `console.log('🔧 Script générique: ${scriptName}');
-console.log('✅ ${scriptName} exécuté avec succès (version minimale)');
-`;
+  return 'console.log(\'🔧 Script générique: ' + scriptName + '\');\n' +
+    'console.log(\'✅ ' + scriptName + ' exécuté avec succès (version minimale)\');\n';
 }
 
 function isNonCriticalScript(scriptName) {
