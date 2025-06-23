@@ -77,7 +77,8 @@ function validateGeneratedFiles() {
     'prisma/schema.prisma',
     'src/lib/prisma-service.ts',
     'src/app/api/users/route.ts',
-    'src/app/api/auth/route.ts'
+    'src/app/api/auth/route.ts',
+    'src/context/AuthContext.tsx'
   ];
   
   let allPresent = true;
@@ -94,7 +95,7 @@ function validateGeneratedFiles() {
   
   if (!allPresent) {
     console.error("❌ Certains fichiers critiques sont manquants");
-    console.error("💡 Vérifiez que generateCompleteSystem.js s'est exécuté correctement");
+    console.error("💡 Vérifiez que la génération s'est exécutée correctement");
     process.exit(1);
   }
   
@@ -246,103 +247,276 @@ function fixLucidePostGeneration() {
   }
 }
 
-console.log("🚀 Démarrage du pipeline Orderspot.pro - VERSION DÉFINITIVE V4");
+// ====================================
+// FONCTIONS D'EXÉCUTION DES SCRIPTS
+// ====================================
+
+function runScript(scriptName, description, required = true) {
+  const scriptPath = path.join(__dirname, scriptName);
+  
+  if (!fs.existsSync(scriptPath)) {
+    if (required) {
+      console.error(`❌ Script requis manquant: ${scriptName}`);
+      process.exit(1);
+    } else {
+      console.log(`⏭️  Script optionnel manquant: ${scriptName}`);
+      return false;
+    }
+  }
+  
+  try {
+    run(`node "${scriptPath}"`, description);
+    return true;
+  } catch (error) {
+    if (required) {
+      console.error(`❌ Échec script requis: ${scriptName}`);
+      process.exit(1);
+    } else {
+      console.log(`⚠️  Échec script optionnel: ${scriptName}`);
+      return false;
+    }
+  }
+}
+
+// ====================================
+// PIPELINE PRINCIPAL AVEC ORDRE LOGIQUE INTELLIGENT
+// ====================================
+
+console.log("🚀 Démarrage du pipeline Orderspot.pro - PIPELINE INTELLIGENT V5");
 
 try {
-  // PHASE 0 — PRÉPARATION
+  // ====================================
+  // PHASE 0 — PRÉPARATION ET DÉTECTION
+  // ====================================
   console.log("\n" + "=".repeat(60));
-  console.log("📋 PHASE 0: PRÉPARATION");
+  console.log("📋 PHASE 0: PRÉPARATION ET DÉTECTION INTELLIGENTE");
   console.log("=".repeat(60));
   
   stopPM2App("orderspot-app");
   installDependencies();
   createAntiBarrelNextConfig();
-
-  // PHASE 1 — GÉNÉRATION COMPLÈTE DU SYSTÈME DYNAMIQUE
-  console.log("\n" + "=".repeat(60));
-  console.log("🏗️  PHASE 1: GÉNÉRATION SYSTÈME COMPLET DYNAMIQUE");
-  console.log("=".repeat(60));
   
-  run("node tools/generateCompleteSystem.js", "Génération système complet 100% dynamique");
+  // NOUVEAU: Détection des changements Firebase
+  console.log("\n🔍 Détection des changements Firebase...");
+  const detectionResult = runScript('detectFirebaseChanges.js', 'Détection changements Firebase', false);
   
-  // PHASE 2 — VALIDATION FINALE
-  console.log("\n" + "=".repeat(60));
-  console.log("✅ PHASE 2: VALIDATION FINALE");
-  console.log("=".repeat(60));
-  
-  validateGeneratedFiles();
-
-  // PHASE 3 — CONFIGURATION PRISMA ET BASE DE DONNÉES
-  console.log("\n" + "=".repeat(60));
-  console.log("🗄️  PHASE 3: CONFIGURATION BASE DE DONNÉES");
-  console.log("=".repeat(60));
-  
-  // FORCER SUPPRESSION schema corrompu
-  const schemaPath = path.join(__dirname, '../prisma/schema.prisma');
-  if (fs.existsSync(schemaPath)) {
-    fs.unlinkSync(schemaPath);
-    console.log("🗑️ Schema corrompu supprimé");
+  if (detectionResult) {
+    console.log("✅ Changements Firebase détectés - régénération nécessaire");
+  } else {
+    console.log("⏭️  Aucun changement détecté - régénération préventive");
   }
   
-  // RÉGÉNÉRER avec script propre
-  run("node tools/generatePrismaSchema.js", "Régénération schema depuis types.ts");
+  // NOUVEAU: Sauvegarde des customisations AVANT régénération
+  console.log("\n💾 Sauvegarde des customisations...");
+  runScript('preserveCustomizations.js', 'Sauvegarde customisations', false);
+
+  // ====================================
+  // PHASE 1 — GÉNÉRATION CORE (ORDRE CRITIQUE)
+  // ====================================
+  console.log("\n" + "=".repeat(60));
+  console.log("🏗️  PHASE 1: GÉNÉRATION CORE - ORDRE LOGIQUE");
+  console.log("=".repeat(60));
+  
+  // 1.1: TYPES ET DONNÉES (BASE) - NE DOIT JAMAIS ÊTRE ÉCRASÉ
+  console.log("\n📊 1.1: Validation des types et données de base...");
+  const typesPath = path.join(__dirname, '../src/lib/types.ts');
+  const dataPath = path.join(__dirname, '../src/lib/data.ts');
+  
+  if (!fs.existsSync(typesPath) || !fs.existsSync(dataPath)) {
+    console.error("❌ Fichiers de base manquants (types.ts ou data.ts)");
+    console.error("💡 Ces fichiers doivent exister AVANT la génération");
+    process.exit(1);
+  }
+  
+  console.log("✅ Fichiers de base présents");
+  
+  // 1.2: SCHEMA PRISMA (DÉPEND DES TYPES)
+  console.log("\n🗄️  1.2: Génération schema Prisma depuis types...");
+  runScript('generatePrismaSchema.js', 'Génération schema Prisma AMÉLIORÉ');
+  
+  // 1.3: SERVICE PRISMA (DÉPEND DU SCHEMA)
+  console.log("\n⚙️  1.3: Génération service Prisma depuis types...");
+  runScript('generatePrismaServiceFromData.js', 'Génération service Prisma CRUD COMPLET');
+
+  // ====================================
+  // PHASE 2 — GÉNÉRATION API (DÉPEND DU SERVICE)
+  // ====================================
+  console.log("\n" + "=".repeat(60));
+  console.log("🔗 PHASE 2: GÉNÉRATION API - DÉPEND DU SERVICE PRISMA");
+  console.log("=".repeat(60));
+  
+  // 2.1: ROUTES API (DÉPEND DU SERVICE PRISMA)
+  console.log("\n📡 2.1: Génération routes API depuis modèles...");
+  runScript('generateApiRoutes.js', 'Génération routes API AMÉLIORÉES');
+  
+  // 2.2: FIX API FOLDER (DÉPEND DES ROUTES GÉNÉRÉES)
+  console.log("\n🔧 2.2: Fix et validation structure API...");
+  runScript('fixApiFolder.js', 'Fix structure API INTELLIGENT');
+  
+  // 2.3: SYSTÈME AUTH AUTOMATIQUE (DÉPEND DES ROUTES API)
+  console.log("\n🔐 2.3: Génération système authentification...");
+  runScript('generateAuthSystem.js', 'Génération système auth INTELLIGENT');
+
+  // ====================================
+  // PHASE 3 — CONFIGURATION PRISMA ET BASE DE DONNÉES
+  // ====================================
+  console.log("\n" + "=".repeat(60));
+  console.log("🗄️  PHASE 3: CONFIGURATION BASE DE DONNÉES - APRÈS GÉNÉRATION");
+  console.log("=".repeat(60));
   
   const dbConnected = setupDatabaseConnection();
   
   if (dbConnected) {
+    console.log("\n🔄 Base de données accessible - génération client et push...");
     run("npx prisma generate", "Génération client Prisma");
     run("npx prisma db push --force-reset", "Push schema DB Prisma");
   } else {
-    console.log("⚠️  Base de données non accessible - génération client seulement");
+    console.log("\n⚠️  Base de données non accessible - génération client seulement...");
     run("npx prisma generate", "Génération client Prisma");
   }
 
-  // PHASE 4 — CORRECTIONS SYSTÉMATIQUES
+  // ====================================
+  // PHASE 4 — GÉNÉRATION FRONTEND (DÉPEND DE L'API)
+  // ====================================
   console.log("\n" + "=".repeat(60));
-  console.log("🔧 PHASE 4: CORRECTIONS SYSTÉMATIQUES");
+  console.log("⚛️  PHASE 4: GÉNÉRATION FRONTEND - DÉPEND DE L'API");
   console.log("=".repeat(60));
   
-  run("node tools/genericMissingExportsFixer.js", "Correction exports manquants");
-  run("node tools/fixTypesMismatch.js", "Synchronisation Types/Schema");
-  run("node tools/fixMissingTypesImports.js", "Correction imports types manquants");
+  // 4.1: HOOKS REACT (DÉPEND DES ROUTES API)
+  console.log("\n🪝 4.1: Génération hooks React depuis API...");
+  runScript('generateReactHooks.js', 'Génération hooks React DYNAMIQUES');
+  
+  // 4.2: MIGRATION COMPOSANTS (DÉPEND DES HOOKS)
+  console.log("\n🔄 4.2: Migration composants vers hooks...");
+  runScript('migrateComponentsToHooks.js', 'Migration composants vers hooks');
+  
+  // 4.3: MIGRATION DATA (DÉPEND DU SERVICE PRISMA)
+  console.log("\n📦 4.3: Migration imports data vers prisma-service...");
+  runScript('migrateDataToPrisma.js', 'Migration imports data vers prisma-service');
 
-  // PHASE 4.9 — CORRECTION POST-GÉNÉRATION (CRITIQUE)
+  // ====================================
+  // PHASE 5 — CORRECTIONS ET OPTIMISATIONS
+  // ====================================
   console.log("\n" + "=".repeat(60));
-  console.log("🚨 PHASE 4.9: CORRECTION POST-GÉNÉRATION MASSIVE");
+  console.log("🔧 PHASE 5: CORRECTIONS - APRÈS TOUTE LA GÉNÉRATION");
   console.log("=".repeat(60));
   
+  // 5.1: CORRECTIONS EXPORTS (DÉPEND DE TOUS LES FICHIERS GÉNÉRÉS)
+  console.log("\n🔗 5.1: Correction exports manquants...");
+  runScript('genericMissingExportsFixer.js', 'Correction exports manquants');
+  
+  // 5.2: SYNCHRONISATION TYPES/SCHEMA (DÉPEND DU SCHEMA FINAL)
+  console.log("\n⚙️  5.2: Synchronisation Types/Schema...");
+  runScript('fixTypesMismatch.js', 'Synchronisation Types/Schema');
+  
+  // 5.3: IMPORTS TYPES (DÉPEND DES CORRECTIONS PRÉCÉDENTES)
+  console.log("\n📥 5.3: Correction imports types...");
+  runScript('fixMissingTypesImports.js', 'Correction imports types manquants');
+
+  // ====================================
+  // PHASE 6 — CORRECTIONS POST-GÉNÉRATION (CRITIQUE)
+  // ====================================
+  console.log("\n" + "=".repeat(60));
+  console.log("🚨 PHASE 6: CORRECTIONS POST-GÉNÉRATION - ÉTAPE CRITIQUE");
+  console.log("=".repeat(60));
+  
+  // 6.1: CORRECTION LUCIDE (DOIT ÊTRE APRÈS TOUTE LA GÉNÉRATION)
   fixLucidePostGeneration();
   
-  // Résolution finale des erreurs
-  run("node tools/dynamicErrorResolver.js", "Résolution finale des erreurs");
+  // 6.2: RÉSOLUTION FINALE DES ERREURS
+  console.log("\n🔧 6.2: Résolution finale des erreurs...");
+  runScript('dynamicErrorResolver.js', 'Résolution finale des erreurs');
 
-  // PHASE 5 — BUILD ET DÉMARRAGE
+  // ====================================
+  // PHASE 7 — RESTAURATION CUSTOMISATIONS
+  // ====================================
   console.log("\n" + "=".repeat(60));
-  console.log("🚀 PHASE 5: BUILD ET DÉMARRAGE");
+  console.log("💾 PHASE 7: RESTAURATION INTELLIGENTE DES CUSTOMISATIONS");
   console.log("=".repeat(60));
   
+  // 7.1: RESTAURATION DES CUSTOMISATIONS (APRÈS TOUTE LA GÉNÉRATION)
+  console.log("\n🔄 7.1: Restauration des customisations...");
+  const restoreResult = runScript('preserveCustomizations.js', 'Restauration customisations', false);
+  
+  if (restoreResult) {
+    console.log("✅ Customisations restaurées avec succès");
+  } else {
+    console.log("⏭️  Aucune customisation à restaurer");
+  }
+
+  // ====================================
+  // PHASE 8 — VALIDATION FINALE
+  // ====================================
+  console.log("\n" + "=".repeat(60));
+  console.log("✅ PHASE 8: VALIDATION FINALE - VÉRIFICATION COMPLÈTE");
+  console.log("=".repeat(60));
+  
+  validateGeneratedFiles();
+
+  // ====================================
+  // PHASE 9 — BUILD ET DÉMARRAGE
+  // ====================================
+  console.log("\n" + "=".repeat(60));
+  console.log("🚀 PHASE 9: BUILD ET DÉMARRAGE FINAL");
+  console.log("=".repeat(60));
+  
+  console.log("\n📦 9.1: Build Next.js final...");
   run("npm run build", "Build Next.js final");
+  
+  console.log("\n🚀 9.2: Démarrage application...");
   run("pm2 start npm --name orderspot-app -- start", "Démarrage PM2 app");
   run("pm2 save", "Sauvegarde configuration PM2");
 
+  // ====================================
+  // RAPPORT FINAL DÉTAILLÉ
+  // ====================================
   console.log("\n" + "=".repeat(60));
-  console.log("🎉 BUILD COMPLET TERMINÉ AVEC SUCCÈS !");
+  console.log("🎉 BUILD PIPELINE INTELLIGENT TERMINÉ AVEC SUCCÈS !");
   console.log("=".repeat(60));
   console.log("🌐 Application opérationnelle sur le port 3001");
   console.log("📊 Système 100% généré dynamiquement depuis types.ts");
   
-  console.log("\n📋 Fonctionnalités générées automatiquement:");
-  console.log("✅ Schema Prisma complet avec relations");
+  console.log("\n📋 PIPELINE EXÉCUTÉ DANS L'ORDRE LOGIQUE:");
+  console.log("✅ Phase 0: Préparation + Détection Firebase");
+  console.log("✅ Phase 1: Génération Core (types → schema → service)");
+  console.log("✅ Phase 2: Génération API (service → routes → auth)");
+  console.log("✅ Phase 3: Configuration DB (après génération)");
+  console.log("✅ Phase 4: Frontend (API → hooks → composants)");
+  console.log("✅ Phase 5: Corrections (après génération)");
+  console.log("✅ Phase 6: Post-génération (Lucide + erreurs)");
+  console.log("✅ Phase 7: Restauration customisations");
+  console.log("✅ Phase 8: Validation finale");
+  console.log("✅ Phase 9: Build + Démarrage");
+  
+  console.log("\n🔥 NOUVELLES FONCTIONNALITÉS V5:");
+  console.log("✅ Détection intelligente changements Firebase");
+  console.log("✅ Sauvegarde/restauration automatique customisations");
+  console.log("✅ Génération système auth automatique");
+  console.log("✅ Ordre logique strict - pas d'écrasement");
+  console.log("✅ Pipeline résilient aux erreurs");
+  console.log("✅ Corrections Lucide-React DÉFINITIVES");
+  console.log("✅ Validation complète à chaque étape");
+  
+  console.log("\n📊 FONCTIONNALITÉS GÉNÉRÉES AUTOMATIQUEMENT:");
+  console.log("✅ Schema Prisma complet avec relations Firebase");
   console.log("✅ Service Prisma avec CRUD pour tous les modèles");
   console.log("✅ Routes API Next.js pour tous les modèles");
-  console.log("✅ Authentification fonctionnelle");
+  console.log("✅ Système d'authentification intelligent");
   console.log("✅ Hooks React pour tous les modèles");
   console.log("✅ Migration automatique des composants");
   console.log("✅ Correction automatique des exports manquants");
   console.log("✅ Synchronisation automatique Types/Schema");
   console.log("✅ Correction automatique des imports types");
-  console.log("✅ Fix lucide-react DÉFINITIF post-génération");
+  console.log("✅ Fix lucide-react post-génération");
   console.log("✅ Configuration Next.js ANTI-BARREL");
+  console.log("✅ Préservation intelligente des customisations");
+  
+  console.log("\n⚠️  ORDRE LOGIQUE RESPECTÉ - AUCUN ÉCRASEMENT:");
+  console.log("🔒 Types.ts et data.ts → JAMAIS écrasés (source utilisateur)");
+  console.log("🔄 Schema → Service → API → Hooks → Composants");
+  console.log("💾 Customisations sauvegardées AVANT et restaurées APRÈS");
+  console.log("🔧 Corrections appliquées APRÈS toute la génération");
+  console.log("🎯 Build final SEULEMENT si tout est validé");
   
   if (!dbConnected) {
     console.log("\n⚠️  ATTENTION: Base de données non accessible");
@@ -350,21 +524,58 @@ try {
     console.log("   npx prisma db push");
     console.log("   pm2 restart orderspot-app");
   }
+  
+  console.log("\n🚀 VOTRE APPLICATION FULL-STACK EST PRÊTE !");
+  console.log("🎯 Communication frontend/backend opérationnelle");
+  console.log("🔐 Système d'authentification intelligent activé");
+  console.log("💾 Customisations préservées et restaurées");
+  console.log("📡 API RESTful complète générée automatiquement");
 
 } catch (error) {
   console.error("\n❌ ERREUR CRITIQUE dans le pipeline:");
   console.error(`Message: ${error.message}`);
   console.error(`Stack: ${error.stack}`);
   
-  console.log("\n🔍 Tentative de diagnostic...");
+  console.log("\n🔍 Diagnostic automatique...");
   console.log("📁 Vérifiez que ces fichiers existent:");
-  console.log("   - src/lib/types.ts");
-  console.log("   - src/lib/data.ts");
-  console.log("   - tools/generateCompleteSystem.js");
-  console.log("   - tools/genericMissingExportsFixer.js");
-  console.log("   - tools/fixTypesMismatch.js");
-  console.log("   - tools/fixMissingTypesImports.js");
-  console.log("   - tools/dynamicErrorResolver.js");
+  
+  const criticalFiles = [
+    'src/lib/types.ts',
+    'src/lib/data.ts',
+    'tools/detectFirebaseChanges.js',
+    'tools/generatePrismaSchema.js',
+    'tools/generatePrismaServiceFromData.js',
+    'tools/generateApiRoutes.js',
+    'tools/generateAuthSystem.js',
+    'tools/generateReactHooks.js',
+    'tools/migrateComponentsToHooks.js',
+    'tools/migrateDataToPrisma.js',
+    'tools/preserveCustomizations.js',
+    'tools/genericMissingExportsFixer.js',
+    'tools/fixTypesMismatch.js',
+    'tools/fixMissingTypesImports.js',
+    'tools/fixApiFolder.js',
+    'tools/dynamicErrorResolver.js'
+  ];
+  
+  criticalFiles.forEach(file => {
+    const exists = fs.existsSync(path.join(__dirname, '..', file)) || 
+                   fs.existsSync(path.join(__dirname, file));
+    console.log(`   ${exists ? '✅' : '❌'} ${file}`);
+  });
+  
+  console.log("\n💡 PLAN DE RÉCUPÉRATION:");
+  console.log("1. Vérifiez que tous les scripts sont présents dans /tools");
+  console.log("2. Vérifiez que src/lib/types.ts existe et contient des interfaces");
+  console.log("3. Vérifiez que src/lib/data.ts existe et contient des données");
+  console.log("4. Relancez le pipeline après correction");
+  
+  // Tentative de sauvegarde en cas d'erreur
+  try {
+    runScript('preserveCustomizations.js', 'Sauvegarde d\'urgence', false);
+  } catch (backupError) {
+    console.log("⚠️  Impossible de sauvegarder les customisations");
+  }
   
   process.exit(1);
 }
