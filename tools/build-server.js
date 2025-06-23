@@ -18,12 +18,17 @@ const path = require('path');
 // }
 
 function run(cmd, desc) {
+  console.log("\n🔧 " + desc + "...");
   try {
+    const DATABASE_URL = process.env.DATABASE_URL || "postgresql://orderspot_user:orderspot_pass@orderspot_postgres:5432/orderspot_db?schema=public";
+    const env = { ...process.env, DATABASE_URL };
     execSync(cmd, { stdio: "inherit", env });
     console.log("✅ " + desc + " terminé.");
   } catch (err) {
     if (err.status && err.status !== 0) {
-      console.error("❌ VRAIE erreur:", desc);
+      console.error("❌ Erreur pendant : " + desc);
+      console.error("Command:", cmd);
+      console.error("DATABASE_URL:", process.env.DATABASE_URL);
       process.exit(1);
     } else {
       console.log("✅ " + desc + " terminé (exit 0).");
