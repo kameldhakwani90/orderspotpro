@@ -277,6 +277,16 @@ try {
   console.log("🗄️  PHASE 3: CONFIGURATION BASE DE DONNÉES");
   console.log("=".repeat(60));
   
+  // FORCER SUPPRESSION schema corrompu
+  const schemaPath = path.join(__dirname, '../prisma/schema.prisma');
+  if (fs.existsSync(schemaPath)) {
+    fs.unlinkSync(schemaPath);
+    console.log("🗑️ Schema corrompu supprimé");
+  }
+  
+  // RÉGÉNÉRER avec script propre
+  run("node tools/generatePrismaSchema.js", "Régénération schema depuis types.ts");
+  
   const dbConnected = setupDatabaseConnection();
   
   if (dbConnected) {
