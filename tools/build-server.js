@@ -17,7 +17,7 @@ function run(cmd, desc) {
   }
 }
 
-function runScript(scriptName, description) {
+function runScript(scriptName, description,required = true) {
   console.log("\n🔧 " + description + "...");
   
   const scriptPath = path.join(__dirname, 'tools', scriptName);
@@ -506,7 +506,7 @@ try {
   console.log("\n" + "=".repeat(60));
   console.log("🔧 PHASE 4: CORRECTIONS SYSTÉMATIQUES");
   console.log("=".repeat(60));
-    runScript('fixNextJsBuildErrors.js', 'Correction erreurs build Next.js');
+    runScript('fixNextJsBuildErrors.js', 'Correction erreurs build Next.js',false);
 
   runScript("genericMissingExportsFixer.js", "Correction exports manquants");
   runScript("fixTypesMismatch.js", "Synchronisation Types/Schema");
