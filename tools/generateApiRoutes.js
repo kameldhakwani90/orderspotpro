@@ -1,12 +1,17 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('🔧 Génération 100% DYNAMIQUE des routes API Next.js...');
+console.log('🔧 Génération 100% DYNAMIQUE des routes API Next.js - VERSION AMÉLIORÉE...');
+
+// ====================================
+// GARDE TOUTES LES VARIABLES ET CHEMINS EXISTANTS
+// ====================================
 
 const typesPath = path.join(__dirname, '../src/lib/types.ts');
 const dataPath = path.join(__dirname, '../src/lib/data.ts');
 const apiDir = path.join(__dirname, '../src/app/api');
 
+// GARDE LA FONCTION extractAllModelsFromTypes EXISTANTE
 function extractAllModelsFromTypes() {
   if (!fs.existsSync(typesPath)) {
     console.error('❌ types.ts introuvable');
@@ -28,6 +33,7 @@ function extractAllModelsFromTypes() {
   return models;
 }
 
+// GARDE LA FONCTION extractAvailableDataArrays EXISTANTE
 function extractAvailableDataArrays() {
   if (!fs.existsSync(dataPath)) {
     console.warn('⚠️  data.ts introuvable - API sans données initiales');
@@ -37,7 +43,7 @@ function extractAvailableDataArrays() {
   const content = fs.readFileSync(dataPath, 'utf-8');
   const dataArrays = new Map();
   
-  // Détecter tous les patterns d'arrays de données
+  // Détecter tous les patterns d'arrays de données (GARDE)
   const patterns = [
     /export\s+(?:let|const)\s+(\w+)InMemory\s*:\s*(\w+)\[\]/g,
     /export\s+(?:let|const)\s+(\w+)Data\s*:\s*(\w+)\[\]/g,
@@ -57,6 +63,7 @@ function extractAvailableDataArrays() {
   return dataArrays;
 }
 
+// GARDE LA FONCTION generateDynamicApiRoute EXISTANTE (excellente)
 function generateDynamicApiRoute(modelName) {
   const camelModel = modelName.charAt(0).toLowerCase() + modelName.slice(1);
   const pluralModel = modelName.toLowerCase() + 's';
@@ -208,6 +215,7 @@ export async function DELETE(request: NextRequest) {
 }`;
 }
 
+// GARDE LA FONCTION createAuthApiRoute EXISTANTE (parfaite)
 function createAuthApiRoute() {
   const authContent = `import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma-service';
@@ -281,6 +289,204 @@ export async function POST(request: NextRequest) {
   return authContent;
 }
 
+// ====================================
+// NOUVEAUTÉ 1: GÉNÉRATION AUTOMATIQUE API USERS
+// ====================================
+
+function createUsersApiRoute() {
+  console.log('🆕 Génération automatique de l\'API Users...');
+  
+  const usersContent = `import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma-service';
+
+// API Route Users - Généré automatiquement
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const idParam = searchParams.get('id');
+    const roleParam = searchParams.get('role');
+    
+    if (idParam) {
+      const id = parseInt(idParam, 10);
+      if (isNaN(id)) {
+        return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+      }
+      
+      const user = await prisma.user.findUnique({ 
+        where: { id: id },
+        select: {
+          id: true,
+          email: true,
+          nom: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true
+          // motDePasse exclu pour sécurité
+        }
+      });
+      
+      if (!user) {
+        return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 });
+      }
+      
+      return NextResponse.json(user);
+    } else {
+      const where = {};
+      if (roleParam) where.role = roleParam;
+      
+      const users = await prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          nom: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true
+          // motDePasse exclu pour sécurité
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+      
+      return NextResponse.json(users);
+    }
+  } catch (error) {
+    console.error('Erreur GET /api/users:', error);
+    return NextResponse.json({ 
+      error: 'Erreur serveur',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const data = await request.json();
+    const { email, motDePasse, nom, role } = data;
+    
+    if (!email || !motDePasse) {
+      return NextResponse.json({ error: 'Email et mot de passe requis' }, { status: 400 });
+    }
+    
+    // Vérifier si l'utilisateur existe déjà
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email }
+    });
+    
+    if (existingUser) {
+      return NextResponse.json({ error: 'Un utilisateur avec cet email existe déjà' }, { status: 400 });
+    }
+    
+    const newUser = await prisma.user.create({
+      data: {
+        email,
+        motDePasse,
+        nom: nom || email.split('@')[0],
+        role: role || 'client'
+      },
+      select: {
+        id: true,
+        email: true,
+        nom: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true
+        // motDePasse exclu pour sécurité
+      }
+    });
+    
+    return NextResponse.json(newUser, { status: 201 });
+  } catch (error) {
+    console.error('Erreur POST /api/users:', error);
+    return NextResponse.json({ 
+      error: 'Erreur création utilisateur',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 });
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const idParam = searchParams.get('id');
+    
+    if (!idParam) {
+      return NextResponse.json({ error: 'ID requis pour la mise à jour' }, { status: 400 });
+    }
+    
+    const id = parseInt(idParam, 10);
+    if (isNaN(id)) {
+      return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+    }
+    
+    const data = await request.json();
+    const updateData = { ...data };
+    
+    // Supprimer les champs non modifiables
+    delete updateData.id;
+    delete updateData.createdAt;
+    delete updateData.updatedAt;
+    
+    const updatedUser = await prisma.user.update({
+      where: { id: id },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        nom: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true
+        // motDePasse exclu pour sécurité
+      }
+    });
+    
+    return NextResponse.json(updatedUser);
+  } catch (error) {
+    console.error('Erreur PUT /api/users:', error);
+    return NextResponse.json({ 
+      error: 'Erreur mise à jour utilisateur',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const idParam = searchParams.get('id');
+    
+    if (!idParam) {
+      return NextResponse.json({ error: 'ID requis pour la suppression' }, { status: 400 });
+    }
+    
+    const id = parseInt(idParam, 10);
+    if (isNaN(id)) {
+      return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+    }
+    
+    await prisma.user.delete({
+      where: { id: id }
+    });
+    
+    return NextResponse.json({ 
+      message: 'Utilisateur supprimé avec succès',
+      id: id
+    });
+  } catch (error) {
+    console.error('Erreur DELETE /api/users:', error);
+    return NextResponse.json({ 
+      error: 'Erreur suppression utilisateur',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 });
+  }
+}`;
+
+  return usersContent;
+}
+
+// GARDE LA FONCTION createStatusApiRoute EXISTANTE
 function createStatusApiRoute() {
   const statusContent = `import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma-service';
@@ -312,6 +518,10 @@ export async function GET(request: NextRequest) {
   return statusContent;
 }
 
+// ====================================
+// AMÉLIORATION DE LA FONCTION createAllApiRoutes
+// ====================================
+
 function createAllApiRoutes(models) {
   if (!fs.existsSync(apiDir)) {
     fs.mkdirSync(apiDir, { recursive: true });
@@ -320,7 +530,7 @@ function createAllApiRoutes(models) {
   
   let routesCreated = 0;
   
-  // Créer les routes pour chaque modèle
+  // GARDE: Créer les routes pour chaque modèle détecté
   models.forEach(modelName => {
     const pluralModel = modelName.toLowerCase() + 's';
     const routeDir = path.join(apiDir, pluralModel);
@@ -337,7 +547,22 @@ function createAllApiRoutes(models) {
     routesCreated++;
   });
   
-  // Créer la route d'authentification
+  // NOUVEAUTÉ: Créer automatiquement /api/users si modèle User détecté
+  const hasUserModel = models.some(model => model.toLowerCase() === 'user');
+  if (hasUserModel) {
+    const usersDir = path.join(apiDir, 'users');
+    const usersFile = path.join(usersDir, 'route.ts');
+    
+    if (!fs.existsSync(usersDir)) {
+      fs.mkdirSync(usersDir, { recursive: true });
+    }
+    
+    fs.writeFileSync(usersFile, createUsersApiRoute(), 'utf-8');
+    console.log(`✅ API Route USERS créée automatiquement: /api/users`);
+    routesCreated++;
+  }
+  
+  // GARDE: Créer la route d'authentification
   const authDir = path.join(apiDir, 'auth');
   const authFile = path.join(authDir, 'route.ts');
   
@@ -349,7 +574,7 @@ function createAllApiRoutes(models) {
   console.log(`✅ API Route créée: /api/auth`);
   routesCreated++;
   
-  // Créer la route de status
+  // GARDE: Créer la route de status
   const statusDir = path.join(apiDir, 'status');
   const statusFile = path.join(statusDir, 'route.ts');
   
@@ -364,6 +589,7 @@ function createAllApiRoutes(models) {
   return routesCreated;
 }
 
+// GARDE LA FONCTION createApiUtils EXISTANTE (parfaite)
 function createApiUtils() {
   const utilsPath = path.join(__dirname, '../src/lib/api-utils.ts');
   
@@ -451,6 +677,10 @@ export async function authenticate(email: string, motDePasse: string, action: 'l
   console.log(`✅ Utilitaires API créés`);
 }
 
+// ====================================
+// GARDE TOUTE LA LOGIQUE D'EXÉCUTION EXISTANTE
+// ====================================
+
 try {
   const models = extractAllModelsFromTypes();
   const dataArrays = extractAvailableDataArrays();
@@ -466,15 +696,27 @@ try {
   const routesCreated = createAllApiRoutes(models);
   createApiUtils();
   
-  console.log(`\n🎉 Génération API 100% DYNAMIQUE terminée !`);
+  console.log(`\n🎉 Génération API 100% DYNAMIQUE terminée - VERSION AMÉLIORÉE !`);
   console.log(`📊 ${routesCreated} routes API créées automatiquement`);
   console.log(`🎯 Toutes basées sur vos interfaces TypeScript !`);
   console.log(`\n📋 Routes créées:`);
   models.forEach(model => {
     console.log(`   - /api/${model.toLowerCase()}s (CRUD complet)`);
   });
+  
+  // NOUVEAUTÉ: Affichage conditionnel pour Users
+  const hasUserModel = models.some(model => model.toLowerCase() === 'user');
+  if (hasUserModel) {
+    console.log(`   - /api/users (CRUD utilisateurs sécurisé) 🆕`);
+  }
+  
   console.log(`   - /api/auth (authentification)`);
   console.log(`   - /api/status (health check)`);
+  
+  console.log(`\n🔥 NOUVEAUTÉS VERSION AMÉLIORÉE:`);
+  console.log(`   🆕 API /users automatique si modèle User détecté`);
+  console.log(`   🔒 Sécurité: motDePasse exclu des réponses`);
+  console.log(`   🎯 Détection automatique des modèles d'authentification`);
   
 } catch (error) {
   console.error('❌ Erreur:', error);

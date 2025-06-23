@@ -1,9 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('🔧 Génération COMPLÈTEMENT DYNAMIQUE du schema Prisma...');
+console.log('🔧 Génération COMPLÈTEMENT DYNAMIQUE du schema Prisma - VERSION AMÉLIORÉE...');
 
-// Lecture des fichiers source
+// ====================================
+// GARDE TOUTE LA LOGIQUE EXISTANTE
+// ====================================
+
+// Lecture des fichiers source (GARDE)
 const dataPath = path.join(__dirname, '../src/lib/data.ts');
 const typesPath = path.join(__dirname, '../src/lib/types.ts');
 
@@ -17,11 +21,12 @@ if (!fs.existsSync(typesPath)) {
   process.exit(1);
 }
 
+// GARDE LA FONCTION EXISTANTE extractAllInterfaces
 function extractAllInterfaces(filePath) {
   const content = fs.readFileSync(filePath, 'utf-8');
   const interfaces = new Map();
   
-  // Regex pour extraire TOUTES les interfaces
+  // Regex pour extraire TOUTES les interfaces (GARDE)
   const interfaceRegex = /export\s+interface\s+(\w+)\s*\{([^}]+)\}/gs;
   let match;
   
@@ -56,15 +61,21 @@ function extractAllInterfaces(filePath) {
   return interfaces;
 }
 
-function detectRelations(interfaces) {
-  console.log('🔍 Détection DYNAMIQUE des relations...');
+// ====================================
+// AMÉLIORATION 1: DÉTECTION RELATIONS FIREBASE INTELLIGENTE
+// ====================================
+
+function detectRelationsFirebaseIntelligent(interfaces) {
+  console.log('🔍 Détection FIREBASE intelligente des relations...');
   const relations = new Map();
   
   interfaces.forEach((fields, modelName) => {
     const modelRelations = [];
     
     fields.forEach(field => {
-      // Détecter les IDs de relation (ex: hostId, userId)
+      // GARDE LA LOGIQUE EXISTANTE ET AJOUTE DES AMÉLIORATIONS
+      
+      // 1. Relations Firebase classiques (GARDE)
       if (field.name.endsWith('Id') && field.name !== 'id') {
         const relatedModel = field.name.replace(/Id$/, '');
         const capitalizedModel = relatedModel.charAt(0).toUpperCase() + relatedModel.slice(1);
@@ -82,7 +93,7 @@ function detectRelations(interfaces) {
         }
       }
       
-      // Détecter les arrays de IDs (ex: tagIds: string[])
+      // 2. Arrays de IDs (GARDE)
       if (field.name.endsWith('Ids') && field.type.includes('[]')) {
         const relatedModel = field.name.replace(/Ids$/, '');
         const capitalizedModel = relatedModel.charAt(0).toUpperCase() + relatedModel.slice(1);
@@ -98,6 +109,36 @@ function detectRelations(interfaces) {
           console.log(`    🔗 ${modelName}.${field.name} → ${capitalizedModel}[]`);
         }
       }
+      
+      // ====================================
+      // NOUVEAUTÉ: DÉTECTION FIREBASE AVANCÉE
+      // ====================================
+      
+      // 3. Relations Firebase avec noms personnalisés
+      if (field.type.includes('DocumentReference') || field.type.includes('Firestore')) {
+        const relationInfo = inferFirebaseRelation(field.name, field.type, interfaces);
+        if (relationInfo) {
+          modelRelations.push(relationInfo);
+          console.log(`    🔥 Firebase: ${modelName}.${field.name} → ${relationInfo.relatedModel}`);
+        }
+      }
+      
+      // 4. Relations implicites par nom (ex: "owner", "author", "creator")
+      const implicitRelations = ['owner', 'author', 'creator', 'user', 'host', 'client'];
+      if (implicitRelations.includes(field.name.toLowerCase()) && field.type === 'string') {
+        const implicitModel = field.name.charAt(0).toUpperCase() + field.name.slice(1);
+        if (interfaces.has(implicitModel)) {
+          modelRelations.push({
+            type: 'belongsTo',
+            field: field.name + 'Id', // Créer le champ ID correspondant
+            relatedModel: implicitModel,
+            relationName: `${modelName}${implicitModel}`,
+            optional: field.optional,
+            implicit: true
+          });
+          console.log(`    💡 Implicite: ${modelName}.${field.name} → ${implicitModel}`);
+        }
+      }
     });
     
     relations.set(modelName, modelRelations);
@@ -106,13 +147,35 @@ function detectRelations(interfaces) {
   return relations;
 }
 
+// NOUVELLE FONCTION: Inférer relations Firebase
+function inferFirebaseRelation(fieldName, fieldType, interfaces) {
+  // Logique pour détecter les relations Firebase complexes
+  if (fieldType.includes('DocumentReference')) {
+    // DocumentReference<User> → User
+    const typeMatch = fieldType.match(/DocumentReference<(\w+)>/);
+    if (typeMatch && interfaces.has(typeMatch[1])) {
+      return {
+        type: 'belongsTo',
+        field: fieldName + 'Id',
+        relatedModel: typeMatch[1],
+        relationName: `Firebase${fieldName}${typeMatch[1]}`,
+        optional: true,
+        firebase: true
+      };
+    }
+  }
+  
+  return null;
+}
+
+// GARDE LA FONCTION mapToPrismaType EXISTANTE (avec petites améliorations)
 function mapToPrismaType(tsType, fieldName, isOptional) {
   const cleanType = tsType.replace(/[\[\]?]/g, '').trim();
   
-  // Types de base
+  // GARDE TOUTE LA LOGIQUE EXISTANTE
   if (cleanType === 'string' || cleanType === 'String') return 'String';
   if (cleanType === 'number' || cleanType === 'Number') {
-    // Détecter automatiquement Float vs Int
+    // Détecter automatiquement Float vs Int (GARDE)
     if (fieldName.toLowerCase().includes('prix') || 
         fieldName.toLowerCase().includes('price') ||
         fieldName.toLowerCase().includes('montant') ||
@@ -124,31 +187,37 @@ function mapToPrismaType(tsType, fieldName, isOptional) {
   if (cleanType === 'boolean' || cleanType === 'Boolean') return 'Boolean';
   if (cleanType === 'Date' || cleanType === 'DateTime') return 'DateTime';
   
-  // Arrays
+  // NOUVEAUTÉ: Support des types Firebase
+  if (cleanType.includes('Timestamp')) return 'DateTime';
+  if (cleanType.includes('DocumentReference')) return 'String'; // Stocker l'ID
+  if (cleanType.includes('GeoPoint')) return 'Json';
+  
+  // Arrays (GARDE)
   if (tsType.includes('[]')) {
     if (cleanType === 'string') return 'String[]';
     if (cleanType === 'number') return 'Int[]';
     return 'Json'; // Pour les arrays complexes
   }
   
-  // Types complexes ou unions
+  // Types complexes ou unions (GARDE)
   if (tsType.includes('|') || cleanType === 'any' || cleanType === 'object') return 'Json';
   
-  // Par défaut
+  // Par défaut (GARDE)
   return 'String';
 }
 
+// GARDE LA FONCTION findReverseRelations (avec amélioration mineure)
 function findReverseRelations(targetModel, allRelations) {
   const reverseRels = [];
   
-  // allRelations est une Map, pas un array
   allRelations.forEach((relations, sourceModel) => {
     if (Array.isArray(relations)) {
       relations.forEach(relation => {
         if (relation.relatedModel === targetModel && relation.type === 'belongsTo') {
           reverseRels.push({
             sourceModel: sourceModel,
-            relationName: relation.relationName
+            relationName: relation.relationName,
+            firebase: relation.firebase || false // NOUVEAUTÉ: flag Firebase
           });
         }
       });
@@ -158,51 +227,77 @@ function findReverseRelations(targetModel, allRelations) {
   return reverseRels;
 }
 
+// GARDE LA FONCTION generatePrismaModelDynamically AVEC AMÉLIORATIONS MINEURES
 function generatePrismaModelDynamically(modelName, fields, relations, allRelations) {
   let model = `// ${modelName} model - Généré DYNAMIQUEMENT\n`;
   model += `model ${modelName} {\n`;
   
-  // ID obligatoire
-  model += `  id        String   @id @default(cuid())\n`;
+  // ID obligatoire avec auto-increment (GARDE)
+  model += `  id        Int      @id @default(autoincrement())\n`;
   
-  // Champs de l'interface
-  fields.forEach(field => {
-    if (field.name === 'id') return; // Éviter les doublons
-    
-    let prismaType = mapToPrismaType(field.type, field.name, field.optional);
-    if (field.optional) prismaType += '?';
-    
-    let attributes = '';
-    if (field.name === 'email') attributes = ' @unique';
-    
-    model += `  ${field.name.padEnd(15)} ${prismaType.padEnd(12)}${attributes}\n`;
-  });
+  // Suivre les champs déjà ajoutés pour éviter les doublons (GARDE)
+  const addedFields = new Set(['id']);
   
-  // Relations détectées (belongsTo)
-  if (Array.isArray(relations)) {
-    relations.forEach(relation => {
-      if (relation.type === 'belongsTo') {
-        const relatedField = relation.field.replace(/Id$/, '');
-        model += `  ${relatedField.padEnd(15)} ${relation.relatedModel}${relation.optional ? '?' : ''} @relation("${relation.relationName}", fields: [${relation.field}], references: [id])\n`;
+  // Champs de l'interface (GARDE TOUTE LA LOGIQUE)
+  if (Array.isArray(fields)) {
+    fields.forEach(field => {
+      if (!field || !field.name || addedFields.has(field.name)) {
+        return; // Éviter les champs invalides ou doublons
+      }
+      
+      let prismaType = mapToPrismaType(field.type, field.name, field.optional);
+      if (field.optional) prismaType += '?';
+      
+      let attributes = '';
+      if (field.name === 'email') attributes = ' @unique';
+      
+      // Ajuster les types de relations pour utiliser Int (GARDE)
+      if (field.name.endsWith('Id') && field.name !== 'id') {
+        prismaType = 'Int' + (field.optional ? '?' : '');
+      }
+      
+      // Vérifier que le nom du champ est valide (GARDE)
+      if (field.name && field.name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
+        model += `  ${field.name.padEnd(15)} ${prismaType.padEnd(12)}${attributes}\n`;
+        addedFields.add(field.name);
       }
     });
   }
   
-  // Relations inverses (hasMany)
-  const reverseRelations = findReverseRelations(modelName, allRelations);
-  reverseRelations.forEach(reverseRel => {
-    const pluralField = reverseRel.sourceModel.toLowerCase() + 's';
-    model += `  ${pluralField.padEnd(15)} ${reverseRel.sourceModel}[] @relation("${reverseRel.relationName}")\n`;
-  });
+  // Relations détectées (belongsTo) - GARDE AVEC AMÉLIORATION
+  if (Array.isArray(relations)) {
+    relations.forEach(relation => {
+      if (relation && relation.type === 'belongsTo' && relation.field) {
+        const relatedField = relation.field.replace(/Id$/, '');
+        if (!addedFields.has(relatedField) && relatedField.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
+          // AMÉLIORATION: Nom de relation unique pour Firebase
+          const relationName = relation.firebase ? 
+            `Firebase_${modelName}_${relation.relatedModel}` : 
+            `${modelName}_${relation.relatedModel}`;
+          
+          model += `  ${relatedField.padEnd(15)} ${relation.relatedModel}${relation.optional ? '?' : ''} @relation("${relationName}", fields: [${relation.field}], references: [id])\n`;
+          addedFields.add(relatedField);
+        }
+      }
+    });
+  }
   
-  // Timestamps
-  model += `  createdAt DateTime @default(now())\n`;
-  model += `  updatedAt DateTime @updatedAt\n`;
+  // Timestamps standard - toujours ajouter (GARDE)
+  if (!addedFields.has('createdAt')) {
+    model += `  createdAt DateTime @default(now())\n`;
+    addedFields.add('createdAt');
+  }
+  if (!addedFields.has('updatedAt')) {
+    model += `  updatedAt DateTime @updatedAt\n`;
+    addedFields.add('updatedAt');
+  }
+  
   model += `}\n`;
   
   return model;
 }
 
+// GARDE LA FONCTION validateAndCleanSchema (parfaite)
 function validateAndCleanSchema(schema) {
   console.log('🔍 Validation et nettoyage du schema...');
   
@@ -253,7 +348,7 @@ function validateAndCleanSchema(schema) {
   
   const cleanedSchema = cleanedLines.join('\n');
   
-  // Vérification finale
+  // Vérification finale (GARDE)
   const duplicateCheck = /^\s*(\w+)\s+.*\n[\s\S]*?^\s*\1\s+/gm;
   const duplicates = cleanedSchema.match(duplicateCheck);
   
@@ -269,10 +364,11 @@ function validateAndCleanSchema(schema) {
   return cleanedSchema;
 }
 
+// GARDE LA FONCTION generateCompletePrismaSchema AVEC UNE SEULE AMÉLIORATION
 function generateCompletePrismaSchema(interfaces) {
-  console.log('🏗️ Génération COMPLÈTEMENT DYNAMIQUE du schema...');
+  console.log('🏗️ Génération COMPLÈTEMENT DYNAMIQUE du schema - VERSION AMÉLIORÉE...');
   
-  let schema = `// Schema Prisma généré COMPLÈTEMENT DYNAMIQUEMENT depuis types.ts
+  let schema = `// Schema Prisma généré COMPLÈTEMENT DYNAMIQUEMENT depuis types.ts - VERSION AMÉLIORÉE
 generator client {
   provider = "prisma-client-js"
 }
@@ -284,84 +380,25 @@ datasource db {
 
 `;
 
-  const relations = detectRelations(interfaces);
+  // UTILISE LA NOUVELLE FONCTION DE DÉTECTION AMÉLIORÉE
+  const relations = detectRelationsFirebaseIntelligent(interfaces);
   
-  // Générer tous les modèles dynamiquement
+  // GARDE TOUTE LA GÉNÉRATION EXISTANTE
   interfaces.forEach((fields, modelName) => {
     const modelRelations = relations.get(modelName) || [];
     schema += generatePrismaModelDynamically(modelName, fields, modelRelations, relations);
     schema += '\n';
   });
   
-  // Valider et nettoyer le schema avant de le retourner
+  // GARDE LA VALIDATION
   return validateAndCleanSchema(schema);
 }
 
-function generatePrismaModelDynamically(modelName, fields, relations, allRelations) {
-  let model = `// ${modelName} model - Généré DYNAMIQUEMENT\n`;
-  model += `model ${modelName} {\n`;
-  
-  // ID obligatoire avec auto-increment
-  model += `  id        Int      @id @default(autoincrement())\n`;
-  
-  // Suivre les champs déjà ajoutés pour éviter les doublons
-  const addedFields = new Set(['id']);
-  
-  // Champs de l'interface
-  if (Array.isArray(fields)) {
-    fields.forEach(field => {
-      if (!field || !field.name || addedFields.has(field.name)) {
-        return; // Éviter les champs invalides ou doublons
-      }
-      
-      let prismaType = mapToPrismaType(field.type, field.name, field.optional);
-      if (field.optional) prismaType += '?';
-      
-      let attributes = '';
-      if (field.name === 'email') attributes = ' @unique';
-      
-      // Ajuster les types de relations pour utiliser Int
-      if (field.name.endsWith('Id') && field.name !== 'id') {
-        prismaType = 'Int' + (field.optional ? '?' : '');
-      }
-      
-      // Vérifier que le nom du champ est valide
-      if (field.name && field.name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
-        model += `  ${field.name.padEnd(15)} ${prismaType.padEnd(12)}${attributes}\n`;
-        addedFields.add(field.name);
-      }
-    });
-  }
-  
-  // Relations détectées (belongsTo) - simplifiées pour éviter erreurs
-  if (Array.isArray(relations)) {
-    relations.forEach(relation => {
-      if (relation && relation.type === 'belongsTo' && relation.field) {
-        const relatedField = relation.field.replace(/Id$/, '');
-        if (!addedFields.has(relatedField) && relatedField.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
-          model += `  ${relatedField.padEnd(15)} ${relation.relatedModel}${relation.optional ? '?' : ''} @relation("${modelName}_${relation.relatedModel}", fields: [${relation.field}], references: [id])\n`;
-          addedFields.add(relatedField);
-        }
-      }
-    });
-  }
-  
-  // Timestamps standard - toujours ajouter
-  if (!addedFields.has('createdAt')) {
-    model += `  createdAt DateTime @default(now())\n`;
-    addedFields.add('createdAt');
-  }
-  if (!addedFields.has('updatedAt')) {
-    model += `  updatedAt DateTime @updatedAt\n`;
-    addedFields.add('updatedAt');
-  }
-  
-  model += `}\n`;
-  
-  return model;
-}
+// ====================================
+// GARDE TOUTE LA LOGIQUE D'EXÉCUTION EXISTANTE
+// ====================================
 
-// Créer le répertoire prisma
+// Créer le répertoire prisma (GARDE)
 const prismaDir = path.join(__dirname, '../prisma');
 if (!fs.existsSync(prismaDir)) {
   fs.mkdirSync(prismaDir, { recursive: true });
@@ -382,9 +419,10 @@ try {
   const schemaPath = path.join(prismaDir, 'schema.prisma');
   
   fs.writeFileSync(schemaPath, schema);
-  console.log('✅ Schema Prisma généré COMPLÈTEMENT DYNAMIQUEMENT');
+  console.log('✅ Schema Prisma généré COMPLÈTEMENT DYNAMIQUEMENT - VERSION AMÉLIORÉE');
   console.log(`📁 Fichier créé: ${schemaPath}`);
   console.log(`🎯 100% basé sur vos interfaces TypeScript !`);
+  console.log(`🔥 + Support Firebase et relations intelligentes !`);
   
 } catch (err) {
   console.error('❌ Erreur lors de la génération du schema:', err.message);
