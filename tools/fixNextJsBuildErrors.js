@@ -6,7 +6,7 @@ console.log('================================================');
 
 class NextJsBuildErrorsFixer {
   constructor() {
-    this.srcDir = path.join(process.cwd(), 'src');
+   this.srcDir = path.join(__dirname, '..', 'src');
     this.rootDir = process.cwd(); // ← AJOUTÉ - était manquant !
     this.fixedFiles = 0;
     this.errors = [];
