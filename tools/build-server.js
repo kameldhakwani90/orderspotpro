@@ -525,7 +525,7 @@ try {
   console.log("\n" + "=".repeat(60));
   console.log("🔧 PHASE 4: CORRECTIONS SYSTÉMATIQUES");
   console.log("=".repeat(60));
-    runScript('fixNextJsBuildErrors.js', 'Correction erreurs build Next.js',false);
+    runScript('fixNextJsBuildErrors.js', 'Correction erreurs build Next.js',true);
 
   runScript("genericMissingExportsFixer.js", "Correction exports manquants");
   runScript("fixTypesMismatch.js", "Synchronisation Types/Schema");
