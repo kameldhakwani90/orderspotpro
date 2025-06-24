@@ -538,7 +538,9 @@ try {
   console.log("=".repeat(60));
   
   try {
-    run("npm run build", "Build Next.js final");
+    // run("npm run build", "Build Next.js final");
+    runScript("smartBuildWithFix.js", "Build intelligent avec corrections auto");
+
     run("pm2 start npm --name orderspot-app -- start", "Démarrage PM2 app");
     run("pm2 save", "Sauvegarde configuration PM2");
   } catch (error) {
