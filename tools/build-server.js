@@ -20,7 +20,7 @@ const path = require('path');
 function run(cmd, desc) {
   console.log("\n🔧 " + desc + "...");
   try {
-    const DATABASE_URL = process.env.DATABASE_URL || "postgresql://orderspot_user:orderspot_pass@orderspot_postgres:5432/orderspot_db?schema=public";
+    const DATABASE_URL = process.env.DATABASE_URL || "postgresql://orderspot_user:orderspot_pass@localhost:5432/orderspot_db?schema=public";
     const env = { ...process.env, DATABASE_URL };
     execSync(cmd, { stdio: "inherit", env });
     console.log("✅ " + desc + " terminé.");
@@ -367,7 +367,7 @@ function isNonCriticalScript(scriptName) {
 function setupDatabaseConnection() {
   console.log("\n🔍 Configuration de la connexion base de données...");
 
-  const DB_HOST = "orderspot_postgres";
+  const DB_HOST = "localhost";
   const DB_USER = "orderspot_user";
   const DB_PASS = "orderspot_pass";
   const DB_NAME = "orderspot_db";
