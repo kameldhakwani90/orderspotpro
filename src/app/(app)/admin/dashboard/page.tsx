@@ -21,12 +21,12 @@ export default function AdminDashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && user?.role !== 'ADMIN') {
+    if (!isLoading && user?.role !== 'admin') {
       router.replace('/dashboard'); // Redirect if not admin
     }
   }, [user, isLoading, router]);
 
-  if (isLoading || !user || user.role !== 'ADMIN') {
+  if (isLoading || !user || user.role !== 'admin') {
     return <div className="p-6">Loading admin data or unauthorized...</div>;
   }
   

@@ -1,4 +1,3 @@
-// fix-appshell-redirections.js - CORRECTION REDIRECTION INFINIE APPSHELL
 const fs = require('fs');
 const path = require('path');
 
@@ -109,427 +108,355 @@ import { useAuth } from '@/context/AuthContext';
 import type { NavItem, UserRole, Site } from '@/lib/types'; 
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import {
-  Home, Users, Building2, UserCog, MapPin, ListChecks, FileText, 
-  ClipboardList, ShoppingCart, Settings, LogOut, Menu, ChevronDown, 
-  ChevronUp, CalendarCheck, Tag as TagIcon, Settings2, ChevronsUpDown, 
-  MessageSquare, LayoutDashboard, UserCircle, Utensils as MenuCardsIcon, 
-  Database, ListOrdered, Briefcase
-} from 'lucide-react'; 
-import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { useToast } from '@/hooks/use-toast';
+import { 
+  Menu, 
+  X, 
+  Home, 
+  Users, 
+  Settings, 
+  LogOut,
+  User as UserIcon,
+  Building,
+  Calendar,
+  BarChart3
+} from 'lucide-react';
 
-// ====================================
-// NAVIGATION ITEMS - DÉFINITION STABLE
-// ====================================
-const adminNavItems: NavItem[] = [
-  { label: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, allowedRoles: ['admin'] },
-  { label: 'Manage Users', href: '/admin/users', icon: Users, allowedRoles: ['admin'] },
-  { label: 'Manage Global Sites', href: '/admin/sites', icon: Building2, allowedRoles: ['admin'] },
-  { label: 'Manage Hosts', href: '/admin/hosts', icon: UserCog, allowedRoles: ['admin'] },
-  { label: 'Data Model', href: '/admin/data-model', icon: Database, allowedRoles: ['admin'] },
-];
+interface AppShellProps {
+  children: React.ReactNode;
+  currentSite?: Site;
+}
 
-const hostNavItems: NavItem[] = [
-  { label: 'Dashboard', href: '/host/dashboard', icon: LayoutDashboard, allowedRoles: ['host'] },
-  { label: 'Client Orders', href: '/host/orders', icon: ShoppingCart, allowedRoles: ['host'] },
-  { label: 'Production Display', href: '/host/production-display', icon: ListOrdered, allowedRoles: ['host'] },
-  { label: 'Reservations', href: '/host/reservations', icon: CalendarCheck, allowedRoles: ['host'] }, 
-  { label: 'Gestion Clients', href: '/host/clients', icon: Users, allowedRoles: ['host'] },
-  {
-    label: 'Configuration',
-    href: '#', 
-    icon: Settings, 
-    allowedRoles: ['host'],
-    children: [
-      { label: 'My Locations', href: '/host/locations', icon: MapPin, allowedRoles: ['host'] },
-      { label: 'Manage Tags', href: '/host/tags', icon: TagIcon, allowedRoles: ['host'] },
-      { label: 'Menu Cards', href: '/host/menu-cards', icon: MenuCardsIcon, allowedRoles: ['host'] },
-      { label: 'Service Categories', href: '/host/service-categories', icon: ListChecks, allowedRoles: ['host'] },
-      { label: 'Custom Forms', href: '/host/forms', icon: FileText, allowedRoles: ['host'] },
-      { label: 'My Services', href: '/host/services', icon: ClipboardList, allowedRoles: ['host'] },
-      { label: 'Paramètres & Fidélité', href: '/host/reservation-settings', icon: Settings2, allowedRoles: ['host'] },
-      { label: 'Manage Employees', href: '/host/employees', icon: Briefcase, allowedRoles: ['host'] },
-      { label: 'Account Settings', href: '/settings', icon: UserCircle, allowedRoles: ['host'] },
-    ]
-  }
-];
-
-const clientNavItems: NavItem[] = [
-  { label: 'Tableau de Bord', href: '/client/dashboard', icon: LayoutDashboard, allowedRoles: ['client'] },
-  { label: 'Mes Réservations', href: '/client/my-reservations', icon: CalendarCheck, allowedRoles: ['client'] },
-  { label: 'Mes Commandes', href: '/client/my-orders', icon: ShoppingCart, allowedRoles: ['client'] },
-  { label: 'Mon Compte', href: '/settings', icon: UserCircle, allowedRoles: ['client'] },
-];
-
-// ====================================
-// COMPOSANT PRINCIPAL - CORRIGÉ
-// ====================================
-const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { 
-    user, 
-    logout, 
-    isLoading, 
-    managedGlobalSites, 
-    selectedGlobalSite, 
-    setSelectedGlobalSite 
-  } = useAuth();
+export function AppShell({ children, currentSite }: AppShellProps) {
+  const { user, logout, isLoading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const { toast } = useToast(); 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const navigationTimeoutRef = useRef<NodeJS.Timeout>();
 
   // ====================================
-  // FIX 1: GESTION RÔLE SIMPLIFIÉE (PAS DE NORMALISATION)
+  // NAVIGATION SÉCURISÉE - ANTI-BOUCLE
   // ====================================
-  const userRole = user?.role || '';
   
-  // ====================================
-  // FIX 2: PRÉVENTION BOUCLES USEEFFECT
-  // ====================================
-  const lastLoggedPath = useRef('');
-  const redirectionInProgress = useRef(false);
+  const safeNavigate = (path: string) => {
+    if (isNavigating || pathname === path) {
+      return; // Éviter navigation multiple ou vers même page
+    }
+    
+    setIsNavigating(true);
+    
+    // Timeout sécurité pour éviter blocage
+    if (navigationTimeoutRef.current) {
+      clearTimeout(navigationTimeoutRef.current);
+    }
+    
+    navigationTimeoutRef.current = setTimeout(() => {
+      setIsNavigating(false);
+    }, 2000);
+    
+    router.push(path);
+  };
 
   // ====================================
-  // FONCTION UTILITAIRE NAVIGATION
+  // GESTION RÔLES SIMPLIFIÉE
   // ====================================
-  const getNavItemsForRole = (role: string): NavItem[] => {
-    switch (role) {
-      case 'admin':
-        const adminItems = [...adminNavItems];
-        if (!adminItems.some(item => item.href === '/settings')) {
-          adminItems.push({ 
-            label: 'Mon Compte', 
-            href: '/settings', 
-            icon: UserCircle, 
-            allowedRoles: ['admin'] 
-          });
-        }
-        return adminItems;
-      case 'host':
-        return hostNavItems;
-      case 'client':
-        return clientNavItems;
-      default:
-        return [];
+  
+  const getUserRole = (): UserRole => {
+    if (!user || !user.role) return 'client';
+    return user.role as UserRole;
+  };
+
+  const getNavItems = (): NavItem[] => {
+    const userRole = getUserRole();
+    
+    const baseItems: NavItem[] = [
+      { name: 'Accueil', href: '/dashboard', icon: 'Home', roles: ['admin', 'host', 'client'] }
+    ];
+
+    const roleSpecificItems: Record<UserRole, NavItem[]> = {
+      admin: [
+        { name: 'Utilisateurs', href: '/admin/users', icon: 'Users' },
+        { name: 'Hosts', href: '/admin/hosts', icon: 'Building' },
+        { name: 'Statistiques', href: '/admin/stats', icon: 'BarChart3' },
+        { name: 'Paramètres', href: '/admin/settings', icon: 'Settings' }
+      ],
+      host: [
+        { name: 'Mon établissement', href: '/host/dashboard', icon: 'Building' },
+        { name: 'Réservations', href: '/host/reservations', icon: 'Calendar' },
+        { name: 'Clients', href: '/host/clients', icon: 'Users' },
+        { name: 'Paramètres', href: '/host/settings', icon: 'Settings' }
+      ],
+      client: [
+        { name: 'Mes réservations', href: '/client/reservations', icon: 'Calendar' },
+        { name: 'Profil', href: '/client/profile', icon: 'UserIcon' }
+      ]
+    };
+
+    return [...baseItems, ...roleSpecificItems[userRole]];
+  };
+
+  // ====================================
+  // VÉRIFICATION ACCÈS SÉCURISÉE
+  // ====================================
+  
+  const canAccessPath = (path: string): boolean => {
+    const userRole = getUserRole();
+    
+    // Pages publiques
+    const publicPaths = ['/', '/login', '/register'];
+    if (publicPaths.includes(path)) return true;
+    
+    // Utilisateur non connecté
+    if (!user) return false;
+    
+    // Vérification par rôle
+    if (path.startsWith('/admin/') && userRole !== 'admin') return false;
+    if (path.startsWith('/host/') && userRole !== 'host' && userRole !== 'admin') return false;
+    if (path.startsWith('/client/') && userRole !== 'client' && userRole !== 'admin') return false;
+    
+    return true;
+  };
+
+  // ====================================
+  // EFFET DE CONTRÔLE D'ACCÈS - SÉCURISÉ
+  // ====================================
+  
+  useEffect(() => {
+    // Éviter vérifications pendant loading ou navigation
+    if (isLoading || isNavigating) return;
+    
+    // Pages publiques - pas de vérification
+    const publicPaths = ['/', '/login', '/register'];
+    if (publicPaths.includes(pathname)) return;
+    
+    // Utilisateur non connecté - rediriger vers login
+    if (!user) {
+      console.log('Utilisateur non connecté, redirection vers login');
+      safeNavigate('/login');
+      return;
+    }
+    
+    // Vérifier accès à la page actuelle
+    if (!canAccessPath(pathname)) {
+      console.log(\`Accès refusé à \${pathname}, redirection dashboard\`);
+      const userRole = getUserRole();
+      
+      // Redirection sécurisée selon rôle
+      switch (userRole) {
+        case 'admin':
+          safeNavigate('/admin/dashboard');
+          break;
+        case 'host':
+          safeNavigate('/host/dashboard');
+          break;
+        case 'client':
+          safeNavigate('/client/dashboard');
+          break;
+        default:
+          safeNavigate('/dashboard');
+      }
+    }
+    
+  }, [user, pathname, isLoading]); // Dépendances précises
+
+  // ====================================
+  // NETTOYAGE
+  // ====================================
+  
+  useEffect(() => {
+    return () => {
+      if (navigationTimeoutRef.current) {
+        clearTimeout(navigationTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // ====================================
+  // HANDLERS
+  // ====================================
+  
+  const handleLogout = async () => {
+    try {
+      await logout();
+      safeNavigate('/login');
+    } catch (error) {
+      console.error('Erreur logout:', error);
+    }
+  };
+
+  const handleNavItemClick = (item: NavItem) => {
+    if (canAccessPath(item.href)) {
+      safeNavigate(item.href);
+      setIsSidebarOpen(false);
+    } else {
+      console.warn(\`Accès refusé à \${item.href}\`);
     }
   };
 
   // ====================================
-  // FIX 3: GESTION MENUS OUVERTS STABLE
+  // RENDER PENDANT LOADING
   // ====================================
-  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>(() => {
-    const initialOpenMenus: Record<string, boolean> = {};
-    
-    if (user) {
-      const navItems = getNavItemsForRole(userRole);
-      navItems.forEach(item => {
-        if (item.children && item.children.some(child => 
-          pathname.startsWith(child.href) && child.href !== '#'
-        )) {
-          initialOpenMenus[item.label] = true;
-        }
-      });
-    }
-    
-    return initialOpenMenus;
-  });
-
-  // ====================================
-  // FIX 4: USEEFFECT SÉCURISÉ CONTRE BOUCLES
-  // ====================================
-  useEffect(() => {
-    // Éviter reprocessing même path
-    if (pathname === lastLoggedPath.current) return;
-    
-    // Log changement path (debug)
-    console.log(\`Navigation: \${pathname}, Role: \${userRole}\`);
-    lastLoggedPath.current = pathname;
-    
-    // Mise à jour menus ouverts sans redirection
-    if (user && !redirectionInProgress.current) {
-      const navItems = getNavItemsForRole(userRole);
-      const newOpenMenus: Record<string, boolean> = {};
-      
-      navItems.forEach(item => {
-        if (item.children && item.children.some(child => 
-          pathname.startsWith(child.href) && child.href !== '#'
-        )) {
-          newOpenMenus[item.label] = true;
-        }
-      });
-      
-      setOpenMenus(prev => ({...prev, ...newOpenMenus}));
-    }
-  }, [pathname, user, userRole]);
-
-  // ====================================
-  // FIX 5: REDIRECTION SÉCURISÉE
-  // ====================================
-  useEffect(() => {
-    // Éviter redirections multiples
-    if (redirectionInProgress.current) return;
-    
-    // Redirection utilisateur non connecté
-    if (!isLoading && !user && !pathname.startsWith('/login')) {
-      redirectionInProgress.current = true;
-      
-      setTimeout(() => {
-        router.push('/login');
-        redirectionInProgress.current = false;
-      }, 100);
-    }
-  }, [user, isLoading, pathname, router]);
-
-  // ====================================
-  // RENDU CONDITIONNEL
-  // ====================================
+  
   if (isLoading) {
     return (
-      <div className="flex h-screen bg-background">
-        <div className="w-64 border-r p-4 space-y-4">
-          <Skeleton className="h-10 w-full" />
-          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
-        </div>
-        <div className="flex-1 p-6">
-          <Skeleton className="h-16 w-full mb-4" />
-          <Skeleton className="h-64 w-full" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement...</p>
         </div>
       </div>
     );
   }
 
-  if (!user) {
-    return null; // Redirection en cours
-  }
-
   // ====================================
-  // COMPOSANTS NAVIGATION  
+  // RENDER PRINCIPAL
   // ====================================
-  const userInitial = user.nom ? user.nom.charAt(0).toUpperCase() : '?';
-  const currentNavItems = getNavItemsForRole(userRole);
-
-  const toggleMenu = (label: string) => {
-    setOpenMenus(prev => ({ ...prev, [label]: !prev[label] }));
-  };
   
-  const NavLink: React.FC<{ item: NavItem; isSubItem?: boolean }> = ({ item, isSubItem = false }) => {
-    const isActive = pathname === item.href || 
-                    (item.href !== '/' && pathname.startsWith(item.href));
-    const hasChildren = item.children && item.children.length > 0;
-    const isOpen = openMenus[item.label];
+  const navItems = getNavItems();
+  const userRole = getUserRole();
 
-    if (hasChildren) {
-      return (
-        <div className="space-y-1">
-          <Button
-            variant="ghost"
-            className={cn(
-              "w-full justify-between text-left font-normal px-3 py-2 h-auto",
-              isActive && "bg-primary/20 text-primary"
-            )}
-            onClick={() => toggleMenu(item.label)}
-          >
-            <div className="flex items-center gap-3">
-              <item.icon className="h-4 w-4" />
-              <span>{item.label}</span>
-            </div>
-            {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </Button>
-          
-          {isOpen && (
-            <div className="ml-6 space-y-1">
-              {item.children.map((child) => (
-                <NavLink key={child.href} item={child} isSubItem />
-              ))}
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    return (
-      <Link href={item.href} className="block">
-        <Button
-          variant="ghost"
-          className={cn(
-            "w-full justify-start text-left font-normal px-3 py-2 h-auto",
-            isActive && "bg-primary/20 text-primary",
-            isSubItem && "text-sm pl-6"
-          )}
-        >
-          <item.icon className="mr-3 h-4 w-4" />
-          {item.label}
-        </Button>
-      </Link>
-    );
-  };
-
-  // Composant SiteSwitcher (simplifié)
-  const SiteSwitcher = () => {
-    if (!managedGlobalSites || managedGlobalSites.length <= 1) {
-      return null;
-    }
-
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="w-[200px] justify-between">
-            {selectedGlobalSite?.name || 'Sélectionner un site'}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-[200px]">
-          <DropdownMenuRadioGroup 
-            value={selectedGlobalSite?.id || ''} 
-            onValueChange={(value) => {
-              const site = managedGlobalSites.find(s => s.id === value);
-              if (site) setSelectedGlobalSite(site);
-            }}
-          >
-            {managedGlobalSites.map((site) => (
-              <DropdownMenuRadioItem key={site.id} value={site.id}>
-                {site.name}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  };
-
-  // ====================================
-  // RENDU PRINCIPAL
-  // ====================================
   return (
-    <div className="flex h-screen bg-background">
-      {/* Sidebar */}
-      <aside className={cn(
-        "fixed inset-y-0 left-0 z-50 flex flex-col border-r bg-card transition-transform duration-300 md:relative md:translate-x-0",
-        isSidebarOpen ? "translate-x-0 w-64" : "-translate-x-full w-64 md:w-16"
-      )}>
-        <ScrollArea className="h-full">
-          <div className="flex items-center justify-between h-16 border-b px-4">
-            <Link 
-              href="/dashboard" 
-              className={cn(
-                "font-bold text-xl text-sidebar-primary", 
-                isSidebarOpen ? "opacity-100" : "md:opacity-0 md:w-0 overflow-hidden"
-              )}
-            >
-              OrderSpot.pro
-            </Link>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="md:hidden" 
-              onClick={() => setIsSidebarOpen(false)}
-            >
-              <Menu />
-            </Button>
-          </div>
-          
-          <nav className="flex-grow p-4 space-y-1.5">
-            {currentNavItems.map((item) => (
-              isSidebarOpen ? (
-                <NavLink key={item.label + item.href} item={item} />
-              ) : (
-                <Link 
-                  href={item.href === '#' ? (item.children && item.children[0].href) || '/dashboard' : item.href} 
-                  key={\`\${item.label + item.href}-icon\`} 
-                  title={item.label}
-                  className={cn(
-                    "flex items-center justify-center h-10 w-10 rounded-lg transition-colors",
-                    pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== '#' ? 
-                      "bg-primary/20 text-primary" : "hover:bg-secondary text-sidebar-foreground"
-                  )}
-                >
-                  <item.icon className="h-5 w-5" />
-                </Link>
-              )
-            ))}
-          </nav>
-        </ScrollArea>
-      </aside>
-
-      {/* Main Content */}
-      <div className="flex flex-col flex-1 overflow-hidden">
-        {/* Header */}
-        <header className="flex items-center justify-between h-16 border-b bg-card px-4 md:px-6">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
-              <Menu />
-            </Button>
-            <SiteSwitcher />
-          </div>
-          
-          <div className="flex items-center gap-4">
-            {userRole === 'host' && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                title="Messages (Coming Soon)"
-                onClick={() => toast({ 
-                  title: "Chat Feature", 
-                  description: "Host-client chat is coming soon!"
-                })}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo et titre */}
+            <div className="flex items-center">
+              <button
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 lg:hidden"
               >
-                <MessageSquare className="h-5 w-5" />
-              </Button>
-            )}
-            
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user.avatar} alt={user.nom} />
-                    <AvatarFallback>{userInitial}</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user.nom}</p>
-                    <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
-                    <p className="text-xs leading-none text-muted-foreground">Rôle: {userRole}</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push('/settings')}>
-                  <UserCircle className="mr-2 h-4 w-4" />
-                  <span>Paramètres</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Se déconnecter</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </header>
+                {isSidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </button>
+              
+              <div className="ml-4 lg:ml-0">
+                <h1 className="text-xl font-semibold text-gray-900">
+                  OrderSpot Pro
+                </h1>
+                {currentSite && (
+                  <p className="text-sm text-gray-500">{currentSite.name}</p>
+                )}
+              </div>
+            </div>
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-6">
-          {children}
-        </main>
+            {/* User menu */}
+            {user && (
+              <div className="flex items-center space-x-4">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={user.avatar} alt={user.name} />
+                        <AvatarFallback>
+                          {user.name?.charAt(0) || user.email.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56" align="end">
+                    <div className="px-2 py-1.5 text-sm text-gray-700">
+                      <div className="font-medium">{user.name}</div>
+                      <div className="text-gray-500">{user.email}</div>
+                      <div className="text-xs text-blue-600 font-medium">{userRole}</div>
+                    </div>
+                    <DropdownMenuItem onClick={() => handleNavItemClick({ name: 'Profil', href: '/profile' })}>
+                      <UserIcon className="mr-2 h-4 w-4" />
+                      Profil
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleNavItemClick({ name: 'Paramètres', href: '/settings' })}>
+                      <Settings className="mr-2 h-4 w-4" />
+                      Paramètres
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogout}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Déconnexion
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <div className="flex">
+        {/* Sidebar */}
+        {user && (
+          <>
+            {/* Mobile sidebar */}
+            {isSidebarOpen && (
+              <div className="fixed inset-0 z-40 lg:hidden">
+                <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setIsSidebarOpen(false)} />
+                <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
+                  <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
+                    <nav className="px-2 space-y-1">
+                      {navItems.map((item) => (
+                        <button
+                          key={item.href}
+                          onClick={() => handleNavItemClick(item)}
+                          className={\\`
+                            w-full text-left px-2 py-2 rounded-md text-sm font-medium transition-colors
+                            \${pathname === item.href
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                            }
+                          \\`}
+                        >
+                          {item.name}
+                        </button>
+                      ))}
+                    </nav>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Desktop sidebar */}
+            <div className="hidden lg:flex lg:flex-shrink-0">
+              <div className="flex flex-col w-64">
+                <div className="flex-1 flex flex-col min-h-0 border-r border-gray-200 bg-white">
+                  <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
+                    <nav className="flex-1 px-2 space-y-1">
+                      {navItems.map((item) => (
+                        <button
+                          key={item.href}
+                          onClick={() => handleNavItemClick(item)}
+                          className={\\`
+                            w-full text-left px-2 py-2 rounded-md text-sm font-medium transition-colors
+                            \${pathname === item.href
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                            }
+                          \\`}
+                        >
+                          {item.name}
+                        </button>
+                      ))}
+                    </nav>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Main content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <main className="flex-1 relative overflow-y-auto focus:outline-none">
+            {children}
+          </main>
+        </div>
       </div>
     </div>
   );
-};
+}
 
 export default AppShell;`;
 
@@ -537,77 +464,85 @@ export default AppShell;`;
   }
 
   // ====================================
-  // APPLICATION CORRECTIONS
+  // APPLICATION DES CORRECTIONS
   // ====================================
   applyFixes() {
     console.log('🔧 Application des corrections...');
     
-    // Backup original
+    // Backup du fichier original
     if (fs.existsSync(this.appShellPath)) {
       fs.copyFileSync(this.appShellPath, this.backupPath);
-      console.log('📁 Backup créé:', this.backupPath);
+      console.log('📁 Backup créé: AppShell.tsx.backup');
     }
-
-    // Générer version corrigée
-    const fixedContent = this.generateFixedAppShell();
     
-    // Écrire fichier corrigé
+    // Créer le répertoire si nécessaire
+    const dir = path.dirname(this.appShellPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+      console.log(`📁 Répertoire créé: ${dir}`);
+    }
+    
+    // Générer et écrire le fichier corrigé
+    const fixedContent = this.generateFixedAppShell();
     fs.writeFileSync(this.appShellPath, fixedContent);
     
     this.fixesApplied = [
-      'Suppression normalisation rôle problématique',
-      'Prévention boucles useEffect avec refs',
-      'Redirection sécurisée avec timeout',
-      'Gestion menus stable',
-      'Navigation items constants',
-      'Logging debug amélioré'
+      'useEffect sécurisé avec dépendances précises',
+      'Navigation anti-boucle avec timeout',
+      'Gestion rôles simplifiée (pas de normalizedUserRole)',
+      'Vérification accès par page',
+      'Cleanup des timeouts',
+      'Loading state géré correctement',
+      'Redirection intelligente selon rôle'
     ];
-
-    console.log('✅ Corrections appliquées:');
-    this.fixesApplied.forEach(fix => {
-      console.log(`  ✅ ${fix}`);
-    });
+    
+    console.log('✅ AppShell corrigé écrit avec succès');
   }
 
   // ====================================
-  // VALIDATION POST-FIX
+  // VALIDATION DES CORRECTIONS
   // ====================================
   validateFixes() {
     console.log('🔍 Validation des corrections...');
     
     if (!fs.existsSync(this.appShellPath)) {
-      console.log('❌ AppShell.tsx introuvable après correction');
+      console.log('❌ Fichier AppShell non trouvé après correction');
       return false;
     }
-
+    
     const content = fs.readFileSync(this.appShellPath, 'utf-8');
     
     const validations = [
       {
+        name: 'useEffect avec dépendances correctes',
+        test: () => content.includes('useEffect') && content.includes('[user, pathname, isLoading]'),
+        fix: 'Ajouter les bonnes dépendances au useEffect'
+      },
+      {
+        name: 'Navigation sécurisée',
+        test: () => content.includes('safeNavigate') && content.includes('isNavigating'),
+        fix: 'Implémenter la fonction safeNavigate'
+      },
+      {
         name: 'Pas de normalizedUserRole',
-        check: !content.includes('normalizedUserRole'),
-        fix: 'Utilise userRole direct'
+        test: () => !content.includes('normalizedUserRole'),
+        fix: 'Remplacer normalizedUserRole par getUserRole()'
       },
       {
-        name: 'useRef pour prévention boucles',
-        check: content.includes('redirectionInProgress.current'),
-        fix: 'Refs ajoutées pour sécurité'
+        name: 'Gestion timeout',
+        test: () => content.includes('navigationTimeoutRef') && content.includes('clearTimeout'),
+        fix: 'Ajouter la gestion des timeouts'
       },
       {
-        name: 'Navigation items constants',
-        check: content.includes('const adminNavItems'),
-        fix: 'Navigation définie en constantes'
-      },
-      {
-        name: 'Fonction utilitaire rôles',
-        check: content.includes('getNavItemsForRole'),
-        fix: 'Logique centralisée'
+        name: 'Vérification accès',
+        test: () => content.includes('canAccessPath'),
+        fix: 'Implémenter canAccessPath()'
       }
     ];
 
     let allValid = true;
     validations.forEach(validation => {
-      const isValid = validation.check;
+      const isValid = validation.test();
       console.log(`  ${isValid ? '✅' : '❌'} ${validation.name}`);
       
       if (!isValid) {
