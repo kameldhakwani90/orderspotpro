@@ -126,7 +126,7 @@ function createTsconfig() {
 }
 
 function createPackageJson() {
-  if (!fs.existsSync('./package.json')) {
+  if (true) {
     const packageJson = {
       "name": "orderspot-pro",
       "version": "1.0.0",
