@@ -54,13 +54,18 @@ class PrismaAutoMigrator {
       while (retries < this.maxRetries) {
         try {
           // Variables d'environnement pour forcer le mode non-interactif
+         //  const env = {
+          //   ...process.env,
+         //    PRISMA_MIGRATE_SKIP_GENERATE: 'true',
+         //    PRISMA_MIGRATE_SKIP_SEED: 'true',
+         //    CI: 'true', // Force le mode non-interactif
+        //     FORCE_COLOR: '0'
+       //    };
+
           const env = {
-            ...process.env,
-            PRISMA_MIGRATE_SKIP_GENERATE: 'true',
-            PRISMA_MIGRATE_SKIP_SEED: 'true',
-            CI: 'true', // Force le mode non-interactif
-            FORCE_COLOR: '0'
-          };
+          ...process.env,
+          FORCE_COLOR: '0'
+            };
 
           execSync(step.command, {
             stdio: 'inherit',
