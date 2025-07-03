@@ -13,7 +13,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 export { prisma };
 
-// Service de base de donnÃ©es
+// Service de base de données
 export class DatabaseService {
   private client: PrismaClient;
   
@@ -24,10 +24,10 @@ export class DatabaseService {
   async connect() {
     try {
       await this.client.$connect();
-      console.log('âœ… Base de donnÃ©es connectÃ©e');
+      console.log('✅ Base de données connectée');
       return true;
     } catch (error) {
-      console.error('âŒ Erreur de connexion Ã  la base de donnÃ©es:', error);
+      console.error('❌ Erreur de connexion à la base de données:', error);
       return false;
     }
   }
@@ -35,9 +35,9 @@ export class DatabaseService {
   async disconnect() {
     try {
       await this.client.$disconnect();
-      console.log('âœ… Base de donnÃ©es dÃ©connectÃ©e');
+      console.log('✅ Base de données déconnectée');
     } catch (error) {
-      console.error('âŒ Erreur lors de la dÃ©connexion:', error);
+      console.error('❌ Erreur lors de la déconnexion:', error);
     }
   }
   
@@ -149,39 +149,3 @@ export const hostService = {
 
 // Service principal
 export default new DatabaseService();
-// USERS FUNCTIONS
-export async function getUsers() {
-  try {
-    return await prisma.user.findMany();
-  } catch (error) {
-    console.error('Erreur getUsers:', error);
-    return [];
-  }
-}
-
-export async function addUser(data: any) {
-  try {
-    return await prisma.user.create({ data });
-  } catch (error) {
-    console.error('Erreur addUser:', error);
-    throw error;
-  }
-}
-
-export async function updateUser(id: string, data: any) {
-  try {
-    return await prisma.user.update({ where: { id }, data });
-  } catch (error) {
-    console.error('Erreur updateUser:', error);
-    throw error;
-  }
-}
-
-export async function deleteUser(id: string) {
-  try {
-    return await prisma.user.delete({ where: { id } });
-  } catch (error) {
-    console.error('Erreur deleteUser:', error);
-    throw error;
-  }
-}
