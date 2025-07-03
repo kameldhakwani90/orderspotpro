@@ -188,6 +188,11 @@ try {
   console.log('='.repeat(60));
   
   runScript('generateCompleteSystem.js', 'Génération système complet', true);
+
+   console.log('\n' + '='.repeat(60));
+  console.log('🏗️ PHASE 2: GÉNÉRATION missing export');
+  console.log('='.repeat(60));
+    runScript('genericMissingExportsFixer.js', 'Correction exports manquants');
   
   // Validation après génération système
   validatePrismaService();
