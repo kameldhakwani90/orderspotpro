@@ -5,7 +5,7 @@ const crypto = require('crypto');
 
 // ====================================
 // CONFIGURATION GENERATOR - PIPELINE UNIVERSEL
-// Architecture Restructurée - Version 3.0
+// Architecture Restructurée - Version 3.0 CORRIGÉE
 // ====================================
 
 class ConfigGenerator {
@@ -16,7 +16,7 @@ class ConfigGenerator {
       output: process.stdout
     });
     
-    // 🎯 NOUVEAUX CHEMINS - ARCHITECTURE RESTRUCTURÉE
+    // 🎯 CHEMINS FIXES - PAS DE VARIABLES SYSTÈME DANS .ENV
     this.baseDir = '/data';
     this.configPath = path.join(this.baseDir, '.project-config.json');
     this.envPath = path.join(this.baseDir, '.env');
@@ -318,10 +318,7 @@ class ConfigGenerator {
       generatedAt: new Date().toISOString(),
       version: '3.0.0',
       pipelineVersion: 'universal-restructured',
-      architecture: 'restructured',
-      baseDirectory: this.baseDir,
-      toolsDirectory: this.toolsDir,
-      projectSourceDirectory: this.projectSourceDir
+      architecture: 'restructured'
     };
     
     // Générer secrets automatiquement
@@ -349,8 +346,9 @@ class ConfigGenerator {
   }
   
   generateEnvFile() {
+    // 🔧 CORRECTION : SEULEMENT LES VARIABLES UTILISATEUR - PAS DE VARIABLES SYSTÈME
     const envContent = `# Configuration générée automatiquement - ${new Date().toISOString()}
-# Architecture Restructurée - Tous les fichiers dans /data/
+# Architecture Restructurée - Variables utilisateur seulement
 
 # REPOSITORY
 REPO_URL=${this.config.repository.url}
@@ -382,12 +380,6 @@ ADMIN_NAME="${this.config.admin.name}"
 NEXTAUTH_SECRET=${this.config.secrets.nextauthSecret}
 JWT_SECRET=${this.config.secrets.jwtSecret}
 DATABASE_ENCRYPTION_KEY=${this.config.secrets.databaseEncryptionKey}
-
-# ARCHITECTURE PATHS
-BASE_DIR=${this.baseDir}
-TOOLS_DIR=${this.toolsDir}
-PROJECT_SOURCE_DIR=${this.projectSourceDir}
-LOGS_DIR=${this.logsDir}
 
 # AI CONFIGURATION
 AI_ANALYSIS_ENABLED=${this.config.ai.enabled}
@@ -431,12 +423,6 @@ NEXTAUTH_SECRET=your_nextauth_secret
 JWT_SECRET=your_jwt_secret
 DATABASE_ENCRYPTION_KEY=your_encryption_key
 
-# ARCHITECTURE PATHS
-BASE_DIR=/data
-TOOLS_DIR=/data/tools
-PROJECT_SOURCE_DIR=/data/project-source
-LOGS_DIR=/data/logs
-
 # AI CONFIGURATION
 AI_ANALYSIS_ENABLED=false
 
@@ -453,9 +439,6 @@ PM2_PROCESS_NAME=my-app
 # Log initial généré le ${new Date().toISOString()}
 
 Configuration créée avec succès:
-- Base directory: ${this.baseDir}
-- Tools directory: ${this.toolsDir}
-- Project source: ${this.projectSourceDir}
 - Application: ${this.config.app.name}
 - Database: ${this.config.database.type}
 - AI enabled: ${this.config.ai.enabled}
