@@ -145,7 +145,7 @@ Cartographie :
 Retourne JSON structuré avec cette cartographie.
 `;
 
-    const architectureAnalysis = await this.claudeAPI.analyzeWithCache(
+    const architectureAnalysis = await this.claudeAPI.optimizeCall(
       'architecture-mapping',
       architecturePrompt,
       'Tu es un architecte logiciel expert qui cartographie les projets Next.js/Firebase'
@@ -183,7 +183,7 @@ Classe par priorité : CRITIQUE, ÉLEVÉE, MOYENNE, FAIBLE
 Retourne JSON avec problèmes classés.
 `;
 
-    const problemsAnalysis = await this.claudeAPI.analyzeWithCache(
+   const problemsAnalysis = await this.claudeAPI.optimizeCall(
       'problems-detection',
       patternPrompt,
       'Tu es un expert en qualité de code qui détecte tous les problèmes et patterns'
@@ -221,7 +221,7 @@ Retourne plan JSON avec :
 - grouping: {type1: [id1, id2], type2: [id3]}
 `;
 
-    const prioritization = await this.claudeAPI.analyzeWithCache(
+    const prioritization = await this.claudeAPI.optimizeCall(
       'problem-prioritization',
       priorityPrompt,
       'Tu es un chef de projet technique qui optimise l\'ordre des corrections'
@@ -263,7 +263,7 @@ Plan d'exécution :
 Retourne JSON avec plan détaillé.
 `;
 
-    const executionPlan = await this.claudeAPI.analyzeWithCache(
+    const executionPlan = await this.claudeAPI.optimizeCall(
       'execution-planning',
       planPrompt,
       'Tu es un orchestrateur de pipeline qui optimise l\'exécution des scripts'

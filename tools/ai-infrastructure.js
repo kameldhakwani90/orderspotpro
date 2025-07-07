@@ -198,6 +198,15 @@ class ClaudeAPI {
     // Parser la réponse pour séparer les solutions
     return this.parseBatchResponse(response.content, requests.length);
   }
+
+  // Méthode manquante - alias pour optimizeCall
+  async analyzeWithCache(cacheKey, prompt, systemPrompt = '') {
+    return await this.optimizeCall(prompt, {
+      systemPrompt: systemPrompt,
+      context: cacheKey,
+      maxTokens: this.maxTokens
+    });
+  }
   
   parseBatchResponse(content, expectedCount) {
     // Simple parsing - à améliorer selon les besoins

@@ -436,13 +436,18 @@ model Client {
  
  @@map("clients")
 }
+ enum UserRole {
+  admin
+  client
+  host
+}
 
 model User {
  id        String   @id @default(cuid())
  email     String   @unique
  name      String?
  password  String
- role      String   @default("CLIENT")
+role      UserRole @default(user)
  createdAt DateTime @default(now())
  updatedAt DateTime @updatedAt
  
