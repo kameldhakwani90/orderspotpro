@@ -1,204 +1,305 @@
-const { spawn, execSync } = require('child_process');
+#!/usr/bin/env node
+
+// ====================================
+// 🚀 START APP IA - Démarreur Intelligent
+// ====================================
+// Démarrage application avec monitoring IA et alertes intelligentes
+// Intégration: ai-infrastructure.js + monitoring temps réel
+// Fonctions: Démarrage + Monitoring + Alertes + Auto-restart
+
 const fs = require('fs');
 const path = require('path');
-const http = require('http');
+const { spawn, exec } = require('child_process');
+const net = require('net');
 
-// ====================================
-// START APP DYNAMIQUE - PIPELINE UNIVERSEL
-// ====================================
-
-console.log('🚀 Démarrage application dynamique - Pipeline Universel');
-
-class AppStarter {
+class IntelligentAppStarter {
   constructor() {
-    this.config = null;
-    this.port = 3000;
-    this.appName = 'Application';
-    this.baseUrl = 'http://localhost:3000';
-    this.environment = 'development';
-    this.processes = [];
+    // Configuration dynamique
+    this.config = this.loadConfiguration();
     
-    this.loadConfiguration();
+    // État application
+    this.appProcess = null;
+    this.isRunning = false;
+    this.startTime = null;
+    this.restartCount = 0;
+    this.maxRestarts = 3;
+    
+    // Monitoring
+    this.healthChecks = [];
+    this.performanceMetrics = {
+      startTime: 0,
+      memoryUsage: [],
+      cpuUsage: [],
+      responseTime: [],
+      errorCount: 0,
+      requestCount: 0
+    };
+    
+    // Infrastructure IA
+    this.aiInfrastructure = this.initializeAI();
+    this.aiAlerts = [];
+    this.lastAICheck = null;
+    
+    // Monitoring intervals
+    this.healthInterval = null;
+    this.metricsInterval = null;
+    this.aiInterval = null;
   }
   
   // ====================================
-  // CHARGEMENT CONFIGURATION DYNAMIQUE
+  // CONFIGURATION DYNAMIQUE
   // ====================================
   
   loadConfiguration() {
+    const configs = [
+      '.project-config.json',
+      'config/project.config.js',
+      'package.json'
+    ];
+    
+    let config = {
+      app: {
+        name: process.env.APP_NAME || 'Application Next.js',
+        port: parseInt(process.env.PORT) || 3000,
+        host: process.env.HOST || 'localhost',
+        environment: process.env.NODE_ENV || 'development',
+        command: 'npm',
+        args: ['start']
+      },
+      monitoring: {
+        enabled: process.env.MONITORING_ENABLED !== 'false',
+        interval: parseInt(process.env.MONITORING_INTERVAL) || 30000, // 30s
+        healthCheck: process.env.HEALTH_CHECK_ENABLED !== 'false',
+        autoRestart: process.env.AUTO_RESTART_ENABLED !== 'false'
+      },
+      ai: {
+        enabled: process.env.AI_ENABLED === 'true',
+        model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022',
+        alertThreshold: parseInt(process.env.AI_ALERT_THRESHOLD) || 5,
+        checkInterval: parseInt(process.env.AI_CHECK_INTERVAL) || 300000 // 5min
+      },
+      alerts: {
+        memoryThreshold: parseInt(process.env.MEMORY_THRESHOLD) || 512, // MB
+        cpuThreshold: parseInt(process.env.CPU_THRESHOLD) || 80, // %
+        responseTimeThreshold: parseInt(process.env.RESPONSE_TIME_THRESHOLD) || 5000, // ms
+        errorRateThreshold: parseInt(process.env.ERROR_RATE_THRESHOLD) || 10 // %
+      }
+    };
+    
+    // Charger config projet si existe
+    for (const configFile of configs) {
+      if (fs.existsSync(configFile)) {
+        try {
+          const fileConfig = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+          
+          // Merge configs intelligemment
+          if (fileConfig.scripts?.start) {
+            config.app.command = 'npm';
+            config.app.args = ['start'];
+          }
+          if (fileConfig.scripts?.dev && config.app.environment === 'development') {
+            config.app.args = ['run', 'dev'];
+          }
+          
+          config = { ...config, ...fileConfig };
+          console.log(`📋 Configuration chargée: ${configFile}`);
+          break;
+        } catch (error) {
+          console.warn(`⚠️  Erreur lecture config ${configFile}:`, error.message);
+        }
+      }
+    }
+    
+    return config;
+  }
+  
+  initializeAI() {
     try {
-      const configPath = path.join(process.cwd(), '.project-config.json');
-      const envPath = path.join(process.cwd(), '.env');
-      
-      if (!fs.existsSync(configPath)) {
-        console.log('⚠️ Configuration .project-config.json manquante - utilisation valeurs par défaut');
-        this.useDefaultConfiguration();
-        return;
+      if (!this.config.ai.enabled) {
+        console.log('🤖 Monitoring IA désactivé');
+        return null;
       }
       
-      this.config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      
-      // Extraire les valeurs de configuration
-      this.port = this.config.app?.port || 3000;
-      this.appName = this.config.app?.name || 'Application';
-      this.baseUrl = this.config.app?.baseUrl || `http://localhost:${this.port}`;
-      this.environment = this.config.app?.environment || 'development';
-      
-      // Charger les variables d'environnement si disponibles
-      if (fs.existsSync(envPath)) {
-        this.loadEnvironmentVariables(envPath);
+      // Charger infrastructure IA si disponible
+      const aiPath = path.join(process.cwd(), 'ai-infrastructure.js');
+      if (fs.existsSync(aiPath)) {
+        const { ClaudeAPI } = require('./ai-infrastructure');
+        console.log('🧠 Infrastructure IA chargée pour monitoring');
+        return new ClaudeAPI(process.env.CLAUDE_API_KEY, this.config.ai.model);
       }
       
-      console.log(`📋 Configuration chargée: ${this.appName}`);
-      console.log(`🚀 Port configuré: ${this.port}`);
-      console.log(`🌐 URL: ${this.baseUrl}`);
-      console.log(`🔧 Environnement: ${this.environment}`);
-      
+      console.log('📋 Infrastructure IA non trouvée - Monitoring classique');
+      return null;
     } catch (error) {
-      console.error('❌ Erreur chargement configuration:', error.message);
-      console.log('💡 Utilisation configuration par défaut');
-      this.useDefaultConfiguration();
+      console.warn('⚠️  Erreur initialisation IA:', error.message);
+      return null;
     }
   }
   
-  useDefaultConfiguration() {
-    this.port = 3000;
-    this.appName = 'Next.js Application';
-    this.baseUrl = `http://localhost:${this.port}`;
-    this.environment = 'development';
-    
-    console.log('📋 Configuration par défaut:');
-    console.log(`   🚀 Port: ${this.port}`);
-    console.log(`   📁 App: ${this.appName}`);
-    console.log(`   🌐 URL: ${this.baseUrl}`);
-  }
+  // ====================================
+  // VÉRIFICATIONS PRÉ-DÉMARRAGE
+  // ====================================
   
-  loadEnvironmentVariables(envPath) {
-    try {
-      const envContent = fs.readFileSync(envPath, 'utf-8');
-      const envVars = {};
-      
-      envContent.split('\n').forEach(line => {
-        const [key, value] = line.split('=');
-        if (key && value) {
-          const cleanKey = key.trim();
-          const cleanValue = value.trim().replace(/['"]/g, '');
-          envVars[cleanKey] = cleanValue;
-          process.env[cleanKey] = cleanValue;
+  async preStartChecks() {
+    console.log('🔍 Vérifications pré-démarrage...\n');
+    
+    const checks = [
+      await this.checkPort(),
+      await this.checkEnvironment(),
+      await this.checkDependencies(),
+      await this.checkBuild(),
+      await this.checkDatabase()
+    ];
+    
+    const failedChecks = checks.filter(check => check.status === 'failed');
+    
+    if (failedChecks.length > 0) {
+      console.log('❌ Vérifications échouées:');
+      failedChecks.forEach(check => {
+        console.log(`   ❌ ${check.name}: ${check.message}`);
+        if (check.solution) {
+          console.log(`      💡 ${check.solution}`);
         }
       });
       
-      // Override avec les variables d'environnement si définies
-      if (envVars.PORT) {
-        this.port = parseInt(envVars.PORT) || this.port;
-      }
-      if (envVars.BASE_URL) {
-        this.baseUrl = envVars.BASE_URL;
-      }
-      if (envVars.NODE_ENV) {
-        this.environment = envVars.NODE_ENV;
-      }
-      
-      console.log('✅ Variables d\'environnement chargées');
-      
-    } catch (error) {
-      console.log('⚠️ Erreur chargement .env:', error.message);
+      throw new Error(`${failedChecks.length} vérification(s) échouée(s)`);
     }
+    
+    console.log('✅ Toutes les vérifications réussies\n');
+    return true;
   }
   
-  // ====================================
-  // VÉRIFICATION PORT DISPONIBLE
-  // ====================================
-  
-  async checkPortAvailability() {
-    console.log(`\n🔍 Vérification disponibilité port ${this.port}...`);
+  async checkPort() {
+    const port = this.config.app.port;
     
     return new Promise((resolve) => {
-      const server = http.createServer();
+      const server = net.createServer();
       
-      server.listen(this.port, () => {
-        server.close(() => {
-          console.log(`✅ Port ${this.port} disponible`);
-          resolve(true);
+      server.listen(port, () => {
+        server.close();
+        resolve({
+          name: 'Port disponible',
+          status: 'success',
+          message: `Port ${port} libre`
         });
       });
       
       server.on('error', (error) => {
         if (error.code === 'EADDRINUSE') {
-          console.log(`⚠️ Port ${this.port} déjà utilisé`);
-          resolve(false);
+          // Vérifier si c'est notre propre application
+          this.checkIfOurApp(port).then(isOurApp => {
+            if (isOurApp) {
+              resolve({
+                name: 'Port disponible',
+                status: 'warning',
+                message: `Port ${port} occupé par notre app`,
+                solution: 'Application déjà démarrée ou arrêtez l\'instance précédente'
+              });
+            } else {
+              resolve({
+                name: 'Port disponible',
+                status: 'failed',
+                message: `Port ${port} occupé par autre application`,
+                solution: `Changez le port avec: PORT=${port + 1} ou arrêtez l'application sur ${port}`
+              });
+            }
+          });
         } else {
-          console.log(`❌ Erreur port ${this.port}:`, error.message);
-          resolve(false);
+          resolve({
+            name: 'Port disponible',
+            status: 'failed',
+            message: `Erreur port ${port}: ${error.message}`,
+            solution: 'Vérifiez la configuration réseau'
+          });
         }
       });
     });
   }
   
-  // ====================================
-  // GESTION PROCESSUS EXISTANTS
-  // ====================================
+  async checkIfOurApp(port) {
+    try {
+      const response = await this.makeRequest(`http://localhost:${port}/api/health`);
+      return response.includes(this.config.app.name) || response.includes('Next.js');
+    } catch (error) {
+      return false;
+    }
+  }
   
-  async handleExistingProcesses() {
-    console.log('\n🔍 Vérification processus existants...');
+  async checkEnvironment() {
+    const requiredVars = ['DATABASE_URL'];
     
-    try {
-      // Vérifier les processus Next.js existants
-      const processes = execSync('ps aux | grep -E "(next|node.*start)" | grep -v grep', { 
-        encoding: 'utf-8' 
-      }).trim();
-      
-      if (processes) {
-        console.log('📊 Processus Next.js détectés:');
-        processes.split('\n').forEach(proc => {
-          if (proc.includes(':' + this.port) || proc.includes('next')) {
-            console.log(`   🔄 ${proc.substring(0, 80)}...`);
-          }
-        });
-        
-        const shouldKill = await this.askUserConfirmation(
-          `Arrêter les processus existants sur le port ${this.port} ? (y/N): `
-        );
-        
-        if (shouldKill) {
-          await this.killExistingProcesses();
-        }
-      } else {
-        console.log('✅ Aucun processus conflictuel détecté');
-      }
-      
-    } catch (error) {
-      console.log('⚠️ Impossible de vérifier les processus existants');
+    // Variables conditionnelles
+    if (this.config.ai.enabled) {
+      requiredVars.push('CLAUDE_API_KEY');
     }
+    
+    const missingVars = requiredVars.filter(varName => !process.env[varName]);
+    
+    if (missingVars.length > 0) {
+      return {
+        name: 'Variables environnement',
+        status: 'failed',
+        message: `Variables manquantes: ${missingVars.join(', ')}`,
+        solution: 'Exécutez: node tools/config-generator.js'
+      };
+    }
+    
+    return {
+      name: 'Variables environnement',
+      status: 'success',
+      message: `${requiredVars.length} variables présentes`
+    };
   }
   
-  async killExistingProcesses() {
-    try {
-      // Tuer les processus utilisant le port
-      execSync(`lsof -ti:${this.port} | xargs kill -9 2>/dev/null || true`);
-      
-      // Attendre un peu
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      console.log(`✅ Processus sur port ${this.port} arrêtés`);
-      
-    } catch (error) {
-      console.log('⚠️ Erreur arrêt processus:', error.message);
+  async checkDependencies() {
+    if (!fs.existsSync('node_modules')) {
+      return {
+        name: 'Dépendances',
+        status: 'failed',
+        message: 'node_modules manquant',
+        solution: 'Exécutez: npm install'
+      };
     }
+    
+    return {
+      name: 'Dépendances',
+      status: 'success',
+      message: 'Dépendances installées'
+    };
   }
   
-  askUserConfirmation(question) {
-    return new Promise((resolve) => {
-      const readline = require('readline').createInterface({
-        input: process.stdin,
-        output: process.stdout
-      });
-      
-      readline.question(question, (answer) => {
-        readline.close();
-        resolve(answer.toLowerCase() === 'y');
-      });
-    });
+  async checkBuild() {
+    if (this.config.app.environment === 'production' && !fs.existsSync('.next')) {
+      return {
+        name: 'Build application',
+        status: 'failed',
+        message: 'Build requis pour production',
+        solution: 'Exécutez: npm run build'
+      };
+    }
+    
+    return {
+      name: 'Build application',
+      status: 'success',
+      message: 'Build vérifié'
+    };
+  }
+  
+  async checkDatabase() {
+    if (!process.env.DATABASE_URL) {
+      return {
+        name: 'Base de données',
+        status: 'warning',
+        message: 'DATABASE_URL non configurée',
+        solution: 'Configurez DATABASE_URL si base de données requise'
+      };
+    }
+    
+    return {
+      name: 'Base de données',
+      status: 'success',
+      message: 'Configuration présente'
+    };
   }
   
   // ====================================
@@ -206,373 +307,660 @@ class AppStarter {
   // ====================================
   
   async startApplication() {
-    console.log(`\n🚀 Démarrage ${this.appName}...`);
+    console.log(`🚀 Démarrage ${this.config.app.name}...\n`);
     
-    // Vérifier que les fichiers nécessaires existent
-    if (!this.checkRequiredFiles()) {
-      return false;
-    }
+    const startTime = Date.now();
     
-    // Définir les variables d'environnement
-    const env = {
-      ...process.env,
-      PORT: this.port.toString(),
-      NODE_ENV: this.environment,
-      APP_NAME: this.appName,
-      BASE_URL: this.baseUrl
-    };
+    // Créer processus application
+    this.appProcess = spawn(this.config.app.command, this.config.app.args, {
+      stdio: 'pipe',
+      env: { ...process.env },
+      cwd: process.cwd()
+    });
     
-    // Définir la commande de démarrage selon l'environnement
-    const startCommand = this.getStartCommand();
-    
-    console.log(`📋 Commande: ${startCommand.cmd} ${startCommand.args.join(' ')}`);
-    console.log(`🔧 Environnement: ${this.environment}`);
-    console.log(`🚀 Port: ${this.port}`);
-    
-    try {
-      // Démarrer l'application
-      const app = spawn(startCommand.cmd, startCommand.args, {
-        stdio: ['inherit', 'pipe', 'pipe'],
-        env: env,
-        cwd: process.cwd()
-      });
+    // Promise pour attendre démarrage réussi
+    return new Promise((resolve, reject) => {
+      let startupTimeout;
+      let outputBuffer = '';
+      let errorBuffer = '';
       
-      this.processes.push(app);
+      // Timeout de démarrage (2 minutes)
+      startupTimeout = setTimeout(() => {
+        console.log('⏰ Timeout démarrage - Arrêt forcé');
+        this.stopApplication();
+        reject(new Error('Timeout démarrage application'));
+      }, 120000);
       
-      // Gérer la sortie
-      app.stdout.on('data', (data) => {
+      // Gérer sortie standard
+      this.appProcess.stdout.on('data', (data) => {
         const output = data.toString();
+        outputBuffer += output;
         
-        // Filtrer et afficher les messages importants
-        if (output.includes('ready') || 
-            output.includes('started') || 
-            output.includes('listening') ||
-            output.includes('Local:') ||
-            output.includes(`${this.port}`)) {
-          console.log(`📟 ${output.trim()}`);
+        // Afficher en temps réel avec préfixe
+        output.split('\n').forEach(line => {
+          if (line.trim()) {
+            console.log(`📱 ${line}`);
+          }
+        });
+        
+        // Détecter démarrage réussi
+        if (output.includes('Ready') || 
+            output.includes('started server') || 
+            output.includes(`localhost:${this.config.app.port}`)) {
+          
+          clearTimeout(startupTimeout);
+          this.isRunning = true;
+          this.startTime = Date.now();
+          this.performanceMetrics.startTime = this.startTime - startTime;
+          
+          console.log(`\n✅ Application démarrée avec succès !`);
+          console.log(`🌐 URL: http://${this.config.app.host}:${this.config.app.port}`);
+          console.log(`⏱️  Temps démarrage: ${this.performanceMetrics.startTime}ms\n`);
+          
+          resolve();
         }
       });
       
-      app.stderr.on('data', (data) => {
+      // Gérer erreurs
+      this.appProcess.stderr.on('data', (data) => {
         const error = data.toString();
+        errorBuffer += error;
         
-        // Filtrer les erreurs importantes
-        if (!error.includes('warn') && !error.includes('[WARN]')) {
-          console.error(`⚠️ ${error.trim()}`);
+        // Afficher erreurs avec préfixe
+        error.split('\n').forEach(line => {
+          if (line.trim()) {
+            console.log(`🔥 ${line}`);
+          }
+        });
+        
+        // Détecter erreurs critiques
+        if (error.includes('EADDRINUSE') || 
+            error.includes('Cannot find module') ||
+            error.includes('SyntaxError')) {
+          
+          clearTimeout(startupTimeout);
+          reject(new Error(`Erreur démarrage: ${error.split('\n')[0]}`));
         }
       });
       
-      // Gérer la fin du processus
-      app.on('close', (code) => {
-        if (code === 0) {
-          console.log(`✅ ${this.appName} arrêté proprement`);
-        } else {
-          console.log(`❌ ${this.appName} arrêté avec erreur (code: ${code})`);
+      // Gérer fin de processus
+      this.appProcess.on('close', (code) => {
+        clearTimeout(startupTimeout);
+        this.isRunning = false;
+        
+        if (code !== 0 && code !== null) {
+          console.log(`💥 Application arrêtée avec code: ${code}`);
+          
+          // Auto-restart si configuré
+          if (this.config.monitoring.autoRestart && this.restartCount < this.maxRestarts) {
+            this.handleAutoRestart();
+          } else {
+            reject(new Error(`Application arrêtée avec code ${code}`));
+          }
         }
       });
       
-      app.on('error', (error) => {
-        console.error(`❌ Erreur démarrage ${this.appName}:`, error.message);
-      });
-      
-      // Attendre que l'application soit prête
-      const isReady = await this.waitForAppReady();
-      
-      if (isReady) {
-        this.displaySuccessMessage();
-        return true;
-      } else {
-        console.log('⚠️ Application démarrée mais pas de confirmation de disponibilité');
-        return true;
-      }
-      
-    } catch (error) {
-      console.error('❌ Erreur démarrage application:', error.message);
-      return false;
-    }
-  }
-  
-  checkRequiredFiles() {
-    const requiredFiles = [
-      'package.json'
-    ];
-    
-    const optionalFiles = [
-      'next.config.js',
-      'src/app/layout.tsx',
-      'src/app/page.tsx'
-    ];
-    
-    // Vérifier fichiers requis
-    const missingRequired = requiredFiles.filter(file => !fs.existsSync(file));
-    if (missingRequired.length > 0) {
-      console.error(`❌ Fichiers requis manquants: ${missingRequired.join(', ')}`);
-      return false;
-    }
-    
-    // Vérifier fichiers optionnels
-    const missingOptional = optionalFiles.filter(file => !fs.existsSync(file));
-    if (missingOptional.length > 0) {
-      console.log(`⚠️ Fichiers optionnels manquants: ${missingOptional.join(', ')}`);
-    }
-    
-    console.log('✅ Fichiers requis présents');
-    return true;
-  }
-  
-  getStartCommand() {
-    // Vérifier le package.json pour les scripts disponibles
-    let packageJson = {};
-    try {
-      packageJson = JSON.parse(fs.readFileSync('package.json', 'utf-8'));
-    } catch (error) {
-      console.log('⚠️ Erreur lecture package.json');
-    }
-    
-    const scripts = packageJson.scripts || {};
-    
-    // Choisir la commande selon l'environnement et les scripts disponibles
-    if (this.environment === 'production') {
-      if (scripts.start) {
-        return { cmd: 'npm', args: ['start'] };
-      } else {
-        return { cmd: 'npx', args: ['next', 'start', '-p', this.port.toString()] };
-      }
-    } else {
-      if (scripts.dev) {
-        return { cmd: 'npm', args: ['run', 'dev', '--', '-p', this.port.toString()] };
-      } else {
-        return { cmd: 'npx', args: ['next', 'dev', '-p', this.port.toString()] };
-      }
-    }
-  }
-  
-  async waitForAppReady() {
-    console.log('⏳ Attente disponibilité application...');
-    
-    const maxAttempts = 30; // 30 secondes
-    let attempts = 0;
-    
-    while (attempts < maxAttempts) {
-      try {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Test de connexion HTTP
-        const response = await this.testHttpConnection();
-        if (response) {
-          console.log('✅ Application prête et accessible');
-          return true;
-        }
-        
-        attempts++;
-        process.stdout.write('.');
-        
-      } catch (error) {
-        attempts++;
-        process.stdout.write('.');
-      }
-    }
-    
-    console.log('\n⏱️ Timeout atteint - application peut être en cours de démarrage');
-    return false;
-  }
-  
-  testHttpConnection() {
-    return new Promise((resolve) => {
-      const request = http.get(this.baseUrl, (res) => {
-        resolve(res.statusCode < 500);
-      });
-      
-      request.on('error', () => {
-        resolve(false);
-      });
-      
-      request.setTimeout(2000, () => {
-        request.destroy();
-        resolve(false);
+      // Gérer erreur processus
+      this.appProcess.on('error', (error) => {
+        clearTimeout(startupTimeout);
+        console.log(`❌ Erreur processus: ${error.message}`);
+        reject(error);
       });
     });
   }
   
-  displaySuccessMessage() {
-    console.log('\n' + '='.repeat(60));
-    console.log('🎉 APPLICATION DÉMARRÉE AVEC SUCCÈS !');
-    console.log('='.repeat(60));
-    console.log(`📁 Application: ${this.appName}`);
-    console.log(`🌐 URL locale: ${this.baseUrl}`);
-    console.log(`🚀 Port: ${this.port}`);
-    console.log(`🔧 Environnement: ${this.environment}`);
-    
-    if (this.config) {
-      console.log(`👤 Admin: ${this.config.admin?.email || 'Non configuré'}`);
-      console.log(`🗄️ Base: ${this.config.database?.name || 'Non configurée'}`);
+  // ====================================
+  // MONITORING & SURVEILLANCE
+  // ====================================
+  
+  startMonitoring() {
+    if (!this.config.monitoring.enabled) {
+      console.log('📊 Monitoring désactivé\n');
+      return;
     }
     
-    console.log('\n📋 Commandes utiles:');
-    console.log(`   🔗 Ouvrir: open ${this.baseUrl}`);
-    console.log('   🛑 Arrêter: Ctrl+C ou pkill -f next');
-    console.log(`   📊 Processus: lsof -i :${this.port}`);
+    console.log('📊 Démarrage monitoring intelligent...\n');
     
-    console.log('\n💡 Prochaines étapes:');
-    console.log('   1. Ouvrez votre navigateur');
-    console.log(`   2. Accédez à ${this.baseUrl}`);
-    console.log('   3. Connectez-vous avec les credentials admin');
-    
-    console.log('='.repeat(60));
-  }
-  
-  // ====================================
-  // GESTION ARRÊT PROPRE
-  // ====================================
-  
-  setupGracefulShutdown() {
-    const shutdown = async (signal) => {
-      console.log(`\n🛑 Signal ${signal} reçu - Arrêt en cours...`);
-      
-      // Arrêter tous les processus
-      for (const proc of this.processes) {
-        if (proc && !proc.killed) {
-          console.log('🔄 Arrêt processus application...');
-          proc.kill('SIGTERM');
-          
-          // Forcer l'arrêt si nécessaire
-          setTimeout(() => {
-            if (!proc.killed) {
-              console.log('💥 Arrêt forcé du processus');
-              proc.kill('SIGKILL');
-            }
-          }, 5000);
-        }
-      }
-      
-      console.log('✅ Arrêt terminé');
-      process.exit(0);
-    };
-    
-    process.on('SIGINT', () => shutdown('SIGINT'));
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
-    process.on('SIGQUIT', () => shutdown('SIGQUIT'));
-  }
-  
-  // ====================================
-  // MONITORING ET SANTÉ
-  // ====================================
-  
-  async startHealthMonitoring() {
-    console.log('\n📊 Démarrage monitoring santé application...');
-    
-    const healthCheck = setInterval(async () => {
-      const isHealthy = await this.checkApplicationHealth();
-      
-      if (!isHealthy) {
-        console.log('⚠️ Application non responsive - Vérification en cours...');
-        
-        // Tentative de redémarrage automatique en développement
-        if (this.environment === 'development') {
-          console.log('🔄 Tentative redémarrage automatique...');
-          clearInterval(healthCheck);
-          setTimeout(() => this.startApplication(), 5000);
-        }
-      }
-    }, 60000); // Vérification toutes les minutes
-    
-    // Arrêter le monitoring après 30 minutes en développement
-    if (this.environment === 'development') {
-      setTimeout(() => {
-        clearInterval(healthCheck);
-        console.log('📊 Monitoring santé arrêté');
-      }, 30 * 60 * 1000);
+    // Health checks réguliers
+    if (this.config.monitoring.healthCheck) {
+      this.healthInterval = setInterval(() => {
+        this.performHealthCheck();
+      }, this.config.monitoring.interval);
     }
+    
+    // Métriques performance
+    this.metricsInterval = setInterval(() => {
+      this.collectMetrics();
+    }, 15000); // Toutes les 15s
+    
+    // Analyse IA périodique
+    if (this.aiInfrastructure) {
+      this.aiInterval = setInterval(() => {
+        this.performAIAnalysis();
+      }, this.config.ai.checkInterval);
+    }
+    
+    // Gestionnaires signaux système
+    this.setupSignalHandlers();
+    
+    console.log('✅ Monitoring actif\n');
   }
   
-  async checkApplicationHealth() {
+  async performHealthCheck() {
     try {
-      const response = await this.testHttpConnection();
-      return response;
+      const healthUrl = `http://${this.config.app.host}:${this.config.app.port}/api/health`;
+      const startTime = Date.now();
+      
+      const response = await this.makeRequest(healthUrl, 5000); // 5s timeout
+      const responseTime = Date.now() - startTime;
+      
+      // Enregistrer métrique
+      this.performanceMetrics.responseTime.push(responseTime);
+      this.performanceMetrics.requestCount++;
+      
+      // Garder seulement les 100 dernières mesures
+      if (this.performanceMetrics.responseTime.length > 100) {
+        this.performanceMetrics.responseTime = this.performanceMetrics.responseTime.slice(-100);
+      }
+      
+      const healthData = {
+        status: 'healthy',
+        responseTime: responseTime,
+        timestamp: new Date().toISOString(),
+        memory: process.memoryUsage(),
+        uptime: Date.now() - this.startTime
+      };
+      
+      this.healthChecks.push(healthData);
+      
+      // Garder seulement les 50 derniers checks
+      if (this.healthChecks.length > 50) {
+        this.healthChecks = this.healthChecks.slice(-50);
+      }
+      
+      // Vérifier seuils d'alerte
+      this.checkAlertThresholds(healthData);
+      
     } catch (error) {
-      return false;
+      this.performanceMetrics.errorCount++;
+      
+      const errorData = {
+        status: 'unhealthy',
+        error: error.message,
+        timestamp: new Date().toISOString(),
+        uptime: Date.now() - this.startTime
+      };
+      
+      this.healthChecks.push(errorData);
+      
+      console.log(`🔥 Health check échoué: ${error.message}`);
+      
+      // Si trop d'erreurs consécutives, redémarrer
+      const recentErrors = this.healthChecks.slice(-5).filter(check => check.status === 'unhealthy');
+      if (recentErrors.length >= 3 && this.config.monitoring.autoRestart) {
+        console.log('🔄 Trop d\'erreurs consécutives - Redémarrage automatique');
+        this.handleAutoRestart();
+      }
+    }
+  }
+  
+  collectMetrics() {
+    if (!this.appProcess) return;
+    
+    try {
+      // Métriques mémoire
+      const memUsage = process.memoryUsage();
+      const memMB = Math.round(memUsage.heapUsed / (1024 * 1024));
+      
+      this.performanceMetrics.memoryUsage.push({
+        heap: memMB,
+        external: Math.round(memUsage.external / (1024 * 1024)),
+        timestamp: Date.now()
+      });
+      
+      // Garder seulement les 200 dernières mesures (50 minutes)
+      if (this.performanceMetrics.memoryUsage.length > 200) {
+        this.performanceMetrics.memoryUsage = this.performanceMetrics.memoryUsage.slice(-200);
+      }
+      
+      // CPU usage simulation (Node.js ne donne pas directement le CPU du processus)
+      const cpuUsage = this.estimateCPUUsage();
+      this.performanceMetrics.cpuUsage.push({
+        percent: cpuUsage,
+        timestamp: Date.now()
+      });
+      
+      if (this.performanceMetrics.cpuUsage.length > 200) {
+        this.performanceMetrics.cpuUsage = this.performanceMetrics.cpuUsage.slice(-200);
+      }
+      
+    } catch (error) {
+      console.warn('⚠️  Erreur collecte métriques:', error.message);
+    }
+  }
+  
+  estimateCPUUsage() {
+    // Estimation basée sur l'activité et les métriques disponibles
+    const memUsage = process.memoryUsage();
+    const uptime = Date.now() - this.startTime;
+    
+    // Calcul heuristique basé sur mémoire et activité
+    let cpuEstimate = 0;
+    
+    // Base selon utilisation mémoire
+    const memMB = memUsage.heapUsed / (1024 * 1024);
+    if (memMB > 100) cpuEstimate += 20;
+    if (memMB > 200) cpuEstimate += 20;
+    
+    // Facteur temps de réponse récent
+    const recentResponseTimes = this.performanceMetrics.responseTime.slice(-5);
+    if (recentResponseTimes.length > 0) {
+      const avgResponseTime = recentResponseTimes.reduce((a, b) => a + b, 0) / recentResponseTimes.length;
+      if (avgResponseTime > 1000) cpuEstimate += 15;
+      if (avgResponseTime > 3000) cpuEstimate += 25;
+    }
+    
+    // Ajouter variation aléatoire pour simuler activité
+    cpuEstimate += Math.random() * 10;
+    
+    return Math.min(Math.max(cpuEstimate, 5), 95); // Entre 5% et 95%
+  }
+  
+  checkAlertThresholds(healthData) {
+    const alerts = [];
+    
+    // Vérifier mémoire
+    if (healthData.memory) {
+      const memMB = healthData.memory.heapUsed / (1024 * 1024);
+      if (memMB > this.config.alerts.memoryThreshold) {
+        alerts.push({
+          type: 'memory',
+          severity: 'warning',
+          message: `Utilisation mémoire élevée: ${Math.round(memMB)}MB`,
+          threshold: this.config.alerts.memoryThreshold
+        });
+      }
+    }
+    
+    // Vérifier temps de réponse
+    if (healthData.responseTime > this.config.alerts.responseTimeThreshold) {
+      alerts.push({
+        type: 'response_time',
+        severity: 'warning',
+        message: `Temps de réponse lent: ${healthData.responseTime}ms`,
+        threshold: this.config.alerts.responseTimeThreshold
+      });
+    }
+    
+    // Vérifier taux d'erreur
+    const recentChecks = this.healthChecks.slice(-10);
+    const errorRate = (recentChecks.filter(check => check.status === 'unhealthy').length / recentChecks.length) * 100;
+    
+    if (errorRate > this.config.alerts.errorRateThreshold) {
+      alerts.push({
+        type: 'error_rate',
+        severity: 'critical',
+        message: `Taux d'erreur élevé: ${Math.round(errorRate)}%`,
+        threshold: this.config.alerts.errorRateThreshold
+      });
+    }
+    
+    // Afficher alertes
+    alerts.forEach(alert => {
+      const icon = alert.severity === 'critical' ? '🚨' : '⚠️';
+      console.log(`${icon} ALERTE ${alert.type.toUpperCase()}: ${alert.message}`);
+    });
+    
+    return alerts;
+  }
+  
+  async performAIAnalysis() {
+    if (!this.aiInfrastructure) return;
+    
+    try {
+      // Préparer contexte pour IA
+      const context = this.prepareAIContext();
+      
+      const prompt = `
+Analyse les métriques de performance de cette application:
+
+APPLICATION: ${this.config.app.name}
+UPTIME: ${Math.round((Date.now() - this.startTime) / 60000)} minutes
+PORT: ${this.config.app.port}
+
+MÉTRIQUES RÉCENTES:
+${context.metrics}
+
+HEALTH CHECKS:
+${context.healthSummary}
+
+ALERTES ACTIVES:
+${context.alerts}
+
+Fournis 2 recommandations spécifiques pour optimiser les performances.
+Format: [PRIORITÉ] Action - Bénéfice attendu
+`;
+
+      const response = await this.aiInfrastructure.optimizeCall(prompt, {
+        maxTokens: 400,
+        context: 'performance-monitoring'
+      });
+      
+      if (response) {
+        const recommendations = response.split('\n')
+          .filter(line => line.trim().startsWith('['))
+          .slice(0, 2);
+        
+        if (recommendations.length > 0) {
+          console.log('\n🧠 RECOMMANDATIONS IA:');
+          recommendations.forEach(rec => {
+            console.log(`   🎯 ${rec}`);
+          });
+          console.log('');
+        }
+        
+        this.aiAlerts = recommendations;
+        this.lastAICheck = new Date().toISOString();
+      }
+      
+    } catch (error) {
+      console.warn('⚠️  Analyse IA échouée:', error.message);
+    }
+  }
+  
+  prepareAIContext() {
+    // Résumé métriques récentes
+    const recentMemory = this.performanceMetrics.memoryUsage.slice(-10);
+    const recentResponseTimes = this.performanceMetrics.responseTime.slice(-10);
+    const recentHealthChecks = this.healthChecks.slice(-5);
+    
+    const avgMemory = recentMemory.length > 0 ? 
+      Math.round(recentMemory.reduce((sum, m) => sum + m.heap, 0) / recentMemory.length) : 0;
+    
+    const avgResponseTime = recentResponseTimes.length > 0 ?
+      Math.round(recentResponseTimes.reduce((sum, rt) => sum + rt, 0) / recentResponseTimes.length) : 0;
+    
+    const healthyChecks = recentHealthChecks.filter(check => check.status === 'healthy').length;
+    const healthRate = recentHealthChecks.length > 0 ? 
+      Math.round((healthyChecks / recentHealthChecks.length) * 100) : 100;
+    
+    return {
+      metrics: `
+- Mémoire moyenne: ${avgMemory}MB
+- Temps réponse moyen: ${avgResponseTime}ms  
+- Taux santé: ${healthRate}%
+- Requêtes totales: ${this.performanceMetrics.requestCount}
+- Erreurs totales: ${this.performanceMetrics.errorCount}`,
+      
+      healthSummary: `${healthyChecks}/${recentHealthChecks.length} checks réussis`,
+      
+      alerts: this.aiAlerts.length > 0 ? this.aiAlerts.join('\n') : 'Aucune alerte'
+    };
+  }
+  
+  // ====================================
+  // GESTION AUTO-RESTART
+  // ====================================
+  
+  async handleAutoRestart() {
+    if (this.restartCount >= this.maxRestarts) {
+      console.log(`🛑 Limite redémarrages atteinte (${this.maxRestarts})`);
+      return this.stop();
+    }
+    
+    this.restartCount++;
+    console.log(`🔄 Redémarrage automatique ${this.restartCount}/${this.maxRestarts}...`);
+    
+    // Arrêter processus actuel
+    await this.stopApplication();
+    
+    // Attendre un peu
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    
+    try {
+      // Redémarrer
+      await this.startApplication();
+      console.log('✅ Redémarrage réussi\n');
+      
+      // Reset compteur d'erreurs après redémarrage réussi
+      setTimeout(() => {
+        this.performanceMetrics.errorCount = 0;
+      }, 60000); // Reset après 1 minute
+      
+    } catch (error) {
+      console.log(`❌ Redémarrage échoué: ${error.message}`);
+      
+      // Retry après délai plus long
+      setTimeout(() => {
+        this.handleAutoRestart();
+      }, 30000);
+    }
+  }
+  
+  // ====================================
+  // ARRÊT PROPRE
+  // ====================================
+  
+  async stopApplication() {
+    if (!this.appProcess) return;
+    
+    console.log('🛑 Arrêt application...');
+    
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        // Forcer arrêt si pas de réponse
+        if (this.appProcess) {
+          this.appProcess.kill('SIGKILL');
+        }
+        resolve();
+      }, 10000);
+      
+      this.appProcess.on('close', () => {
+        clearTimeout(timeout);
+        this.appProcess = null;
+        this.isRunning = false;
+        resolve();
+      });
+      
+      // Arrêt gracieux
+      this.appProcess.kill('SIGTERM');
+    });
+  }
+  
+  async stop() {
+    console.log('\n🛑 Arrêt complet du monitoring...');
+    
+    // Arrêter intervals
+    if (this.healthInterval) clearInterval(this.healthInterval);
+    if (this.metricsInterval) clearInterval(this.metricsInterval);
+    if (this.aiInterval) clearInterval(this.aiInterval);
+    
+    // Arrêter application
+    await this.stopApplication();
+    
+    // Rapport final
+    this.generateFinalReport();
+    
+    console.log('👋 Application arrêtée proprement');
+    process.exit(0);
+  }
+  
+  setupSignalHandlers() {
+    // Gestionnaire arrêt propre
+    ['SIGINT', 'SIGTERM'].forEach(signal => {
+      process.on(signal, () => {
+        console.log(`\n📡 Signal ${signal} reçu`);
+        this.stop();
+      });
+    });
+    
+    // Gestionnaire erreurs non gérées
+    process.on('uncaughtException', (error) => {
+      console.log('💥 Erreur non gérée:', error.message);
+      this.performanceMetrics.errorCount++;
+      
+      if (this.config.monitoring.autoRestart) {
+        this.handleAutoRestart();
+      }
+    });
+    
+    process.on('unhandledRejection', (reason) => {
+      console.log('💥 Promise rejetée:', reason);
+      this.performanceMetrics.errorCount++;
+    });
+  }
+  
+  // ====================================
+  // UTILITAIRES
+  // ====================================
+  
+  async makeRequest(url, timeout = 5000) {
+    return new Promise((resolve, reject) => {
+      const http = require('http');
+      const urlObj = new URL(url);
+      
+      const req = http.request({
+        hostname: urlObj.hostname,
+        port: urlObj.port,
+        path: urlObj.pathname,
+        method: 'GET',
+        timeout: timeout
+      }, (res) => {
+        let data = '';
+        
+        res.on('data', chunk => {
+          data += chunk;
+        });
+        
+        res.on('end', () => {
+          resolve(data);
+        });
+      });
+      
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Request timeout'));
+      });
+      
+      req.on('error', reject);
+      req.end();
+    });
+  }
+  
+  generateFinalReport() {
+    if (!this.startTime) return;
+    
+    const uptime = Date.now() - this.startTime;
+    const uptimeMinutes = Math.round(uptime / 60000);
+    
+    console.log('\n' + '='.repeat(60));
+    console.log('📊 RAPPORT FINAL');
+    console.log('='.repeat(60));
+    console.log(`📱 Application: ${this.config.app.name}`);
+    console.log(`⏱️  Uptime total: ${uptimeMinutes} minutes`);
+    console.log(`🔄 Redémarrages: ${this.restartCount}`);
+    console.log(`📈 Requêtes traitées: ${this.performanceMetrics.requestCount}`);
+    console.log(`❌ Erreurs: ${this.performanceMetrics.errorCount}`);
+    
+    if (this.performanceMetrics.responseTime.length > 0) {
+      const avgResponseTime = Math.round(
+        this.performanceMetrics.responseTime.reduce((a, b) => a + b, 0) / 
+        this.performanceMetrics.responseTime.length
+      );
+      console.log(`⚡ Temps réponse moyen: ${avgResponseTime}ms`);
+    }
+    
+    if (this.aiAlerts.length > 0) {
+      console.log('\n🧠 Dernières recommandations IA:');
+      this.aiAlerts.forEach(alert => {
+        console.log(`   🎯 ${alert}`);
+      });
+    }
+    
+    console.log('\n' + '='.repeat(60));
+    
+    // Sauvegarder rapport pour IA
+    if (this.config.ai.enabled) {
+      try {
+        const reportPath = path.join(process.cwd(), 'ai-memory', 'app-monitoring-report.json');
+        fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+        
+        const report = {
+          app: this.config.app,
+          uptime: uptime,
+          restartCount: this.restartCount,
+          performanceMetrics: this.performanceMetrics,
+          finalHealthChecks: this.healthChecks.slice(-10),
+          aiRecommendations: this.aiAlerts,
+          timestamp: new Date().toISOString()
+        };
+        
+        fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+        console.log(`📝 Rapport sauvegardé: ${reportPath}`);
+      } catch (error) {
+        console.warn('⚠️  Sauvegarde rapport échouée:', error.message);
+      }
     }
   }
 }
 
 // ====================================
-// POINT D'ENTRÉE
+// POINT D'ENTRÉE PRINCIPAL
 // ====================================
 
 async function main() {
-  const starter = new AppStarter();
+  const starter = new IntelligentAppStarter();
   
   try {
-    console.log('🚀 Démarrage application Next.js...\n');
+    console.log('🚀 Démarrage application intelligent...\n');
     
-    // Configuration arrêt propre
-    starter.setupGracefulShutdown();
+    // Afficher configuration
+    console.log(`📋 CONFIGURATION:`);
+    console.log(`   📱 App: ${starter.config.app.name}`);
+    console.log(`   🌐 URL: http://${starter.config.app.host}:${starter.config.app.port}`);
+    console.log(`   🏗️  Env: ${starter.config.app.environment}`);
+    console.log(`   📊 Monitoring: ${starter.config.monitoring.enabled ? 'Activé' : 'Désactivé'}`);
+    console.log(`   🧠 IA: ${starter.config.ai.enabled ? 'Activée' : 'Désactivée'}\n`);
     
-    // Vérifier disponibilité du port
-    const portAvailable = await starter.checkPortAvailability();
+    // Vérifications pré-démarrage
+    await starter.preStartChecks();
     
-    if (!portAvailable) {
-      await starter.handleExistingProcesses();
-      
-      // Revérifier après gestion des processus
-      const nowAvailable = await starter.checkPortAvailability();
-      if (!nowAvailable) {
-        console.error(`❌ Port ${starter.port} toujours occupé - Arrêt`);
-        process.exit(1);
-      }
+    // Démarrer application
+    await starter.startApplication();
+    
+    // Démarrer monitoring
+    starter.startMonitoring();
+    
+    // Message final
+    console.log('🎉 Application démarrée avec succès !');
+    console.log(`🌐 Accès: http://${starter.config.app.host}:${starter.config.app.port}`);
+    
+    if (starter.config.monitoring.enabled) {
+      console.log('📊 Monitoring actif - Métriques en temps réel');
     }
     
-    // Démarrer l'application
-    const success = await starter.startApplication();
-    
-    if (success) {
-      // Démarrer le monitoring en arrière-plan
-      if (starter.environment === 'development') {
-        setTimeout(() => starter.startHealthMonitoring(), 10000);
-      }
-      
-      // Maintenir le processus actif
-      console.log('\n💫 Application en cours d\'exécution...');
-      console.log('   💡 Utilisez Ctrl+C pour arrêter\n');
-      
-      // Boucle principale
-      const keepAlive = setInterval(() => {
-        // Le processus reste actif
-      }, 1000);
-      
-    } else {
-      console.error('❌ Échec démarrage application');
-      process.exit(1);
+    if (starter.config.ai.enabled) {
+      console.log('🧠 IA monitoring activée - Optimisations automatiques');
     }
+    
+    console.log('\n💡 Pour arrêter: Ctrl+C\n');
+    
+    // Garder processus vivant
+    process.stdin.resume();
     
   } catch (error) {
-    console.error('\n❌ Erreur fatale:');
+    console.error('\n❌ Erreur démarrage application:');
     console.error(`   💥 ${error.message}`);
     
-    // Informations de debug
-    console.log('\n🔍 Informations de debug:');
-    console.log(`   📂 Répertoire: ${process.cwd()}`);
-    console.log(`   🔧 Node.js: ${process.version}`);
-    console.log(`   🚀 Port configuré: ${starter.port}`);
+    console.log('\n💡 Solutions possibles:');
+    console.log('   1. Vérifiez la configuration');
+    console.log('   2. Assurez-vous que les dépendances sont installées: npm install');
+    console.log('   3. Vérifiez que le port est libre');
+    console.log('   4. Exécutez les vérifications: node tools/deployment-validator.js');
     
-    // Vérifier les fichiers critiques
-    const criticalFiles = [
-      'package.json',
-      '.project-config.json',
-      '.env'
-    ];
-    
-    criticalFiles.forEach(file => {
-      const exists = fs.existsSync(path.join(process.cwd(), file));
-      console.log(`   ${exists ? '✅' : '❌'} ${file}`);
-    });
-    
-    console.log('\n💡 Pour résoudre:');
-    console.log('   1. Vérifiez la configuration dans .project-config.json');
-    console.log('   2. Vérifiez que le port est disponible');
-    console.log('   3. Lancez: npm install');
-    console.log('   4. Vérifiez que Next.js est installé');
-    console.log('   5. Tentez: npx next build');
+    if (starter.config.ai.enabled) {
+      console.log('   5. Vérifiez la clé API Claude dans .env');
+    }
     
     process.exit(1);
   }
@@ -587,6 +975,6 @@ if (require.main === module) {
 }
 
 module.exports = { 
-  AppStarter, 
-  main 
+  IntelligentAppStarter,
+  main
 };

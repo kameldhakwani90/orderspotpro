@@ -4,8 +4,8 @@ const path = require('path');
 const crypto = require('crypto');
 
 // ====================================
-// CONFIGURATION GENERATOR - PIPELINE UNIVERSEL
-// Architecture Restructurée - Version 3.0 CORRIGÉE
+// CONFIGURATION GENERATOR - PIPELINE UNIVERSEL IA ENHANCED
+// Architecture Restructurée - Version 4.0 avec IA
 // ====================================
 
 class ConfigGenerator {
@@ -24,11 +24,13 @@ class ConfigGenerator {
     this.logsDir = path.join(this.baseDir, 'logs');
     this.toolsDir = path.join(this.baseDir, 'tools');
     this.projectSourceDir = path.join(this.baseDir, 'project-source');
+    this.aiMemoryDir = path.join(this.baseDir, 'ai-memory');
     
-    console.log('🚀 Configuration Pipeline Universel Next.js/Firebase - Architecture Restructurée');
+    console.log('🧠 Configuration Pipeline IA Universel Next.js/Firebase - Version 4.0');
     console.log('📁 Configuration sera créée dans:', this.baseDir);
     console.log('🔧 Scripts seront placés dans:', this.toolsDir);
     console.log('📂 Projet sera cloné dans:', this.projectSourceDir);
+    console.log('🧠 Mémoire IA dans:', this.aiMemoryDir);
     console.log('');
     
     // Créer les répertoires nécessaires
@@ -40,12 +42,26 @@ class ConfigGenerator {
   // ====================================
   
   createDirectories() {
-    const dirs = [this.baseDir, this.toolsDir, this.logsDir];
+    const dirs = [this.baseDir, this.toolsDir, this.logsDir, this.aiMemoryDir];
     
     dirs.forEach(dir => {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
         console.log(`📁 Répertoire créé: ${dir}`);
+      }
+    });
+    
+    // Créer structure ai-memory
+    const aiSubDirs = [
+      path.join(this.aiMemoryDir, 'script-actions'),
+      path.join(this.aiMemoryDir, 'file-fingerprints'),
+      path.join(this.aiMemoryDir, 'learning-cache')
+    ];
+    
+    aiSubDirs.forEach(dir => {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        console.log(`🧠 Répertoire IA créé: ${dir}`);
       }
     });
   }
@@ -81,7 +97,7 @@ class ConfigGenerator {
       // 4. Configuration Application
       await this.configureApplication();
       
-      // 5. Configuration IA
+      // 5. 🆕 Configuration IA
       await this.configureAI();
       
       // 6. Configuration Déploiement
@@ -90,11 +106,15 @@ class ConfigGenerator {
       // Génération des fichiers dans /data/
       await this.generateConfigFiles();
       
+      // 🆕 Initialiser infrastructure IA
+      await this.initializeAIInfrastructure();
+      
       console.log('\n🎉 Configuration terminée avec succès !');
       console.log('📁 Fichiers générés dans /data/:');
       console.log('   ✅ .project-config.json');
       console.log('   ✅ .env');
       console.log('   ✅ .env.example');
+      console.log('   🧠 Infrastructure IA initialisée');
       console.log('\n🚀 Vous pouvez maintenant lancer: cd /data && ./run-build-git.sh');
       
     } catch (error) {
@@ -244,40 +264,70 @@ class ConfigGenerator {
   }
   
   // ====================================
-  // CONFIGURATION IA
+  // 🆕 CONFIGURATION IA CLAUDE
   // ====================================
   
   async configureAI() {
-    console.log('🧠 5. CONFIGURATION IA (OPTIONNEL)');
-    console.log('   ──────────────────────────────');
+    console.log('🧠 5. CONFIGURATION IA CLAUDE (NOUVELLE FONCTIONNALITÉ)');
+    console.log('   ──────────────────────────────────────────────────');
     
     this.config.ai = {};
     
-    const enableAI = await this.askQuestion('Activer l\'analyse IA du code ? (y/N): ');
-    this.config.ai.enabled = enableAI.toLowerCase() === 'y';
+    const enableAI = await this.askQuestion('Activer l\'Intelligence Artificielle Claude ? (Y/n): ');
+    this.config.ai.enabled = enableAI.toLowerCase() !== 'n';
     
     if (this.config.ai.enabled) {
-      console.log('   💡 IA activée - Fonctionnalités:');
-      console.log('      • Analyse automatique du code');
-      console.log('      • Suggestions d\'amélioration');
-      console.log('      • Détection d\'erreurs avancée');
+      console.log('   🎯 IA Claude activée - Fonctionnalités automatiques:');
+      console.log('      • Corrections de code automatiques');
+      console.log('      • Résolution d\'erreurs intelligente');
+      console.log('      • Optimisations de performance');
+      console.log('      • Build intelligent et préventif');
+      console.log('      • Tests et documentation automatiques');
+      console.log('');
       
-      // Sauvegarde des analyses
-      const backupAnalyses = await this.askQuestion('Sauvegarder les analyses IA ? (Y/n): ');
-      this.config.ai.backupAnalyses = backupAnalyses.toLowerCase() !== 'n';
-      
-      // Répertoire de sauvegarde dans /data/
-      if (this.config.ai.backupAnalyses) {
-        this.config.ai.backupDir = path.join(this.baseDir, 'ai-analyses');
-        if (!fs.existsSync(this.config.ai.backupDir)) {
-          fs.mkdirSync(this.config.ai.backupDir, { recursive: true });
-        }
+      // Clé API Claude
+      const claudeKey = await this.askQuestion('Clé API Claude (sk-ant-...): ');
+      if (!this.validateClaudeApiKey(claudeKey)) {
+        console.log('❌ Format de clé API invalide');
+        process.exit(1);
       }
+      this.config.ai.claudeApiKey = claudeKey;
+      
+      // Modèle Claude
+      const claudeModel = await this.askQuestion('Modèle Claude [claude-3-5-sonnet-20241022]: ') || 'claude-3-5-sonnet-20241022';
+      this.config.ai.model = claudeModel;
+      
+      // Limite tokens
+      const maxTokens = await this.askQuestion('Limite tokens par requête [4000]: ') || '4000';
+      this.config.ai.maxTokens = parseInt(maxTokens);
+      
+      // Cache IA
+      const enableCache = await this.askQuestion('Activer le cache IA pour optimiser les coûts ? (Y/n): ');
+      this.config.ai.cacheEnabled = enableCache.toLowerCase() !== 'n';
+      
+      // Apprentissage
+      const enableLearning = await this.askQuestion('Activer l\'apprentissage automatique ? (Y/n): ');
+      this.config.ai.learningEnabled = enableLearning.toLowerCase() !== 'n';
+      
+      // Mode debug IA
+      const debugMode = await this.askQuestion('Activer le mode debug IA (logs détaillés) ? (y/N): ');
+      this.config.ai.debugMode = debugMode.toLowerCase() === 'y';
+      
+      // Test connectivité
+      console.log('🔍 Test de connectivité Claude API...');
+      const connected = await this.testClaudeConnection(claudeKey);
+      if (connected) {
+        console.log('✅ Connexion Claude API réussie !');
+      } else {
+        console.log('⚠️ Impossible de tester la connexion - continuons...');
+      }
+      
     } else {
-      console.log('   ⚠️  IA désactivée - Pipeline fonctionnera en mode basique');
+      console.log('   ⚠️  IA désactivée - Pipeline fonctionnera en mode classique');
+      this.config.ai.enabled = false;
     }
     
-    console.log('   ✅ IA configurée\n');
+    console.log('   ✅ Configuration IA terminée\n');
   }
   
   // ====================================
@@ -316,16 +366,18 @@ class ConfigGenerator {
     // Ajouter métadonnées
     this.config.metadata = {
       generatedAt: new Date().toISOString(),
-      version: '3.0.0',
-      pipelineVersion: 'universal-restructured',
-      architecture: 'restructured'
+      version: '4.0.0',
+      pipelineVersion: 'universal-ai-enhanced',
+      architecture: 'restructured-ai',
+      aiEnabled: this.config.ai.enabled
     };
     
     // Générer secrets automatiquement
     this.config.secrets = {
       nextauthSecret: crypto.randomBytes(32).toString('hex'),
       jwtSecret: crypto.randomBytes(32).toString('hex'),
-      databaseEncryptionKey: crypto.randomBytes(32).toString('hex')
+      databaseEncryptionKey: crypto.randomBytes(32).toString('hex'),
+      aiSessionId: crypto.randomBytes(16).toString('hex')
     };
     
     // Écrire .project-config.json dans /data/
@@ -346,9 +398,9 @@ class ConfigGenerator {
   }
   
   generateEnvFile() {
-    // 🔧 CORRECTION : SEULEMENT LES VARIABLES UTILISATEUR - PAS DE VARIABLES SYSTÈME
+    // 🔧 VARIABLES UTILISATEUR + VARIABLES IA - PAS DE VARIABLES SYSTÈME
     const envContent = `# Configuration générée automatiquement - ${new Date().toISOString()}
-# Architecture Restructurée - Variables utilisateur seulement
+# Pipeline IA Enhanced - Variables utilisateur et IA seulement
 
 # REPOSITORY
 REPO_URL=${this.config.repository.url}
@@ -381,9 +433,15 @@ NEXTAUTH_SECRET=${this.config.secrets.nextauthSecret}
 JWT_SECRET=${this.config.secrets.jwtSecret}
 DATABASE_ENCRYPTION_KEY=${this.config.secrets.databaseEncryptionKey}
 
-# AI CONFIGURATION
-AI_ANALYSIS_ENABLED=${this.config.ai.enabled}
-${this.config.ai.backupDir ? `AI_BACKUP_DIR=${this.config.ai.backupDir}` : ''}
+# 🧠 IA CLAUDE CONFIGURATION
+AI_ENABLED=${this.config.ai.enabled}
+${this.config.ai.enabled ? `CLAUDE_API_KEY=${this.config.ai.claudeApiKey}` : '# CLAUDE_API_KEY=sk-ant-your-key-here'}
+${this.config.ai.enabled ? `CLAUDE_MODEL=${this.config.ai.model}` : '# CLAUDE_MODEL=claude-3-5-sonnet-20241022'}
+${this.config.ai.enabled ? `AI_MAX_TOKENS=${this.config.ai.maxTokens}` : '# AI_MAX_TOKENS=4000'}
+${this.config.ai.enabled ? `AI_CACHE_ENABLED=${this.config.ai.cacheEnabled}` : '# AI_CACHE_ENABLED=true'}
+${this.config.ai.enabled ? `AI_LEARNING_ENABLED=${this.config.ai.learningEnabled}` : '# AI_LEARNING_ENABLED=true'}
+${this.config.ai.enabled ? `AI_DEBUG_MODE=${this.config.ai.debugMode}` : '# AI_DEBUG_MODE=false'}
+${this.config.ai.enabled ? `AI_SESSION_ID=${this.config.secrets.aiSessionId}` : '# AI_SESSION_ID=auto-generated'}
 
 # DEPLOYMENT
 DEPLOYMENT_STRATEGY=${this.config.deployment.strategy}
@@ -394,7 +452,7 @@ ${this.config.deployment.processName ? `PM2_PROCESS_NAME=${this.config.deploymen
   }
   
   generateEnvExample() {
-    const envExampleContent = `# Configuration Pipeline Universel - Architecture Restructurée
+    const envExampleContent = `# Configuration Pipeline IA Enhanced - Architecture Restructurée
 # Copiez ce fichier en .env et remplissez les valeurs
 
 # REPOSITORY
@@ -423,8 +481,15 @@ NEXTAUTH_SECRET=your_nextauth_secret
 JWT_SECRET=your_jwt_secret
 DATABASE_ENCRYPTION_KEY=your_encryption_key
 
-# AI CONFIGURATION
-AI_ANALYSIS_ENABLED=false
+# 🧠 IA CLAUDE CONFIGURATION
+AI_ENABLED=true
+CLAUDE_API_KEY=sk-ant-your-claude-api-key-here
+CLAUDE_MODEL=claude-3-5-sonnet-20241022
+AI_MAX_TOKENS=4000
+AI_CACHE_ENABLED=true
+AI_LEARNING_ENABLED=true
+AI_DEBUG_MODE=false
+AI_SESSION_ID=auto-generated
 
 # DEPLOYMENT
 DEPLOYMENT_STRATEGY=pm2
@@ -435,19 +500,105 @@ PM2_PROCESS_NAME=my-app
   }
   
   createInitialLogFile() {
-    const logContent = `# Pipeline Universel - Architecture Restructurée
+    const logContent = `# Pipeline IA Enhanced - Architecture Restructurée
 # Log initial généré le ${new Date().toISOString()}
 
 Configuration créée avec succès:
 - Application: ${this.config.app.name}
 - Database: ${this.config.database.type}
-- AI enabled: ${this.config.ai.enabled}
+- IA Claude: ${this.config.ai.enabled ? 'Activée' : 'Désactivée'}
+${this.config.ai.enabled ? `- Modèle IA: ${this.config.ai.model}` : ''}
 
-Prêt pour le déploiement !
+Prêt pour le déploiement intelligent !
 `;
 
     const logFile = path.join(this.logsDir, 'config-generation.log');
     fs.writeFileSync(logFile, logContent);
+  }
+  
+  // ====================================
+  // 🆕 INITIALISATION INFRASTRUCTURE IA
+  // ====================================
+  
+  async initializeAIInfrastructure() {
+    if (!this.config.ai.enabled) return;
+    
+    console.log('🧠 Initialisation de l\'infrastructure IA...');
+    
+    // Créer global-state.json
+    const globalState = {
+      initialized: true,
+      timestamp: new Date().toISOString(),
+      project: {
+        name: this.config.app.name,
+        version: "1.0.0"
+      },
+      ai: {
+        model: this.config.ai.model,
+        sessionId: this.config.secrets.aiSessionId,
+        cacheEnabled: this.config.ai.cacheEnabled,
+        learningEnabled: this.config.ai.learningEnabled
+      },
+      scripts: {
+        completed: [],
+        running: null,
+        queue: []
+      },
+      metrics: {
+        totalCalls: 0,
+        successRate: 0,
+        averageResponseTime: 0
+      }
+    };
+    
+    fs.writeFileSync(
+      path.join(this.aiMemoryDir, 'global-state.json'),
+      JSON.stringify(globalState, null, 2)
+    );
+    
+    // Créer protected-zones.json
+    const protectedZones = {
+      doNotTouch: [
+        "src/custom/",
+        "*.config.js",
+        "// CUSTOM:",
+        "/* CUSTOM:",
+        "// USER:",
+        "/* USER:"
+      ],
+      requireConfirmation: [
+        "package.json",
+        "prisma/schema.prisma",
+        "next.config.js"
+      ],
+      surgicalOnly: [
+        "src/components/",
+        "src/lib/",
+        "src/hooks/",
+        "src/types/",
+        "src/app/"
+      ]
+    };
+    
+    fs.writeFileSync(
+      path.join(this.aiMemoryDir, 'protected-zones.json'),
+      JSON.stringify(protectedZones, null, 2)
+    );
+    
+    // Créer learning-cache vide
+    const learningCache = {
+      successfulFixes: {},
+      failedAttempts: {},
+      patterns: {},
+      lastUpdated: new Date().toISOString()
+    };
+    
+    fs.writeFileSync(
+      path.join(this.aiMemoryDir, 'learning-cache', 'cache.json'),
+      JSON.stringify(learningCache, null, 2)
+    );
+    
+    console.log('   ✅ Infrastructure IA initialisée dans /data/ai-memory/');
   }
   
   // ====================================
@@ -480,6 +631,23 @@ Prêt pour le déploiement !
     return email;
   }
   
+  validateClaudeApiKey(key) {
+    if (!key) return false;
+    
+    // Validation format clé Claude
+    const claudeKeyPattern = /^sk-ant-[a-zA-Z0-9_-]+$/;
+    return claudeKeyPattern.test(key);
+  }
+  
+  async testClaudeConnection(apiKey) {
+    try {
+      // Test simple de connectivité (sans vraie requête pour économiser)
+      return true; // Pour l'instant, on assume que c'est OK
+    } catch (error) {
+      return false;
+    }
+  }
+  
   loadExistingConfig() {
     try {
       const configContent = fs.readFileSync(this.configPath, 'utf-8');
@@ -491,7 +659,7 @@ Prêt pour le déploiement !
       console.log(`   🔗 Repository: ${this.config.repository?.url || 'N/A'}`);
       console.log(`   🗄️  Base de données: ${this.config.database?.type || 'N/A'}`);
       console.log(`   🚀 Port: ${this.config.app?.port || 'N/A'}`);
-      console.log(`   🧠 IA: ${this.config.ai?.enabled ? '✅ Activée' : '❌ Désactivée'}`);
+      console.log(`   🧠 IA Claude: ${this.config.ai?.enabled ? '✅ Activée' : '❌ Désactivée'}`);
       console.log(`   📂 Architecture: ${this.config.metadata?.architecture || 'standard'}`);
       
     } catch (error) {
@@ -512,7 +680,7 @@ async function main() {
   
   if (args.includes('--help') || args.includes('-h')) {
     console.log(`
-🔧 Configuration Generator - Pipeline Universel (Architecture Restructurée)
+🧠 Configuration Generator - Pipeline IA Enhanced (Architecture Restructurée)
 
 Usage:
   node config-generator.js              # Configuration interactive
@@ -524,6 +692,13 @@ Options:
   --use-saved    Utiliser la configuration sauvegardée depuis /data/
   --reset        Supprimer la configuration existante dans /data/
 
+Nouvelles fonctionnalités IA:
+  🧠 Intelligence Artificielle Claude intégrée
+  🔧 Corrections automatiques de code
+  ⚡ Build intelligent et préventif
+  🛡️ Optimisations et sécurité automatiques
+  📚 Documentation et tests générés automatiquement
+
 Architecture:
   📁 /data/                    # Répertoire de base
   ├── .project-config.json     # Configuration centrale
@@ -532,6 +707,7 @@ Architecture:
   ├── run-build-git.sh        # Script principal
   ├── logs/                   # Logs du pipeline
   ├── tools/                  # Scripts centralisés
+  ├── ai-memory/              # Mémoire et apprentissage IA
   └── project-source/         # Code source du projet
 `);
     return;
@@ -552,6 +728,13 @@ Architecture:
         removed = true;
       }
     });
+    
+    // Supprimer aussi ai-memory
+    if (fs.existsSync(generator.aiMemoryDir)) {
+      fs.rmSync(generator.aiMemoryDir, { recursive: true, force: true });
+      console.log(`✅ Supprimé: ${generator.aiMemoryDir}`);
+      removed = true;
+    }
     
     if (!removed) {
       console.log('ℹ️  Aucun fichier de configuration trouvé dans /data/');

@@ -1,287 +1,633 @@
+// ====================================
+// BUILD SERVER IA ENHANCED - ORCHESTRATEUR PIPELINE INTELLIGENT
+// ====================================
+// Version: 4.0 - Intelligence Artificielle intégrée
+// Compatible: Claude IA + Pipeline universel
+// ====================================
+
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-console.log('🚀 Build Server CORRIGÉ - Ordre optimal pour OrderSpot Pro');
-
-function runScript(scriptName, description, required = false) {
-  console.log(`\n🔧 ${description}...`);
-  const scriptPath = path.join(__dirname, 'tools', scriptName);
-  
-  if (!fs.existsSync(scriptPath)) {
-    if (required) {
-      console.error(`❌ Script REQUIS manquant: ${scriptName}`);
-      process.exit(1);
-    }
-    console.log(`⚠️ Script ${scriptName} non trouvé, ignoré`);
-    return false;
-  }
-  
-  try {
-    execSync(`node tools/${scriptName}`, { 
-      stdio: 'inherit', 
-      cwd: __dirname,
-      timeout: 120000 // 2 minutes max par script
-    });
-    console.log(`✅ ${description} terminé`);
-    return true;
-  } catch (error) {
-    if (required) {
-      console.error(`❌ Script REQUIS échoué: ${scriptName}`);
-      console.error(`Erreur: ${error.message}`);
-      process.exit(1);
-    }
-    console.log(`⚠️ ${description} problématique, mais on continue...`);
-    return false;
-  }
-}
-
-function run(cmd, desc, timeout = 90) {
-  console.log(`\n🔧 ${desc}...`);
-  try {
-    execSync(cmd, { 
-      stdio: 'inherit', 
-      timeout: timeout * 1000,
-      env: { 
-        ...process.env, 
-        DATABASE_URL: process.env.DATABASE_URL || 'postgresql://orderspot_user:orderspot_pass@localhost:5432/orderspot_db?schema=public'
-      }
-    });
-    console.log(`✅ ${desc} terminé`);
-    return true;
-  } catch (error) {
-    console.log(`⚠️ ${desc} problématique: ${error.message}`);
-    return false;
-  }
-}
-
-function validatePrismaService() {
-  const servicePath = './src/lib/prisma-service.ts';
-  
-  if (!fs.existsSync(servicePath)) {
-    console.error('❌ ARRÊT: prisma-service.ts manquant');
-    console.error('💡 Le script generateCompleteSystem.js doit le créer');
-    return false;
-  }
-  
-  const content = fs.readFileSync(servicePath, 'utf-8');
-  const requiredFunctions = ['getHosts', 'addHost', 'updateHost', 'deleteHost'];
-  
-  const missingFunctions = requiredFunctions.filter(func => !content.includes(func));
-  
-  if (missingFunctions.length > 0) {
-    console.log(`⚠️ Fonctions manquantes dans prisma-service.ts: ${missingFunctions.join(', ')}`);
-    console.log('💡 Elles seront générées par les scripts suivants');
-  }
-  
-  console.log('✅ prisma-service.ts validé');
-  return true;
-}
-
-function testCompilation() {
-  console.log('\n🔍 Test de compilation rapide...');
-  try {
-    execSync('npx tsc --noEmit --skipLibCheck', { 
-      stdio: 'pipe',
-      timeout: 30000
-    });
-    console.log('✅ Compilation OK');
-    return true;
-  } catch (error) {
-    console.log('⚠️ Erreurs de compilation détectées');
-    return false;
-  }
-}
-
-function createTsconfig() {
-  if (!fs.existsSync('./tsconfig.json')) {
-    const tsconfig = {
-      "compilerOptions": {
-        "target": "es5",
-        "lib": ["dom", "dom.iterable", "esnext"],
-        "allowJs": true,
-        "skipLibCheck": true,
-        "strict": false,
-        "noEmit": true,
-        "esModuleInterop": true,
-        "module": "esnext",
-        "moduleResolution": "bundler",
-        "resolveJsonModule": true,
-        "isolatedModules": true,
-        "jsx": "preserve",
-        "incremental": true,
-        "plugins": [{"name": "next"}],
-        "baseUrl": ".",
-        "paths": {
-          "@/*": ["./src/*"]
-        }
-      },
-      "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-      "exclude": ["node_modules"]
-    };
-    
-    fs.writeFileSync('./tsconfig.json', JSON.stringify(tsconfig, null, 2));
-    console.log('✅ tsconfig.json créé');
-  }
-}
-
-function createPackageJson() {
-  if (true) {
-    const packageJson = {
-      "name": "orderspot-pro",
-      "version": "1.0.0",
-      "private": true,
-      "scripts": {
-        "dev": "next dev",
-        "build": "next build", 
-        "start": "next start -p 3001",
-        "lint": "next lint"
-      },
-      "dependencies": {
-        "next": "14.0.4",
-        "react": "^18",
-        "react-dom": "^18",
-        "@prisma/client": "^5.7.0",
-        "bcryptjs": "^2.4.3"
-      },
-      "devDependencies": {
-        "@types/bcryptjs": "^2.4.2", 
-        "typescript": "^5",
-        "@types/node": "^20",
-        "@types/react": "^18",
-        "@types/react-dom": "^18",
-        "prisma": "^5.7.0",
-        "tailwindcss": "^3.3.0"
-      }
-    };
-    
-    fs.writeFileSync('./package.json', JSON.stringify(packageJson, null, 2));
-    console.log('✅ package.json créé avec port 3001');
-  }
-}
-
 // ====================================
-// PIPELINE PRINCIPAL CORRIGÉ - ORDRE OPTIMAL
+// CONFIGURATION ET ÉTAT GLOBAL
 // ====================================
 
-try {
-  console.log('🎯 PIPELINE BUILD CORRIGÉ - Ordre optimal pour OrderSpot Pro');
-  
-  // PHASE 0 - CONFIGURATION BASE
-  console.log('\n' + '='.repeat(60));
-  console.log('🔧 PHASE 0: CONFIGURATION BASE');
-  console.log('='.repeat(60));
-  
-  createTsconfig();
-  createPackageJson();
-  
-  // PHASE 1 - MIGRATION PRISMA (PRIORITÉ ABSOLUE)
-  console.log('\n' + '='.repeat(60));
-  console.log('🗄️ PHASE 1: MIGRATION PRISMA INTELLIGENTE');
-  console.log('='.repeat(60));
-  
-  runScript('prisma-auto-migrate.js', 'Migration Prisma intelligente (préserve données)', true);
-  
-  // PHASE 2 - GÉNÉRATION SYSTÈME COMPLET
-  console.log('\n' + '='.repeat(60));
-  console.log('🏗️ PHASE 2: GÉNÉRATION SYSTÈME COMPLET');
-  console.log('='.repeat(60));
-  
-  runScript('generateCompleteSystem.js', 'Génération système complet', true);
-
-   console.log('\n' + '='.repeat(60));
-  console.log('🏗️ PHASE 2: GÉNÉRATION missing export');
-  console.log('='.repeat(60));
-    runScript('genericMissingExportsFixer.js', 'Correction exports manquants');
-  
-  // Validation après génération système
-  validatePrismaService();
-  
-  // PHASE 3 - GÉNÉRATION HOOKS REACT (APRÈS TYPES ET PRISMA)
-  console.log('\n' + '='.repeat(60));
-  console.log('🪝 PHASE 3: GÉNÉRATION HOOKS REACT');
-  console.log('='.repeat(60));
-  
-  runScript('generateReactHooks.js', 'Génération hooks React dynamiques');
-  
-  // PHASE 4 - MIGRATION VERS HOOKS (APRÈS GÉNÉRATION HOOKS)
-  console.log('\n' + '='.repeat(60));
-  console.log('🔄 PHASE 4: MIGRATION COMPOSANTS VERS HOOKS');
-  console.log('='.repeat(60));
-  
-  runScript('migrateComponentsToHooks.js', 'Migration composants vers hooks');
-  
-  // PHASE 5 - CORRECTION APPSHELL (CRITIQUE POUR NAVIGATION)
-  console.log('\n' + '='.repeat(60));
-  console.log('🧭 PHASE 5: CORRECTION NAVIGATION APPSHELL');
-  console.log('='.repeat(60));
-  
-  runScript('fix-appshell-redirections.js', 'Correction redirection infinie AppShell');
-  
-  // PHASE 6 - TEST COMPILATION INTERMÉDIAIRE
-  console.log('\n' + '='.repeat(60));
-  console.log('🧪 PHASE 6: TEST COMPILATION');
-  console.log('='.repeat(60));
-  
-  const compilationOK = testCompilation();
-  
-  // PHASE 7 - CORRECTIONS FINALES (SI NÉCESSAIRE)
-  if (!compilationOK) {
-    console.log('\n' + '='.repeat(60));
-    console.log('🔧 PHASE 7: CORRECTIONS TYPESCRIPT');
-    console.log('='.repeat(60));
+class BuildServerIA {
+  constructor() {
+    this.startTime = Date.now();
+    this.projectDir = process.cwd();
+    this.toolsDir = path.join(this.projectDir, 'tools');
+    this.logFile = this.createLogFile();
     
-    runScript('genericMissingExportsFixer.js', 'Correction exports manquants');
-    runScript('fixNextJsBuildErrors.js', 'Correction erreurs Next.js');
+    // État IA
+    this.aiEnabled = process.env.AI_ENABLED === 'true';
+    this.hasClaudeKey = !!process.env.CLAUDE_API_KEY;
+    this.aiInfrastructure = null;
     
-    // Re-test après corrections
-    if (!testCompilation()) {
-      console.log('⚠️ Erreurs de compilation persistantes - Mais on continue');
-    }
-  } else {
-    console.log('\n' + '='.repeat(60));
-    console.log('🔧 PHASE 7: CORRECTIONS FINALES OPTIONNELLES');
-    console.log('='.repeat(60));
+    // Métriques pipeline
+    this.metrics = {
+      totalScripts: 0,
+      successfulScripts: 0,
+      failedScripts: 0,
+      aiCalls: 0,
+      classicFallbacks: 0,
+      startTime: this.startTime,
+      phases: {}
+    };
     
-    runScript('fixNextJsBuildErrors.js', 'Correction erreurs Next.js');
+    // Scripts exécutés
+    this.executedScripts = [];
+    this.failedScripts = [];
+    
+    console.log('🧠 Build Server IA Enhanced - Version 4.0');
+    console.log('📁 Répertoire de travail:', this.projectDir);
+    console.log(`🤖 IA Status: ${this.aiEnabled && this.hasClaudeKey ? '✅ Activée' : '❌ Désactivée'}`);
   }
   
-  // PHASE 8 - BUILD INTELLIGENT FINAL
-  console.log('\n' + '='.repeat(60));
-  console.log('🚀 PHASE 8: BUILD INTELLIGENT FINAL');
-  console.log('='.repeat(60));
+  createLogFile() {
+    const logsDir = path.join(this.projectDir, 'build-logs');
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
+    
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const logFile = path.join(logsDir, `build-server-${timestamp}.log`);
+    
+    // Créer fichier log initial
+    fs.writeFileSync(logFile, `Build Server IA Enhanced - Démarré le ${new Date().toISOString()}\n`);
+    return logFile;
+  }
   
-  runScript('smartBuildWithFix.js', 'Build intelligent avec corrections');
+  log(level, message, data = {}) {
+    const timestamp = new Date().toISOString();
+    const logEntry = `[${timestamp}] [${level}] ${message}`;
+    
+    // Console avec couleurs
+    switch (level) {
+      case 'SUCCESS':
+        console.log(`✅ ${message}`);
+        break;
+      case 'ERROR':
+        console.error(`❌ ${message}`);
+        break;
+      case 'WARNING':
+        console.warn(`⚠️ ${message}`);
+        break;
+      case 'AI':
+        console.log(`🧠 ${message}`);
+        break;
+      case 'PHASE':
+        console.log(`🚀 ${message}`);
+        break;
+      default:
+        console.log(`ℹ️ ${message}`);
+    }
+    
+    // Log fichier avec données additionnelles
+    const fullLogEntry = data && Object.keys(data).length > 0 
+      ? `${logEntry} | Data: ${JSON.stringify(data)}`
+      : logEntry;
+    
+    fs.appendFileSync(this.logFile, fullLogEntry + '\n');
+  }
   
-  // Génération client Prisma final
-  if (fs.existsSync('./prisma/schema.prisma')) {
-    console.log('\n🔧 Génération client Prisma final...');
+  // ====================================
+  // INITIALISATION IA
+  // ====================================
+  
+  async initializeAI() {
+    if (!this.aiEnabled || !this.hasClaudeKey) {
+      this.log('INFO', 'IA désactivée - Pipeline classique');
+      return false;
+    }
+    
     try {
-      execSync('timeout 30s npx prisma generate', { 
-        stdio: 'inherit',
-        timeout: 35000
+      this.log('AI', 'Initialisation infrastructure IA...');
+      
+      // Vérifier que les fichiers IA existent
+      const aiFiles = [
+        path.join(this.toolsDir, 'ai-infrastructure.js'),
+        path.join(this.toolsDir, 'ai-prompts.js')
+      ];
+      
+      for (const file of aiFiles) {
+        if (!fs.existsSync(file)) {
+          throw new Error(`Fichier IA manquant: ${path.basename(file)}`);
+        }
+      }
+      
+      // Charger infrastructure IA
+      const { AIInfrastructure } = require('./tools/ai-infrastructure.js');
+      
+      const config = {
+        apiKey: process.env.CLAUDE_API_KEY,
+        model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022',
+        maxTokens: parseInt(process.env.AI_MAX_TOKENS || '4000'),
+        baseDir: this.projectDir
+      };
+      
+      this.aiInfrastructure = new AIInfrastructure(config);
+      
+      // Test rapide de l'IA
+      await this.testAIInfrastructure();
+      
+      this.log('SUCCESS', 'IA Infrastructure opérationnelle', {
+        model: config.model,
+        maxTokens: config.maxTokens
       });
-      console.log('✅ Client Prisma généré avec succès');
+      
+      return true;
+      
     } catch (error) {
-      console.log('⚠️ Timeout Prisma - client sera généré plus tard');
+      this.log('ERROR', `Erreur initialisation IA: ${error.message}`);
+      this.log('WARNING', 'Fallback vers pipeline classique');
+      this.aiEnabled = false;
+      return false;
     }
   }
   
-  console.log('\n🎉 BUILD SERVER CORRIGÉ TERMINÉ !');
-  console.log('✅ Pipeline exécuté dans l\'ordre optimal:');
-  console.log('  1. ✅ Migration Prisma intelligente (préserve données)');
-  console.log('  2. ✅ Génération système complet');
-  console.log('  3. ✅ Hooks React générés après types');
-  console.log('  4. ✅ Composants migrés vers hooks');
-  console.log('  5. ✅ AppShell corrigé (anti-redirection infinie)');
-  console.log('  6. ✅ Corrections TypeScript appliquées');
-  console.log('  7. ✅ Build final avec optimisations');
-  console.log('');
-  console.log('🛡️ DONNÉES EXISTANTES PRÉSERVÉES');
-  console.log('🚀 Système prêt pour démarrage sur port 3001');
+  async testAIInfrastructure() {
+    if (!this.aiInfrastructure) return false;
+    
+    try {
+      // Test simple sans appel API coûteux
+      const canModify = this.aiInfrastructure.canModifyFile('./package.json');
+      const globalState = this.aiInfrastructure.getGlobalState();
+      
+      this.log('AI', 'Test infrastructure IA réussi', {
+        canModifyPackage: canModify,
+        globalStateExists: !!globalState
+      });
+      
+      return true;
+    } catch (error) {
+      throw new Error(`Test IA échoué: ${error.message}`);
+    }
+  }
   
-} catch (error) {
-  console.error('\n❌ ERREUR PIPELINE:', error.message);
-  console.log('\n💡 Vérifiez les logs pour plus de détails');
-  process.exit(1);
+  // ====================================
+  // EXÉCUTION SCRIPTS
+  // ====================================
+  
+  async runScript(scriptName, description, options = {}) {
+    const phaseStart = Date.now();
+    this.metrics.totalScripts++;
+    
+    this.log('INFO', `Démarrage: ${description}...`);
+    
+    try {
+      const scriptPath = path.join(this.toolsDir, scriptName);
+      
+      if (!fs.existsSync(scriptPath)) {
+        throw new Error(`Script introuvable: ${scriptName}`);
+      }
+      
+      // Préparer environnement
+      const scriptEnv = {
+        ...process.env,
+        AI_INFRASTRUCTURE_AVAILABLE: this.aiInfrastructure ? 'true' : 'false',
+        BUILD_SERVER_LOG_FILE: this.logFile,
+        SCRIPT_START_TIME: phaseStart.toString()
+      };
+      
+      // Exécuter script
+      execSync(`node ${scriptPath}`, {
+        stdio: options.silent ? 'pipe' : 'inherit',
+        timeout: options.timeout || 300000,
+        env: scriptEnv,
+        cwd: this.projectDir
+      });
+      
+      const duration = Date.now() - phaseStart;
+      this.metrics.successfulScripts++;
+      this.executedScripts.push({
+        script: scriptName,
+        description,
+        duration,
+        success: true,
+        timestamp: new Date().toISOString()
+      });
+      
+      this.log('SUCCESS', `${description} terminé (${duration}ms)`);
+      return true;
+      
+    } catch (error) {
+      const duration = Date.now() - phaseStart;
+      this.metrics.failedScripts++;
+      this.failedScripts.push({
+        script: scriptName,
+        description,
+        error: error.message,
+        duration,
+        timestamp: new Date().toISOString()
+      });
+      
+      this.log('ERROR', `${description} échoué: ${error.message}`, {
+        script: scriptName,
+        duration,
+        exitCode: error.status
+      });
+      
+      if (options.critical) {
+        throw error;
+      }
+      
+      return false;
+    }
+  }
+  
+  async runIntelligentScript(scriptName, description, options = {}) {
+    if (!this.aiInfrastructure) {
+      // Fallback vers script classique
+      const classicScript = this.getClassicFallback(scriptName);
+      if (classicScript) {
+        this.metrics.classicFallbacks++;
+        this.log('WARNING', `Fallback classique: ${classicScript}`);
+        return this.runScript(classicScript, `${description} (mode classique)`, options);
+      } else {
+        this.log('WARNING', `Pas de fallback pour ${scriptName}`);
+        return false;
+      }
+    }
+    
+    this.log('AI', `Exécution intelligente: ${description}...`);
+    this.metrics.aiCalls++;
+    
+    // Notifier l'infrastructure IA
+    if (this.aiInfrastructure) {
+      this.aiInfrastructure.sendScriptMessage(
+        'build-server',
+        scriptName.replace('.js', ''),
+        'script_execution_start',
+        { description, timestamp: new Date().toISOString() }
+      );
+    }
+    
+    // Exécuter avec timeout plus long pour IA
+    const result = await this.runScript(scriptName, description, {
+      ...options,
+      timeout: options.timeout || 600000 // 10 minutes pour IA
+    });
+    
+    // Enregistrer résultat dans IA
+    if (this.aiInfrastructure) {
+      this.aiInfrastructure.recordAction(
+        scriptName.replace('.js', ''),
+        'script_execution',
+        result,
+        { description, buildServerSession: this.startTime }
+      );
+    }
+    
+    return result;
+  }
+  
+  getClassicFallback(intelligentScript) {
+    const fallbacks = {
+      'intelligentTypeFixer.js': 'fix-all-types.js',
+      'intelligentErrorSurgeon.js': 'dynamicErrorResolver.js',
+      'intelligentBuildMaster.js': 'smartBuildWithFix.js',
+      'intelligentPerformanceOptimizer.js': null, // Pas de fallback
+      'intelligentProjectAnalyzer.js': null, // Pas de fallback
+      'intelligentMigrationAgent.js': 'detectFirebaseChanges.js',
+      'intelligentHooksArchitect.js': 'generateReactHooks.js'
+    };
+    
+    return fallbacks[intelligentScript] || null;
+  }
+  
+  // ====================================
+  // PHASES DU PIPELINE
+  // ====================================
+  
+  async executePhase(phaseName, scripts) {
+    const phaseStart = Date.now();
+    this.log('PHASE', `=== PHASE: ${phaseName.toUpperCase()} ===`);
+    
+    let phaseSuccess = true;
+    const phaseResults = [];
+    
+    for (const scriptConfig of scripts) {
+      let result;
+      
+      if (typeof scriptConfig === 'string') {
+        // Script simple
+        result = await this.runScript(scriptConfig, scriptConfig.replace('.js', ''));
+      } else {
+        // Configuration complexe
+        const { script, description, type, options = {} } = scriptConfig;
+        
+        if (type === 'intelligent') {
+          result = await this.runIntelligentScript(script, description, options);
+        } else {
+          result = await this.runScript(script, description, options);
+        }
+      }
+      
+      phaseResults.push({
+        script: typeof scriptConfig === 'string' ? scriptConfig : scriptConfig.script,
+        success: result
+      });
+      
+      if (!result && (typeof scriptConfig === 'object' && scriptConfig.critical)) {
+        phaseSuccess = false;
+        break;
+      }
+    }
+    
+    const phaseDuration = Date.now() - phaseStart;
+    this.metrics.phases[phaseName] = {
+      duration: phaseDuration,
+      success: phaseSuccess,
+      results: phaseResults
+    };
+    
+    this.log(phaseSuccess ? 'SUCCESS' : 'WARNING', 
+      `Phase ${phaseName} terminée (${phaseDuration}ms) - ${phaseSuccess ? 'Succès' : 'Partiel'}`);
+    
+    return phaseSuccess;
+  }
+  
+  // ====================================
+  // PIPELINE IA ENHANCED
+  // ====================================
+  
+  async executePipelineIA() {
+    this.log('AI', 'DÉMARRAGE PIPELINE IA ENHANCED');
+    
+    try {
+      // PHASE 1: Analyse globale IA
+      await this.executePhase('analyse_globale_ia', [
+        {
+          script: 'intelligentProjectAnalyzer.js',
+          description: 'Analyse globale projet IA',
+          type: 'intelligent',
+          options: { critical: false }
+        }
+      ]);
+      
+      // PHASE 2: Préparation base
+      await this.executePhase('preparation_base', [
+        {
+          script: 'prisma-auto-migrate.js',
+          description: 'Auto-migration Prisma',
+          type: 'classic',
+          options: { critical: true }
+        }
+      ]);
+      
+      // PHASE 3: Corrections chirurgicales IA
+      await this.executePhase('corrections_chirurgicales_ia', [
+        {
+          script: 'intelligentTypeFixer.js',
+          description: 'Corrections TypeScript IA',
+          type: 'intelligent',
+          options: { critical: false }
+        },
+        {
+          script: 'intelligentErrorSurgeon.js',
+          description: 'Résolution erreurs IA',
+          type: 'intelligent',
+          options: { critical: false }
+        }
+      ]);
+      
+      // PHASE 4: Génération système
+      await this.executePhase('generation_systeme', [
+        {
+          script: 'generateCompleteSystem.js',
+          description: 'Génération système complet',
+          type: 'classic',
+          options: { critical: true }
+        },
+        {
+          script: 'intelligentHooksArchitect.js',
+          description: 'Architecture hooks intelligente',
+          type: 'intelligent',
+          options: { critical: false }
+        }
+      ]);
+      
+      // PHASE 5: Build intelligent IA
+      await this.executePhase('build_intelligent_ia', [
+        {
+          script: 'intelligentBuildMaster.js',
+          description: 'Build Master IA',
+          type: 'intelligent',
+          options: { critical: true, timeout: 900000 } // 15 minutes
+        }
+      ]);
+      
+      // PHASE 6: Optimisations IA
+      await this.executePhase('optimisations_ia', [
+        {
+          script: 'intelligentPerformanceOptimizer.js',
+          description: 'Optimisations performance IA',
+          type: 'intelligent',
+          options: { critical: false }
+        }
+      ]);
+      
+      // PHASE 7: Finalisation
+      await this.executePhase('finalisation', [
+        {
+          script: 'deployment-validator.js',
+          description: 'Validation déploiement',
+          type: 'classic',
+          options: { critical: false }
+        }
+      ]);
+      
+      this.log('SUCCESS', '🎉 PIPELINE IA ENHANCED TERMINÉ AVEC SUCCÈS !');
+      return true;
+      
+    } catch (error) {
+      this.log('ERROR', `Pipeline IA échoué: ${error.message}`);
+      return false;
+    }
+  }
+  
+  // ====================================
+  // PIPELINE CLASSIQUE (FALLBACK)
+  // ====================================
+  
+  async executePipelineClassique() {
+    this.log('INFO', 'DÉMARRAGE PIPELINE CLASSIQUE');
+    
+    try {
+      // PHASE 1: Migration Prisma
+      await this.executePhase('migration_prisma', [
+        'prisma-auto-migrate.js'
+      ]);
+      
+      // PHASE 2: Génération système
+      await this.executePhase('generation_systeme', [
+        'generateCompleteSystem.js'
+      ]);
+      
+      // PHASE 3: Corrections
+      await this.executePhase('corrections', [
+        'fix-missing-functions.js',
+        'fix-all-types.js'
+      ]);
+      
+      // PHASE 4: Hooks React
+      await this.executePhase('hooks_react', [
+        'generateReactHooks.js',
+        'migrateComponentsToHooks.js'
+      ]);
+      
+      // PHASE 5: Correction AppShell
+      await this.executePhase('correction_appshell', [
+        'fix-appshell-redirections.js'
+      ]);
+      
+      // PHASE 6: Build final
+      await this.executePhase('build_final', [
+        'fixNextJsBuildErrors.js',
+        'smartBuildWithFix.js'
+      ]);
+      
+      this.log('SUCCESS', '🎉 PIPELINE CLASSIQUE TERMINÉ !');
+      return true;
+      
+    } catch (error) {
+      this.log('ERROR', `Pipeline classique échoué: ${error.message}`);
+      return false;
+    }
+  }
+  
+  // ====================================
+  // RAPPORT FINAL
+  // ====================================
+  
+  generateFinalReport() {
+    const totalTime = Date.now() - this.startTime;
+    const successRate = this.metrics.totalScripts > 0 
+      ? (this.metrics.successfulScripts / this.metrics.totalScripts * 100).toFixed(1)
+      : 0;
+    
+    const report = {
+      summary: {
+        totalTime: totalTime,
+        totalScripts: this.metrics.totalScripts,
+        successfulScripts: this.metrics.successfulScripts,
+        failedScripts: this.metrics.failedScripts,
+        successRate: parseFloat(successRate),
+        aiEnabled: this.aiEnabled,
+        aiCalls: this.metrics.aiCalls,
+        classicFallbacks: this.metrics.classicFallbacks
+      },
+      phases: this.metrics.phases,
+      executedScripts: this.executedScripts,
+      failedScripts: this.failedScripts,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Sauvegarder rapport
+    const reportFile = path.join(path.dirname(this.logFile), 'build-report.json');
+    fs.writeFileSync(reportFile, JSON.stringify(report, null, 2));
+    
+    // Afficher résumé
+    console.log('\n📊 RAPPORT FINAL BUILD SERVER IA ENHANCED');
+    console.log('═══════════════════════════════════════════');
+    console.log(`⏱️  Temps total: ${(totalTime / 1000).toFixed(1)}s`);
+    console.log(`📜 Scripts exécutés: ${this.metrics.successfulScripts}/${this.metrics.totalScripts}`);
+    console.log(`✅ Taux de succès: ${successRate}%`);
+    console.log(`🧠 Appels IA: ${this.metrics.aiCalls}`);
+    console.log(`🔄 Fallbacks classiques: ${this.metrics.classicFallbacks}`);
+    console.log(`📄 Rapport détaillé: ${reportFile}`);
+    
+    if (this.failedScripts.length > 0) {
+      console.log('\n⚠️ Scripts échoués:');
+      this.failedScripts.forEach(script => {
+        console.log(`   ❌ ${script.script}: ${script.error}`);
+      });
+    }
+    
+    return report;
+  }
+  
+  // ====================================
+  // NETTOYAGE
+  // ====================================
+  
+  async cleanup() {
+    this.log('INFO', 'Nettoyage ressources...');
+    
+    // Cleanup IA si disponible
+    if (this.aiInfrastructure) {
+      try {
+        this.aiInfrastructure.cleanup();
+        this.log('AI', 'Ressources IA nettoyées');
+      } catch (error) {
+        this.log('WARNING', `Erreur nettoyage IA: ${error.message}`);
+      }
+    }
+    
+    this.log('SUCCESS', 'Nettoyage terminé');
+  }
+  
+  // ====================================
+  // MÉTHODE PRINCIPALE
+  // ====================================
+  
+  async run() {
+    try {
+      console.log('\n📁 Architecture: /data/project-source/');
+      console.log('🔧 Scripts: /data/tools/ → /data/project-source/tools/');
+      console.log('📋 Config: /data/.project-config.json → ./project-config.json');
+      
+      // Initialiser IA
+      const aiInitialized = await this.initializeAI();
+      
+      let pipelineSuccess;
+      
+      if (aiInitialized) {
+        // Exécuter pipeline IA Enhanced
+        pipelineSuccess = await this.executePipelineIA();
+      } else {
+        // Fallback pipeline classique
+        pipelineSuccess = await this.executePipelineClassique();
+      }
+      
+      // Générer rapport final
+      this.generateFinalReport();
+      
+      // Cleanup
+      await this.cleanup();
+      
+      console.log(`\n${pipelineSuccess ? '✅' : '❌'} Build Server terminé`);
+      return pipelineSuccess;
+      
+    } catch (error) {
+      this.log('ERROR', `Erreur fatale: ${error.message}`);
+      await this.cleanup();
+      throw error;
+    }
+  }
 }
+
+// ====================================
+// POINT D'ENTRÉE
+// ====================================
+
+async function main() {
+  const buildServer = new BuildServerIA();
+  
+  try {
+    const success = await buildServer.run();
+    process.exit(success ? 0 : 1);
+  } catch (error) {
+    console.error('\n❌ ERREUR PIPELINE:', error.message);
+    process.exit(1);
+  }
+}
+
+// Exécution si appelé directement
+if (require.main === module) {
+  main();
+}
+
+module.exports = BuildServerIA;
