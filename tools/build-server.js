@@ -130,6 +130,16 @@ class BuildServerIA {
       
       fs.writeFileSync(packagePath, JSON.stringify(basicPackage, null, 2));
     }
+
+    // Après la vérification du package.json existant
+      if (fs.existsSync(packagePath)) {
+        let packageContent = fs.readFileSync(packagePath, 'utf8');
+        if (packageContent.includes('--turbopack')) {
+          packageContent = packageContent.replace(/--turbopack/g, '');
+          fs.writeFileSync(packagePath, packageContent);
+          this.log('SUCCESS', 'Suppression --turbopack du package.json');
+        }
+      }
   }
   
   // ====================================
