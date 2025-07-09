@@ -202,23 +202,33 @@ class SmartBuildWithFix {
     return totalFixes;
   }
 
-  createAntiBarrelConfig() {
-    const configPath = path.join(process.cwd(), 'next.config.js');
+// ====================================
+// CORRECTION POUR NEXT.JS 15.2.3
+// ====================================
+
+createAntiBarrelConfig() {
+  const configPath = path.join(process.cwd(), 'next.config.js');
+  
+  if (fs.existsSync(configPath)) {
+    const content = fs.readFileSync(configPath, 'utf-8');
     
-    if (fs.existsSync(configPath)) {
-      const content = fs.readFileSync(configPath, 'utf-8');
-      if (content.includes('optimizePackageImports: false')) {
-        return; // Déjà configuré
-      }
+    // CORRECTION: Vérifier si config VALIDE existe (pas juste présente)
+    if (content.includes('optimizePackageImports: []') && 
+        !content.includes('appDir: true') &&
+        !content.includes('optimizePackageImports: false')) {
+      console.log('  ✅ next.config.js valide déjà présent');
+      return; // Config valide trouvée
     }
-    
-    console.log('  🔧 Création next.config.js anti-barrel...');
-    
-    const nextConfig = `/** @type {import('next').NextConfig} */
+  }
+  
+  console.log('  🔧 Création next.config.js compatible Next.js 15...');
+  
+  const nextConfig = `/** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    optimizePackageImports: false,
-    appDir: true
+    // CORRECTION: Array vide au lieu de false pour Next.js 15
+    optimizePackageImports: [],
+    // SUPPRIMÉ: appDir obsolète dans Next.js 15
   },
   
   webpack: (config) => {
@@ -242,9 +252,9 @@ const nextConfig = {
 
 module.exports = nextConfig`;
 
-    fs.writeFileSync(configPath, nextConfig);
-    console.log('    ✅ next.config.js anti-barrel créé');
-  }
+  fs.writeFileSync(configPath, nextConfig);
+  console.log('    ✅ next.config.js compatible Next.js 15 créé');
+}
 
   // ====================================
   // BOUCLE PRINCIPALE

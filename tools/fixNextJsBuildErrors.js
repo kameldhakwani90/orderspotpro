@@ -178,17 +178,33 @@ class NextJsBuildErrorsFixer {
   // 4. CRÉATION NEXT.CONFIG.JS
   // ====================================
   
-  createFixedNextConfig() {
-    console.log('📝 Création next.config.js anti-barrel...');
+// ====================================
+// CORRECTION POUR NEXT.JS 15.2.3
+// ====================================
+
+createFixedNextConfig() {
+  console.log('📝 Création next.config.js compatible Next.js 15...');
+  
+  const nextConfigPath = path.join(this.rootDir, 'next.config.js');
+  
+  // Vérifier si config valide existe déjà
+  if (fs.existsSync(nextConfigPath)) {
+    const existingContent = fs.readFileSync(nextConfigPath, 'utf-8');
     
-    const nextConfigPath = path.join(this.rootDir, 'next.config.js');
-    
-    const nextConfigContent = `/** @type {import('next').NextConfig} */
+    // Si config valide trouvée, ne pas régénérer
+    if (existingContent.includes('optimizePackageImports: []') && 
+        !existingContent.includes('appDir: true')) {
+      console.log('✅ next.config.js valide déjà présent');
+      return;
+    }
+  }
+  
+  const nextConfigContent = `/** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    // DÉSACTIVER complètement barrel optimization
-    optimizePackageImports: false,
-    appDir: true
+    // CORRECTION: Array vide au lieu de false pour Next.js 15
+    optimizePackageImports: [],
+    // SUPPRIMÉ: appDir obsolète dans Next.js 15
   },
   
   webpack: (config, { isServer }) => {
@@ -224,9 +240,9 @@ const nextConfig = {
 
 module.exports = nextConfig`;
 
-    fs.writeFileSync(nextConfigPath, nextConfigContent);
-    console.log('✅ next.config.js anti-barrel créé');
-  }
+  fs.writeFileSync(nextConfigPath, nextConfigContent);
+  console.log('✅ next.config.js compatible Next.js 15 créé');
+}
 
   // ====================================
   // 5. TRAITEMENT FICHIERS
