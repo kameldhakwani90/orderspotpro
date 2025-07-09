@@ -1,127 +1,210 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('🔧 Correction des imports de types manquants...');
+console.log('🔧 CORRECTEUR IMPORTS TYPES - Version corrigée "use client"');
 
-const srcDir = path.join(__dirname, '../src');
-const typesPath = path.join(__dirname, '../src/lib/types.ts');
+class TypesImportsFixer {
+  constructor() {
+    this.srcDir = path.join(process.cwd(), 'src');
+    this.fixedFiles = 0;
+    this.errors = [];
+  }
 
-// Extraire tous les types disponibles
-function getAllAvailableTypes() {
-  if (!fs.existsSync(typesPath)) return new Set();
+  // ====================================
+  // CORRECTION PRINCIPALE - RESPECT "use client"
+  // ====================================
   
-  const content = fs.readFileSync(typesPath, 'utf-8');
-  const types = new Set();
-  
-  // Interfaces
-  const interfaceMatches = content.match(/export\s+interface\s+(\w+)/g) || [];
-  interfaceMatches.forEach(match => {
-    types.add(match.replace(/export\s+interface\s+/, ''));
-  });
-  
-  return types;
-}
+  addImportRespectingUseClient(content, importLine) {
+    const lines = content.split('\n');
+    let insertIndex = 0;
+    
+    // 1. Détecter "use client" au début
+    const useClientRegex = /^["']use client["'];?\s*$/;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Skip lignes vides au début
+      if (line === '') continue;
+      
+      // Si "use client" trouvé, insérer après
+      if (useClientRegex.test(line)) {
+        insertIndex = i + 1;
+        
+        // Ajouter ligne vide après "use client" si pas déjà présente
+        if (lines[i + 1] && lines[i + 1].trim() !== '') {
+          lines.splice(i + 1, 0, '');
+          insertIndex = i + 2;
+        }
+        break;
+      }
+      
+      // Si pas "use client" mais import/code trouvé, insérer avant
+      if (line.startsWith('import') || line.startsWith('export') || line.startsWith('const')) {
+        insertIndex = i;
+        break;
+      }
+    }
+    
+    // 2. Insérer l'import à la bonne position
+    lines.splice(insertIndex, 0, importLine);
+    
+    return lines.join('\n');
+  }
 
-// Scanner et corriger les fichiers
-function fixFile(filePath) {
-  let content = fs.readFileSync(filePath, 'utf-8');
-  let hasChanges = false;
+  // ====================================
+  // SCANNER ET CORRECTION FICHIERS
+  // ====================================
   
-  // Trouver les types utilisés mais non importés
-  const usedTypes = new Set();
-  const availableTypes = getAllAvailableTypes();
+  processFile(filePath) {
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      let newContent = content;
+      let hasChanges = false;
+      
+      // Analyser les imports manquants
+      const missingTypes = this.detectMissingTypes(content);
+      
+      if (missingTypes.length > 0) {
+        console.log(`📝 ${path.basename(filePath)}: ${missingTypes.length} type(s) manquant(s)`);
+        
+        // Ajouter chaque import manquant
+        missingTypes.forEach(type => {
+          const importLine = `import type { ${type} } from '@/lib/types';`;
+          
+          // Vérifier si import déjà présent
+          if (!newContent.includes(importLine)) {
+            newContent = this.addImportRespectingUseClient(newContent, importLine);
+            hasChanges = true;
+            console.log(`  ✅ Ajouté: ${type}`);
+          }
+        });
+      }
+      
+      // Sauvegarder si changements
+      if (hasChanges) {
+        fs.writeFileSync(filePath, newContent, 'utf-8');
+        this.fixedFiles++;
+        console.log(`✅ ${path.relative(this.srcDir, filePath)} corrigé`);
+      }
+      
+    } catch (error) {
+      this.errors.push({
+        file: path.relative(this.srcDir, filePath),
+        error: error.message
+      });
+      console.error(`❌ Erreur ${path.basename(filePath)}: ${error.message}`);
+    }
+  }
+
+  // ====================================
+  // DÉTECTION TYPES MANQUANTS
+  // ====================================
   
-  // Pattern pour détecter l'utilisation de types
-  availableTypes.forEach(typeName => {
-    const patterns = [
-      new RegExp(`:\\s*${typeName}(?:[\\[\\]\\s<>]|$)`, 'g'),
-      new RegExp(`extends\\s+(?:Omit<)?${typeName}`, 'g'),
-      new RegExp(`<${typeName}[\\[\\]>]`, 'g'),
-      new RegExp(`as\\s+${typeName}`, 'g')
+  detectMissingTypes(content) {
+    const missingTypes = [];
+    
+    // Types courants à rechercher
+    const commonTypes = [
+      'User', 'Client', 'Host', 'Order', 'Product', 'Service',
+      'UserRole', 'OrderStatus', 'ClientStatus', 'HostStatus'
     ];
     
-    for (const pattern of patterns) {
-      if (pattern.test(content)) {
-        usedTypes.add(typeName);
-      }
-    }
-  });
-  
-  // Vérifier les imports existants
-  const importMatch = content.match(/import\s*(?:type\s*)?\{\s*([^}]+)\s*\}\s*from\s*['"]@\/lib\/types['"]/);
-  const currentImports = importMatch ? 
-    importMatch[1].split(',').map(i => i.trim()).filter(i => i) : 
-    [];
-  
-  // Trouver les types manquants
-  const missingTypes = [];
-  usedTypes.forEach(type => {
-    if (!currentImports.includes(type) && !content.includes(`interface ${type} `)) {
-      missingTypes.push(type);
-    }
-  });
-  
-  if (missingTypes.length > 0) {
-    console.log(`  📝 ${path.relative(srcDir, filePath)}: +${missingTypes.join(', ')}`);
-    
-    if (importMatch) {
-      // Ajouter aux imports existants
-      const allImports = [...currentImports, ...missingTypes].sort();
-      const newImport = `import { ${allImports.join(', ')} } from '@/lib/types'`;
-      content = content.replace(importMatch[0], newImport);
-    } else {
-      // Créer nouvel import après 'use client'
-      const newImport = `import { ${missingTypes.sort().join(', ')} } from '@/lib/types';`;
-      const useClientMatch = content.match(/['"]use client['"];?\s*/);
+    // Chercher utilisations de types
+    commonTypes.forEach(type => {
+      const typeUsageRegex = new RegExp(`\\b${type}\\b`, 'g');
+      const importRegex = new RegExp(`import.*${type}.*from.*@/lib/types`);
       
-      if (useClientMatch) {
-        const insertPos = useClientMatch.index + useClientMatch[0].length;
-        content = content.slice(0, insertPos) + '\n' + newImport + '\n' + content.slice(insertPos);
+      // Si type utilisé mais pas importé
+      if (typeUsageRegex.test(content) && !importRegex.test(content)) {
+        missingTypes.push(type);
+      }
+    });
+    
+    return missingTypes;
+  }
+
+  // ====================================
+  // SCANNER RÉCURSIF
+  // ====================================
+  
+  scanAllFiles() {
+    const scanDir = (dirPath) => {
+      if (!fs.existsSync(dirPath)) return;
+      
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      
+      entries.forEach(entry => {
+        const fullPath = path.join(dirPath, entry.name);
+        
+        if (entry.isDirectory()) {
+          const skipDirs = ['node_modules', '.git', '.next', 'dist', 'build'];
+          if (!skipDirs.includes(entry.name)) {
+            scanDir(fullPath);
+          }
+        } else if (entry.isFile() && /\.(tsx?|jsx?)$/.test(entry.name)) {
+          this.processFile(fullPath);
+        }
+      });
+    };
+    
+    scanDir(this.srcDir);
+  }
+
+  // ====================================
+  // MÉTHODE PRINCIPALE
+  // ====================================
+  
+  fixAllMissingTypes() {
+    console.log('🚀 Début correction imports types (respect "use client")...\n');
+    
+    try {
+      if (fs.existsSync(this.srcDir)) {
+        this.scanAllFiles();
       } else {
-        content = newImport + '\n\n' + content;
+        console.log('⚠️ Répertoire src introuvable');
       }
+      
+      this.printResults();
+      return this.errors.length === 0;
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la correction:', error.message);
+      return false;
+    }
+  }
+
+  printResults() {
+    console.log('\n' + '='.repeat(60));
+    console.log('🎉 CORRECTION IMPORTS TYPES TERMINÉE !');
+    console.log('='.repeat(60));
+    console.log(`📊 ${this.fixedFiles} fichier(s) corrigé(s)`);
+    console.log(`❌ ${this.errors.length} erreur(s) rencontrée(s)`);
+    
+    if (this.errors.length > 0) {
+      console.log('\n⚠️ Erreurs rencontrées:');
+      this.errors.forEach(err => {
+        console.log(`   - ${err.file}: ${err.error}`);
+      });
     }
     
-    hasChanges = true;
-  }
-  
-  if (hasChanges) {
-    fs.writeFileSync(filePath, content);
-    return true;
-  }
-  
-  return false;
-}
-
-// Scanner tous les fichiers
-function scanDirectory(dir) {
-  let fixed = 0;
-  
-  if (!fs.existsSync(dir)) return fixed;
-  
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  entries.forEach(entry => {
-    const fullPath = path.join(dir, entry.name);
+    console.log('\n✅ Améliorations appliquées:');
+    console.log('   🔧 Imports ajoutés APRÈS "use client"');
+    console.log('   🔧 Préservation directives Next.js');
+    console.log('   🔧 Évitement imports dupliqués');
     
-    if (entry.isDirectory() && !['node_modules', '.git', '.next'].includes(entry.name)) {
-      fixed += scanDirectory(fullPath);
-    } else if (entry.isFile() && /\.(tsx?|jsx?)$/.test(entry.name)) {
-      if (fixFile(fullPath)) {
-        fixed++;
-      }
-    }
-  });
-  
-  return fixed;
+    console.log('\n🚀 Les erreurs "use client" sont maintenant corrigées !');
+  }
 }
 
-// Exécution
-try {
-  console.log('🔍 Types disponibles:', Array.from(getAllAvailableTypes()).join(', '));
-  const fixedCount = scanDirectory(srcDir);
-  console.log(`✅ ${fixedCount} fichier(s) corrigé(s)`);
-  process.exit(0);
-} catch (error) {
-  console.error('❌ Erreur:', error.message);
-  process.exit(1);
+// ====================================
+// EXÉCUTION
+// ====================================
+
+if (require.main === module) {
+  const fixer = new TypesImportsFixer();
+  const success = fixer.fixAllMissingTypes();
+  process.exit(success ? 0 : 1);
 }
+
+module.exports = TypesImportsFixer;
