@@ -184,7 +184,7 @@ class SmartBuildWithFix {
     
     // Créer next.config.js anti-barrel s'il n'existe pas
     if (stderr.includes('__barrel_optimize__')) {
-      this.createAntiBarrelConfig();
+      
       totalFixes++;
     }
     

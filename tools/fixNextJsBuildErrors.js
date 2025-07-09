@@ -339,7 +339,7 @@ module.exports = nextConfig`;
     
     try {
       // 1. Créer next.config.js optimisé
-      this.createFixedNextConfig();
+       
       
       // 2. Scanner et corriger tous les fichiers
       if (fs.existsSync(this.srcDir)) {
