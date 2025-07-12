@@ -376,6 +376,28 @@ class BuildServerIA {
       // PHASE 3: CORRECTIONS
       console.log('\n=== PHASE 3: CORRECTIONS ===');
       await this.runScript('fix-all-types.js', 'Correction automatique de tous les types');
+
+       
+  // AJOUTER CES LIGNES :
+  
+  console.log('\n=== 🔧 PHASE 2.5: CORRECTION SYNTAXE DATA.TS URGENTE ===');
+  
+  // Validation et correction urgente de data.ts
+  const dataValidation = await this.validateDataFileIntegrity();
+  if (!dataValidation.success || !dataValidation.hasValidSyntax) {
+    this.log('WARNING', 'Problème détecté dans data.ts - Correction syntaxe urgente...');
+    await this.runScript('fix-data-syntax.js', 'Correction syntaxe data.ts');
+    
+    // Re-valider après correction
+    const revalidation = await this.validateDataFileIntegrity();
+    if (revalidation.success) {
+      this.log('SUCCESS', '✅ data.ts corrigé avec succès');
+    } else {
+      this.log('ERROR', '❌ Échec correction data.ts - Intervention manuelle requise');
+    }
+  } else {
+    this.log('SUCCESS', '✅ data.ts déjà syntaxiquement valide');
+  }
       
       // PHASE 4: HOOKS REACT
       console.log('\n=== PHASE 4: HOOKS REACT ===');
